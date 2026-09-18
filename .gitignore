@@ -1,6 +1,10 @@
 out
 node_modules
 client/server
+
+# Build output of the media build in esbuild.mjs: one bundled page per entry under media/src,
+# written to the names the panels and the JetBrains host load.
+media/dist
 .vscode-test
 *.vsix
 

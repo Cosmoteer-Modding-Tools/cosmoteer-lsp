@@ -11,8 +11,8 @@ import {
     isValueNode,
     ListNode,
     ValueNode,
+    descendants,
 } from '../../core/ast/ast';
-import { childNodesOf } from '../../utils/ast.utils';
 import { listSlotType, memberTypeIn, resolveGroupClass } from '../../document/schema/schema-context';
 import { acceptsShaderConstants } from '../../document/schema/schema';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
@@ -21,6 +21,7 @@ import { shaderConstants } from '../shader/shader-index';
 import { materialConstants, materialShaderNode } from '../shader/shader-reference';
 import { shaderVariantSiblings } from '../diagnostics/validator.shader-constants';
 import { NAMED_COLORS, namedColorOf } from '../text-markup/text-markup';
+import { valueSpan } from '../refactor/rules-edit';
 
 /**
  * Document colour swatches for `.rules` colour values, read the way `Color.ReadContentFrom` and
@@ -285,8 +286,15 @@ const formatChannel = (value: number, scale: number): string =>
 /** Whether the picker handed a channel back as it was given, which is what keeps its literal. */
 const isUnchanged = (was: number, now: number): boolean => Math.abs(was - now) <= CHANNEL_EPSILON;
 
-/** The bytes a value node was written with, which is what an untouched channel is written back as. */
-const writtenText = (source: string, node: ValueNode): string => source.slice(node.position.start, node.position.end);
+/**
+ * The bytes a value node was written with, which is what an untouched channel is written back as.
+ * Read through {@link valueSpan} rather than the node's own span, since the parser leaves a leading
+ * `(` out of a value while keeping the trailing `)`.
+ */
+const writtenText = (source: string, node: ValueNode): string => {
+    const span = valueSpan(source, node);
+    return source.slice(span.start, span.end);
+};
 
 /** A component to rewrite: its value node and the new literal to put in its place. */
 interface ChannelEdit {
@@ -302,6 +310,11 @@ interface ChannelEdit {
  * changes once a `ColorPresentation` carries `additionalTextEdits` (microsoft/vscode#136965), so a
  * lone `textEdit` is the only shape that keeps the picker working across repeated changes.
  *
+ * Each component is measured with {@link valueSpan}, so a channel the author wrote in parentheses is
+ * replaced whole. The parser leaves the opening `(` outside the node while keeping the closing `)`
+ * inside it, and the swatch range covers both, so splicing over the node's own span alone would
+ * write `Rf = (0.25` over `Rf = (0.5)`.
+ *
  * @param source the full document text the value node offsets index into.
  * @param spanStart the source offset the replacement starts at (the colour's anchor).
  * @param edits the components to rewrite, sorted by source offset.
@@ -312,8 +325,9 @@ const spliceChannels = (source: string, spanStart: number, edits: readonly Chann
     let out = '';
     let cursor = spanStart;
     for (const { node, text } of [...edits].sort((a, b) => a.node.position.start - b.node.position.start)) {
-        out += source.slice(cursor, node.position.start) + text;
-        cursor = node.position.end;
+        const span = valueSpan(source, node);
+        out += source.slice(cursor, span.start) + text;
+        cursor = span.end;
     }
     return out + tail;
 };
@@ -515,7 +529,7 @@ const namedSite = (
             return [
                 {
                     label: text,
-                    textEdit: TextEdit.replace(range, source.slice(anchor.start, node.position.start) + text),
+                    textEdit: TextEdit.replace(range, source.slice(anchor.start, valueSpan(source, node).start) + text),
                 },
             ];
         },
@@ -551,11 +565,7 @@ const colorNameOf = (color: Color): string | undefined => {
 
 /** Every node of a document, in document order. */
 function* everyNode(document: AbstractNodeDocument): Generator<AbstractNode> {
-    const visit = function* (node: AbstractNode): Generator<AbstractNode> {
-        yield node;
-        for (const child of childNodesOf(node)) yield* visit(child);
-    };
-    for (const element of document.elements) yield* visit(element);
+    for (const element of document.elements) yield* descendants(element);
 }
 
 /** Whether a schema slot is declared as one of the colour classes. */

@@ -3,8 +3,8 @@ import { CancellationToken, CodeAction, CodeActionKind, Position } from 'vscode-
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { AbstractNode, AbstractNodeDocument, isValueNode } from '../../core/ast/ast';
 import { findNodeAtPosition, getStartOfAstNode } from '../../utils/ast.utils';
-import { FullNavigationStrategy } from '../navigation/full.navigation-strategy';
-import { normalizeUri } from '../navigation/reference-location';
+import { navigate } from '../../semantics/navigate-reference';
+import { normalizeUri } from '../../document/reference-location';
 import { FileWithPath, isFile } from '../../workspace/cosmoteer-workspace.service';
 
 /**
@@ -19,8 +19,6 @@ import { FileWithPath, isFile } from '../../workspace/cosmoteer-workspace.servic
  * reference into one produces `./Data/../../../workshop/<id>/…`, which hard-codes where the mod
  * happens to be installed. That is the shape the workshop-escape hint exists to warn about.
  */
-
-const navigation = new FullNavigationStrategy();
 
 /** The reference forms this rewrites: a file reference with a path inside it. */
 const FILE_ROOTED = /^&?<([^<>\r\n"]+)>(\/.+)$/;
@@ -48,7 +46,7 @@ export const selfRootReferenceCodeAction = async (
     const match = FILE_ROOTED.exec(text);
     if (!match) return undefined;
 
-    const target = await navigation.navigate(text, node, uri, token).catch(() => null);
+    const target = await navigate(text, node, uri, token).catch(() => null);
     if (!target || isFile(target as FileWithPath)) return undefined;
     // The rewrite is only the same reference when the target lives in this very document: `~` is the
     // root of the document the reference is written in, and nothing else.

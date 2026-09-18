@@ -20,7 +20,12 @@ const ref = (v: string, o: ArgOpts = {}): ValueNode => ({
 const num = (v: number): ValueNode => ({ type: 'Value', valueType: { type: 'Number', value: v }, position: pos() });
 const str = (v: string): ValueNode => ({ type: 'Value', valueType: { type: 'String', value: v }, position: pos() });
 // `max` is variadic, so the arity check never fires. These tests isolate the per-argument rules.
-const call = (...args: AbstractNode[]): FunctionCallNode => ({ type: 'FunctionCall', name: 'max', arguments: args as FunctionCallNode['arguments'], position: pos() });
+const call = (...args: AbstractNode[]): FunctionCallNode => ({
+    type: 'FunctionCall',
+    name: 'max',
+    arguments: args as FunctionCallNode['arguments'],
+    position: pos(),
+});
 
 const run = (c: FunctionCallNode) => ValidationForFunctionCall.callback(c, token);
 

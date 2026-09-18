@@ -6,7 +6,7 @@ import { CancellationToken } from 'vscode-languageserver';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
 import { globalSettings } from '../../../src/settings';
-import { MentionIndex } from '../../../src/features/navigation/mention.index';
+import { MentionIndex } from '../../../src/workspace/mention.index';
 import { validateUnusedConstants } from '../../../src/features/diagnostics/validator.unused-constant';
 
 // Scan of the unused-constant check over the whole vanilla install. Vanilla may legitimately ship a

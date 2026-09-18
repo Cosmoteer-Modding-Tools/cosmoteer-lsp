@@ -1,6 +1,6 @@
 import { countBySeverity, LintFinding, sortFindings } from '../../src/cli/findings';
 import type { GameDataStatus, LintReport } from '../../src/cli/report/report';
-import { atLeastAsSevere, GAME_DATA_RULES, LintSeverity } from '../../src/cli/rule-ids';
+import { atLeastAsSevere, GAME_DATA_RULES, LintSeverity } from '../../src/features/diagnostics/rule-ids';
 
 /** The parts of a finding a test cares about, with everything else filled in. */
 export interface FindingSeed {

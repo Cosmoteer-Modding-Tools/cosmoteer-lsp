@@ -1,11 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { DocumentSymbol, SymbolKind } from 'vscode-languageserver';
-import { DocumentSymbolService } from '../../../src/features/navigation/document-symbol.service';
+import { getDocumentSymbols } from '../../../src/features/navigation/document-symbol.service';
 import { parseFixture } from '../../helpers';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
 
-const service = DocumentSymbolService.instance;
 
 const byName = (symbols: DocumentSymbol[], name: string): DocumentSymbol => {
     const found = symbols.find((s) => s.name === name);
@@ -32,11 +31,11 @@ const assertSelectionWithinRange = (symbol: DocumentSymbol): void => {
     symbol.children?.forEach(assertSelectionWithinRange);
 };
 
-describe('DocumentSymbolService: outline', () => {
+describe('getDocumentSymbols: outline', () => {
     it('annotates typed groups with their resolved schema class in the detail', () => {
         const src = 'Part\n{\n\tComponents\n\t{\n\t\tTurret\n\t\t{\n\t\t\tType = TurretWeapon\n\t\t}\n\t}\n}';
         const doc = parser(lexer(src), 'file:///t.rules').value;
-        const symbols = service.getDocumentSymbols(doc);
+        const symbols = getDocumentSymbols(doc);
         const part = byName(symbols, 'Part');
         expect(part.detail).toContain('PartRules');
         const components = byName(part.children!, 'Components');
@@ -46,7 +45,7 @@ describe('DocumentSymbolService: outline', () => {
 
     it('emits one top-level symbol per group and nests its members', () => {
         const doc = parseFixture('inheritance.rules');
-        const symbols = service.getDocumentSymbols(doc);
+        const symbols = getDocumentSymbols(doc);
 
         expect(symbols.map((s) => s.name)).toEqual([
             'SW_Ion_Thruster_Overdrive',
@@ -62,7 +61,7 @@ describe('DocumentSymbolService: outline', () => {
 
     it('surfaces inheritance as the symbol detail', () => {
         const doc = parseFixture('inheritance.rules');
-        const symbols = service.getDocumentSymbols(doc);
+        const symbols = getDocumentSymbols(doc);
 
         expect(byName(symbols, 'SW_Ion_Thruster_Overdrive_Thrust').detail).toBe(': SW_Ion_Thruster_Overdrive');
         expect(byName(symbols, 'SW_Ion_Thruster_Boost_RampUp').children?.map((c) => c.name)).toEqual(['Exponent']);
@@ -70,7 +69,7 @@ describe('DocumentSymbolService: outline', () => {
 
     it('folds `key = { … }` into a single container and recurses deep nesting', () => {
         const doc = parseFixture('colors.rules');
-        const symbols = service.getDocumentSymbols(doc);
+        const symbols = getDocumentSymbols(doc);
 
         // `_Black = [ … ]` is one Array symbol whose children are the positional entries.
         const black = byName(symbols, '_Black');
@@ -84,7 +83,7 @@ describe('DocumentSymbolService: outline', () => {
     });
 
     it('keeps selectionRange within range for every symbol', () => {
-        service.getDocumentSymbols(parseFixture('colors.rules')).forEach(assertSelectionWithinRange);
+        getDocumentSymbols(parseFixture('colors.rules')).forEach(assertSelectionWithinRange);
     });
 
     it('keeps selectionRange within range even when a stray `[` malforms a container', () => {
@@ -94,6 +93,6 @@ describe('DocumentSymbolService: outline', () => {
         // "selectionRange must be contained in fullRange".
         const src = 'Part\n[{\n\tResources\n\t[\n\t\t[steel, 84]\n\t]\n}';
         const doc = parser(lexer(src), 'file:///t.rules').value;
-        service.getDocumentSymbols(doc).forEach(assertSelectionWithinRange);
+        getDocumentSymbols(doc).forEach(assertSelectionWithinRange);
     });
 });

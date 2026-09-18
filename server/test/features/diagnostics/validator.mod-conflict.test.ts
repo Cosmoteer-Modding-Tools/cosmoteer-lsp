@@ -31,9 +31,10 @@ describe('what an action takes for itself', () => {
     });
 
     it('is every named path for a removal of several nodes', () => {
-        expect(
-            claims('\t{ Action = RemoveMany; RemoveMany [ "<a.rules>/One", "<a.rules>/Two" ] }')
-        ).toEqual(['<./data/a.rules>/one', '<./data/a.rules>/two']);
+        expect(claims('\t{ Action = RemoveMany; RemoveMany [ "<a.rules>/One", "<a.rules>/Two" ] }')).toEqual([
+            '<./data/a.rules>/one',
+            '<./data/a.rules>/two',
+        ]);
     });
 
     it('is the members an override writes, not the group it merges into', () => {
@@ -44,7 +45,9 @@ describe('what an action takes for itself', () => {
 
     it('reaches into a nested group, since the merge does too', () => {
         expect(
-            claims('\t{ Action = Overrides; OverrideIn = "<a.rules>/Part"; Overrides { Components { engine { Thrust = 5 } } } }')
+            claims(
+                '\t{ Action = Overrides; OverrideIn = "<a.rules>/Part"; Overrides { Components { engine { Thrust = 5 } } } }'
+            )
         ).toEqual(['<./data/a.rules>/part/components/engine/thrust']);
     });
 
@@ -55,13 +58,15 @@ describe('what an action takes for itself', () => {
     });
 
     it('is nothing for an override whose source is a reference, whose members cannot be read here', () => {
-        expect(claims('\t{ Action = Overrides; OverrideIn = "<a.rules>/Part"; Overrides = &<mine.rules>/Part }')).toEqual(
-            []
-        );
+        expect(
+            claims('\t{ Action = Overrides; OverrideIn = "<a.rules>/Part"; Overrides = &<mine.rules>/Part }')
+        ).toEqual([]);
     });
 
     it('is nothing for a verb that only adds', () => {
-        expect(claims('\t{ Action = Add; AddTo = "<a.rules>/Parts"; Name = Mine; ToAdd { MaxHealth = 5 } }')).toEqual([]);
+        expect(claims('\t{ Action = Add; AddTo = "<a.rules>/Parts"; Name = Mine; ToAdd { MaxHealth = 5 } }')).toEqual(
+            []
+        );
     });
 });
 
@@ -118,7 +123,9 @@ describe('an Actions list that comes from an included fragment', () => {
     };
 
     it('reads the fragment the list inherits from', async () => {
-        const manifest = ['ID = test.mod', 'Name = "t"', 'Actions : &<launcher.rules>/Actions', '[', ']', ''].join('\n');
+        const manifest = ['ID = test.mod', 'Name = "t"', 'Actions : &<launcher.rules>/Actions', '[', ']', ''].join(
+            '\n'
+        );
         const fragment = [
             'Actions',
             '[',

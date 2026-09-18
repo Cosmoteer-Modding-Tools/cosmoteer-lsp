@@ -1,5 +1,5 @@
 import type { LintFinding } from '../findings';
-import { LintSeverity, RULES, ruleById } from '../rule-ids';
+import { LintSeverity, RULES, ruleById } from '../../features/diagnostics/rule-ids';
 import { fsPathToUri } from '../uri';
 import { TOOL_INFORMATION_URI, TOOL_NAME, toolVersion } from '../version';
 import type { LintReport } from './report';

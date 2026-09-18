@@ -1,7 +1,7 @@
 import { WorkspaceFolder } from 'vscode-languageserver/node';
 import { CosmoteerWorkspaceService } from '../workspace/cosmoteer-workspace.service';
-import { uriToFsPath } from '../features/navigation/workspace-files';
-import { hasWorkspaceFolderCapability } from './capabilities';
+import { uriToFsPath } from '../workspace/workspace-files';
+import { hasWorkspaceFolderCapability } from '../capabilities';
 import { connection } from './context';
 
 /** The cached `workspace/workspaceFolders` answer, `undefined` until (re)fetched. */

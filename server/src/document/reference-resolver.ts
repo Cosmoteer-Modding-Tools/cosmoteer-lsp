@@ -1,0 +1,295 @@
+import {
+    AbstractNode,
+    GroupNode,
+    ListNode,
+    isListNode,
+    isAssignmentNode,
+    isDocumentNode,
+    isGroupNode,
+    isIdentifierNode,
+} from '../core/ast/ast';
+import { getStartOfAstNode } from '../utils/ast.utils';
+import { isNumber } from '../utils/text.utils';
+
+/**
+ * Supplies inheritance-list entries appended to a node beyond its own written bases (the bases a
+ * mod's `AddBase` actions merge in), indexed once and queried synchronously here. Registered by the
+ * {@link import('../mod/add-base.index').AddBaseIndex} so `stepIntoNode` (the single per-segment
+ * resolver shared by navigation, validation, hover and completion) resolves `^/N` into an added base
+ * consistently. `extraIndex` is 0-based past the static list.
+ */
+type InheritanceExtensionSource = (node: AbstractNode, extraIndex: number) => AbstractNode | undefined;
+
+let inheritanceExtensionSource: InheritanceExtensionSource | undefined;
+
+/**
+ * Registers the source of `AddBase`-appended inheritance entries. The resolver lives in the semantics
+ * layer and must not import the index (which depends on navigation, which depends on the resolver), so
+ * the index registers itself here at startup, the same inversion the schema layer uses for the
+ * reverse-include fallback.
+ *
+ * @param source the extension source, or undefined to clear it (tests).
+ */
+export const registerInheritanceExtensionSource = (source: InheritanceExtensionSource | undefined): void => {
+    inheritanceExtensionSource = source;
+};
+
+/**
+ * Supplies a member that a mod's nested `Overrides` action merges into a node (`OverrideIn=<…>/Part/
+ * Components` adding a component), indexed once and queried synchronously here. Registered by the
+ * {@link import('../mod/overrides.index').OverridesIndex} so `stepIntoNode` resolves an
+ * Overrides-injected member the same way for navigation, validation, hover and completion. Consulted
+ * only when the node has no such member of its own.
+ */
+type MemberExtensionSource = (node: AbstractNode, member: string) => AbstractNode | undefined;
+
+let memberExtensionSource: MemberExtensionSource | undefined;
+
+/**
+ * Registers the source of `Overrides`-injected members. Same registration inversion as
+ * {@link registerInheritanceExtensionSource}: the resolver must not import the index.
+ *
+ * @param source the extension source, or undefined to clear it (tests).
+ */
+export const registerMemberExtensionSource = (source: MemberExtensionSource | undefined): void => {
+    memberExtensionSource = source;
+};
+
+/**
+ * Lists the members a mod's nested `Overrides` action merges into a node. {@link MemberExtensionSource}
+ * answers one name at a time, which is all a reference path needs. A walker that enumerates a
+ * container's effective members has to ask what those names are.
+ */
+type MemberEnumerationSource = (
+    node: AbstractNode
+) => Array<{ name: string; precedence: InjectionPrecedence; value: AbstractNode }>;
+
+/**
+ * What an injected member does to a member of the same name the node writes itself. `replaces` is
+ * the game replacing the node's own child, so the injected declaration is the one it reads there.
+ * `adds` inserts beside it, which the game refuses to load when the name is already taken, so such
+ * an injection never wins. `removes` deletes the node's own child, and what the game reads under
+ * that name afterwards is whatever a base supplies, or nothing. `rewrites` is a `Replace`, which
+ * names an existing member rather than merging one in: where the node writes no such member the
+ * action rewrites something else, or nothing, and it must not invent one here. `appends` is the one
+ * a member lookup ignores: aimed at a list, an `Add` or an `AddMany` puts its value at the end, so it
+ * extends the list rather than deciding anything about a member of it.
+ */
+export type InjectionPrecedence = 'replaces' | 'adds' | 'removes' | 'rewrites' | 'appends';
+
+let memberEnumerationSource: MemberEnumerationSource | undefined;
+
+/**
+ * The member a mod's `Overrides` action puts in place of the one a node writes itself. Separate from
+ * {@link MemberExtensionSource}, which answers for a member the node does not write: this one is
+ * asked before the node's own members and must answer only where the game really replaces them.
+ */
+type MemberReplacementSource = (node: AbstractNode, member: string) => AbstractNode | undefined;
+
+let memberReplacementSource: MemberReplacementSource | undefined;
+
+/**
+ * Registers the source of replacing injected members. Same registration inversion as
+ * {@link registerMemberExtensionSource}.
+ *
+ * @param source the replacement source, or undefined to clear it (tests).
+ */
+export const registerMemberReplacementSource = (source: MemberReplacementSource | undefined): void => {
+    memberReplacementSource = source;
+};
+
+/**
+ * Registers the source of injected member names. Same registration inversion as
+ * {@link registerMemberExtensionSource}.
+ *
+ * @param source the enumeration source, or undefined to clear it (tests).
+ */
+export const registerMemberEnumerationSource = (source: MemberEnumerationSource | undefined): void => {
+    memberEnumerationSource = source;
+};
+
+/**
+ * The members a mod injects into a node, and the node each one resolves to.
+ *
+ * @param node the container to ask about.
+ * @returns one entry per injected member, empty when no mod touches this node.
+ */
+export const injectedMembersOf = (
+    node: AbstractNode
+): Array<{ name: string; value: AbstractNode; precedence: InjectionPrecedence }> =>
+    memberEnumerationSource?.(node) ?? [];
+
+/**
+ * Canonical single-step navigation within the in-memory AST.
+ *
+ * Given a node and one path segment, return the node that segment points to,
+ * or `null`/`undefined` if it cannot be resolved. This is the single source of
+ * truth for the reference-path grammar's per-segment behavior, shared by both
+ * the navigation strategy (go-to / validation) and the autocompletion strategy.
+ *
+ * Supported segments: a number selects a list element (or inheritance entry when
+ * `isInheritance`), `..` selects the node's parent, `^` selects the node's grandparent
+ * (parent of parent), `~` selects the document root the node belongs to, `:` selects the
+ * most-derived inheritor (statically approximated as the node itself), and any other
+ * segment selects a named child (assignment value, or identified group/list).
+ */
+export const stepIntoNode = (
+    node: AbstractNode,
+    segment: string,
+    isInheritance = false
+): AbstractNode | null | undefined => {
+    if (isNumber(segment)) {
+        const index = Number(segment);
+        if (isInheritance && (isListNode(node) || isGroupNode(node))) {
+            const staticList = node.inheritance;
+            const staticLength = staticList?.length ?? 0;
+            // The node's own written inheritance entries come first, exactly as before.
+            if (index < staticLength) return staticList![index];
+            // Past them, a mod's `AddBase` action appends bases to this node's inheritance list at
+            // load time (the game's `ModAddBaseAction` calls `InheritanceList.Add`). The registered
+            // source supplies those extra bases so `^/N` into an added base resolves the same way for
+            // navigation, validation, hover and completion. Absent a registered source (or a match)
+            // this is undefined, the pre-existing out-of-range behaviour.
+            return inheritanceExtensionSource?.(node, index - staticLength) ?? undefined;
+        }
+        if (isListNode(node)) {
+            return node.elements[index];
+        }
+    } else if (segment === '..') {
+        return node.parent;
+    } else if (segment === '^') {
+        // `^` selects the current node's own inheritance anchor (its base list), mirroring the game's
+        // `OTNode.FindAtPath`, where `^` yields the node's `InheritanceList` (the following `/N` then
+        // indexes it, selecting the Nth base). For a group/list, whether reached mid-path (`../^/0/X`)
+        // or as a top-level root (`~/Part/^/0/X`), that anchor is the node itself, so return it and let
+        // the `/N` isInheritance step read its `inheritance`.
+        if (isGroupNode(node) || isListNode(node)) return node;
+        // A value/void node (the start of an `X : ^/0/X` inheritance ref, two levels below its owning
+        // group) has no inheritance of its own, so climb to that group (the grandparent) whose base the
+        // `/N` then selects. (The inheriting member inherits from the same-named member of its
+        // container's base, so `^/0` must resolve against the container, i.e. the grandparent.)
+        if (node.parent?.parent) return node.parent.parent;
+        return undefined;
+    } else if (segment === ':') {
+        // `:` selects the most-derived inheritor of the current node (virtual inheritance). Which
+        // inheritor that is depends on the instantiation context, so statically we approximate with
+        // the game's no-inheritor behavior, the node itself, which resolves the parent's own
+        // (default) member. The reference validator does not flag `:` paths, since the member may
+        // legitimately exist only in an inheritor.
+        if (isGroupNode(node) || isListNode(node) || isDocumentNode(node)) return node;
+        // A value node has no members of its own, so it resolves against its owning group and
+        // `Sum = (&:/v_A)`-style refs land on the group the value lives in.
+        return node.parent;
+    } else if (segment === '~') {
+        return getStartOfAstNode(node);
+    } else {
+        if (isGroupNode(node) || isDocumentNode(node)) {
+            // Member lookup is case-insensitive in Cosmoteer (like its file paths), but an
+            // exact-case match is always preferred so two members differing only by case
+            // still resolve precisely. Reference paths look members up per segment, per
+            // reference, so the per-container name tables are built once and reused.
+            const index = memberIndexOf(node);
+            const exact = index.exact.has(segment);
+            const lower = exact ? undefined : index.lower.get(segment.toLowerCase());
+            if (exact || lower !== undefined) {
+                // A mod action that rewrites this node's own child answers before the node does,
+                // and only here: a verb that rewrites a member creates none, so it must never be
+                // asked about a name the node does not write.
+                const replaced = memberReplacementSource?.(node, segment);
+                if (replaced) return replaced;
+                return exact ? index.exact.get(segment) : lower;
+            }
+            // The node defines no such member itself, so a member a mod's nested `Overrides` action
+            // merges in resolves here (undefined when nothing is injected, the prior behaviour).
+            return memberExtensionSource?.(node, segment) ?? null;
+        }
+    }
+    return null;
+};
+
+/** One container's member lookup tables: first exact-cased name and first case-folded name. A
+ *  member's target can be null (an in-progress empty `Key = ` assignment), preserved so an exact
+ *  match on it stays unresolved like the original in-order scan. */
+interface MemberIndex {
+    exact: Map<string, AbstractNode | null>;
+    lower: Map<string, AbstractNode | null>;
+}
+
+/** Per-container member tables, keyed weakly so they die with their AST. */
+const memberIndexCache: WeakMap<AbstractNode, MemberIndex> = new WeakMap();
+
+/**
+ * Every base of a node in the order the game reads them: its own written inheritance entries first,
+ * then the bases a mod's `AddBase` actions append (the game's `ModAddBaseAction` calls
+ * `InheritanceList.Add`). `stepIntoNode` resolves `^/N` through exactly this sequence, so a walker
+ * that enumerates bases sees the same list a reference path indexes into.
+ *
+ * @param node the group or list whose bases to list.
+ * @returns the base entries, written ones first.
+ */
+export const inheritanceEntriesOf = (node: GroupNode | ListNode): AbstractNode[] => {
+    const entries: AbstractNode[] = [...(node.inheritance ?? [])];
+    if (!inheritanceExtensionSource) return entries;
+    for (let extra = 0; ; extra++) {
+        const appended = inheritanceExtensionSource(node, extra);
+        if (!appended) return entries;
+        entries.push(appended);
+    }
+};
+
+/**
+ * The name a container element is keyed by, or undefined when the element is anonymous (a list
+ * element, a comment, a bare value). This is the single naming authority: the member index below and
+ * the effective-member enumerator both read it, so a name that resolves through a reference path is
+ * exactly a name the enumerator reports.
+ *
+ * @param element an element of a group or document.
+ * @returns the member name as written, or undefined when the element names nothing.
+ */
+export const memberNameOf = (element: AbstractNode): string | undefined =>
+    isAssignmentNode(element)
+        ? element.left.name
+        : (isGroupNode(element) || isListNode(element)) && element.identifier
+          ? element.identifier.name
+          : // A bare `word` line in a group parses to a lone IdentifierNode: a named void field
+            // (vanilla: `v_Faction // VIRTUAL; must be inherited`). The game keys children by name
+            // regardless of value, so match it too.
+            isIdentifierNode(element)
+            ? element.name
+            : undefined;
+
+/**
+ * The node a named member resolves to: an assignment's right-hand side, or the element itself for a
+ * group, list or void field.
+ *
+ * @param element an element of a group or document.
+ * @returns the member's value node, null for an assignment with no value yet.
+ */
+export const memberValueOf = (element: AbstractNode): AbstractNode | null =>
+    isAssignmentNode(element) ? element.right : element;
+
+/**
+ * The member lookup tables of a group/document, built on first use. The first element declaring a
+ * name wins in each table, matching the original in-order scan.
+ *
+ * @param node the group or document whose members to index.
+ * @returns the container's member tables.
+ */
+const memberIndexOf = (node: AbstractNode & { elements: AbstractNode[] }): MemberIndex => {
+    const cached = memberIndexCache.get(node);
+    if (cached) return cached;
+    const index: MemberIndex = { exact: new Map(), lower: new Map() };
+    for (const element of node.elements) {
+        const name = memberNameOf(element);
+        if (name === undefined) continue;
+        const target = memberValueOf(element);
+        if (!index.exact.has(name)) index.exact.set(name, target);
+        const lower = name.toLowerCase();
+        // First non-null wins, like the original in-order scan: a null target (an in-progress
+        // empty `key = ` assignment) never blocked a later differently-cased member with a real
+        // value from matching case-insensitively, so a null placeholder stays replaceable here.
+        if (!index.lower.get(lower)) index.lower.set(lower, target);
+    }
+    memberIndexCache.set(node, index);
+    return index;
+};

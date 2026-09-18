@@ -5,12 +5,12 @@ import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
 import {
     EXTRACT_LOCALIZATION_KEY_ACTION_COMMAND,
-    ExtractLocalizationKeyArgs,
     buildExtractLocalizationKeyEdit,
     extractLocalizationKeyCodeAction,
 } from '../../../src/features/refactor/extract-localization-key';
+import { ExtractLocalizationKeyArgs } from '../../../../shared/extract-localization-key.types';
 import { initWorkspace, workspaceFile } from '../../workspace-helper';
-import { filePathToUri } from '../../../src/features/navigation/navigation-strategy';
+import { filePathToUri } from '../../../src/document/reference-path';
 import { resolve } from 'path';
 
 const token = CancellationToken.None;

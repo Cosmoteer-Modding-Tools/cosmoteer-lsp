@@ -8,7 +8,7 @@ import { SchemaBundle, SchemaEnum, SchemaField, SchemaRegistry, SchemaTypeDef, V
 import { applySchemaOverlay } from './schema-overlay';
 import { applyFieldDocs } from './field-docs';
 import { deprecatedDiscriminator, deprecatedField } from './deprecations';
-import type { ModSchemaExtension } from '../../features/mod-schema/extract';
+import type { ModSchemaExtension } from './schema.types';
 
 // Merge hand-authored corrections for custom-deserialized types schemagen can't reflect (e.g. the
 // dual-form `Texture` group), then attach community-maintained prose descriptions. Both additive
@@ -19,6 +19,47 @@ const schema: SchemaBundle = applyFieldDocs(applySchemaOverlay(bundle));
 const discriminatorIndex = new Map<string, Array<{ registryKey: string; cls: string }>>();
 /** Short registry `name` → registry, so a name lookup is not a scan over all registries. */
 const registryByShortName = new Map<string, SchemaRegistry>();
+
+/**
+ * `class FullName` → fields whose `[Serialize]` carries no `Optional = true`, and that the rules text
+ * still need not write because the game fills them in before the reflective read can throw. Each entry
+ * names the C# that supplies the field.
+ */
+const SUPPLIED_ELSEWHERE: Record<string, ReadonlySet<string>> = {};
+
+/**
+ * The class a component trigger reference is written as. A firing chain reaches the next component
+ * through a field of this class, and the schema spells that field seventeen ways (`Trigger`,
+ * `FireTrigger`, `StartTrigger`, `ResetTrigger`, `Triggers`, …), so a reader asks the schema which
+ * fields carry a trigger rather than naming them itself.
+ */
+const COMPONENT_TRIGGER_CLASS = 'Cosmoteer.Ships.Parts.Logic.ComponentTriggerReferenceRules';
+
+/**
+ * The two registries whose entries are something played. A field that plays anything holds entries of
+ * one of them, whether it is typed as the registry itself or as one of the `Multi…` wrappers over it,
+ * since the schema records what a wrapper really holds in its value form.
+ */
+const EFFECT_REGISTRIES = [
+    'Cosmoteer.Simulation.MediaEffects.MediaEffectRules',
+    'Cosmoteer.Simulation.HitEffects.HitEffectRules',
+];
+
+/** The Color class, whose example is curated (byte channels + named colors), see {@link positionalInline}. */
+const COLOR_CLASS = 'Halfling.Graphics.Color';
+
+/** How many required fields an example body spells out before folding the rest into a comment. */
+const EXAMPLE_MAX_REQUIRED = 6;
+
+/** How many optional fields an example body shows when the class requires nothing. */
+const EXAMPLE_MAX_OPTIONAL = 3;
+
+/** Ids that name a fallback/wildcard rather than a real member; a map example seeded with one of
+ *  these (`default = …`) reads as a keyword, so a more specific id is preferred when one exists. */
+const GENERIC_KEY_IDS = new Set(['default', 'none', 'any', 'all', 'null', 'unknown']);
+
+/** The root of the community modding wiki, which the per-class documentation links point into. */
+const WIKI = 'https://cosmoteer.wiki.gg/wiki';
 
 /**
  * Rebuild the lookup indexes over the current bundle. Run once at load and again whenever a code
@@ -366,13 +407,6 @@ export const fieldsOf = (fullName: string): SchemaField[] => {
 const requiredFieldsCache = new Map<string, SchemaField[]>();
 
 /**
- * `class FullName` → fields whose `[Serialize]` carries no `Optional = true`, and that the rules text
- * still need not write because the game fills them in before the reflective read can throw. Each entry
- * names the C# that supplies the field.
- */
-const SUPPLIED_ELSEWHERE: Record<string, ReadonlySet<string>> = {};
-
-/**
  * The fields of a class the game requires, own and inherited. Memoized per class.
  *
  * Required means what the deserializer means by it: `BaseSerializer` reads `Optional = attr?.Optional
@@ -433,25 +467,6 @@ export const fieldOf = (fullName: string, fieldName: string): SchemaField | unde
  */
 export const isLocalizationKeyType = (valueType: ValueType | undefined): boolean =>
     valueType?.kind === 'string' && valueType.semantic === 'localizationKey';
-
-/**
- * The class the engine reads every "what fires me" field as. A component says what triggers it by
- * naming a sibling in a field of this type, and the field's NAME is not fixed: the engine declares
- * seventeen of them (`Trigger`, `FireTrigger`, `StartTrigger`, `ResetTrigger`, `Triggers`, …). So
- * anything following a firing chain has to ask the schema which fields carry a trigger rather than
- * name them itself, or it reads a tenth of the wiring and calls it the chain.
- */
-const COMPONENT_TRIGGER_CLASS = 'Cosmoteer.Ships.Parts.Logic.ComponentTriggerReferenceRules';
-
-/**
- * The two registries whose entries are something played. A field that plays anything holds entries of
- * one of them, whether it is typed as the registry itself or as one of the `Multi…` wrappers over it,
- * since the schema records what a wrapper really holds in its value form.
- */
-const EFFECT_REGISTRIES = [
-    'Cosmoteer.Simulation.MediaEffects.MediaEffectRules',
-    'Cosmoteer.Simulation.HitEffects.HitEffectRules',
-];
 
 /**
  * The class a value type names, looking through the list and range wrappers a field may be written
@@ -722,9 +737,6 @@ const assetExamplePath = (assetKind: string): string => {
     }
 };
 
-/** The Color class, whose example is curated (byte channels + named colors), see {@link positionalInline}. */
-const COLOR_CLASS = 'Halfling.Graphics.Color';
-
 /**
  * The inline positional form of a group class whose digit fields make it list-writable, the form
  * the game's own files use for these types (`Offset = [1.5, 2]`, `VertexColor = [255, 255, 255, 217]`),
@@ -829,11 +841,6 @@ const exampleFieldLine = (field: SchemaField): string => {
 /** Grammatical count for the example's fold-away comments (`3 optional fields`, `1 optional field`). */
 const exampleFieldCount = (n: number, phrase: string): string => `${n} ${phrase}${n === 1 ? '' : 's'}`;
 
-/** How many required fields an example body spells out before folding the rest into a comment. */
-const EXAMPLE_MAX_REQUIRED = 6;
-/** How many optional fields an example body shows when the class requires nothing. */
-const EXAMPLE_MAX_OPTIONAL = 3;
-
 /**
  * The indented body lines of a `{ … }` example for class `cls`: every required field with a
  * placeholder value (capped, remainder folded into a comment), and a closing comment counting the
@@ -899,10 +906,6 @@ const inlineListExample = (name: string, element: ValueType): string | undefined
     // Numbers, strings, bools: the type label already says everything an example line would.
     return undefined;
 };
-
-/** Ids that name a fallback/wildcard rather than a real member; a map example seeded with one of
- *  these (`default = …`) reads as a keyword, so a more specific id is preferred when one exists. */
-const GENERIC_KEY_IDS = new Set(['default', 'none', 'any', 'all', 'null', 'unknown']);
 
 /** The first non-sentinel entry of a list of candidate ids, else the first entry, else undefined. */
 const firstSpecific = (ids: readonly string[]): string | undefined =>
@@ -1156,8 +1159,6 @@ const documentationLink = (owningType?: string): string | undefined => {
     const wiki = wikiUrlForType(owningType);
     return wiki ? `_[Cosmoteer modding wiki ↗](${wiki})_` : undefined;
 };
-
-const WIKI = 'https://cosmoteer.wiki.gg/wiki';
 
 /** Memo of {@link typeChain} per class, mirroring {@link fieldsOf}'s. */
 const typeChainCache = new Map<string, string[]>();

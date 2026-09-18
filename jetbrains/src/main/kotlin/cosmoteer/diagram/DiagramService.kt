@@ -37,7 +37,7 @@ enum class DiagramKind {
 
 /**
  * Owns the drawn diagrams: a JCEF browser running the same page the VS Code extension ships
- * (`media/diagram-view.js`). A part's resource flow and its firing chain both render in it, one at
+ * (`media/dist/diagram-view.js`). A part's resource flow and its firing chain both render in it, one at
  * a time. The service asks the language server for whichever payload was
  * invoked and pushes it into the page as a `message` event, re-asking after a short debounce when
  * the document it was built from changes.

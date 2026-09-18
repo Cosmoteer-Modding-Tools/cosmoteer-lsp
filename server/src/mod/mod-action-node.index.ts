@@ -1,8 +1,8 @@
 import { CancellationToken } from 'vscode-languageserver';
 import { AbstractNode, AbstractNodeDocument } from '../core/ast/ast';
 import { isModRules } from '../document/document-kind';
-import { WatchedDocumentIndex } from '../features/navigation/watched-document-index';
-import { normalizeUri } from '../features/navigation/reference-location';
+import { WatchedDocumentIndex } from '../workspace/watched-document-index';
+import { normalizeUri } from '../document/reference-location';
 import { getStartOfAstNode } from '../utils/ast.utils';
 import { ModAction } from './action';
 import { isActionFragmentDocument, parseModActions, textCouldCarryActions } from './action-parser';

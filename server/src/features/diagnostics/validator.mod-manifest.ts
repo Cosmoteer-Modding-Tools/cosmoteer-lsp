@@ -24,7 +24,7 @@ import {
 } from '../../mod/mod-manifest';
 import { closestMatch } from '../../utils/did-you-mean';
 import { cachedDirLookup } from '../../workspace/fs-cache';
-import { uriToFsPath } from '../navigation/workspace-files';
+import { uriToFsPath } from '../../workspace/workspace-files';
 import { referencedSegments } from './validator.ignored-field';
 import { ValidationError } from './validator';
 import * as l10n from '@vscode/l10n';

@@ -3,11 +3,11 @@ import { GroupNode, isGroupNode } from '../../core/ast/ast';
 import { resolveGroupClass } from '../../document/schema/schema-context';
 import { TEXTURE_GROUP_CLASS } from '../../document/schema/schema-overlay';
 import { acceptsShaderConstants } from '../../document/schema/schema';
-import { resolveAssetPath } from '../../features/navigation/asset-resolver';
-import { ShaderConstant, ShaderConstantKind } from '../../features/shader/shader-parser.types';
-import { shaderConstants } from '../../features/shader/shader-index';
-import { materialShaderNode } from '../../features/shader/shader-reference';
-import { Completion } from './autocompletion.service';
+import { resolveAssetPath } from '../navigation/asset-resolver';
+import { ShaderConstant, ShaderConstantKind } from '../shader/shader-parser.types';
+import { shaderConstants } from '../shader/shader-index';
+import { materialShaderNode } from '../shader/shader-reference';
+import { Completion } from './autocompletion.service.types';
 
 /**
  * A material group (`Sprite`, `Material`, GUI sprite, …) sets its shader's uniforms as sibling
@@ -15,6 +15,22 @@ import { Completion } from './autocompletion.service';
  * points at, not from the schema. This offers those uniforms as field-name completions, resolved by
  * parsing the referenced shader (and its includes) and dropping the constants the engine binds itself.
  */
+
+/** A short human label for a constant kind, shown as the completion detail. */
+const KIND_LABEL: Readonly<Record<ShaderConstantKind, string>> = {
+    texture: 'texture',
+    sampler: 'sampler',
+    float: 'number',
+    vec2: 'vector2',
+    vec3: 'vector3',
+    vec4: 'vector4 / color',
+    matrix: 'matrix',
+    int: 'integer',
+    bool: 'bool',
+};
+
+/** The class a `vec4` colour constant's group form resolves to (`{ Rf Gf Bf Af }`). */
+const COLOR_GROUP_CLASS = 'Halfling.Graphics.IntColor';
 
 /** A constant whose name reads as a colour (`_centerColor`, `_edgeColour`, `_color`). */
 const isColorName = (name: string): boolean => /colou?r/i.test(name);
@@ -39,22 +55,6 @@ export const constantSnippet = (constant: ShaderConstant): string => {
             return `${constant.name} = $0`;
     }
 };
-
-/** A short human label for a constant kind, shown as the completion detail. */
-const KIND_LABEL: Readonly<Record<ShaderConstantKind, string>> = {
-    texture: 'texture',
-    sampler: 'sampler',
-    float: 'number',
-    vec2: 'vector2',
-    vec3: 'vector3',
-    vec4: 'vector4 / color',
-    matrix: 'matrix',
-    int: 'integer',
-    bool: 'bool',
-};
-
-/** The class a `vec4` colour constant's group form resolves to (`{ Rf Gf Bf Af }`). */
-const COLOR_GROUP_CLASS = 'Halfling.Graphics.IntColor';
 
 /**
  * The schema class a shader constant written in GROUP form resolves to, so field-name completion

@@ -14,12 +14,13 @@ import {
 import { AutoCompletionSchema } from '../../../src/features/completion/autocompletion.schema';
 import { componentIdCompletionsForTarget } from '../../../src/features/completion/autocompletion.component-id';
 import {
+    editedMemberNameSpanAt,
     isBareFieldNameIdentifier,
     schemaFieldNameCompletions,
     schemaValueCompletionsAtOffset,
 } from '../../../src/features/completion/autocompletion.schema-fields';
 import { findNodeAtPosition } from '../../../src/utils/ast.utils';
-import { Completion } from '../../../src/features/completion/autocompletion.service';
+import { Completion } from '../../../src/features/completion/autocompletion.service.types';
 import { classByDiscriminator } from '../../../src/document/schema/schema';
 import { resolveGroupClass } from '../../../src/document/schema/schema-context';
 import { documentRootClass } from '../../../src/document/schema/document-root';
@@ -49,7 +50,12 @@ const parse = (src: string) => parser(lexer(src), 'file:///t.rules').value;
  */
 const findValue = (node: AbstractNode, field: string): ValueNode | undefined => {
     if (isAssignmentNode(node) && node.left.name === field && isValueNode(node.right)) return node.right;
-    const children = isGroupNode(node) || isListNode(node) ? node.elements : isAssignmentNode(node) && node.right ? [node.right] : [];
+    const children =
+        isGroupNode(node) || isListNode(node)
+            ? node.elements
+            : isAssignmentNode(node) && node.right
+              ? [node.right]
+              : [];
     for (const child of children) {
         const found = findValue(child, field);
         if (found) return found;
@@ -248,7 +254,12 @@ Part : BasePart
         if (isAssignmentNode(node) && node.left.name === field && isListNode(node.right)) {
             return node.right.elements.find(isValueNode);
         }
-        const children = isGroupNode(node) || isListNode(node) ? node.elements : isAssignmentNode(node) && node.right ? [node.right] : [];
+        const children =
+            isGroupNode(node) || isListNode(node)
+                ? node.elements
+                : isAssignmentNode(node) && node.right
+                  ? [node.right]
+                  : [];
         for (const child of children) {
             const found = findListValue(child, field);
             if (found) return found;
@@ -270,7 +281,9 @@ Part : BasePart
 		}
 	]
 }`;
-        const value = parse(src).elements.map((n) => findListValue(n, 'Value')).find(Boolean);
+        const value = parse(src)
+            .elements.map((n) => findListValue(n, 'Value'))
+            .find(Boolean);
         const result = await labels(value);
         expect(result).toContain('TopLeft');
         expect(result).toContain('Top');
@@ -285,7 +298,9 @@ describe('schemaFieldNameCompletions: field-name completion inside a typed group
 
     it('offers the resolved class’s fields, excluding ones already present', async () => {
         const doc = parse(SRC);
-        const labels = (await schemaFieldNameCompletions(doc, gapOffset, token)).map((c) => (typeof c === 'string' ? c : c.label));
+        const labels = (await schemaFieldNameCompletions(doc, gapOffset, token)).map((c) =>
+            typeof c === 'string' ? c : c.label
+        );
         expect(labels).toContain('FiringArc');
         expect(labels).toContain('RotateSpeed');
         expect(labels).not.toContain('Type'); // already written
@@ -298,7 +313,9 @@ describe('schemaFieldNameCompletions: field-name completion inside a typed group
         const src = SRC.replace('Type = TurretWeapon\n\t\t\t', 'Type = TurretWeapon\n\t\t\tFiringArc\n\t\t\t');
         const offset = src.indexOf('\n', src.indexOf('FiringArc')) + 4; // blank line after the bare field
         const doc = parse(src);
-        const labels = (await schemaFieldNameCompletions(doc, offset, token)).map((c) => (typeof c === 'string' ? c : c.label));
+        const labels = (await schemaFieldNameCompletions(doc, offset, token)).map((c) =>
+            typeof c === 'string' ? c : c.label
+        );
         expect(labels).toContain('RotateSpeed');
         expect(labels).not.toContain('FiringArc'); // present as a bare valueless member
     });
@@ -322,9 +339,48 @@ describe('schemaFieldNameCompletions: field-name completion inside a typed group
         const src = SRC.replace('Type = TurretWeapon\n\t\t\t', 'Type = TurretWeapon\n\t\t\tFiringArc\n\t\t\t');
         const offset = src.indexOf('FiringArc') + 'FiringArc'.length; // cursor right after the typed name
         const doc = parse(src);
-        const labels = (await schemaFieldNameCompletions(doc, offset, token)).map((c) => (typeof c === 'string' ? c : c.label));
+        const labels = (await schemaFieldNameCompletions(doc, offset, token)).map((c) =>
+            typeof c === 'string' ? c : c.label
+        );
         expect(labels).toContain('FiringArc');
         expect(labels).toContain('RotateSpeed');
+    });
+
+    it('keeps offering the name of a written assignment while the cursor is in that name', async () => {
+        // The editor filters the popup by the letters before the cursor. With the cursor inside
+        // `Fir|ingArc = 90` the field itself counted as present and was withheld, and no other
+        // field matched `Fir`, so the popup came up empty right on a field the class carries.
+        const src = SRC.replace('Type = TurretWeapon\n\t\t\t', 'Type = TurretWeapon\n\t\t\tFiringArc = 90\n\t\t\t');
+        const doc = parse(src);
+        const inName = src.indexOf('FiringArc = 90') + 3;
+        const labels = (await schemaFieldNameCompletions(doc, inName, token)).map((c) =>
+            typeof c === 'string' ? c : c.label
+        );
+        expect(labels).toContain('FiringArc');
+        expect(labels).toContain('RotateSpeed');
+        // In the value the name is not being edited, so the field stays present.
+        const inValue = src.indexOf('FiringArc = 90') + 'FiringArc = 9'.length;
+        const fromValue = (await schemaFieldNameCompletions(doc, inValue, token)).map((c) =>
+            typeof c === 'string' ? c : c.label
+        );
+        expect(fromValue).not.toContain('FiringArc');
+    });
+
+    // Offering the name is only half of it. Accepting the scaffolding snippet there would write a
+    // second assignment into the line, and a range covering only the letters in front of the cursor
+    // would leave the tail of the old name behind, so the whole written name is the replace range.
+    it('spans the whole written name when the cursor sits inside it', async () => {
+        const src = SRC.replace('Type = TurretWeapon\n\t\t\t', 'Type = TurretWeapon\n\t\t\tFiringArc = 90\n\t\t\t');
+        const doc = parse(src);
+        const start = src.indexOf('FiringArc = 90');
+        const span = editedMemberNameSpanAt(doc, start + 3);
+        expect(span).toEqual({ start, end: start + 'FiringArc'.length });
+        // A group header is a member name too, so retyping one must not inject a second body.
+        const header = parse('Part\n{\n\tComponents\n\t{\n\t\tTurret\n\t\t{\n\t\t}\n\t}\n}');
+        const at = 'Part\n{\n\tComponents\n\t{\n\t\tTur'.length;
+        expect(editedMemberNameSpanAt(header, at)).toBeDefined();
+        // In the value, and in a list element, nothing is being renamed.
+        expect(editedMemberNameSpanAt(doc, src.indexOf('FiringArc = 90') + 'FiringArc = 9'.length)).toBeUndefined();
     });
 
     it('scopes a cursor right after a closing brace to the parent, not the closed group', async () => {
@@ -350,7 +406,9 @@ describe('schemaFieldNameCompletions: field-name completion inside a typed group
             'Part\n{\n\tComponents\n\t{\n\t\tDoor\n\t\t{\n\t\t\tType = Airlock\n\t\t\tEnterExitPoint\n\t\t\t{\n\t\t\t\t\n\t\t\t}\n\t\t}\n\t}\n}';
         const offset = src.indexOf('\t\t\t\t\n') + 4; // inside the blank line of EnterExitPoint's body
         const doc = parse(src);
-        const labels = (await schemaFieldNameCompletions(doc, offset, token)).map((c) => (typeof c === 'string' ? c : c.label));
+        const labels = (await schemaFieldNameCompletions(doc, offset, token)).map((c) =>
+            typeof c === 'string' ? c : c.label
+        );
         expect(labels).toContain('X');
         expect(labels).toContain('Y');
         expect(labels).not.toContain('0');
@@ -406,7 +464,8 @@ describe('schemaFieldNameCompletions: field-name completion inside a typed group
     it('suggests `Type` first in a polymorphic group that has not chosen its subtype', async () => {
         // NewComp sits in a Components container (PartComponentRules, proven by the typed sibling) but
         // has no Type yet → the only useful completion is `Type` (not a schema field, injected).
-        const src = 'Part\n{\n\tComponents\n\t{\n\t\tExisting { Type = MultiToggle }\n\t\tNewComp\n\t\t{\n\t\t\t\n\t\t}\n\t}\n}';
+        const src =
+            'Part\n{\n\tComponents\n\t{\n\t\tExisting { Type = MultiToggle }\n\t\tNewComp\n\t\t{\n\t\t\t\n\t\t}\n\t}\n}';
         const doc = parse(src);
         const offset = src.indexOf('NewComp\n\t\t{\n\t\t\t') + 'NewComp\n\t\t{\n\t\t\t'.length;
         const items = (await schemaFieldNameCompletions(doc, offset, token)).filter(
@@ -422,7 +481,8 @@ describe('schemaFieldNameCompletions: field-name completion inside a typed group
         const src =
             'Part\n{\n\tComponents\n\t{\n\t\tBaseTurret\n\t\t{\n\t\t\tType = TurretWeapon\n\t\t}\n\t\tMyTurret : BaseTurret\n\t\t{\n\t\t\t\n\t\t}\n\t}\n}';
         const doc = parse(src);
-        const offset = src.indexOf('MyTurret : BaseTurret\n\t\t{\n\t\t\t') + 'MyTurret : BaseTurret\n\t\t{\n\t\t\t'.length;
+        const offset =
+            src.indexOf('MyTurret : BaseTurret\n\t\t{\n\t\t\t') + 'MyTurret : BaseTurret\n\t\t{\n\t\t\t'.length;
         const labels = fieldLabels(await schemaFieldNameCompletions(doc, offset, token));
         // MyTurret declares no Type but inherits TurretWeapon from BaseTurret → TurretWeaponRules fields.
         expect(labels).toContain('FiringArc');
@@ -573,7 +633,8 @@ describe('schemaValueCompletionsAtOffset: value completion at an empty `Key = ` 
     });
 
     it('completes Type= discriminators at `Type = ` (no value typed yet)', async () => {
-        const src = 'Part\n{\n\tComponents\n\t{\n\t\tExisting { Type = MultiToggle }\n\t\tNew\n\t\t{\n\t\t\tType = \n\t\t}\n\t}\n}';
+        const src =
+            'Part\n{\n\tComponents\n\t{\n\t\tExisting { Type = MultiToggle }\n\t\tNew\n\t\t{\n\t\t\tType = \n\t\t}\n\t}\n}';
         const result = await valuesAt(src, '\n\t\t\tType = ');
         expect(result).toContain('TurretWeapon');
         expect(result).toContain('MultiToggle');
@@ -595,7 +656,8 @@ describe('schemaValueCompletionsAtOffset: value completion at an empty `Key = ` 
 
     it('returns an (empty) array at a value position for a cross-file ref field (not field names)', async () => {
         // `ResourceType = ` is a value position. Its sync values are empty (resource ids are cross-file).
-        const src = 'Part\n{\n\tComponents\n\t{\n\t\tS\n\t\t{\n\t\t\tType = ResourceStorage\n\t\t\tResourceType = \n\t\t}\n\t}\n}';
+        const src =
+            'Part\n{\n\tComponents\n\t{\n\t\tS\n\t\t{\n\t\t\tType = ResourceStorage\n\t\t\tResourceType = \n\t\t}\n\t}\n}';
         const offset = src.indexOf('ResourceType = ') + 'ResourceType = '.length;
         const result = await schemaValueCompletionsAtOffset(parse(src), offset, '\t\t\tResourceType = ', token);
         expect(result).toEqual([]); // value position → array (caller routes to the id index), not undefined

@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { CancellationToken, Range } from 'vscode-languageserver';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
-import { InlayHintService } from '../../../src/features/inlay/inlay-hint.service';
+import { getInlayHints } from '../../../src/features/inlay/inlay-hint.service';
 import { AbstractNodeDocument } from '../../../src/core/ast/ast';
 import { initWorkspace } from '../../workspace-helper';
 
@@ -12,7 +12,7 @@ const parse = (src: string): AbstractNodeDocument => parser(lexer(src), 'file://
 /** The single hint's character column on its line. */
 const hintColumn = async (line: string): Promise<number> => {
     const doc = parse(line + '\n');
-    const hints = await InlayHintService.instance.getInlayHints(doc, Range.create(0, 0, 10, 0), token);
+    const hints = await getInlayHints(doc, Range.create(0, 0, 10, 0), token);
     expect(hints).toHaveLength(1);
     return hints[0].position.character;
 };

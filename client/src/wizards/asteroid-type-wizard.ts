@@ -2,7 +2,7 @@ import { ExtensionContext, Uri, l10n, window, workspace } from 'vscode';
 import { LanguageClient } from 'vscode-languageclient/node';
 import { creationFailureMessage, wiringNotes } from './nebula-wizard';
 import { applyForWizard, scanForWizard, wizardAnchor } from './wizard-client';
-import { escapeHtml, scriptJson, showWizardForm } from './wizard-form';
+import { ID_SUGGESTS_NAME_SCRIPT, escapeHtml, modFolderName, scriptJson, showWizardForm } from './wizard-form';
 import {
     AsteroidResource,
     AsteroidSize,
@@ -31,6 +31,63 @@ const SIZES: readonly { id: AsteroidSize; caption: string }[] = [
     { id: 'xl', caption: 'XL' },
     { id: 'xxl', caption: 'XXL' },
 ];
+
+/**
+ * The form's page script: the look follows the resource and the sizes follow the rarity until either
+ * is set by hand, and an id that is free, a name, a size and sound numbers are what the form waits
+ * for.
+ */
+const ASTEROID_TYPE_FORM_SCRIPT = `
+    var looks = JSON.parse(strings.looks);
+    var taken = JSON.parse(strings.taken);
+${ID_SUGGESTS_NAME_SCRIPT}
+    var sizeBoxes = Array.prototype.slice.call(document.querySelectorAll('input.size'));
+    var lookTouched = false;
+    var sizesTouched = false;
+    var rarity = function () { return document.querySelector('input[name=rarity]:checked').value; };
+    byId('look').addEventListener('change', function () { lookTouched = true; });
+    byId('resource').addEventListener('change', function () {
+        if (lookTouched) return;
+        var wanted = byId('resource').value.toLowerCase();
+        if (looks.indexOf(wanted) >= 0) byId('look').value = byId('resource').value;
+    });
+    sizeBoxes.forEach(function (box) { box.addEventListener('change', function () { sizesTouched = true; }); });
+    Array.prototype.forEach.call(document.querySelectorAll('input[name=rarity]'), function (radio) {
+        radio.addEventListener('change', function () {
+            if (sizesTouched) return;
+            var large = rarity() !== 'common';
+            sizeBoxes.forEach(function (box) { box.checked = !large || box.value === 'l' || box.value === 'xl' || box.value === 'xxl'; });
+        });
+    });
+    var sizes = function () { return sizeBoxes.filter(function (box) { return box.checked; }).map(function (box) { return box.value; }); };
+    window.wizard = {
+        validate: function () {
+            var id = byId('id').value.trim();
+            if (!/^[A-Za-z][A-Za-z0-9_]*$/.test(id)) return id ? strings.invalidId : ' ';
+            if (taken.indexOf(id.toLowerCase()) >= 0) return strings.takenId;
+            if (!byId('name').value.trim()) return strings.emptyName;
+            if (sizes().length === 0) return strings.noSizes;
+            if (!(Number(byId('weight').value) > 0)) return strings.badWeight;
+            var density = byId('density').value.trim();
+            if (density && !(Number(density) > 0)) return strings.badDensity;
+            return '';
+        },
+        answer: function () {
+            var density = byId('density').value.trim();
+            var answer = {
+                id: byId('id').value.trim(),
+                name: byId('name').value.trim(),
+                resource: byId('resource').value,
+                look: byId('look').value,
+                rarity: rarity(),
+                sizes: sizes(),
+                weight: Number(byId('weight').value),
+                hard: byId('hard').checked,
+            };
+            if (density) answer.density = Number(density);
+            return answer;
+        },
+    };`;
 
 /**
  * Creates an asteroid type in the mod of the active document.
@@ -129,7 +186,7 @@ const showAsteroidTypeForm = (
     context: ExtensionContext,
     scan: NewAsteroidTypeScanResult
 ): Promise<AsteroidTypeForm | undefined> => {
-    const modName = scan.modRoot.replace(/\\/g, '/').split('/').filter(Boolean).pop() ?? scan.modRoot;
+    const modName = modFolderName(scan.modRoot);
     const resourceCaption = (resource: AsteroidResource): string =>
         resource.name ? `${resource.name} (${resource.id})` : resource.id;
     const fieldsHtml = `
@@ -212,62 +269,6 @@ ${SIZES.map((size) => `<label class="inline"><input type="checkbox" class="size"
             taken: scriptJson(scan.takenIds.map((id) => id.toLowerCase())),
         },
         submit: l10n.t('Create asteroid type'),
-        script: `
-    var looks = JSON.parse(strings.looks);
-    var taken = JSON.parse(strings.taken);
-    var byId = function (id) { return document.getElementById(id); };
-    var sizeBoxes = Array.prototype.slice.call(document.querySelectorAll('input.size'));
-    var nameTouched = false;
-    var lookTouched = false;
-    var sizesTouched = false;
-    var rarity = function () { return document.querySelector('input[name=rarity]:checked').value; };
-    byId('id').addEventListener('input', function () {
-        if (nameTouched) return;
-        byId('name').value = byId('id').value.trim().split('_').filter(Boolean).map(function (w) { return w.charAt(0).toUpperCase() + w.slice(1); }).join(' ');
-    });
-    byId('name').addEventListener('input', function () { nameTouched = byId('name').value.trim().length > 0; });
-    byId('look').addEventListener('change', function () { lookTouched = true; });
-    byId('resource').addEventListener('change', function () {
-        if (lookTouched) return;
-        var wanted = byId('resource').value.toLowerCase();
-        if (looks.indexOf(wanted) >= 0) byId('look').value = byId('resource').value;
-    });
-    sizeBoxes.forEach(function (box) { box.addEventListener('change', function () { sizesTouched = true; }); });
-    Array.prototype.forEach.call(document.querySelectorAll('input[name=rarity]'), function (radio) {
-        radio.addEventListener('change', function () {
-            if (sizesTouched) return;
-            var large = rarity() !== 'common';
-            sizeBoxes.forEach(function (box) { box.checked = !large || box.value === 'l' || box.value === 'xl' || box.value === 'xxl'; });
-        });
-    });
-    var sizes = function () { return sizeBoxes.filter(function (box) { return box.checked; }).map(function (box) { return box.value; }); };
-    window.wizard = {
-        validate: function () {
-            var id = byId('id').value.trim();
-            if (!/^[A-Za-z][A-Za-z0-9_]*$/.test(id)) return id ? strings.invalidId : ' ';
-            if (taken.indexOf(id.toLowerCase()) >= 0) return strings.takenId;
-            if (!byId('name').value.trim()) return strings.emptyName;
-            if (sizes().length === 0) return strings.noSizes;
-            if (!(Number(byId('weight').value) > 0)) return strings.badWeight;
-            var density = byId('density').value.trim();
-            if (density && !(Number(density) > 0)) return strings.badDensity;
-            return '';
-        },
-        answer: function () {
-            var density = byId('density').value.trim();
-            var answer = {
-                id: byId('id').value.trim(),
-                name: byId('name').value.trim(),
-                resource: byId('resource').value,
-                look: byId('look').value,
-                rarity: rarity(),
-                sizes: sizes(),
-                weight: Number(byId('weight').value),
-                hard: byId('hard').checked,
-            };
-            if (density) answer.density = Number(density);
-            return answer;
-        },
-    };`,
+        script: ASTEROID_TYPE_FORM_SCRIPT,
     });
 };

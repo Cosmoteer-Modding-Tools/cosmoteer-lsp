@@ -12,10 +12,10 @@ import {
 } from '../../../src/core/ast/ast';
 import { CancellationToken } from 'vscode-languageserver';
 import { resolveSchemaSiblingReference } from '../../../src/features/navigation/schema-reference.navigation';
-import { DefinitionService } from '../../../src/features/navigation/definition.service';
-import { HoverService } from '../../../src/features/hover/hover.service';
-import { ReferenceIndex } from '../../../src/features/navigation/reference-index';
-import { RenameService } from '../../../src/features/navigation/rename.service';
+import { getDefinition } from '../../../src/features/navigation/definition.service';
+import { getHover } from '../../../src/features/hover/hover.service';
+import { findReferences } from '../../../src/features/navigation/reference-index';
+import { rename } from '../../../src/features/navigation/rename.service';
 import { singleLocation } from '../../helpers';
 
 const parse = (src: string) => parser(lexer(src), 'file:///t.rules').value;
@@ -64,12 +64,12 @@ describe('resolveSchemaSiblingReference: go-to-definition for ID<> sibling refs'
         expect(resolveSchemaSiblingReference(mode)).toBeUndefined();
     });
 
-    it('DefinitionService.getDefinition jumps from the value to the sibling definition', async () => {
+    it('getDefinition jumps from the value to the sibling definition', async () => {
         const doc = parse(SRC);
         const line = 6; // the Turret line
         const lineText = SRC.split('\n')[line];
         const character = lineText.indexOf('= IsOperational') + 2; // cursor on the `IsOperational` value
-        const location = singleLocation(await DefinitionService.instance.getDefinition(doc, { line, character }, CancellationToken.None));
+        const location = singleLocation(await getDefinition(doc, { line, character }, CancellationToken.None));
         expect(location.range.start.line).toBe(4); // the `IsOperational { … }` definition line
     });
 });
@@ -164,7 +164,7 @@ Part : BasePart
         const doc = parse(INHERITED);
         const line = INHERITED.split('\n').findIndex((l) => l.includes('OperationalToggle'));
         const character = INHERITED.split('\n')[line].indexOf('= HiddenToggle') + 3;
-        const location = singleLocation(await DefinitionService.instance.getDefinition(doc, { line, character }, CancellationToken.None));
+        const location = singleLocation(await getDefinition(doc, { line, character }, CancellationToken.None));
         expect(location.range.start.line).toBe(4); // the base's `HiddenToggle { … }` line
     });
 
@@ -200,7 +200,7 @@ Part : BasePart
         const doc = parse(src);
         const line = src.split('\n').findIndex((l) => l.includes('[Port, HeatSink'));
         const character = src.split('\n')[line].indexOf('HeatSink') + 2;
-        const location = singleLocation(await DefinitionService.instance.getDefinition(doc, { line, character }, CancellationToken.None));
+        const location = singleLocation(await getDefinition(doc, { line, character }, CancellationToken.None));
         expect(location.range.start.line).toBe(4); // the base's `HeatSink { … }` line
     });
 });
@@ -212,7 +212,7 @@ describe('find-all-references + rename for ID<> sibling refs', () => {
 
     it('finds the reference site and declaration from the definition', async () => {
         const doc = parse(SRC);
-        const locations = await ReferenceIndex.instance.findReferences(doc, { line: defLine, character: 5 }, true, [], token);
+        const locations = await findReferences(doc, { line: defLine, character: 5 }, true, [], token);
         const lines = locations.map((l) => l.range.start.line).sort();
         expect(lines).toEqual([defLine, refLine]);
     });
@@ -220,14 +220,14 @@ describe('find-all-references + rename for ID<> sibling refs', () => {
     it('finds the same set from the reference value (cursor on the use site)', async () => {
         const doc = parse(SRC);
         const refChar = SRC.split('\n')[refLine].indexOf('= IsOperational') + 2;
-        const locations = await ReferenceIndex.instance.findReferences(doc, { line: refLine, character: refChar }, false, [], token);
+        const locations = await findReferences(doc, { line: refLine, character: refChar }, false, [], token);
         expect(locations.map((l) => l.range.start.line)).toEqual([refLine]); // declaration excluded
     });
 
     it('hover on a sibling reference shows what it resolves to', async () => {
         const doc = parse(SRC);
         const character = SRC.split('\n')[refLine].indexOf('= IsOperational') + 2;
-        const hover = await HoverService.instance.getHover(doc, { line: refLine, character }, CancellationToken.None);
+        const hover = await getHover(doc, { line: refLine, character }, CancellationToken.None);
         const value = typeof hover?.contents === 'object' && 'value' in hover.contents ? hover.contents.value : '';
         expect(value).toContain('IsOperational'); // → group `IsOperational`
         expect(value).toContain('→');
@@ -235,7 +235,7 @@ describe('find-all-references + rename for ID<> sibling refs', () => {
 
     it('renames the component and its sibling reference together', async () => {
         const doc = parse(SRC);
-        const edit = await RenameService.instance.rename(doc, { line: defLine, character: 5 }, 'PrimaryToggle', [], token);
+        const edit = await rename(doc, { line: defLine, character: 5 }, 'PrimaryToggle', [], token);
         expect(edit).not.toBeNull();
         const fileEdits = Object.values(edit!.changes!)[0];
         expect(fileEdits).toHaveLength(2);

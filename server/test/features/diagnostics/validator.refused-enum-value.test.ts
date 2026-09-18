@@ -23,17 +23,35 @@ const SHOT_PATH = workspaceFile('shots', 'test_shot.rules');
  * @returns the part file text.
  */
 const partWith = (type: string, body: string[]): string =>
-    ['Part', '{', '\tID = test.weapon', '\tComponents', '\t{', '\t\tGun', '\t\t{', `\t\t\tType = ${type}`, ...body.map((line) => '\t\t\t' + line), '\t\t}', '\t}', '}', ''].join('\n');
+    [
+        'Part',
+        '{',
+        '\tID = test.weapon',
+        '\tComponents',
+        '\t{',
+        '\t\tGun',
+        '\t\t{',
+        `\t\t\tType = ${type}`,
+        ...body.map((line) => '\t\t\t' + line),
+        '\t\t}',
+        '\t}',
+        '}',
+        '',
+    ].join('\n');
 
 // The schema types each of these fields by its enum, so every member of it passes the schema check.
 // The class doing the reading handles fewer, and says so by throwing.
 describe('enum members the reading class refuses', () => {
     it('says nothing about the member a fixed weapon does read', async () => {
-        expect(await findings(partWith('FixedWeapon', ['AutoTarget', '{', '\tTargetType = ShipParts', '}']), PART_PATH)).toEqual([]);
+        expect(
+            await findings(partWith('FixedWeapon', ['AutoTarget', '{', '\tTargetType = ShipParts', '}']), PART_PATH)
+        ).toEqual([]);
     });
 
     it('flags a fixed weapon auto-targeting anything else', async () => {
-        expect(await findings(partWith('FixedWeapon', ['AutoTarget', '{', '\tTargetType = Bullets', '}']), PART_PATH)).toEqual([
+        expect(
+            await findings(partWith('FixedWeapon', ['AutoTarget', '{', '\tTargetType = Bullets', '}']), PART_PATH)
+        ).toEqual([
             "A fixed weapon reads only ShipParts here. The game refuses to load the data tree when it finds 'Bullets'.",
         ]);
     });
@@ -45,14 +63,29 @@ describe('enum members the reading class refuses', () => {
     });
 
     it('flags a target search priority the update loop has no arm for', async () => {
-        const text = ['Bullet', '{', '\tComponents', '\t{', '\t\tSearch', '\t\t{', '\t\t\tType = TargetSearch', '\t\t\tTargetTypesByPriority = [ShipParts, Salvage]', '\t\t}', '\t}', '}', ''].join('\n');
+        const text = [
+            'Bullet',
+            '{',
+            '\tComponents',
+            '\t{',
+            '\t\tSearch',
+            '\t\t{',
+            '\t\t\tType = TargetSearch',
+            '\t\t\tTargetTypesByPriority = [ShipParts, Salvage]',
+            '\t\t}',
+            '\t}',
+            '}',
+            '',
+        ].join('\n');
         expect(await findings(text, SHOT_PATH)).toEqual([
             "A bullet's target search handles only ShipParts, ShipCenters, Bullets, Crew. The game throws once the search reaches 'Salvage'.",
         ]);
     });
 
     it('leaves a reference alone, since what it names is not in this text', async () => {
-        expect(await findings(partWith('FixedWeapon', ['AutoTarget', '{', '\tTargetType = &~/TYPE', '}']), PART_PATH)).toEqual([]);
+        expect(
+            await findings(partWith('FixedWeapon', ['AutoTarget', '{', '\tTargetType = &~/TYPE', '}']), PART_PATH)
+        ).toEqual([]);
     });
 
     // The popup reads the same table, so a member the game refuses is never offered in the first

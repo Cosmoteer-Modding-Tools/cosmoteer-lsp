@@ -90,9 +90,10 @@ export type ValidationError = {
     node: AbstractNode;
     /**
      * The rule this finding belongs to, which every lint report groups and filters by (see
-     * server/src/cli/rule-ids.ts). Where a setting switches the pass off, the id is that setting's
-     * key, so a reported rule can be turned off without a lookup table. Usually left unset here and
-     * filled in where the pass is invoked, which is the only place a finding's pass is known.
+     * features/diagnostics/rule-ids.ts). Where a setting switches the pass off, the id is that
+     * setting's key, so a reported rule can be turned off without a lookup table. Usually left
+     * unset here and filled in where the pass is invoked, which is the only place a finding's pass
+     * is known.
      */
     code?: string;
     /**

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { AbstractNode, AbstractNodeDocument, isAssignmentNode, isGroupNode, isListNode } from '../../src/core/ast/ast';
 import { memberPathOf, memberPathStringOf, targetableContainerOf } from '../../src/semantics/node-path';
-import { memberNameOf, memberValueOf, stepIntoNode } from '../../src/semantics/reference-resolver';
+import { memberNameOf, memberValueOf, stepIntoNode } from '../../src/document/reference-resolver';
 import { parseText } from '../../src/utils/ast.utils';
 
 const parse = (text: string): AbstractNodeDocument => parseText(text, 'file:///probe.rules');

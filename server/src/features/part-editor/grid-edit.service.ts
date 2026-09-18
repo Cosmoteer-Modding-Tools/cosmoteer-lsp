@@ -1,4 +1,4 @@
-import { CancellationToken, Range, TextEdit, WorkspaceEdit } from 'vscode-languageserver';
+import { CancellationToken, TextEdit, WorkspaceEdit } from 'vscode-languageserver';
 import * as l10n from '@vscode/l10n';
 import {
     AbstractNode,
@@ -27,7 +27,7 @@ import {
     readRect,
     readVector,
     readVectorEvaluated,
-} from './vector-forms';
+} from '../../semantics/vector-forms';
 import {
     GridEditOptions,
     WriteSite,
@@ -36,10 +36,19 @@ import {
     holdsReference,
     isRefusal,
 } from './reference-writeback';
-import { isReferenceValue } from '../navigation/definition.service';
+import { isReferenceValue } from '../navigation/reference-target';
 import { evaluateNumericValue } from '../../semantics/value-evaluator';
-import { normalizeUri } from '../navigation/reference-location';
-import { offsetToPosition } from '../../utils/text.utils';
+import { normalizeUri } from '../../document/reference-location';
+import { indentUnitOf } from '../refactor/command-host';
+import {
+    appendMemberEdit,
+    closerOffset,
+    insertAt,
+    memberIndentOf,
+    openerOffset,
+    overwriteValueEdit,
+    replaceSpan,
+} from '../refactor/rules-edit';
 
 /**
  * Turns one grid editor mutation into a minimal WorkspaceEdit against the part's own file. Every
@@ -88,6 +97,30 @@ interface EditContext extends WriteScope {
     readonly part: GroupNode;
 }
 
+/** The group-form member names of the two numeric tuples the grid editor writes. */
+const VECTOR_MEMBERS = ['X', 'Y'] as const;
+const RECT_MEMBERS = ['X', 'Y', 'Width', 'Height'] as const;
+
+/** The synthetic point layers backed by two scalar fields instead of a vector. */
+const SCALAR_PAIR_FIELDS: Readonly<Record<string, { x: string; y: string }>> = {
+    RailgunStart: { x: 'XStartOffset', y: 'YStartOffset' },
+    RailgunEnd: { x: 'XEndOffset', y: 'YEndOffset' },
+};
+
+/** The game defaults of the part-root flags fields, from their field initializers. */
+const FLAG_FIELD_DEFAULTS: Readonly<Record<string, readonly string[]>> = {
+    AllowedContiguity: ['Sides'],
+};
+
+/**
+ * What to say when two numbers a gesture has to move apart are written from one declaration. Read
+ * at the moment of the refusal rather than once, so the sentence follows the editor's language.
+ *
+ * @returns the localized refusal.
+ */
+const SAME_DECLARATION = (): string =>
+    l10n.t('Two of these numbers are the same declaration and cannot differ, edit them in the text.');
+
 /**
  * Whether an edit builder refused instead of producing edits.
  *
@@ -95,22 +128,6 @@ interface EditContext extends WriteScope {
  * @returns true when it is a refusal carrying a message.
  */
 export const isError = (outcome: EditOutcome): outcome is EditError => 'error' in outcome;
-
-/** An LSP range between two byte offsets of `text`. */
-const rangeBetween = (text: string, start: number, end: number): Range =>
-    Range.create(offsetToPosition(text, start), offsetToPosition(text, end));
-
-/** A replacement edit over a node's byte span. */
-const replaceSpan = (text: string, start: number, end: number, newText: string): TextEdit => ({
-    range: rangeBetween(text, start, end),
-    newText,
-});
-
-/** An insertion edit at a byte offset. */
-const insertAt = (text: string, offset: number, newText: string): TextEdit => {
-    const position = offsetToPosition(text, offset);
-    return { range: Range.create(position, position), newText };
-};
 
 /** Formats a number the way the data files write them (plain integers, short fractions). */
 const formatNumber = (value: number): string => {
@@ -131,31 +148,6 @@ const mapEntryText = (cell: GridCell, values: readonly string[]): string =>
 /** Formats a virtual-cell pair entry. */
 const pairEntryText = (external: GridCell, internal: GridCell): string =>
     `{ ExternalCell = ${vectorText(external.x, external.y)}; InternalCell = ${vectorText(internal.x, internal.y)} }`;
-
-/** The tab depth at which a container's direct children are written (document root children = 0). */
-const childIndentOf = (container: AbstractNode): number => {
-    let depth = 1;
-    for (let node = container.parent; node; node = node.parent) {
-        if (isGroupNode(node) || isListNode(node)) depth++;
-    }
-    return depth;
-};
-
-const tabs = (count: number): string => '\t'.repeat(count);
-
-/** The byte offset of a container's opening bracket/brace (after its identifier when named). */
-const openerOffset = (text: string, node: GroupNode | ListNode): number => {
-    const char = isListNode(node) ? '[' : '{';
-    if (text[node.position.start] === char) return node.position.start;
-    const from = node.identifier ? node.identifier.position.end : node.position.start;
-    return text.indexOf(char, from);
-};
-
-/** The byte offset of a container's closing bracket/brace, or -1 when the span is not as recorded. */
-const closerOffset = (text: string, node: GroupNode | ListNode): number => {
-    const char = isListNode(node) ? ']' : '}';
-    return text[node.position.end - 1] === char ? node.position.end - 1 : -1;
-};
 
 /** A member of a container with the nodes an edit needs: the value plus its assignment when `=` form. */
 interface LocalMember {
@@ -190,23 +182,9 @@ const localMember = (container: GroupNode, name: string): LocalMember | null => 
  *          recorded span says, so an edit could land outside them.
  */
 export const appendElementEdit = (text: string, list: ListNode | GroupNode, elementText: string): EditOutcome => {
-    const open = openerOffset(text, list);
-    const close = closerOffset(text, list);
-    if (open < 0 || close < 0 || close < open) return { error: l10n.t('The list could not be edited safely.') };
-    const singleLine = !text.slice(open, close).includes('\n');
-    const last = list.elements[list.elements.length - 1];
-    if (singleLine) {
-        if (!last) return [insertAt(text, open + 1, elementText)];
-        return [insertAt(text, last.position.end, `, ${elementText}`)];
-    }
-    if (!last) {
-        return [insertAt(text, open + 1, `\n${tabs(childIndentOf(list))}${elementText}`)];
-    }
-    // Replicate the last element's own leading whitespace so mixed tab/space files stay consistent.
-    const lineStart = text.lastIndexOf('\n', last.position.start) + 1;
-    const prefix = text.slice(lineStart, last.position.start);
-    const indent = /^\s*$/.test(prefix) ? prefix : tabs(childIndentOf(list));
-    return [insertAt(text, last.position.end, `\n${indent}${elementText}`)];
+    const edit = appendMemberEdit(text, list, elementText, { inlineSeparator: ', ' });
+    if (!edit) return { error: l10n.t('The list could not be edited safely.') };
+    return [edit];
 };
 
 /** Removes one element from a list together with the separator run joining it to its neighbours. */
@@ -280,22 +258,9 @@ const replaceVectorEdit = (text: string, node: AbstractNode, x: number, y: numbe
     return [replaceSpan(text, node.position.start, node.position.end, vectorText(x, y))];
 };
 
-/** The group-form member names of the two numeric tuples the grid editor writes. */
-const VECTOR_MEMBERS = ['X', 'Y'] as const;
-const RECT_MEMBERS = ['X', 'Y', 'Width', 'Height'] as const;
-
 /** Names the file every edit that does not already name one belongs to. */
 const inFile = (uri: string, edits: readonly TargetedEdit[]): TargetedEdit[] =>
     edits.map((edit) => (edit.uri ? edit : { ...edit, uri }));
-
-/**
- * What to say when two numbers a gesture has to move apart are written from one declaration. Read
- * at the moment of the refusal rather than once, so the sentence follows the editor's language.
- *
- * @returns the localized refusal.
- */
-const SAME_DECLARATION = (): string =>
-    l10n.t('Two of these numbers are the same declaration and cannot differ, edit them in the text.');
 
 /**
  * Collapses the edits that landed on one span, which is what happens when two components of a tuple
@@ -350,12 +315,10 @@ const noteFor = async (scope: WriteScope, site: WriteSite): Promise<string> => {
  * @returns the edits, or a refusal naming why the reference cannot be written through.
  */
 const writeValue = async (scope: WriteScope, node: AbstractNode, newText: string): Promise<EditOutcome> => {
-    if (!isReferenceValue(node)) {
-        return [replaceSpan(scope.text, node.position.start, node.position.end, newText)];
-    }
+    if (!isReferenceValue(node)) return [overwriteValueEdit(scope.text, node, newText)];
     const site = await followToDeclaration(node, scope.uri, scope.text, scope.options, scope.token);
     if (isRefusal(site)) return { error: site.error };
-    const edit = replaceSpan(site.text, site.node.position.start, site.node.position.end, newText);
+    const edit = overwriteValueEdit(site.text, site.node, newText);
     return [{ ...edit, uri: site.uri, note: await noteFor(scope, site) }];
 };
 
@@ -370,15 +333,13 @@ const writeValue = async (scope: WriteScope, node: AbstractNode, newText: string
  * @returns the edits, or a refusal.
  */
 const writeScalar = async (scope: WriteScope, node: AbstractNode, newText: string): Promise<EditOutcome> => {
-    if (!isReferenceValue(node)) {
-        return [replaceSpan(scope.text, node.position.start, node.position.end, newText)];
-    }
+    if (!isReferenceValue(node)) return [overwriteValueEdit(scope.text, node, newText)];
     const site = await followToDeclaration(node, scope.uri, scope.text, scope.options, scope.token);
     if (isRefusal(site)) return { error: site.error };
     if (isGroupNode(site.node) || isListNode(site.node)) {
         return { error: l10n.t('{0} names a group rather than a value, edit it in the text.', site.through ?? '') };
     }
-    const edit = replaceSpan(site.text, site.node.position.start, site.node.position.end, newText);
+    const edit = overwriteValueEdit(site.text, site.node, newText);
     return [{ ...edit, uri: site.uri, note: await noteFor(scope, site) }];
 };
 
@@ -478,23 +439,47 @@ const writeRect = async (
 const rectText = (rect: { x: number; y: number; width: number; height: number }): string =>
     `[${formatNumber(rect.x)}, ${formatNumber(rect.y)}, ${formatNumber(rect.width)}, ${formatNumber(rect.height)}]`;
 
-/** Inserts a new `Name = value` member on its own line just before a container's closing brace. */
+/**
+ * Inserts a new `Name = value` member on its own line just before a container's closing brace. The
+ * member goes before the closer rather than after the last member so that anything trailing that
+ * member's line, a comment above all, stays where the author put it.
+ *
+ * @param text the file's source text the edit is measured against.
+ * @param container the group the member goes into.
+ * @param memberText the member as it should be written.
+ * @returns the single insertion edit, or a refusal when the group's brace is not where the recorded
+ *          span says.
+ */
 const insertMemberEdit = (text: string, container: GroupNode, memberText: string): EditOutcome => {
-    const brace = closerOffset(text, container);
-    if (brace < 0) return { error: l10n.t('The part group could not be edited safely.') };
-    const indent = tabs(childIndentOf(container));
-    return [insertAt(text, brace, `${indent}${memberText}\n`)];
+    const edit = appendMemberEdit(text, container, memberText, { placement: 'beforeCloser' });
+    if (!edit) return { error: l10n.t('The part group could not be edited safely.') };
+    return [edit];
 };
 
-/** Renders a full block-form list field (`Name\n[\n\telement\n...]`) at a container's child indent. */
-const blockFieldText = (name: string, elements: readonly string[], indent: number): string => {
-    const inner = elements.map((element) => `${tabs(indent + 1)}${element}`).join('\n');
-    return `${name}\n${tabs(indent)}[\n${inner}\n${tabs(indent)}]`;
+/**
+ * Renders a full block-form list field (`Name\n[\n\telement\n...]`) at a given indentation.
+ *
+ * @param name the field's name.
+ * @param elements the elements, one per line.
+ * @param indent the whitespace the field itself is written at.
+ * @param step the file's own indentation step, which the elements get one more of.
+ * @returns the field as it should be written.
+ */
+const blockFieldText = (name: string, elements: readonly string[], indent: string, step: string): string => {
+    const inner = elements.map((element) => `${indent}${step}${element}`).join('\n');
+    return `${name}\n${indent}[\n${inner}\n${indent}]`;
 };
 
 /**
  * Materializes a local override of a list/map field that currently only exists on a base part:
  * the inherited elements are written out locally with the mutation already applied.
+ *
+ * @param text the file's source text the edit is measured against.
+ * @param container the group the field goes into.
+ * @param fieldName the field's name.
+ * @param elements the elements the local field is written with.
+ * @returns the single insertion edit, or a refusal when the group's brace is not where the recorded
+ *          span says.
  */
 const materializeFieldEdit = (
     text: string,
@@ -502,10 +487,8 @@ const materializeFieldEdit = (
     fieldName: string,
     elements: readonly string[]
 ): EditOutcome => {
-    const brace = closerOffset(text, container);
-    if (brace < 0) return { error: l10n.t('The part group could not be edited safely.') };
-    const indent = childIndentOf(container);
-    return [insertAt(text, brace, `${tabs(indent)}${blockFieldText(fieldName, elements, indent)}\n`)];
+    const indent = memberIndentOf(text, container);
+    return insertMemberEdit(text, container, blockFieldText(fieldName, elements, indent, indentUnitOf(text)));
 };
 
 /** The nth readable vector element of a list-like member, with its element node. */
@@ -963,12 +946,6 @@ const intListEdit = async (
     return insertMemberEdit(text, part, `${fieldName} = ${listText}`);
 };
 
-/** The synthetic point layers backed by two scalar fields instead of a vector. */
-const SCALAR_PAIR_FIELDS: Readonly<Record<string, { x: string; y: string }>> = {
-    RailgunStart: { x: 'XStartOffset', y: 'YStartOffset' },
-    RailgunEnd: { x: 'XEndOffset', y: 'YEndOffset' },
-};
-
 /** Replace-or-insert edit for a single scalar member of a container. */
 const scalarMemberEdit = async (
     scope: WriteScope,
@@ -1146,7 +1123,7 @@ const vertexInsertEdit = async (
     if (singleLine) return [insertAt(text, target.position.start, `${vectorText(point.x, point.y)}, `)];
     const lineStart = text.lastIndexOf('\n', target.position.start) + 1;
     const prefix = text.slice(lineStart, target.position.start);
-    const indent = /^\s*$/.test(prefix) ? prefix : tabs(childIndentOf(member.value));
+    const indent = /^\s*$/.test(prefix) ? prefix : memberIndentOf(text, member.value);
     return [insertAt(text, target.position.start, `${vectorText(point.x, point.y)}\n${indent}`)];
 };
 
@@ -1204,16 +1181,7 @@ const rectEntryEdit = async (
         return writeRect(ctx, entry.elements[1], rect);
     }
     if (member) return appendElementEdit(text, member.value as ListNode, rectEntryText(effectiveTag, rect));
-    const indent = childIndentOf(container);
-    const brace = closerOffset(text, container);
-    if (brace < 0) return { error: l10n.t('The part group could not be edited safely.') };
-    return [
-        insertAt(
-            text,
-            brace,
-            `${tabs(indent)}${blockFieldText(fieldName, [rectEntryText(effectiveTag, rect)], indent)}\n`
-        ),
-    ];
+    return materializeFieldEdit(text, container, fieldName, [rectEntryText(effectiveTag, rect)]);
 };
 
 /** Removal edit for a tagged rect entry. */
@@ -1262,11 +1230,6 @@ const expandAdjacencyFlags = (names: readonly string[]): Set<string> => {
         else if (name !== 'None') expanded.add(name);
     }
     return expanded;
-};
-
-/** The game defaults of the part-root flags fields, from their field initializers. */
-const FLAG_FIELD_DEFAULTS: Readonly<Record<string, readonly string[]>> = {
-    AllowedContiguity: ['Sides'],
 };
 
 /**

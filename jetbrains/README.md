@@ -38,7 +38,8 @@ Client-side features are reimplemented natively:
   on a `Part` group or Tools | Cosmoteer: Edit Part Grid.
 - **Part table**: a tool window comparing every part of the game and of the mod being edited side by
   side, opened from Tools | Cosmoteer: Compare Parts in a Table. Columns are picked from the fields
-  the parts really carry, and a formula column computes over them.
+  the parts really carry, a formula column computes over them, and the whole table exports as an
+  Excel workbook with its filter, its averages and its formulas intact.
 - **Migrate mod**: Tools | Cosmoteer: Migrate Mod rewrites a mod for a newer game version.
 - **Extract shared base files**: Tools | Cosmoteer: Extract Shared Base Files factors the repeated
   fields of a mod into base files, with a side-by-side diff before anything is written. The same

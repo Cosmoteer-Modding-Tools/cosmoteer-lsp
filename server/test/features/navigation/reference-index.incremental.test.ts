@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync, rmSync, unlinkSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { CancellationToken } from 'vscode-languageserver';
-import { ReferenceIndex } from '../../../src/features/navigation/reference-index';
+import { findReferences } from '../../../src/features/navigation/reference-index';
 import { AbstractNodeDocument, isAssignmentNode } from '../../../src/core/ast/ast';
 import { parseFilePath } from '../../../src/utils/ast.utils';
 import { walkAst } from '../../helpers';
@@ -13,7 +13,6 @@ import { initWorkspace, WORKSPACE_DATA_DIR, workspaceFile } from '../../workspac
 // disk changes (a new file from `git pull`, a deletion) with no cache to invalidate. The
 // new file lives in an isolated temp dir (an extra scanned folder), never the shared
 // fixtures, so this can't race other suites.
-const index = ReferenceIndex.instance;
 const token = CancellationToken.None;
 const TMP_DIR = mkdtempSync(join(tmpdir(), 'cosmo-ref-'));
 const FOLDERS = [WORKSPACE_DATA_DIR, TMP_DIR];
@@ -44,13 +43,13 @@ describe('find-all-references: reflects disk changes (stateless)', () => {
         const position = innerValuePosition(bDoc);
 
         // Before the file exists: only a.rules references InnerValue.
-        const before = await index.findReferences(bDoc, position, false, FOLDERS, token);
+        const before = await findReferences(bDoc, position, false, FOLDERS, token);
         expect(before.length).toBe(1);
 
         // A file the editor never opened (e.g. from `git pull`).
         writeFileSync(NEW_FILE, NEW_FILE_CONTENT, 'utf-8');
 
-        const after = await index.findReferences(bDoc, position, false, FOLDERS, token);
+        const after = await findReferences(bDoc, position, false, FOLDERS, token);
         expect(after.length).toBe(2);
         expect(after.some((r) => r.uri.endsWith('_tmp_pulled.rules'))).toBe(true);
     });
@@ -59,7 +58,7 @@ describe('find-all-references: reflects disk changes (stateless)', () => {
         const position = innerValuePosition(bDoc);
         unlinkSync(NEW_FILE);
 
-        const after = await index.findReferences(bDoc, position, false, FOLDERS, token);
+        const after = await findReferences(bDoc, position, false, FOLDERS, token);
         expect(after.length).toBe(1);
         expect(after.some((r) => r.uri.endsWith('_tmp_pulled.rules'))).toBe(false);
     });

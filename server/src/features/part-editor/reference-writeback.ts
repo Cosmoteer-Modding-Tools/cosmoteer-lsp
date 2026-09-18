@@ -9,11 +9,11 @@ import {
     isGroupNode,
     isListNode,
 } from '../../core/ast/ast';
-import { isReferenceValue } from '../navigation/definition.service';
-import { FullNavigationStrategy } from '../navigation/full.navigation-strategy';
-import { normalizeUri } from '../navigation/reference-location';
-import { documentsMentioning, uriToFsPath } from '../navigation/workspace-files';
-import { referenceNodesOf } from '../navigation/reference-index';
+import { isReferenceValue } from '../navigation/reference-target';
+import { navigate } from '../../semantics/navigate-reference';
+import { normalizeUri } from '../../document/reference-location';
+import { documentsMentioning, uriToFsPath } from '../../workspace/workspace-files';
+import { referenceNodesOf } from '../navigation/reference-nodes';
 import { getStartOfAstNode } from '../../utils/ast.utils';
 import { CosmoteerWorkspaceService, FileWithPath, isFile } from '../../workspace/cosmoteer-workspace.service';
 import { findModRoot, sameModRoot } from '../../mod/mod-root';
@@ -167,7 +167,7 @@ export const followToDeclaration = async (
     for (let hop = 0; hop < MAX_HOPS; hop++) {
         const from = getStartOfAstNode(current).uri;
         const path = String((current as { valueType?: { value?: unknown } }).valueType?.value ?? '');
-        const resolved = await new FullNavigationStrategy().navigate(path, current, from, token).catch(() => null);
+        const resolved = await navigate(path, current, from, token).catch(() => null);
         if (!resolved || isFile(resolved as FileWithPath)) {
             return { error: l10n.t('{0} could not be resolved, edit the value in the text.', written) };
         }
@@ -307,9 +307,7 @@ export const countReadersOf = async (
             const path = String(reference.valueType.value ?? '');
             if (!path.includes(name)) continue;
             if (within(reference, document.uri, declaration, declarationUri)) continue;
-            const target = await new FullNavigationStrategy()
-                .navigate(path, reference, document.uri, token)
-                .catch(() => null);
+            const target = await navigate(path, reference, document.uri, token).catch(() => null);
             if (!target || isFile(target as FileWithPath)) continue;
             const resolved = target as AbstractNode;
             if (within(resolved, getStartOfAstNode(resolved).uri, declaration, declarationUri)) readers++;

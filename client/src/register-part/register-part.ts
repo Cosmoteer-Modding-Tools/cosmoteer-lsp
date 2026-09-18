@@ -3,6 +3,13 @@ import { commands, ExtensionContext, l10n, window, workspace } from 'vscode';
 import { ExecuteCommandRequest, LanguageClient } from 'vscode-languageclient/node';
 import { offerToOpen, warnOfUnsavedFiles } from '../command-util';
 import { ApplyCleanup, openDocumentPaths, saveAndTidy } from '../shared-base/apply-cleanup';
+import {
+    RegisterPartApplyResult,
+    RegisterPartArgs,
+    RegisterPartFailure,
+    RegisterPartScanResult,
+    ShipCandidate,
+} from '../../../shared/register-part.types';
 
 /**
  * Listing a part in a ship class so the game builds it. The server finds the ship classes and writes
@@ -14,62 +21,6 @@ import { ApplyCleanup, openDocumentPaths, saveAndTidy } from '../shared-base/app
  * not claim it, so the editor runs this instead and the author picks the ship class first.
  */
 export const REGISTER_PART_IN_SHIP_LOCAL_COMMAND = 'cosmoteer.registerPartInShipFromAction';
-
-/** Mirror of the server's registration arguments (see server features/refactor/register-part/register-part.command.ts). */
-interface RegisterPartArgs {
-    uri: string;
-    offset: number;
-    ship?: string;
-}
-
-/** Mirror of one ship class the part could be registered in (same module). */
-interface ShipCandidate {
-    /** The identity the pick is sent back by. */
-    key: string;
-    groupName: string;
-    id?: string;
-    fsPath: string;
-    target: 'workspace' | 'vanilla';
-    via: 'shipFile' | 'modAction';
-    alreadyRegistered: boolean;
-    blocked?: 'partsInherited' | 'noPartsList' | 'notEditable' | 'noModRoot' | 'unreadable';
-}
-
-/** Mirror of the server's candidate report (same module). */
-interface RegisterPartScanResult {
-    kind: 'scan';
-    partId?: string;
-    partGroupName: string;
-    candidates: ShipCandidate[];
-    failure?: RegisterPartFailure;
-}
-
-/** Mirror of the server's registration answer (same module). */
-interface RegisterPartApplyResult {
-    kind: 'apply';
-    shipFsPath: string;
-    via: 'shipFile' | 'modAction';
-    /** Every file the edit changed, so they can be saved and tidied away. */
-    changedFiles: string[];
-    reference: string;
-    warning?: 'noPartId';
-    failure?: RegisterPartFailure;
-    /** The manifest names to choose between, only set for `ambiguousManifest`. */
-    manifests?: string[];
-}
-
-/** Why a registration did nothing, as the server words it. */
-type RegisterPartFailure =
-    | 'stale'
-    | 'noShipClasses'
-    | 'unknownShip'
-    | 'alreadyRegistered'
-    | 'partsInherited'
-    | 'noPartsList'
-    | 'noModRoot'
-    | 'ambiguousManifest'
-    | 'notEditable'
-    | 'editRejected';
 
 /**
  * What registering into a ship would do, shown under its entry in the picker.

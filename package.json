@@ -4,7 +4,7 @@
     "description": "A complete language server for Cosmoteer rules",
     "author": "Cosmoteer Modding Tools",
     "license": "MIT",
-    "version": "1.0.2",
+    "version": "1.1.0",
     "repository": {
         "type": "git",
         "url": "https://github.com/Cosmoteer-Modding-Tools/cosmoteer-lsp"
@@ -519,11 +519,35 @@
                         "default": true,
                         "description": "Check a mod.rules manifest against the metadata the game reads from it: a missing or malformed ID or Name, without which the mod never loads, a field name that is a near miss of a real one, and a declared StringsFolder, Logo or ship-library folder that is not on disk. Field names are matched ignoring case, the way the game binds them. A name the game does not know but that is nothing like a real field is left alone, since mods keep their own keys in the manifest for loaders that ship a .dll."
                     },
+                    "cosmoteerLSPRules.diagnostics.validateResourcePickups": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Report a storage whose MaxResourcesPickUp or InitPickUp is above the MaxPerNugget of the resource it hands out. The storage works out the transfer from its own field and then subtracts that whole number from itself, while the crew's carried-resource setter clamps what arrives to one stack, so the difference is destroyed. InitPickUp is the sharp half: the game forces an exact one-shot transfer of it and skips the rate throttle, so every first pickup loses the overshoot. The stack is read out of the resource file the id names, with a manifest replacement of that member applied. Two files declaring one id, or a resource that writes no stack at all, are left unjudged. Needs the game Data tree indexed. Shown as a warning."
+                    },
+                    "cosmoteerLSPRules.diagnostics.validateNumericDomains": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Report a number the class reading it cannot survive, which the schema cannot express and the division check cannot see because the value is well formed where it stands. A continuous beam whose Duration is above zero and whose HitInterval is not, including one that writes no interval at all, loops without advancing its damage clock and freezes the game the first time it fires. An InlineResourceConverter FromQuantity or ToQuantity below one is divided by the moment the part is built, and a zero ToQuantity also refuses the save. A ShipIconGlowShipScale of zero sizes a render target from an infinity. Nugget art sliced into more tiers than MaxPerNugget divides by an empty tier the first time a nugget is drawn. Every read goes through the inheritance fold, and a chain that could not be read to the end says nothing. Shown as an error."
+                    },
+                    "cosmoteerLSPRules.diagnostics.validateStorageCycles": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Report a resource storage composed out of itself, directly or round a ring of other storages. A MultiResourceStorage answers how much it holds by asking every storage it names, and an InlineResourceConverter by asking the one it converts from. Neither carries a visited set, and both reach their own getter while the part is being built, so a ring is unbounded recursion the first time the part is placed or a ship carrying it is loaded. A stack overflow cannot be caught, so the game disappears with no dialog and nothing in the log. The graph is the part's Components dictionary folded through its bases, and a part whose components cannot be read in full is left alone. Shown as an error."
+                    },
+                    "cosmoteerLSPRules.diagnostics.validateGalaxyGenerators": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Report a galaxy generator whose Spawners list builds a map the game cannot use. A career generator that runs no RandomSectorTypes puts every star system but the starting one on the first sector type, silently, which decides the system generator, the trade routes, the missions and the encounters. A ProgressionNodeTiers priority doubles as an index into an array its own DesiredTierDeltas sizes, so one that reaches past the list stops the game where a new career is confirmed. A ConnectionRadius at or below the node spacing leaves a galaxy with no FTL routes at all. A StartingNodePicker window written the wrong way round, or a faction candidate count of zero, discards every node. A list whose elements cannot all be resolved is left alone rather than half judged. Shown as an error, except the sector-type one, which is a warning."
+                    },
                     "cosmoteerLSPRules.diagnostics.validatePartGeometry": {
                         "scope": "resource",
                         "type": "boolean",
                         "default": true,
-                        "description": "Fade a part-grid value the part own size puts out of the game reach: a door location that is not a cell beside the part, and a blocked-travel cell or per-cell map key outside it, all of which the game never reads. Two are reported as errors instead: a PhysicalRect that leaves the part, which the game throws on while reading the part, and a door presence toggle whose cell is inside the part, which the game throws on when the part is created. Only values written on a part that declares its own ID are judged, and Size is read through the inheritance chain. Shown as an editor hint, except the two errors."
+                        "description": "Fade a part-grid value the part own size puts out of the game reach: a door location that is not a cell beside the part, and a blocked-travel cell or per-cell map key outside it, all of which the game never reads. Two are reported as errors instead: a PhysicalRect that leaves the part, which the game throws on while reading the part, and a door presence toggle whose cell is inside the part, which the game throws on when the part is created. Only values written on a part that declares its own ID are judged, and Size is read through the inheritance chain. Three more are warnings: a storage's PickUpLocation or DeliveryLocation and a resource grid's GridRect that land on cells the part does not own, and a resource sink on a part crew cannot walk through, each of which can end a resource search with an index error. Shown as an editor hint, except the two errors and the three warnings."
                     },
                     "cosmoteerLSPRules.diagnostics.validateDuplicateIds": {
                         "scope": "resource",
@@ -832,16 +856,17 @@
         "watch:tsc": "node node_modules/typescript/bin/tsc -b --noEmit --watch",
         "watch:esbuild": "node esbuild.mjs --watch",
         "watch:esbuild-test": "node esbuild.mjs --watch --test",
-        "lint": "eslint ./client/src ./server/src && npm run format:check",
+        "lint": "eslint ./client/src ./server/src ./shared ./media && npm run format:check",
         "lint:mod": "node out/server/src/cli/lint.mjs",
-        "format": "prettier --write \"client/src/**/*.ts\" \"server/src/**/*.ts\" \"*.mjs\" \"scripts/*.mjs\" \"tools/**/*.mjs\"",
-        "format:check": "prettier --check \"client/src/**/*.ts\" \"server/src/**/*.ts\" \"*.mjs\" \"scripts/*.mjs\" \"tools/**/*.mjs\"",
+        "format": "prettier --write \"shared/*.ts\" \"client/src/**/*.ts\" \"server/src/**/*.ts\" \"media/src/**/*.js\" \"*.mjs\" \"scripts/*.mjs\" \"tools/**/*.mjs\"",
+        "format:check": "prettier --check \"shared/*.ts\" \"client/src/**/*.ts\" \"server/src/**/*.ts\" \"media/src/**/*.js\" \"*.mjs\" \"scripts/*.mjs\" \"tools/**/*.mjs\"",
         "package:cli": "node scripts/build-cli-package.mjs",
         "postinstall": "cd client && npm install && cd ../server && npm install && cd ..",
         "prepare": "git config core.hooksPath .githooks || true",
         "test": "sh ./scripts/e2e.sh",
         "test:server": "cd server && npm test",
-        "check-types": "node node_modules/typescript/bin/tsc -b --noEmit",
+        "check-types": "node node_modules/typescript/bin/tsc -b --noEmit && npm run check-types:media",
+        "check-types:media": "node node_modules/typescript/bin/tsc -p media/tsconfig.json",
         "check-types:fast": "node node_modules/tsgo/bin/tsc -b --noEmit",
         "check-types:test": "cd server && node ../node_modules/typescript/bin/tsc -p test/tsconfig.json",
         "fieldstats": "cd server && npx vite-node ../tools/fieldstats/fieldstats.ts",

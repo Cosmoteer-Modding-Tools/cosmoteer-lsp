@@ -4,9 +4,9 @@ import { join, relative } from 'path';
 import { CancellationToken, Connection, WorkDoneProgressReporter } from 'vscode-languageserver';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
-import { filePathToUri } from '../../../src/features/navigation/navigation-strategy';
+import { filePathToUri } from '../../../src/document/reference-path';
 import { ensureAliasRootIndex } from '../../../src/features/navigation/alias-root-builder';
-import { ReverseIncludeIndex } from '../../../src/features/navigation/reverse-include.index';
+import { ReverseIncludeIndex } from '../../../src/mod/reverse-include.index';
 import { validateUnusedParticleChannels } from '../../../src/features/diagnostics/validator.particle-channel';
 import { CosmoteerWorkspaceService } from '../../../src/workspace/cosmoteer-workspace.service';
 import { globalSettings } from '../../../src/settings';
@@ -45,7 +45,11 @@ describe.skipIf(!HAVE_DATA)('unused particle channels over the installed mods', 
 
     beforeAll(async () => {
         globalSettings.cosmoteerPath = DATA_DIR;
-        const noop: WorkDoneProgressReporter = { begin: () => undefined, report: () => undefined, done: () => undefined };
+        const noop: WorkDoneProgressReporter = {
+            begin: () => undefined,
+            report: () => undefined,
+            done: () => undefined,
+        };
         const service = CosmoteerWorkspaceService.instance;
         service.setConnection({
             languages: { diagnostics: { refresh: () => undefined } },

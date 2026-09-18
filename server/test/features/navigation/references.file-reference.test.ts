@@ -7,8 +7,8 @@ import { AbstractNodeDocument } from '../../../src/core/ast/ast';
 import { parseFilePath } from '../../../src/utils/ast.utils';
 import { globalSettings } from '../../../src/settings';
 import { CosmoteerWorkspaceService } from '../../../src/workspace/cosmoteer-workspace.service';
-import { ReferenceIndex } from '../../../src/features/navigation/reference-index';
-import { MentionIndex } from '../../../src/features/navigation/mention.index';
+import { findReferences } from '../../../src/features/navigation/reference-index';
+import { MentionIndex } from '../../../src/workspace/mention.index';
 
 // The corpus names a part two ways, and find-all-references has to answer for both. The bare-id
 // spelling (`EditorParentParts = ["test.armor"]`) carries the id in its text; the file-reference
@@ -93,13 +93,13 @@ describe('find-all-references over the file-reference spelling of an id', () => 
     });
 
     it('finds both spellings from the declaration, the file-reference one included', async () => {
-        const refs = await ReferenceIndex.instance.findReferences(armor, await armorIdPosition(), false, folders, token);
+        const refs = await findReferences(armor, await armorIdPosition(), false, folders, token);
         const found = files(refs).sort();
         expect(found).toEqual(['hybrid.rules', 'techs.rules', 'techs.rules', 'wedge.rules']);
     });
 
     it('returns every file-reference site, not one per file', async () => {
-        const refs = await ReferenceIndex.instance.findReferences(armor, await armorIdPosition(), false, folders, token);
+        const refs = await findReferences(armor, await armorIdPosition(), false, folders, token);
         const lines = refs
             .filter((location) => location.uri.endsWith('techs.rules'))
             .map((location) => location.range.start.line)
@@ -108,7 +108,7 @@ describe('find-all-references over the file-reference spelling of an id', () => 
     });
 
     it('names a file caught by both sweeps once, and only for the reference that lands on the id', async () => {
-        const refs = await ReferenceIndex.instance.findReferences(armor, await armorIdPosition(), false, folders, token);
+        const refs = await findReferences(armor, await armorIdPosition(), false, folders, token);
         // hybrid.rules writes the id once and references the file once, but that reference points at
         // NameKey, so the file contributes exactly the one bare-id site.
         expect(files(refs).filter((name) => name === 'hybrid.rules').length).toBe(1);
@@ -116,10 +116,10 @@ describe('find-all-references over the file-reference spelling of an id', () => 
 
     it('leaves the declaration out of the usages and adds it back on request', async () => {
         const position = await armorIdPosition();
-        const without = await ReferenceIndex.instance.findReferences(armor, position, false, folders, token);
+        const without = await findReferences(armor, position, false, folders, token);
         expect(files(without)).not.toContain('armor.rules');
 
-        const withDeclaration = await ReferenceIndex.instance.findReferences(armor, position, true, folders, token);
+        const withDeclaration = await findReferences(armor, position, true, folders, token);
         expect(withDeclaration.length).toBe(without.length + 1);
         expect(files(withDeclaration).filter((name) => name === 'armor.rules').length).toBe(1);
     });

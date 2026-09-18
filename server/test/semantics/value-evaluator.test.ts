@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { CancellationToken, Range } from 'vscode-languageserver';
 import { evaluateNumericValue } from '../../src/semantics/value-evaluator';
-import { InlayHintService } from '../../src/features/inlay/inlay-hint.service';
+import { getInlayHints } from '../../src/features/inlay/inlay-hint.service';
 import { AbstractNode, AbstractNodeDocument, isAssignmentNode } from '../../src/core/ast/ast';
 import { parseFixture, valueOf, walkAst } from '../helpers';
 import { initWorkspace } from '../workspace-helper';
@@ -61,7 +61,7 @@ describe('value-evaluator', () => {
     });
 });
 
-describe('InlayHintService', () => {
+describe('getInlayHints', () => {
     let doc: AbstractNodeDocument;
     beforeAll(async () => {
         await initWorkspace();
@@ -69,7 +69,7 @@ describe('InlayHintService', () => {
     });
 
     it('emits a `= N` hint only for computable math/function assignments', async () => {
-        const hints = await InlayHintService.instance.getInlayHints(doc, Range.create(0, 0, 100, 0), token);
+        const hints = await getInlayHints(doc, Range.create(0, 0, 100, 0), token);
         const labels = hints.map((h) => h.label).sort();
 
         expect(labels).toContain('= 12'); // Simple
@@ -83,7 +83,7 @@ describe('InlayHintService', () => {
 
     it('annotates each math segment inside a list literal', async () => {
         // ArrayMath = [10 * 2, &A + 5, 30] -> hints for `10*2`=20 and `&A+5`=15, none for bare 30.
-        const hints = await InlayHintService.instance.getInlayHints(doc, Range.create(0, 0, 100, 0), token);
+        const hints = await getInlayHints(doc, Range.create(0, 0, 100, 0), token);
         const onListLine = hints.filter((h) => h.position.line === 13).map((h) => h.label);
         expect(onListLine).toContain('= 20'); // 10 * 2
         expect(onListLine).toContain('= 15'); // &A (=10) + 5, relative ref resolved out of the list
@@ -91,7 +91,7 @@ describe('InlayHintService', () => {
     });
 
     it('respects the requested line range', async () => {
-        const hints = await InlayHintService.instance.getInlayHints(doc, Range.create(0, 0, 2, 0), token);
+        const hints = await getInlayHints(doc, Range.create(0, 0, 2, 0), token);
         // Lines 0-2 hold Calc/{/A, no expression assignments there.
         expect(hints.length).toBe(0);
     });

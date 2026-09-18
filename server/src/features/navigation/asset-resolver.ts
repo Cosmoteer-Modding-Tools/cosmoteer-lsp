@@ -3,12 +3,10 @@ import { join } from 'path';
 import { cachedDirLookup, cachedReaddir } from '../../workspace/fs-cache';
 import { AbstractNode, isValueNode, ValueNode } from '../../core/ast/ast';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
-import { AssetNavigationStrategy } from './asset.navigation-strategy';
-import { filePathToDirectoryPath } from './navigation-strategy';
+import { resolveAsset } from './navigate-asset';
+import { filePathToDirectoryPath } from '../../document/reference-path';
 import { closestMatch } from '../../utils/did-you-mean';
 import { assetExtensionsForType } from '../../utils/constants';
-
-const assetNav = new AssetNavigationStrategy();
 
 /** How many folders below the declaring directory a moved asset is looked for. */
 const RELOCATION_DEPTH = 4;
@@ -45,7 +43,7 @@ export const resolveAssetPath = async (
     cancellationToken: CancellationToken
 ): Promise<string | null> => {
     if (cancellationToken.isCancellationRequested) return null;
-    return (await assetNav.resolveAsset(String(node.valueType.value), node, uri).catch(() => null)) ?? null;
+    return (await resolveAsset(String(node.valueType.value), uri).catch(() => null)) ?? null;
 };
 
 /**

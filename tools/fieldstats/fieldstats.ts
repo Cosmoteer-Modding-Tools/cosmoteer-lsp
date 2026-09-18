@@ -30,7 +30,7 @@ import { parser } from '../../server/src/core/parser/parser';
 import { resolveGroupClass } from '../../server/src/document/schema/schema-context';
 import { documentRootClass } from '../../server/src/document/schema/document-root';
 import { fieldOf } from '../../server/src/document/schema/schema';
-import { ParserResultRegistrar } from '../../server/src/registrar/parser-result-registrar';
+import { ParserResultRegistrar } from '../../server/src/document/parser-result-registrar';
 import { globalSettings } from '../../server/src/settings';
 import { CosmoteerWorkspaceService } from '../../server/src/workspace/cosmoteer-workspace.service';
 

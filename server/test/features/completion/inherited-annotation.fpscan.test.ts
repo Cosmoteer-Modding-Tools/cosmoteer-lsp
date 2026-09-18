@@ -9,10 +9,10 @@ import { AbstractNode, AbstractNodeDocument, GroupNode, isGroupNode, isListNode 
 import { globalSettings } from '../../../src/settings';
 import { CosmoteerWorkspaceService } from '../../../src/workspace/cosmoteer-workspace.service';
 import { aliasRootIndex } from '../../../src/document/schema/alias-root';
-import { ReverseIncludeIndex } from '../../../src/features/navigation/reverse-include.index';
-import { ParserResultRegistrar } from '../../../src/registrar/parser-result-registrar';
+import { ReverseIncludeIndex } from '../../../src/mod/reverse-include.index';
+import { ParserResultRegistrar } from '../../../src/document/parser-result-registrar';
 import { flattenGroup, invalidateEffectiveChainCache } from '../../../src/semantics/effective-group';
-import { inheritanceEntriesOf } from '../../../src/semantics/reference-resolver';
+import { inheritanceEntriesOf } from '../../../src/document/reference-resolver';
 import { InheritedMember, inheritedMembersFor } from '../../../src/features/completion/inherited-members';
 import { buildActionRootingForScan, resetActionRootingForScan } from '../../scan-rooting-helper';
 

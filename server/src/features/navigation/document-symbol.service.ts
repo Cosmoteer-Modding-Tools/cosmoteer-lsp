@@ -56,121 +56,109 @@ const posToRange = (position: AstPosition): Range =>
  * into. Needs no cross-file resolution: it's a pure structural projection of one
  * document, which is why it's the cheapest navigation primitive to ship.
  */
-export class DocumentSymbolService {
-    private static _instance: DocumentSymbolService;
-    private constructor() {}
+export const getDocumentSymbols = (document: AbstractNodeDocument): DocumentSymbol[] => {
+    return symbolsFromElements(document.elements).map(normalizeSymbol);
+};
 
-    public static get instance(): DocumentSymbolService {
-        if (!DocumentSymbolService._instance) {
-            DocumentSymbolService._instance = new DocumentSymbolService();
+const symbolsFromElements = (elements: AbstractNode[]): DocumentSymbol[] => {
+    const symbols: DocumentSymbol[] = [];
+    elements.forEach((element, index) => {
+        const symbol = symbolFromElement(element, index);
+        if (symbol) symbols.push(symbol);
+    });
+    return symbols;
+};
+
+const symbolFromElement = (element: AbstractNode, index: number): DocumentSymbol | null => {
+    // `key = value` / `key : value` name it by the left identifier. When the value
+    // is itself a container, fold the two into one outline node (`Key { … }`) instead
+    // of nesting an anonymous group under the assignment.
+    if (isAssignmentNode(element)) {
+        const name = element.left.name;
+        const right = element.right;
+        if (isGroupNode(right) || isListNode(right)) {
+            return containerSymbol(name, posToRange(element.left.position), element, right);
         }
-        return DocumentSymbolService._instance;
-    }
-
-    public getDocumentSymbols(document: AbstractNodeDocument): DocumentSymbol[] {
-        return this.symbolsFromElements(document.elements).map(normalizeSymbol);
-    }
-
-    private symbolsFromElements(elements: AbstractNode[]): DocumentSymbol[] {
-        const symbols: DocumentSymbol[] = [];
-        elements.forEach((element, index) => {
-            const symbol = this.symbolFromElement(element, index);
-            if (symbol) symbols.push(symbol);
-        });
-        return symbols;
-    }
-
-    private symbolFromElement(element: AbstractNode, index: number): DocumentSymbol | null {
-        // `key = value` / `key : value` name it by the left identifier. When the value
-        // is itself a container, fold the two into one outline node (`Key { … }`) instead
-        // of nesting an anonymous group under the assignment.
-        if (isAssignmentNode(element)) {
-            const name = element.left.name;
-            const right = element.right;
-            if (isGroupNode(right) || isListNode(right)) {
-                return this.containerSymbol(name, posToRange(element.left.position), element, right);
-            }
-            return {
-                name,
-                detail: this.detailOf(right),
-                kind: this.kindOfValue(right),
-                range: enclosingRange(element),
-                selectionRange: posToRange(element.left.position),
-            };
-        }
-        // An identified `Foo { … }` / `Bar [ … ]`, or an anonymous container/value that is
-        // a positional list element (e.g. the entries of a `Components` list).
-        if (isGroupNode(element) || isListNode(element)) {
-            const name = element.identifier?.name ?? `[${index}]`;
-            const nameRange = posToRange((element.identifier ?? element).position);
-            return this.containerSymbol(name, nameRange, element, element);
-        }
-        // A math run folded into one node is a positional element like any other, so it is outlined
-        // by its index. Without this a list of computed values shows no children at all.
-        if (isValueNode(element) || isMathExpressionNode(element)) {
-            return {
-                name: `[${index}]`,
-                detail: this.detailOf(element),
-                kind: this.kindOfValue(element),
-                range: isMathExpressionNode(element) ? enclosingRange(element) : posToRange(element.position),
-                selectionRange: isMathExpressionNode(element) ? enclosingRange(element) : posToRange(element.position),
-            };
-        }
-        return null;
-    }
-
-    private containerSymbol(
-        name: string,
-        selectionRange: Range,
-        outer: AbstractNode,
-        content: Container
-    ): DocumentSymbol {
         return {
             name,
-            detail: this.containerDetail(content),
-            kind: isListNode(content) ? SymbolKind.Array : SymbolKind.Object,
-            range: enclosingRange(outer),
-            selectionRange,
-            children: this.symbolsFromElements(content.elements),
+            detail: detailOf(right),
+            kind: kindOfValue(right),
+            range: enclosingRange(element),
+            selectionRange: posToRange(element.left.position),
         };
     }
-
-    /**
-     * Outline detail for a container: what it extends (`: Base`) and/or the schema class it resolves
-     * to (`TurretWeaponRules`), so the deeply nested `Part`/`Components` tree reads as typed nodes.
-     * Both, one, or neither: `Turret { Type=TurretWeapon }` → `TurretWeaponRules`. `X : Base` → `: Base`.
-     */
-    private containerDetail(content: Container): string | undefined {
-        const inheritance = this.inheritanceDetail(content);
-        const cls = isGroupNode(content) ? resolveGroupClass(content) : undefined;
-        const className = cls?.split('.').pop();
-        if (inheritance && className) return `${inheritance} · ${className}`;
-        return className ?? inheritance;
+    // An identified `Foo { … }` / `Bar [ … ]`, or an anonymous container/value that is
+    // a positional list element (e.g. the entries of a `Components` list).
+    if (isGroupNode(element) || isListNode(element)) {
+        const name = element.identifier?.name ?? `[${index}]`;
+        const nameRange = posToRange((element.identifier ?? element).position);
+        return containerSymbol(name, nameRange, element, element);
     }
-
-    /** Surface what a container extends (`: Base`) as the outline detail. */
-    private inheritanceDetail(node: Container): string | undefined {
-        if (!node.inheritance?.length) return undefined;
-        // Inheritance values are stored with their `&` sigil (`&Base`); drop it for a
-        // cleaner outline detail (`: Base`).
-        return ': ' + node.inheritance.map((ref) => String(ref.valueType.value).replace(/^&/, '')).join(', ');
+    // A math run folded into one node is a positional element like any other, so it is outlined
+    // by its index. Without this a list of computed values shows no children at all.
+    if (isValueNode(element) || isMathExpressionNode(element)) {
+        return {
+            name: `[${index}]`,
+            detail: detailOf(element),
+            kind: kindOfValue(element),
+            range: isMathExpressionNode(element) ? enclosingRange(element) : posToRange(element.position),
+            selectionRange: isMathExpressionNode(element) ? enclosingRange(element) : posToRange(element.position),
+        };
     }
+    return null;
+};
 
-    private kindOfValue(node: AbstractNode | null): SymbolKind {
-        if (!node) return SymbolKind.Field;
-        if (isFunctionCallNode(node)) return SymbolKind.Function;
-        if (isMathExpressionNode(node)) return SymbolKind.Number;
-        if (isValueNode(node)) return valueSymbolKind(node);
-        return SymbolKind.Field;
-    }
+const containerSymbol = (
+    name: string,
+    selectionRange: Range,
+    outer: AbstractNode,
+    content: Container
+): DocumentSymbol => {
+    return {
+        name,
+        detail: containerDetail(content),
+        kind: isListNode(content) ? SymbolKind.Array : SymbolKind.Object,
+        range: enclosingRange(outer),
+        selectionRange,
+        children: symbolsFromElements(content.elements),
+    };
+};
 
-    private detailOf(node: AbstractNode | null): string | undefined {
-        if (!node) return undefined;
-        if (isValueNode(node)) return String((node as ValueNode).valueType.value);
-        if (isFunctionCallNode(node)) return `${node.name}(…)`;
-        return undefined;
-    }
-}
+/**
+ * Outline detail for a container: what it extends (`: Base`) and/or the schema class it resolves
+ * to (`TurretWeaponRules`), so the deeply nested `Part`/`Components` tree reads as typed nodes.
+ * Both, one, or neither: `Turret { Type=TurretWeapon }` → `TurretWeaponRules`. `X : Base` → `: Base`.
+ */
+const containerDetail = (content: Container): string | undefined => {
+    const inheritance = inheritanceDetail(content);
+    const cls = isGroupNode(content) ? resolveGroupClass(content) : undefined;
+    const className = cls?.split('.').pop();
+    if (inheritance && className) return `${inheritance} · ${className}`;
+    return className ?? inheritance;
+};
+
+/** Surface what a container extends (`: Base`) as the outline detail. */
+const inheritanceDetail = (node: Container): string | undefined => {
+    if (!node.inheritance?.length) return undefined;
+    // Inheritance values are stored with their `&` sigil (`&Base`); drop it for a
+    // cleaner outline detail (`: Base`).
+    return ': ' + node.inheritance.map((ref) => String(ref.valueType.value).replace(/^&/, '')).join(', ');
+};
+
+const kindOfValue = (node: AbstractNode | null): SymbolKind => {
+    if (!node) return SymbolKind.Field;
+    if (isFunctionCallNode(node)) return SymbolKind.Function;
+    if (isMathExpressionNode(node)) return SymbolKind.Number;
+    if (isValueNode(node)) return valueSymbolKind(node);
+    return SymbolKind.Field;
+};
+
+const detailOf = (node: AbstractNode | null): string | undefined => {
+    if (!node) return undefined;
+    if (isValueNode(node)) return String((node as ValueNode).valueType.value);
+    if (isFunctionCallNode(node)) return `${node.name}(…)`;
+    return undefined;
+};
 
 /**
  * Guarantee the LSP invariant that a symbol's `range` encloses its `selectionRange` and every child

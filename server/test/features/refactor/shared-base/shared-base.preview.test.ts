@@ -4,17 +4,17 @@ import { join } from 'path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { CancellationToken, TextEdit } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { uriToFsPath } from '../../../../src/features/navigation/workspace-files';
-import { filePathToUri } from '../../../../src/features/navigation/navigation-strategy';
+import { uriToFsPath } from '../../../../src/workspace/workspace-files';
+import { filePathToUri } from '../../../../src/document/reference-path';
 import { clearSharedBaseScanCache } from '../../../../src/features/refactor/shared-base/mod-scan';
 import { extractSharedBase } from '../../../../src/features/refactor/shared-base/shared-base.command';
+import { SharedBaseHost } from '../../../../src/features/refactor/shared-base/shared-base.types';
 import {
+    SerializedPlan,
     SharedBaseApplyResult,
-    SharedBaseHost,
     SharedBasePreviewResult,
     SharedBaseScanResult,
-} from '../../../../src/features/refactor/shared-base/shared-base.types';
-import { SerializedPlan } from '../../../../src/features/refactor/shared-base/plan.types';
+} from '../../../../../shared/shared-base.types';
 import { FIXTURES_DIR } from '../../../helpers';
 
 // The command driven end to end against a scratch copy of a mod whose three parts are the only

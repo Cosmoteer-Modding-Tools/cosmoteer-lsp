@@ -6,7 +6,7 @@ import { CancellationToken } from 'vscode-languageserver';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
 import { globalSettings } from '../../../src/settings';
-import { ParserResultRegistrar } from '../../../src/registrar/parser-result-registrar';
+import { ParserResultRegistrar } from '../../../src/document/parser-result-registrar';
 import { validateRenderLayers } from '../../../src/features/diagnostics/validator.render-layer';
 import { ShipLayerContext, invalidateShipLayers } from '../../../src/features/ships/ship-layer.index';
 

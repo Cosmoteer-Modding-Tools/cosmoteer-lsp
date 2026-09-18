@@ -13,10 +13,10 @@ import {
     unresolvedIdError,
     validateCrossFileIdReferences,
 } from '../../../src/features/diagnostics/validator.schema-id-reference';
-import { ReverseIncludeIndex } from '../../../src/features/navigation/reverse-include.index';
+import { ReverseIncludeIndex } from '../../../src/mod/reverse-include.index';
 import { BUILTIN_SHIP_CLASS } from '../../../src/document/schema/entity-schema';
 import { SchemaIdIndex } from '../../../src/features/completion/schema-id.index';
-import { ParserResultRegistrar } from '../../../src/registrar/parser-result-registrar';
+import { ParserResultRegistrar } from '../../../src/document/parser-result-registrar';
 import { CosmoteerWorkspaceService } from '../../../src/workspace/cosmoteer-workspace.service';
 import { ActionRootingIndex } from '../../../src/mod/action-rooting.index';
 import { aliasRootIndex } from '../../../src/document/schema/alias-root';
@@ -142,7 +142,11 @@ describe('validateCrossFileIdReferences', () => {
             languages: { diagnostics: { refresh: () => undefined } },
             window: { showWarningMessage: () => undefined },
         } as unknown as Connection);
-        const noop: WorkDoneProgressReporter = { begin: () => undefined, report: () => undefined, done: () => undefined };
+        const noop: WorkDoneProgressReporter = {
+            begin: () => undefined,
+            report: () => undefined,
+            done: () => undefined,
+        };
         return svc.initialize(gameDir, noop);
     });
 
@@ -179,7 +183,7 @@ describe('validateCrossFileIdReferences', () => {
         expect(errors).toHaveLength(0);
     });
 
-    it('does not flag the part\'s own identity fields (e.g. its PartRules ID)', async () => {
+    it("does not flag the part's own identity fields (e.g. its PartRules ID)", async () => {
         // The part's own `ID = my_part` is reference-typed but is the declaration itself: the open
         // buffer writes it in a declaration shape, which the loose probe accepts.
         const errors = await validateCrossFileIdReferences(partWithToggle('on_off'), [workspaceUri], token);
@@ -230,11 +234,11 @@ describe('validateCrossFileIdReferences', () => {
             token
         );
 
-    it('judges a ShipID that omits the file\'s IDPrefix as unresolved', async () => {
+    it("judges a ShipID that omits the file's IDPrefix as unresolved", async () => {
         expect(await judgeShipId('Starstone')).toBe('unresolved');
     });
 
-    it('resolves the composed id, and an unprefixed file\'s bare filename', async () => {
+    it("resolves the composed id, and an unprefixed file's bare filename", async () => {
         expect(await judgeShipId('Blackwolf Starstone')).toBe('resolved');
         expect(await judgeShipId('Courier')).toBe('resolved');
     });
@@ -244,7 +248,10 @@ describe('validateCrossFileIdReferences', () => {
     it('explains the IDPrefix composition and offers the prefixed id as the fix', () => {
         const node = parse('X = "Starstone"');
         const declared = new Set(['Blackwolf Starstone', 'Blackwolf Bonsai', 'Courier']);
-        const error = unresolvedIdError({ node, targetClass: BUILTIN_SHIP_CLASS, value: 'Starstone', fieldName: 'ShipID' }, declared);
+        const error = unresolvedIdError(
+            { node, targetClass: BUILTIN_SHIP_CLASS, value: 'Starstone', fieldName: 'ShipID' },
+            declared
+        );
         expect(error.message).toContain("declares it as 'Blackwolf Starstone'");
         expect(error.message).toContain('IDPrefix');
         expect(error.data?.quickFix?.newText).toBe('Blackwolf Starstone');
@@ -382,7 +389,12 @@ describe('validateCrossFileIdReferences', () => {
                 ActionRootingIndex.instance.reset();
                 await ActionRootingIndex.instance.ensureBuilt([gameDir, buffModDir], token);
                 const verdict = await judgeIdReference(
-                    { node: parse('AI = "merged_ai"'), targetClass: 'Cosmoteer.Ships.AI.ShipAIRules', value: 'merged_ai', fieldName: 'AI' },
+                    {
+                        node: parse('AI = "merged_ai"'),
+                        targetClass: 'Cosmoteer.Ships.AI.ShipAIRules',
+                        value: 'merged_ai',
+                        fieldName: 'AI',
+                    },
                     [pathToFileURL(gameDir).href, pathToFileURL(buffModDir).href],
                     new Map(),
                     token
@@ -422,7 +434,13 @@ describe('validateCrossFileIdReferences', () => {
         it('judges the value position but never the declaring key position', () => {
             const node = parse('X = "my_new_layer"');
             const layerClass = 'Cosmoteer.Ships.ShipRenderLayerRules';
-            const key = { node, targetClass: layerClass, value: 'my_new_layer', fieldName: 'RenderLayers', isMapKey: true };
+            const key = {
+                node,
+                targetClass: layerClass,
+                value: 'my_new_layer',
+                fieldName: 'RenderLayers',
+                isMapKey: true,
+            };
             const value = { node, targetClass: layerClass, value: 'my_new_layer', fieldName: 'Layer' };
             expect(isValidatedIdReference(key)).toBe(false);
             expect(isValidatedIdReference(value)).toBe(true);

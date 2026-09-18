@@ -1,11 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { CancellationToken } from 'vscode-languageserver';
-import { ReferenceAutoCompletionStrategy } from '../../../src/features/completion/strategy/reference.autocompletion-strategy';
+import { completeReference } from '../../../src/features/completion/autocompletion.reference-path';
 import { ValueNode } from '../../../src/core/ast/ast';
 import { findReferenceNode, parseFixture } from '../../helpers';
 
 // Characterization tests for reference autocompletion in workspace-free contexts.
-const strategy = new ReferenceAutoCompletionStrategy();
 const token = CancellationToken.None;
 
 const emptyReferenceNode = (): ValueNode => ({
@@ -14,9 +13,9 @@ const emptyReferenceNode = (): ValueNode => ({
     position: { line: 0, characterStart: 0, characterEnd: 0, start: 0, end: 0 },
 });
 
-describe('ReferenceAutoCompletionStrategy: in-file', () => {
+describe('completeReference: in-file', () => {
     it('offers the static root reference prefixes for an empty, non-inheritance reference', async () => {
-        const result = await strategy.complete({
+        const result = await completeReference({
             node: emptyReferenceNode(),
             isInheritanceNode: false,
             cancellationToken: token,
@@ -25,7 +24,7 @@ describe('ReferenceAutoCompletionStrategy: in-file', () => {
     });
 
     it('offers inheritance-context prefixes for an empty inheritance reference', async () => {
-        const result = await strategy.complete({
+        const result = await completeReference({
             node: emptyReferenceNode(),
             isInheritanceNode: true,
             cancellationToken: token,
@@ -36,7 +35,7 @@ describe('ReferenceAutoCompletionStrategy: in-file', () => {
     it('produces stable completions for a mid-path relative reference (&../RGBA/0)', async () => {
         const doc = parseFixture('colors.rules');
         const node = findReferenceNode(doc, '&../RGBA/0');
-        const result = await strategy.complete({ node, isInheritanceNode: false, cancellationToken: token });
+        const result = await completeReference({ node, isInheritanceNode: false, cancellationToken: token });
         // Snapshot the current behavior. This is the contract the unified resolver must preserve.
         expect(result.sort()).toMatchSnapshot();
     });
@@ -51,7 +50,7 @@ describe('ReferenceAutoCompletionStrategy: in-file', () => {
         const node = findReferenceNode(doc, '&../RGBA/0');
 
         it('offers the parent container members when the cursor is right after `&../`', async () => {
-            const result = await strategy.complete({
+            const result = await completeReference({
                 node,
                 isInheritanceNode: false,
                 cancellationToken: token,
@@ -61,7 +60,7 @@ describe('ReferenceAutoCompletionStrategy: in-file', () => {
         });
 
         it('completes a deeper segment (`&../RGBA/`), not the parent members, when the cursor moves in', async () => {
-            const result = await strategy.complete({
+            const result = await completeReference({
                 node,
                 isInheritanceNode: false,
                 cancellationToken: token,
@@ -76,7 +75,7 @@ describe('ReferenceAutoCompletionStrategy: in-file', () => {
         it('resolves a mid-path member case-insensitively, like navigation (`&../float/`)', async () => {
             // `float` (written `Float`) must resolve so its members are listed. Go-to-def/hover resolve
             // it, and completion has to agree (stepIntoNode does exact-then-lowercase member lookup).
-            const lower = await strategy.complete({
+            const lower = await completeReference({
                 node,
                 isInheritanceNode: false,
                 cancellationToken: token,
@@ -86,7 +85,7 @@ describe('ReferenceAutoCompletionStrategy: in-file', () => {
         });
 
         it('filters the offered members by a lower-case prefix (`&../fl` → Float)', async () => {
-            const result = await strategy.complete({
+            const result = await completeReference({
                 node,
                 isInheritanceNode: false,
                 cancellationToken: token,
@@ -96,13 +95,13 @@ describe('ReferenceAutoCompletionStrategy: in-file', () => {
         });
 
         it('differs from completing the whole written value (the cursor-unaware behaviour)', async () => {
-            const atContainer = await strategy.complete({
+            const atContainer = await completeReference({
                 node,
                 isInheritanceNode: false,
                 cancellationToken: token,
                 valueUpToCursor: '&../',
             });
-            const wholeValue = await strategy.complete({ node, isInheritanceNode: false, cancellationToken: token });
+            const wholeValue = await completeReference({ node, isInheritanceNode: false, cancellationToken: token });
             // The whole value `&../RGBA/0` resolves past the container, so it never offers the
             // container's own members, proving the cursor position changes the answer.
             expect(atContainer).toEqual(expect.arrayContaining(['RGBA', 'RGB', 'Float']));

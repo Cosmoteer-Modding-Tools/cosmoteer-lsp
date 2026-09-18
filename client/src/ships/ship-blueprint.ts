@@ -1,6 +1,7 @@
 import { Uri, commands, l10n, window } from 'vscode';
 import { LanguageClient } from 'vscode-languageclient/node';
 import { VirtualContentProvider } from '../virtual-content-provider';
+import { COSMOTEER_METHOD } from '../../../shared/lsp-methods';
 
 /** The virtual-document scheme the rendered blueprint report is served under. */
 export const SHIP_BLUEPRINT_SCHEME = 'cosmoteer-ship-blueprint';
@@ -62,7 +63,7 @@ export async function showShipBlueprint(
     const active = uri ?? activeResourceUri();
     const targetUri = active?.path.toLowerCase().endsWith('.ship.png') ? active : await pickBlueprint();
     if (!targetUri) return;
-    const markdown = await client.sendRequest<string | null>('cosmoteer/shipBlueprint', {
+    const markdown = await client.sendRequest<string | null>(COSMOTEER_METHOD.shipBlueprint, {
         textDocument: { uri: targetUri.toString() },
     });
     if (!markdown) {

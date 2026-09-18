@@ -16,8 +16,8 @@ import { parseText } from '../../../utils/ast.utils';
 import { indentOfLineAt } from '../../../utils/text.utils';
 import { foldPathCase } from '../../../workspace/fs-cache';
 import { modStringsFiles } from '../../diagnostics/localization-key-insert';
-import { filePathToUri } from '../../navigation/navigation-strategy';
-import { definitionLocationOf } from '../../navigation/reference-location';
+import { filePathToUri } from '../../../document/reference-path';
+import { definitionLocationOf } from '../../../document/reference-location';
 import { idReferenceSites, IdSymbol } from '../../navigation/schema-id-symbol';
 import { editableModRootOf } from '../shared-base/shared-base.analysis-entry';
 import { CloneKey, deriveCloneKey, localizationKeyFieldsOf, stringsInsertsFor } from './clone-localization';
@@ -29,7 +29,8 @@ import {
     removableMemberSpan,
     unitFileKindOf,
 } from './clone-target';
-import { CloneFailure, ClonePlanContext, ClonePlanFile, ClonePlanResult } from './clone.types';
+import { ClonePlanContext, ClonePlanFile, ClonePlanResult } from './clone.types';
+import { CloneFailure } from '../../../../../shared/clone-declaration.types';
 import { isUnder, rebaseUnitFile, slashed, UnitRebaseContext } from './unit-rebase';
 
 /**
@@ -291,6 +292,258 @@ const rewriteCopiedFile = (
     return { text: applyEdits(text, edits), dropped: removal.dropped };
 };
 
+/** Where a clone lands, once the destination has been picked and gated. */
+interface CloneDestination {
+    /** The directory of the file the target was located in. */
+    readonly sourceDir: string;
+    /** The directory the copy lands in, with no trailing slash. */
+    readonly destinationDir: string;
+    /** The root of the tree the copy is written into, which the user must be able to edit. */
+    readonly destinationRoot: string;
+}
+
+/**
+ * Where a clone lands: the directory the caller named, the list element's own directory, or the
+ * default beside or below the source. The destination is refused when it is not one the user may
+ * edit, since a copy is only worth making somewhere they can keep working on it.
+ *
+ * @param target the declaration being cloned.
+ * @param newId the id the copy declares.
+ * @param request the id the copy declares and where it goes.
+ * @param context the project facts the plan needs.
+ * @returns the destination, or the reason there is none.
+ */
+const cloneDestinationOf = (
+    target: CloneTarget,
+    newId: string,
+    request: CloneRequest,
+    context: ClonePlanContext
+): CloneDestination | { failure: CloneFailure; detail?: string[] } => {
+    const sourceDir = dirOfPath(target.fsPath);
+    const sourceEditable = editableModRootOf(target.fsPath);
+    const candidates = new Set<string>();
+    for (const folder of context.folderPaths)
+        for (const root of context.modRootsUnder(folder)) candidates.add(slashed(root));
+    // A collection element is copied into the very list it is already in, so it has no destination to
+    // choose and the caller cannot name one. That also means the file it is written back into has to
+    // be one the user may edit, which is the one case where the source is gated as well.
+    const destination =
+        target.unit === 'listElement'
+            ? { dir: sourceDir }
+            : request.destinationDir
+              ? { dir: slashed(request.destinationDir) }
+              : defaultDestinationDir(target, newId, sourceEditable, [...candidates], context.dataRoot);
+    if ('failure' in destination) return destination;
+    const destinationDir = destination.dir.replace(/\/+$/, '');
+    // The source may be the game's own file, which is the whole point of the feature. The destination
+    // never may: a copy is only worth making somewhere the user can keep working on it.
+    const destinationRoot =
+        target.unit === 'listElement' ? sourceEditable : editableModRootOf(`${destinationDir}/placeholder.rules`);
+    if (!destinationRoot) return { failure: 'notEditable' };
+    return { sourceDir, destinationDir, destinationRoot };
+};
+
+/** Which files a clone carries and where each of them lands. */
+interface CloneUnitFiles {
+    /** The files copied, in walk order, empty for a list element that stays in its own file. */
+    readonly sources: readonly string[];
+    /** Where each source file lands. */
+    readonly destinationOf: ReadonlyMap<string, string>;
+    /** The same, keyed by folded path, which is what the rebaser reads. */
+    readonly unitMap: ReadonlyMap<string, string>;
+}
+
+/**
+ * Which files the copy carries and where each of them lands. The declaring file is renamed with the
+ * folder, because a folder called `big_cannon` holding `cannon.rules` is exactly the half-renamed
+ * state this refactoring exists to avoid.
+ *
+ * @param target the declaration being cloned.
+ * @param newId the id the copy declares.
+ * @param destination where the clone lands.
+ * @returns the file map, or the reason something is already at the destination.
+ */
+const cloneUnitFilesOf = (
+    target: CloneTarget,
+    newId: string,
+    destination: CloneDestination
+): CloneUnitFiles | { failure: CloneFailure; detail?: string[] } => {
+    const { sourceDir, destinationDir } = destination;
+    const sources =
+        target.unit === 'directory' ? filesUnder(sourceDir) : target.unit === 'file' ? [slashed(target.fsPath)] : [];
+    const destinationOf = new Map<string, string>();
+    if (target.unit === 'directory') {
+        // Copying a directory into itself would read the copy as part of the source, so it is refused
+        // along with a destination that is already there.
+        if (existsSync(destinationDir) || isUnder(destinationDir, sourceDir)) {
+            return { failure: 'destinationExists', detail: [destinationDir] };
+        }
+        for (const file of sources) {
+            const inside =
+                foldPathCase(file) === foldPathCase(slashed(target.fsPath))
+                    ? `${idLeafOf(newId)}.rules`
+                    : slashed(relative(sourceDir, file));
+            destinationOf.set(file, `${destinationDir}/${inside}`);
+        }
+    } else if (target.unit === 'file') {
+        destinationOf.set(slashed(target.fsPath), `${destinationDir}/${idLeafOf(newId)}.rules`);
+    }
+    const claimedPaths = new Set<string>();
+    for (const path of destinationOf.values()) {
+        if (existsSync(path) || claimedPaths.has(foldPathCase(path))) {
+            return { failure: 'destinationExists', detail: [path] };
+        }
+        claimedPaths.add(foldPathCase(path));
+    }
+    const unitMap = new Map<string, string>();
+    for (const [from, to] of destinationOf) unitMap.set(foldPathCase(from), to);
+    return { sources, destinationOf, unitMap };
+};
+
+/**
+ * The localization keys the copy declares in place of the source's, each derived from the source
+ * key and checked against the keys the project already holds.
+ *
+ * @param target the declaration being cloned.
+ * @param newId the id the copy declares.
+ * @param context the project facts the plan needs.
+ * @param cancellationToken cancels the reads.
+ * @returns the keys, in the order the fields are declared.
+ */
+const cloneKeysOf = async (
+    target: CloneTarget,
+    newId: string,
+    context: ClonePlanContext,
+    cancellationToken: CancellationToken
+): Promise<CloneKey[]> => {
+    const takenKeys = await context.declaredKeys(cancellationToken).catch(() => new Set<string>());
+    const keyFields = await localizationKeyFieldsOf(target.container, cancellationToken).catch(() => []);
+    const claimed = new Set<string>(takenKeys);
+    const keys: CloneKey[] = [];
+    for (const field of keyFields) {
+        const newKey = deriveCloneKey(field.sourceKey, target.id, newId, claimed);
+        // A key that names no entity of its own is shared text the copy keeps pointing at.
+        if (newKey === undefined) continue;
+        claimed.add(newKey.toLowerCase());
+        keys.push({ ...field, newKey });
+    }
+    return keys;
+};
+
+/** The files a copied unit writes, and what the copy left behind. */
+interface CopiedUnit {
+    readonly files: ClonePlanFile[];
+    /** The `OtherIDs` aliases the copy does not carry over, as written. */
+    readonly droppedOtherIds: string[];
+}
+
+/** Everything the file copier needs that is not already on the target or the destination. */
+interface CopyUnitContext {
+    readonly text: string;
+    readonly document: AbstractNodeDocument;
+    readonly symbol: IdSymbol;
+    readonly newId: string;
+    readonly keys: readonly CloneKey[];
+    readonly destination: CloneDestination;
+    readonly unit: CloneUnitFiles;
+    readonly plan: ClonePlanContext;
+}
+
+/**
+ * The text of every file the copy carries: rules rewritten to declare the new id and to reach the
+ * same files from their new home, prose and sprites carried over byte for byte.
+ *
+ * @param target the declaration being cloned.
+ * @param copy everything the copier needs beyond the target.
+ * @param cancellationToken cancels the reads.
+ * @returns the files and the dropped aliases, or the reason the copy cannot be written.
+ */
+const copyUnitFiles = async (
+    target: CloneTarget,
+    copy: CopyUnitContext,
+    cancellationToken: CancellationToken
+): Promise<CopiedUnit | { failure: CloneFailure; detail?: string[] }> => {
+    const { text, document, symbol, newId, keys, destination, unit, plan } = copy;
+    const declaringPath = slashed(target.fsPath);
+    const files: ClonePlanFile[] = [];
+    let droppedOtherIds: string[] = [];
+    for (const source of unit.sources) {
+        if (cancellationToken.isCancellationRequested) return { failure: 'stale' };
+        const to = unit.destinationOf.get(source)!;
+        const verbatim = (): void => {
+            files.push({ source, destination: to, created: true });
+        };
+        const declaring = foldPathCase(source) === foldPathCase(declaringPath);
+        // The file the caret anchored is rules whatever it is named. A `.txt` beside it is a rules
+        // fragment whose references have to follow the copy when it reads as one, and a note to
+        // the reader otherwise, which travels byte for byte like the sprites do.
+        const kind = declaring ? 'rules' : unitFileKindOf(source);
+        if (kind === 'other') {
+            verbatim();
+            continue;
+        }
+        const fileText = declaring
+            ? text
+            : (plan.openText?.(source) ?? (await readFile(source, { encoding: 'utf-8' }).catch(() => undefined)));
+        if (fileText === undefined) {
+            // A `.rules` the unit cannot read is content the copy needs, so the clone is refused.
+            // A `.txt` goes on travelling byte for byte, exactly as it does when it is prose.
+            if (kind === 'rules') return { failure: 'stale', detail: [source] };
+            verbatim();
+            continue;
+        }
+        let parsed: AbstractNodeDocument;
+        if (kind === 'rules') {
+            try {
+                parsed = declaring ? document : parseText(fileText, source);
+            } catch {
+                return { failure: 'stale', detail: [source] };
+            }
+        } else {
+            const judged = maybeRulesDocumentOf(fileText, source);
+            // Prose holds nothing the copy can rebase, and refusing the clone over it would put a
+            // note in the way of the whole folder.
+            if (judged === undefined) {
+                verbatim();
+                continue;
+            }
+            parsed = judged;
+        }
+        const rebaseContext: UnitRebaseContext = {
+            sourceDir: dirOfPath(source),
+            destinationDir: dirOfPath(to),
+            unit: unit.unitMap,
+            dataRoot: plan.dataRoot,
+            destinationRoot: destination.destinationRoot,
+        };
+        const rewritten = rewriteCopiedFile(
+            source,
+            fileText,
+            parsed,
+            symbol,
+            newId,
+            declaring ? keys : [],
+            rebaseContext,
+            declaring ? target.container : undefined,
+            declaring ? target.node : undefined
+        );
+        if ('failure' in rewritten) {
+            // A `.txt` is only ever guessed to be rules, so a path in it that cannot be carried
+            // over says the guess was wrong rather than that the clone is impossible. The file
+            // travels byte for byte the way prose does, which is what it did before it was read
+            // at all. Refusing here would let one stale path in a note stop a whole part.
+            if (kind === 'maybeRules' && PATH_REFUSALS.has(rewritten.failure)) {
+                verbatim();
+                continue;
+            }
+            return rewritten;
+        }
+        if (declaring) droppedOtherIds = rewritten.dropped;
+        files.push({ source, destination: to, text: rewritten.text, before: fileText, created: true });
+    }
+    return { files, droppedOtherIds };
+};
+
 /**
  * Work out everything a clone would write, without writing any of it.
  *
@@ -316,79 +569,19 @@ export const buildClonePlan = async (
     const declared = await context.declaredIds(target.cls, cancellationToken).catch(() => new Set<string>());
     if (hasId(declared, newId)) return { failure: 'idTaken' };
 
-    const sourceDir = dirOfPath(target.fsPath);
-    const sourceEditable = editableModRootOf(target.fsPath);
-    const candidates = new Set<string>();
-    for (const folder of context.folderPaths)
-        for (const root of context.modRootsUnder(folder)) candidates.add(slashed(root));
-    // A collection element is copied into the very list it is already in, so it has no destination to
-    // choose and the caller cannot name one. That also means the file it is written back into has to
-    // be one the user may edit, which is the one case where the source is gated as well.
-    const destination =
-        target.unit === 'listElement'
-            ? { dir: sourceDir }
-            : request.destinationDir
-              ? { dir: slashed(request.destinationDir) }
-              : defaultDestinationDir(target, newId, sourceEditable, [...candidates], context.dataRoot);
+    const destination = cloneDestinationOf(target, newId, request, context);
     if ('failure' in destination) return destination;
-    const destinationDir = destination.dir.replace(/\/+$/, '');
-    // The source may be the game's own file, which is the whole point of the feature. The destination
-    // never may: a copy is only worth making somewhere the user can keep working on it.
-    const destinationRoot =
-        target.unit === 'listElement' ? sourceEditable : editableModRootOf(`${destinationDir}/placeholder.rules`);
-    if (!destinationRoot) return { failure: 'notEditable' };
+    const { destinationDir } = destination;
 
-    // Which files the copy carries, and where each of them lands.
-    const sources =
-        target.unit === 'directory' ? filesUnder(sourceDir) : target.unit === 'file' ? [slashed(target.fsPath)] : [];
-    const destinationOf = new Map<string, string>();
-    if (target.unit === 'directory') {
-        // Copying a directory into itself would read the copy as part of the source, so it is refused
-        // along with a destination that is already there.
-        if (existsSync(destinationDir) || isUnder(destinationDir, sourceDir)) {
-            return { failure: 'destinationExists', detail: [destinationDir] };
-        }
-        for (const file of sources) {
-            // The declaring file is renamed with the folder. The game's own parts name the folder and
-            // the file after the part, and a folder called `big_cannon` holding `cannon.rules` is
-            // exactly the half-renamed state this refactoring exists to avoid. Every reference inside
-            // the copy follows, because the unit map is what the rebaser reads.
-            const inside =
-                foldPathCase(file) === foldPathCase(slashed(target.fsPath))
-                    ? `${idLeafOf(newId)}.rules`
-                    : slashed(relative(sourceDir, file));
-            destinationOf.set(file, `${destinationDir}/${inside}`);
-        }
-    } else if (target.unit === 'file') {
-        destinationOf.set(slashed(target.fsPath), `${destinationDir}/${idLeafOf(newId)}.rules`);
-    }
-    const claimedPaths = new Set<string>();
-    for (const path of destinationOf.values()) {
-        if (existsSync(path) || claimedPaths.has(foldPathCase(path))) {
-            return { failure: 'destinationExists', detail: [path] };
-        }
-        claimedPaths.add(foldPathCase(path));
-    }
-    const unitMap = new Map<string, string>();
-    for (const [from, to] of destinationOf) unitMap.set(foldPathCase(from), to);
+    const unit = cloneUnitFilesOf(target, newId, destination);
+    if ('failure' in unit) return unit;
 
-    // The localization keys the copy declares in place of the source's.
-    const takenKeys = await context.declaredKeys(cancellationToken).catch(() => new Set<string>());
-    const keyFields = await localizationKeyFieldsOf(target.container, cancellationToken).catch(() => []);
-    const claimed = new Set<string>(takenKeys);
-    const keys: CloneKey[] = [];
-    for (const field of keyFields) {
-        const newKey = deriveCloneKey(field.sourceKey, target.id, newId, claimed);
-        // A key that names no entity of its own is shared text the copy keeps pointing at.
-        if (newKey === undefined) continue;
-        claimed.add(newKey.toLowerCase());
-        keys.push({ ...field, newKey });
-    }
+    const keys = await cloneKeysOf(target, newId, context, cancellationToken);
 
     const symbol: IdSymbol = { id: target.id, rootClass: target.cls, location: definitionLocationOf(target.node) };
     const declaringPath = slashed(target.fsPath);
     const files: ClonePlanFile[] = [];
-    let droppedOtherIds: string[] = [];
+    let droppedOtherIds: string[];
 
     if (target.unit === 'listElement') {
         const duplicate = duplicateListElement(document, text, target, symbol, newId, keys);
@@ -402,81 +595,11 @@ export const buildClonePlan = async (
             created: false,
         });
     } else {
-        for (const source of sources) {
-            if (cancellationToken.isCancellationRequested) return { failure: 'stale' };
-            const to = destinationOf.get(source)!;
-            const verbatim = (): void => {
-                files.push({ source, destination: to, created: true });
-            };
-            const declaring = foldPathCase(source) === foldPathCase(declaringPath);
-            // The file the caret anchored is rules whatever it is named. A `.txt` beside it is a rules
-            // fragment whose references have to follow the copy when it reads as one, and a note to
-            // the reader otherwise, which travels byte for byte like the sprites do.
-            const kind = declaring ? 'rules' : unitFileKindOf(source);
-            if (kind === 'other') {
-                verbatim();
-                continue;
-            }
-            const fileText = declaring
-                ? text
-                : (context.openText?.(source) ??
-                  (await readFile(source, { encoding: 'utf-8' }).catch(() => undefined)));
-            if (fileText === undefined) {
-                // A `.rules` the unit cannot read is content the copy needs, so the clone is refused.
-                // A `.txt` goes on travelling byte for byte, exactly as it does when it is prose.
-                if (kind === 'rules') return { failure: 'stale', detail: [source] };
-                verbatim();
-                continue;
-            }
-            let parsed: AbstractNodeDocument;
-            if (kind === 'rules') {
-                try {
-                    parsed = declaring ? document : parseText(fileText, source);
-                } catch {
-                    return { failure: 'stale', detail: [source] };
-                }
-            } else {
-                const judged = maybeRulesDocumentOf(fileText, source);
-                // Prose holds nothing the copy can rebase, and refusing the clone over it would put a
-                // note in the way of the whole folder.
-                if (judged === undefined) {
-                    verbatim();
-                    continue;
-                }
-                parsed = judged;
-            }
-            const rebaseContext: UnitRebaseContext = {
-                sourceDir: dirOfPath(source),
-                destinationDir: dirOfPath(to),
-                unit: unitMap,
-                dataRoot: context.dataRoot,
-                destinationRoot,
-            };
-            const rewritten = rewriteCopiedFile(
-                source,
-                fileText,
-                parsed,
-                symbol,
-                newId,
-                declaring ? keys : [],
-                rebaseContext,
-                declaring ? target.container : undefined,
-                declaring ? target.node : undefined
-            );
-            if ('failure' in rewritten) {
-                // A `.txt` is only ever guessed to be rules, so a path in it that cannot be carried
-                // over says the guess was wrong rather than that the clone is impossible. The file
-                // travels byte for byte the way prose does, which is what it did before it was read
-                // at all. Refusing here would let one stale path in a note stop a whole part.
-                if (kind === 'maybeRules' && PATH_REFUSALS.has(rewritten.failure)) {
-                    verbatim();
-                    continue;
-                }
-                return rewritten;
-            }
-            if (declaring) droppedOtherIds = rewritten.dropped;
-            files.push({ source, destination: to, text: rewritten.text, before: fileText, created: true });
-        }
+        const copy = { text, document, symbol, newId, keys, destination, unit, plan: context };
+        const copied = await copyUnitFiles(target, copy, cancellationToken);
+        if ('failure' in copied) return copied;
+        files.push(...copied.files);
+        droppedOtherIds = copied.droppedOtherIds;
     }
 
     // The keys go into the destination mod's own language files, never the source's, so cloning a part

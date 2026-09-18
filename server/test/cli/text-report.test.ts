@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { textReport } from '../../src/cli/report/text';
 import { jsonReport } from '../../src/cli/report/json';
-import { UNTAGGED_RULE_ID } from '../../src/cli/rule-ids';
+import { UNTAGGED_RULE_ID } from '../../src/features/diagnostics/rule-ids';
 import { finding, report, withoutGameData } from './report-fixture';
 
 describe('the report a person reads', () => {

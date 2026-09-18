@@ -16,7 +16,8 @@ import {
     upgradePlansToExistingBase,
 } from '../../../../src/features/refactor/shared-base/existing-base';
 import { resolveBaseTarget } from '../../../../src/features/refactor/shared-base/base-index';
-import { BaseLocation, ExtractionPlan } from '../../../../src/features/refactor/shared-base/plan.types';
+import { ExtractionPlan } from '../../../../src/features/refactor/shared-base/plan.types';
+import { BaseLocation } from '../../../../../shared/shared-base.types';
 import { FIXTURES_DIR } from '../../../helpers';
 
 // Three part files that inherit one base file and nothing else does. The fields they repeat belong

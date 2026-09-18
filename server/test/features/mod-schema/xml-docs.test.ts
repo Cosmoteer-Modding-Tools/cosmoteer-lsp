@@ -5,7 +5,8 @@ import { tmpdir } from 'os';
 import bundle from '../../../src/document/schema/cosmoteer.schema.json';
 import { SchemaBundle } from '../../../src/document/schema/schema.types';
 import { readAssembly } from '../../../src/features/mod-schema/dotnet-assembly';
-import { ModSchemaExtension, extractModSchema, gameSchemaView } from '../../../src/features/mod-schema/extract';
+import { extractModSchema, gameSchemaView } from '../../../src/features/mod-schema/extract';
+import { ModSchemaExtension } from '../../../src/document/schema/schema.types';
 import { applyModFieldDocs, parseXmlDocs, summarize } from '../../../src/features/mod-schema/xml-docs';
 
 // A mod author documents their fields in C#, and with the documentation file enabled the compiler

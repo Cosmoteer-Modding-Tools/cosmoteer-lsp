@@ -7,11 +7,11 @@ import { basenameOf, isModRules } from '../../../document/document-kind';
 import { ActionSource } from '../../../mod/action';
 import { findModRoot } from '../../../mod/mod-root';
 import { isStringsFile } from '../../../mod/strings-folder';
-import { memberNameOf, stepIntoNode } from '../../../semantics/reference-resolver';
+import { memberNameOf, stepIntoNode } from '../../../document/reference-resolver';
 import { parseText } from '../../../utils/ast.utils';
 import { isUnder } from '../../../utils/relative-path';
 import { foldPathCase } from '../../../workspace/fs-cache';
-import { uriToFsPath } from '../../navigation/workspace-files';
+import { uriToFsPath } from '../../../workspace/workspace-files';
 import { documentFor, lineEndingOf, openBuffers } from '../command-host';
 import { manifestActionMatches, manifestToWrite } from '../new-content/registration.emitter';
 import { manifestActionInsert } from '../register-part/manifest-action.emitter';
@@ -24,10 +24,10 @@ import {
     OverrideInModApplyResult,
     OverrideInModArgs,
     OverrideInModFailure,
-    OverrideInModHost,
     OverrideInModScanResult,
     OverrideModCandidate,
-} from './override-in-mod.types';
+} from '../../../../../shared/override-in-mod.types';
+import { OverrideInModHost } from './override-in-mod.types';
 import { overridesActionText, sparseOverrideFileText } from './overrides-action.emitter';
 
 /**

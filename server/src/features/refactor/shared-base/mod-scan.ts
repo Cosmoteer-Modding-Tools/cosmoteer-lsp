@@ -3,12 +3,13 @@ import { resolve } from 'path';
 import { CancellationToken } from 'vscode-languageserver';
 import { parseText } from '../../../utils/ast.utils';
 import { foldPathCase, onFsInvalidation } from '../../../workspace/fs-cache';
-import { filePathToUri } from '../../navigation/navigation-strategy';
-import { collectRulesFiles } from '../../navigation/workspace-files';
+import { filePathToUri } from '../../../document/reference-path';
+import { collectRulesFiles } from '../../../workspace/rules-file-walk';
 import { clearBaseFileCache } from './base-index';
 import { Candidate, fileFactsFrom, FileFacts, MIN_FIELDS, plansFromCandidates } from './duplicate-field.analysis';
 import { upgradePlansToExistingBase } from './existing-base';
-import { BaseLocation, ExtractionPlan } from './plan.types';
+import { ExtractionPlan } from './plan.types';
+import { BaseLocation } from '../../../../../shared/shared-base.types';
 
 /**
  * Judged containers per file, the directory listings the walk is built from, and the merged

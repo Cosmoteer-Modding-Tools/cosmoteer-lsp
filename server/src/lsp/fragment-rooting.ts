@@ -1,20 +1,18 @@
 import { CancellationToken } from 'vscode-languageserver/node';
-import { WatchedDocumentIndex } from '../features/navigation/watched-document-index';
-import { ReverseIncludeIndex } from '../features/navigation/reverse-include.index';
-import { SchemaIdIndex } from '../features/completion/schema-id.index';
-import { TemplateBaseIndex } from '../features/diagnostics/template-base.index';
-import { LocalizationKeyIndex } from '../features/completion/localization-key.index';
+import { WatchedDocumentIndex } from '../workspace/watched-document-index';
+import { ReverseIncludeIndex } from '../mod/reverse-include.index';
 import { AddBaseIndex } from '../mod/add-base.index';
 import { MemberInjectionIndex } from '../mod/member-injection.index';
 import { ActionRootingIndex } from '../mod/action-rooting.index';
 import { aliasRootIndex } from '../document/schema/alias-root';
 import { ensureAliasRootIndex } from '../features/navigation/alias-root-builder';
 import { invalidateSchemaContextCache } from '../document/schema/schema-context';
-import { clearNavigationMemo } from '../features/navigation/full.navigation-strategy';
+import { clearNavigationMemo } from '../semantics/navigate-reference';
 import { invalidateEffectiveChainCache } from '../semantics/effective-group';
-import { modFolderPaths } from '../features/navigation/workspace-files';
+import { modFolderPaths } from '../workspace/workspace-files';
 import { perfCount } from '../utils/perf-counters';
 import { CosmoteerWorkspaceService } from '../workspace/cosmoteer-workspace.service';
+import { buildGroupMembers } from './project-indexes';
 import { searchFolderUris, workspaceFolderPaths } from './workspace-folders';
 
 /** Resolves {@link workspaceInitialized} once `onInitialized` settled the game-tree scan. */
@@ -96,17 +94,10 @@ export async function ensureFragmentRooting(cancellationToken: CancellationToken
         ensureAliasRootIndex(cancellationToken, aliasCacheScope)
     ).catch(() => undefined);
     const folders = await searchFolderUris();
+    // Which indexes share each of the two walks below, and in which order, is declared with the
+    // rest of the project-index family in project-indexes.ts.
     await timedStartupPhase('startup.buildTogetherMs', () =>
-        WatchedDocumentIndex.buildTogether(
-            [
-                ReverseIncludeIndex.instance,
-                SchemaIdIndex.instance,
-                TemplateBaseIndex.instance,
-                LocalizationKeyIndex.instance,
-            ],
-            folders,
-            'Indexing project'
-        )
+        WatchedDocumentIndex.buildTogether(buildGroupMembers('project'), folders, 'Indexing project')
     ).catch(() => undefined);
     await timedStartupPhase('startup.reverseIncludeMs', () =>
         ReverseIncludeIndex.instance.ensureBuilt(folders, cancellationToken)
@@ -137,7 +128,7 @@ export async function ensureFragmentRooting(cancellationToken: CancellationToken
     // reconcile dirty files, mirroring the reverse-include pattern above.
     await timedStartupPhase('startup.modActionWalkMs', () =>
         WatchedDocumentIndex.buildTogether(
-            [AddBaseIndex.instance, MemberInjectionIndex.instance],
+            buildGroupMembers('modAction'),
             modFolderPaths(folders),
             'Indexing mod actions'
         )

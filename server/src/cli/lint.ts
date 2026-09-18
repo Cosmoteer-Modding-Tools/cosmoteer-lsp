@@ -11,7 +11,7 @@ import { jsonReport } from './report/json';
 import { GameDataStatus, LintReport } from './report/report';
 import { sarifReport } from './report/sarif';
 import { textReport } from './report/text';
-import { atLeastAsSevere, GAME_DATA_RULES } from './rule-ids';
+import { atLeastAsSevere, GAME_DATA_RULES } from '../features/diagnostics/rule-ids';
 import { defaultServerPath, runScan } from './scan';
 import { TOOL_NAME, toolVersion } from './version';
 

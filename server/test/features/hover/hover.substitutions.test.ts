@@ -1,7 +1,7 @@
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { CancellationToken, Position } from 'vscode-languageserver';
 import { readFileSync } from 'fs';
-import { HoverService } from '../../../src/features/hover/hover.service';
+import { getHover } from '../../../src/features/hover/hover.service';
 import { AbstractNodeDocument, isAssignmentNode } from '../../../src/core/ast/ast';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
@@ -23,7 +23,7 @@ const keyPosition = (doc: AbstractNodeDocument, name: string): Position => {
 };
 
 const hoverText = async (doc: AbstractNodeDocument, name: string): Promise<string> => {
-    const hover = await HoverService.instance.getHover(doc, keyPosition(doc, name), token);
+    const hover = await getHover(doc, keyPosition(doc, name), token);
     if (!hover) return '';
     const contents = hover.contents as { value: string };
     return contents.value;

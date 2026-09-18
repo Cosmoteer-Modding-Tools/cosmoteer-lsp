@@ -8,10 +8,10 @@ import { parser } from '../../../src/core/parser/parser';
 import { globalSettings } from '../../../src/settings';
 import { CosmoteerWorkspaceService } from '../../../src/workspace/cosmoteer-workspace.service';
 import { aliasRootIndex } from '../../../src/document/schema/alias-root';
-import { ReverseIncludeIndex } from '../../../src/features/navigation/reverse-include.index';
+import { ReverseIncludeIndex } from '../../../src/mod/reverse-include.index';
 import { SchemaIdIndex } from '../../../src/features/completion/schema-id.index';
 import { LocalizationKeyIndex } from '../../../src/features/completion/localization-key.index';
-import { ParserResultRegistrar } from '../../../src/registrar/parser-result-registrar';
+import { ParserResultRegistrar } from '../../../src/document/parser-result-registrar';
 import { validateSchemaSiblingReferences } from '../../../src/features/diagnostics/validator.schema-sibling';
 import { validateCrossFileIdReferences } from '../../../src/features/diagnostics/validator.schema-id-reference';
 import { validateLocalizationKeys } from '../../../src/features/diagnostics/validator.localization-key';
@@ -41,11 +41,19 @@ const filesUnder = (root: string, ext: string): string[] => {
     const out: string[] = [];
     const walk = (dir: string): void => {
         let entries: string[];
-        try { entries = readdirSync(dir); } catch { return; }
+        try {
+            entries = readdirSync(dir);
+        } catch {
+            return;
+        }
         for (const entry of entries) {
             const p = join(dir, entry);
             let s;
-            try { s = statSync(p); } catch { continue; }
+            try {
+                s = statSync(p);
+            } catch {
+                continue;
+            }
             if (s.isDirectory()) walk(p);
             else if (entry.endsWith(ext)) out.push(p);
         }
@@ -61,22 +69,45 @@ describe.skipIf(!HAVE)('default-on validators over installed workshop mods', () 
             const rel = fileRef.replace(/[<>]/g, '').trim();
             if (!rel) return undefined;
             const withExt = /\.[^/\\.]+$/.test(rel) ? rel : `${rel}.rules`;
-            for (const abs of [join(dirname(fileURLToPath(fromUri)), withExt), join(DATA_DIR, withExt), join(dirname(DATA_DIR), withExt)]) {
-                if (existsSync(abs)) { try { return parseReal(abs); } catch { return undefined; } }
+            for (const abs of [
+                join(dirname(fileURLToPath(fromUri)), withExt),
+                join(DATA_DIR, withExt),
+                join(dirname(DATA_DIR), withExt),
+            ]) {
+                if (existsSync(abs)) {
+                    try {
+                        return parseReal(abs);
+                    } catch {
+                        return undefined;
+                    }
+                }
             }
             return undefined;
         };
         globalSettings.cosmoteerPath = DATA_DIR;
-        const noop: WorkDoneProgressReporter = { begin: () => undefined, report: () => undefined, done: () => undefined };
+        const noop: WorkDoneProgressReporter = {
+            begin: () => undefined,
+            report: () => undefined,
+            done: () => undefined,
+        };
         const svc = CosmoteerWorkspaceService.instance;
-        svc.setConnection({ languages: { diagnostics: { refresh: () => undefined } }, window: { showWarningMessage: () => undefined } } as unknown as Connection);
+        svc.setConnection({
+            languages: { diagnostics: { refresh: () => undefined } },
+            window: { showWarningMessage: () => undefined },
+        } as unknown as Connection);
         await svc.initialize(DATA_DIR, noop);
         aliasRootIndex.invalidate();
         await aliasRootIndex.build(parseReal(join(DATA_DIR, 'cosmoteer.rules')), resolveRef);
 
         const modDirs = readdirSync(MODS_DIR)
             .map((d) => join(MODS_DIR, d))
-            .filter((p) => { try { return statSync(p).isDirectory(); } catch { return false; } })
+            .filter((p) => {
+                try {
+                    return statSync(p).isDirectory();
+                } catch {
+                    return false;
+                }
+            })
             .slice(FROM, TO);
 
         const findings: string[] = [];
@@ -98,13 +129,19 @@ describe.skipIf(!HAVE)('default-on validators over installed workshop mods', () 
                 for (const file of filesUnder(modDir, '.rules')) {
                     const rel = file.replace(/\\/g, '/').split('/799600/')[1] ?? file;
                     let doc;
-                    try { doc = parseReal(file); } catch { continue; }
+                    try {
+                        doc = parseReal(file);
+                    } catch {
+                        continue;
+                    }
                     // One cross-file pass, read twice: the undeclared-dependency findings are emitted
                     // by it rather than by a pass of their own, and running it again would double the
                     // most expensive check in the sweep.
                     const crossFile = await validateCrossFileIdReferences(doc, folders, token).catch(() => []);
                     const errors = [
-                        ...(await validateSchemaSiblingReferences(doc, token).catch(() => [])).map((e) => `component :: ${e.message}`),
+                        ...(await validateSchemaSiblingReferences(doc, token).catch(() => [])).map(
+                            (e) => `component :: ${e.message}`
+                        ),
                         ...crossFile.filter((e) => !e.data?.addModDependency).map((e) => `crossfile :: ${e.message}`),
                         ...(await validateLocalizationKeys(doc, folders, token).catch(() => [])).map(
                             (e) => `lockey :: ${e.additionalInfo ?? e.message}`
@@ -121,7 +158,9 @@ describe.skipIf(!HAVE)('default-on validators over installed workshop mods', () 
                         ...(await validateDuplicateModIds(doc, folders, token).catch(() => [])).map(
                             (e) => `duplicate-id :: ${e.message}`
                         ),
-                        ...crossFile.filter((e) => e.data?.addModDependency).map((e) => `undeclared-dep :: ${e.message}`),
+                        ...crossFile
+                            .filter((e) => e.data?.addModDependency)
+                            .map((e) => `undeclared-dep :: ${e.message}`),
                     ];
                     for (const error of errors) findings.push(`${rel} :: ${error}`);
                 }
@@ -129,7 +168,8 @@ describe.skipIf(!HAVE)('default-on validators over installed workshop mods', () 
                     const rel = file.replace(/\\/g, '/').split('/799600/')[1] ?? file;
                     const text = readFileSync(file, 'utf8');
                     const diagnostics = await validateShaderDocument(text, file, DATA_DIR).catch(() => []);
-                    for (const d of diagnostics) findings.push(`${rel}:${d.range.start.line + 1} :: shader :: ${d.message}`);
+                    for (const d of diagnostics)
+                        findings.push(`${rel}:${d.range.start.line + 1} :: shader :: ${d.message}`);
                 }
                 scannedMods++;
                 ParserResultRegistrar.instance.clear();

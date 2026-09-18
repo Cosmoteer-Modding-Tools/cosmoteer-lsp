@@ -21,7 +21,7 @@ import { stringValueNodesOf } from '../navigation/schema-reference.navigation';
 import { normalizeDir } from '../navigation/asset-resolver';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
 import { cachedReaddir } from '../../workspace/fs-cache';
-import { ValidationError } from './validator';
+import { didYouMeanFix, ValidationError } from './validator';
 import * as l10n from '@vscode/l10n';
 
 /** What a path field names on disk. The wording of the finding is the only thing this decides. */
@@ -253,9 +253,7 @@ export const validatePathValues = async (
             // finding stays a warning rather than a hard error.
             severity: 'warning',
             ...(info ? { additionalInfo: info } : {}),
-            ...(suggestion
-                ? { data: { quickFix: { title: l10n.t('Change to "{0}"', suggestion), newText: suggestion } } }
-                : {}),
+            ...didYouMeanFix(suggestion),
         });
     }
     return errors;

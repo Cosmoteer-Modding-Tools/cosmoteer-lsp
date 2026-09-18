@@ -1,12 +1,12 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { CancellationToken } from 'vscode-languageserver';
-import { FullNavigationStrategy } from '../../../src/features/navigation/full.navigation-strategy';
+import { navigate as navigateReference } from '../../../src/semantics/navigate-reference';
 import { AbstractNode, AbstractNodeDocument } from '../../../src/core/ast/ast';
 import { findNodeByIdentifier, parseFilePath } from '../../../src/utils/ast.utils';
 import { initWorkspace, valueOf, workspaceFile } from '../../workspace-helper';
 
 // Cross-file reference navigation. Unlike navigation.in-file.test.ts (which never
-// leaves a single AST), these tests drive FullNavigationStrategy through the real
+// leaves a single AST), these tests drive the reference navigation through the real
 // workspace service against on-disk fixtures, covering every multi-file chain:
 //
 //   file -> in-file              <./Data/a.rules>/A/Direct
@@ -21,7 +21,6 @@ import { initWorkspace, valueOf, workspaceFile } from '../../workspace-helper';
 //
 // NOTE: the cross-file grammar is `<file.rules>/path`. The slash after `>` is
 // required. `<file.rules>path` lexes `file.rules>path` as a single segment.
-const nav = new FullNavigationStrategy();
 const token = CancellationToken.None;
 
 let docA: AbstractNodeDocument;
@@ -32,9 +31,9 @@ beforeAll(async () => {
 });
 
 const navigate = (path: string, start = docA, location = workspaceFile('a.rules')) =>
-    nav.navigate(path, start, location, token);
+    navigateReference(path, start, location, token);
 
-describe('FullNavigationStrategy: cross-file references', () => {
+describe('navigate: cross-file references', () => {
     it('file -> in-file: resolves a path walked inside the target file', async () => {
         const result = await navigate('<./Data/a.rules>/A/Direct');
         expect(valueOf(result)).toBe(1);
@@ -57,13 +56,13 @@ describe('FullNavigationStrategy: cross-file references', () => {
 
     it('in-file -> in-file: multi-segment path within a single document', async () => {
         const docB = await parseFilePath(workspaceFile('b.rules'));
-        const result = await nav.navigate('B/Nested/Deep/Leaf', docB, docB.uri, token);
+        const result = await navigateReference('B/Nested/Deep/Leaf', docB, docB.uri, token);
         expect(valueOf(result)).toBe(200);
     });
 
     it('inheritance (cross-file): finds a member defined only on a base in another file', async () => {
         const aChild = findNodeByIdentifier(docA, 'AChild')!;
-        const result = await nav.navigate('BaseOnly', aChild, docA.uri, token);
+        const result = await navigateReference('BaseOnly', aChild, docA.uri, token);
         expect(valueOf(result)).toBe(999);
     });
 
@@ -80,12 +79,12 @@ describe('FullNavigationStrategy: cross-file references', () => {
     it('relative ../ file path: resolves through the real filesystem from a subdirectory', async () => {
         const shipPath = workspaceFile('ships', 'ship.rules');
         const shipDoc = await parseFilePath(shipPath);
-        const result = await nav.navigate('&<../c.rules>/C/Leaf', shipDoc, shipPath, token);
+        const result = await navigateReference('&<../c.rules>/C/Leaf', shipDoc, shipPath, token);
         expect(valueOf(result)).toBe(300);
     });
 
     it('super-path /...: resolves against the workspace cosmoteer.rules root', async () => {
-        const result = await nav.navigate('/Palette/Main', docA, docA.uri, token);
+        const result = await navigateReference('/Palette/Main', docA, docA.uri, token);
         expect(valueOf(result)).toBe(8);
     });
 
@@ -112,8 +111,8 @@ describe('FullNavigationStrategy: cross-file references', () => {
             const compInh = (components as unknown as { inheritance: InhNode[] }).inheritance[0];
             const isoInh = (isOperational as unknown as { inheritance: InhNode[] }).inheritance[0];
 
-            const resolvedComp = await nav.navigate(compInh.valueType.value, compInh, derived.uri, token);
-            const resolvedIso = await nav.navigate(isoInh.valueType.value, isoInh, derived.uri, token);
+            const resolvedComp = await navigateReference(compInh.valueType.value, compInh, derived.uri, token);
+            const resolvedIso = await navigateReference(isoInh.valueType.value, isoInh, derived.uri, token);
 
             expect(resolvedComp && 'identifier' in resolvedComp && (resolvedComp.identifier as { name?: string })?.name).toBe('Components');
             expect(resolvedIso && 'identifier' in resolvedIso && (resolvedIso.identifier as { name?: string })?.name).toBe('IsOperational');
@@ -126,7 +125,7 @@ describe('FullNavigationStrategy: cross-file references', () => {
             const isOperational = findNodeByIdentifier(components, 'IsOperational')!;
 
             // `Type` is defined only on the base IsOperational; the derived one only sets Mode.
-            const result = await nav.navigate('Type', isOperational, derived.uri, token);
+            const result = await navigateReference('Type', isOperational, derived.uri, token);
             expect(valueOf(result)).toBe('MultiToggle');
         });
 
@@ -142,7 +141,7 @@ describe('FullNavigationStrategy: cross-file references', () => {
             const valueNode = (heatProducer as unknown as { elements: { type: string; left?: { name: string }; right: AbstractNode }[] })
                 .elements.find((e) => e.type === 'Assignment' && e.left?.name === 'ResourceStorage')!.right;
 
-            const result = await nav.navigate('&~/Part/^/0/HeatTarget', valueNode, derived.uri, token);
+            const result = await navigateReference('&~/Part/^/0/HeatTarget', valueNode, derived.uri, token);
             expect(valueOf(result)).toBe('HeatStorageDistribution');
         });
     });

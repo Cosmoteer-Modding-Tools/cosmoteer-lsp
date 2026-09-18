@@ -11,6 +11,7 @@ import {
     isValueNode,
     ListNode,
     ValueNode,
+    childNodesOf,
 } from '../../core/ast/ast';
 import {
     classOfGroup,
@@ -19,10 +20,10 @@ import {
     resolveGroupClass,
 } from '../../document/schema/schema-context';
 import { registryOf } from '../../document/schema/schema';
-import { ReverseIncludeIndex } from '../navigation/reverse-include.index';
-import { uriToFsPath } from '../navigation/workspace-files';
+import { ReverseIncludeIndex } from '../../mod/reverse-include.index';
+import { uriToFsPath } from '../../workspace/workspace-files';
 import { cachedParseFilePath } from '../../workspace/fs-cache';
-import { ParserResultRegistrar } from '../../registrar/parser-result-registrar';
+import { ParserResultRegistrar } from '../../document/parser-result-registrar';
 import { overrideTargetsOf } from '../../mod/override-sources';
 import { resolveActionTarget } from '../../mod/action-target-resolver';
 import { FileWithPath, isFile } from '../../workspace/cosmoteer-workspace.service';
@@ -36,8 +37,8 @@ import {
     tupleComponentTargetAt,
 } from '../diagnostics/validator.schema-sibling';
 import { targetsAnotherPart } from '../../semantics/part-components';
-import { childNodesOf, documentRootOf, namedMembersOf } from '../../utils/ast.utils';
-import { Completion } from './autocompletion.service';
+import { documentRootOf, namedMembersOf } from '../../utils/ast.utils';
+import { Completion } from './autocompletion.service.types';
 import { ValueType } from '../../document/schema/schema.types';
 
 /** The registry whose ids the engine resolves part-wide (same constant the id-value completion uses). */

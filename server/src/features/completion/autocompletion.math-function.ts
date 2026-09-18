@@ -13,12 +13,15 @@ import {
 } from '../../core/ast/ast';
 import { CONSTANTS, MATH_FUNCTIONS } from '../../semantics/math-function-registry';
 import { activeCallAt, paramsOf } from '../signature/signature-help.service';
-import { AutoCompletion, Completion, CompletionSuggestion } from './autocompletion.service';
+import { AutoCompletion, Completion, CompletionSuggestion } from './autocompletion.service.types';
 import { fieldOfValueNode } from './autocompletion.schema';
 import { documentScopeClass, findEnclosingGroup, resolveGroupClass } from '../../document/schema/schema-context';
 import { fieldOf } from '../../document/schema/schema';
 import { ValueType } from '../../document/schema/schema.types';
 import { resolveClassThroughInheritance } from './inheritance-resolution';
+
+/** A bare partial identifier, the only value shape that can be the start of a function name. */
+const PARTIAL_IDENTIFIER = /^[A-Za-z_]\w*$/;
 
 /**
  * Builds the completion items for every math function the registry knows, plus the bare constants
@@ -130,9 +133,6 @@ const fieldTypeIn = async (
     }
     return undefined;
 };
-
-/** A bare partial identifier, the only value shape that can be the start of a function name. */
-const PARTIAL_IDENTIFIER = /^[A-Za-z_]\w*$/;
 
 /**
  * Math-function name completion. While a partial name is typed it lexes as an unquoted String

@@ -103,7 +103,9 @@ describe('dead declared fields', () => {
     });
 
     it('stays manual when no base declares TypeCategories either', async () => {
-        const doc = parse(['Base', '{', '\tMaxHealth = 1', '}', 'Part : &Base', '{', '\tFlammable = false', '}', ''].join('\n'));
+        const doc = parse(
+            ['Base', '{', '\tMaxHealth = 1', '}', 'Part : &Base', '{', '\tFlammable = false', '}', ''].join('\n')
+        );
         const errors = await validateIgnoredFields(doc, token);
         const hit = errors.find((e) => e.message.includes('Flammable'));
         expect(hit!.data?.migration?.apply).toBeUndefined();
@@ -129,7 +131,9 @@ describe('dead declared fields', () => {
         expect(hit).toBeTruthy();
         expect(hit!.message).toContain('removed in game version 0.26.1');
         expect(hit!.data?.migration?.apply).toBe('rewrite');
-        expect(hit!.data?.rewrite?.edits[0].newText).toBe('SuppressShipWideExplicitTargetsWhenTargetingShipRelativePoints');
+        expect(hit!.data?.rewrite?.edits[0].newText).toBe(
+            'SuppressShipWideExplicitTargetsWhenTargetingShipRelativePoints'
+        );
     });
 
     it('sanctions removal for the officially unused PenetrationRectType', async () => {

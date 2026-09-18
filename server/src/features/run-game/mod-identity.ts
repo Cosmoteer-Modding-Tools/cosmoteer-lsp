@@ -1,6 +1,6 @@
 import { AbstractNodeDocument } from '../../core/ast/ast';
 import { basename } from 'path';
-import { manifestPathsIn, readManifest, scalarMember } from '../../mod/mod-dependencies';
+import { manifestPathsIn, readManifest, scalarMember } from '../mod-report/mod-dependencies';
 import { GameVersionInfo, declaredCompatibleVersions, modVersionVerdict, readGameVersionInfo } from '../game-version';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
 

@@ -32,8 +32,8 @@ import {
 import { fieldOf, schema } from './schema';
 import { classFitsDocument, topLevelType } from './document-root';
 import { ValueType } from './schema.types';
-import { normalizeUri } from '../../features/navigation/reference-location';
-import { uriToFsPath } from '../../features/navigation/workspace-files';
+import { normalizeUri } from '../reference-location';
+import { uriToFsPath } from '../../utils/uri-path';
 
 const ROOT_CLASS = 'Cosmoteer.Data.Rules';
 

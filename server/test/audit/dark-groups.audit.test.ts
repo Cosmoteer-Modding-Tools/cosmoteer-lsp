@@ -18,7 +18,7 @@ import { groupDiscriminator, listSlotType, memberTypeIn, resolveGroupClass } fro
 import { classByDiscriminator, fieldOf, schema } from '../../src/document/schema/schema';
 import { documentRootClass } from '../../src/document/schema/document-root';
 import { aliasRootIndex } from '../../src/document/schema/alias-root';
-import { ReverseIncludeIndex } from '../../src/features/navigation/reverse-include.index';
+import { ReverseIncludeIndex } from '../../src/mod/reverse-include.index';
 import { MemberInjectionIndex } from '../../src/mod/member-injection.index';
 import { AddBaseIndex } from '../../src/mod/add-base.index';
 import { clearModRootCache } from '../../src/mod/mod-root';

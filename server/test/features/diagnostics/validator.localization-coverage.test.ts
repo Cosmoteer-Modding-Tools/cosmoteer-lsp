@@ -79,7 +79,10 @@ describe('a strings file outside a mod', () => {
         gameDir = mkdtempSync(join(tmpdir(), 'l10nvanilla-'));
         const stringsDir = join(gameDir, 'strings');
         mkdirSync(stringsDir, { recursive: true });
-        writeFileSync(join(stringsDir, 'en.rules'), '__Name = "English"\n\nMisc\n{\n\tOkay = "Okay"\n\tBack = "Back"\n}\n');
+        writeFileSync(
+            join(stringsDir, 'en.rules'),
+            '__Name = "English"\n\nMisc\n{\n\tOkay = "Okay"\n\tBack = "Back"\n}\n'
+        );
         writeFileSync(join(stringsDir, 'de.rules'), '__Name = "Deutsch"\n\nMisc\n{\n\tOkay = "Okay"\n}\n');
     });
 

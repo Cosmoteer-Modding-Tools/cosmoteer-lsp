@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { CancellationToken, Range } from 'vscode-languageserver';
 import { AbstractNodeDocument, ValueNode } from '../../../src/core/ast/ast';
 import { AutoCompletionReference } from '../../../src/features/completion/autocompletion.reference';
-import { Completion } from '../../../src/features/completion/autocompletion.service';
+import { Completion } from '../../../src/features/completion/autocompletion.service.types';
 import { parseFilePath } from '../../../src/utils/ast.utils';
 import { globalSettings } from '../../../src/settings';
 import { initWorkspace, WORKSPACE_DATA_DIR, workspaceFile } from '../../workspace-helper';

@@ -9,7 +9,7 @@ import {
     EXTRACT_SHARED_BASE_ACTION_COMMAND,
     EXTRACT_SHARED_BASE_COMMAND,
 } from '../../../../src/features/refactor/shared-base/shared-base.command';
-import { SerializedPlan } from '../../../../src/features/refactor/shared-base/plan.types';
+import { SerializedPlan } from '../../../../../shared/shared-base.types';
 import { FIXTURES_DIR } from '../../../helpers';
 
 // What the refactoring offered in the editor hands to the client. Both clients key off the command

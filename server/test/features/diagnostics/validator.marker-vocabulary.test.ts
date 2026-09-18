@@ -5,10 +5,7 @@ import { join } from 'path';
 import { tmpdir } from 'os';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
-import {
-    isTypoShape,
-    validateMarkerVocabulary,
-} from '../../../src/features/diagnostics/validator.marker-vocabulary';
+import { isTypoShape, validateMarkerVocabulary } from '../../../src/features/diagnostics/validator.marker-vocabulary';
 import { SchemaIdIndex } from '../../../src/features/completion/schema-id.index';
 import { CosmoteerWorkspaceService } from '../../../src/workspace/cosmoteer-workspace.service';
 import { globalSettings } from '../../../src/settings';
@@ -88,7 +85,11 @@ describe('a category name nothing else in the project writes', () => {
             languages: { diagnostics: { refresh: () => undefined } },
             window: { showWarningMessage: () => undefined },
         } as unknown as Connection);
-        const noop: WorkDoneProgressReporter = { begin: () => undefined, report: () => undefined, done: () => undefined };
+        const noop: WorkDoneProgressReporter = {
+            begin: () => undefined,
+            report: () => undefined,
+            done: () => undefined,
+        };
         return service.initialize(projectDir, noop);
     });
 

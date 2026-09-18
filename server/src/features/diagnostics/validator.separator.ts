@@ -3,6 +3,18 @@ import { AbstractNode } from '../../core/ast/ast';
 import { ValidationError } from './validator';
 import * as l10n from '@vscode/l10n';
 
+/** The tokens that end the member before them, so that the next one starts a member of its own. */
+const MEMBER_BOUNDARIES: ReadonlySet<TOKEN_TYPES> = new Set([
+    TOKEN_TYPES.EQUALS,
+    TOKEN_TYPES.COLON,
+    TOKEN_TYPES.LEFT_BRACE,
+    TOKEN_TYPES.LEFT_BRACKET,
+    TOKEN_TYPES.RIGHT_BRACE,
+    TOKEN_TYPES.RIGHT_BRACKET,
+    TOKEN_TYPES.SEMICOLON,
+    TOKEN_TYPES.COMMA,
+]);
+
 /**
  * Flags `,`/`;` separators a line break already makes redundant. ObjectText ends a field, list
  * element or group member at an unsuppressed newline (and at end of file), so a separator whose
@@ -115,18 +127,6 @@ export const validateMissingSeparators = (tokens: Token[]): ValidationError[] =>
     }
     return errors;
 };
-
-/** The tokens that end the member before them, so that the next one starts a member of its own. */
-const MEMBER_BOUNDARIES: ReadonlySet<TOKEN_TYPES> = new Set([
-    TOKEN_TYPES.EQUALS,
-    TOKEN_TYPES.COLON,
-    TOKEN_TYPES.LEFT_BRACE,
-    TOKEN_TYPES.LEFT_BRACKET,
-    TOKEN_TYPES.RIGHT_BRACE,
-    TOKEN_TYPES.RIGHT_BRACKET,
-    TOKEN_TYPES.SEMICOLON,
-    TOKEN_TYPES.COMMA,
-]);
 
 /**
  * Flags a second reference hung behind a field value on a `,`. A field takes one value and the `,`

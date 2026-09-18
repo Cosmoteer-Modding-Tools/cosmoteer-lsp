@@ -11,9 +11,9 @@ import {
 import { namedMembersOf } from '../../utils/ast.utils';
 import { isLocalizationKeyType } from '../../document/schema/schema';
 import { buildMatchPool, MatchPool } from '../../utils/did-you-mean';
-import { normalizeUri } from '../navigation/reference-location';
-import { WatchedDocumentIndex } from '../navigation/watched-document-index';
-import { Completion } from './autocompletion.service';
+import { normalizeUri } from '../../document/reference-location';
+import { WatchedDocumentIndex } from '../../workspace/watched-document-index';
+import { Completion } from './autocompletion.service.types';
 import { fieldOfValueNode } from './autocompletion.schema';
 
 /** A `strings/` (or `Strings/`) path segment, the reliable convention for language files. */

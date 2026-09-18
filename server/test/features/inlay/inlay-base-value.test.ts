@@ -2,7 +2,7 @@ import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { CancellationToken, InlayHint, Range } from 'vscode-languageserver';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
-import { InlayHintService } from '../../../src/features/inlay/inlay-hint.service';
+import { getInlayHints } from '../../../src/features/inlay/inlay-hint.service';
 import { AbstractNodeDocument } from '../../../src/core/ast/ast';
 import { globalSettings } from '../../../src/settings';
 import { initWorkspace } from '../../workspace-helper';
@@ -12,7 +12,7 @@ const parse = (src: string): AbstractNodeDocument => parser(lexer(src), 'file://
 
 const hintsFor = async (src: string): Promise<InlayHint[]> => {
     const doc = parse(src + '\n');
-    return InlayHintService.instance.getInlayHints(doc, Range.create(0, 0, 50, 0), token);
+    return getInlayHints(doc, Range.create(0, 0, 50, 0), token);
 };
 
 const labels = (hints: InlayHint[]): string[] => hints.map((h) => (typeof h.label === 'string' ? h.label : ''));

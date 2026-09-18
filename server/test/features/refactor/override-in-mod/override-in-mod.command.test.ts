@@ -3,14 +3,14 @@ import { join } from 'path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { CancellationToken, TextEdit } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { filePathToUri } from '../../../../src/features/navigation/navigation-strategy';
+import { filePathToUri } from '../../../../src/document/reference-path';
 import { overrideInMod } from '../../../../src/features/refactor/override-in-mod/override-in-mod.command';
 import {
     OverrideInModApplyResult,
     OverrideInModArgs,
-    OverrideInModHost,
     OverrideInModScanResult,
-} from '../../../../src/features/refactor/override-in-mod/override-in-mod.types';
+} from '../../../../../shared/override-in-mod.types';
+import { OverrideInModHost } from '../../../../src/features/refactor/override-in-mod/override-in-mod.types';
 import { clearBaseFileCache } from '../../../../src/features/refactor/shared-base/base-index';
 import { parseModActions } from '../../../../src/mod/action-parser';
 import { clearModRootCache } from '../../../../src/mod/mod-root';

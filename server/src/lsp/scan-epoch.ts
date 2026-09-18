@@ -1,11 +1,5 @@
 import { globalSettings } from '../settings';
-import { aliasRootIndex } from '../document/schema/alias-root';
-import { ReverseIncludeIndex } from '../features/navigation/reverse-include.index';
-import { ActionRootingIndex } from '../mod/action-rooting.index';
-import { SchemaIdIndex } from '../features/completion/schema-id.index';
-import { TemplateBaseIndex } from '../features/diagnostics/template-base.index';
-import { LocalizationKeyIndex } from '../features/completion/localization-key.index';
-import { MentionIndex } from '../features/navigation/mention.index';
+import { PROJECT_INDEXES } from './project-indexes';
 
 // A scanned file's diagnostics are a pure function of its on-disk content plus the shared state
 // the validators consult (settings, open buffers, the rooting and declaration indexes). The cache
@@ -63,17 +57,11 @@ export function noteScanSettingsChange(): void {
 }
 
 /**
- * The combined revision of every index whose content feeds scanned diagnostics. Captured before a
- * file validates and compared after: a result computed while an index was still ingesting must not
- * be stored, and a stored result is only served while every index is where it was.
+ * The combined revision of every index whose content feeds scanned diagnostics, which is every
+ * entry of `PROJECT_INDEXES` that offers a revision. Captured before a file validates and compared
+ * after: a result computed while an index was still ingesting must not be stored, and a stored
+ * result is only served while every index is where it was.
  *
  * @returns the sum of the participating index revisions.
  */
-export const scanRevisionSum = (): number =>
-    aliasRootIndex.revision +
-    ReverseIncludeIndex.instance.revision +
-    ActionRootingIndex.instance.revision +
-    SchemaIdIndex.instance.revision +
-    TemplateBaseIndex.instance.revision +
-    LocalizationKeyIndex.instance.revision +
-    MentionIndex.instance.revision;
+export const scanRevisionSum = (): number => PROJECT_INDEXES.reduce((sum, index) => sum + (index.revision?.() ?? 0), 0);

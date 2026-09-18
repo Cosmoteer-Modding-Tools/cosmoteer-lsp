@@ -175,173 +175,202 @@ const partNameOf = (part: GroupNode): string => {
     return part.identifier?.name ?? l10n.t('this part');
 };
 
-/**
- * Builds the drawn firing chain of the part at an offset.
- *
- * @param document the parsed document.
- * @param offset the caret's byte offset.
- * @param token cancels the component walk and the delay evaluations.
- * @returns the diagram, or undefined when the caret is not in a part that triggers anything.
- */
-export const buildEffectChainDiagram = async (
-    document: AbstractNodeDocument,
-    offset: number,
-    token: CancellationToken
-): Promise<Diagram | undefined> => {
-    const part = partAt(document, offset);
-    if (!part) return undefined;
-    const components = await componentsOfPart(part, token);
-    if (components.length === 0) return undefined;
+/** The drawing as the passes over the part build it up. */
+interface ChainBuild {
+    /** The components to read, one per name, in the order the part writes them. */
+    readonly byName: Map<string, PartComponent>;
+    /** The boxes, by their id. */
+    readonly nodes: Map<string, DiagramNode>;
+    /** The arrows drawn so far. */
+    readonly edges: DiagramEdge[];
+    /** The boxes that have an arrow at either end, which are the ones that stay. */
+    readonly wired: Set<string>;
+    /** The file the part is written in, which every box's place points into. */
+    readonly uri: string;
+    /** How many of the names written in the part match no component of it. */
+    unresolved: number;
+}
 
+/**
+ * The components of a part, one per name. A part that switches between two sets of components
+ * declares the same id in each of them, and only one of the two is wired in at a time. The first is
+ * kept, which is the one written before the overclocked or otherwise switched-in alternative.
+ *
+ * @param components the part's components, as written.
+ * @returns the kept components by lower-cased name, and how many were dropped as duplicates.
+ */
+const distinctComponents = (
+    components: readonly PartComponent[]
+): { byName: Map<string, PartComponent>; switched: number } => {
     const byName = new Map<string, PartComponent>();
-    // A part that switches between two sets of components declares the same id in each of them, and
-    // only one of the two is wired in at a time. The first is kept, which is the one written before
-    // the overclocked or otherwise switched-in alternative.
     let switched = 0;
     for (const component of components) {
         const key = component.name.toLowerCase();
         if (byName.has(key)) switched++;
         else byName.set(key, component);
     }
+    return { byName, switched };
+};
 
-    const uri = getStartOfAstNode(part).uri;
-    const nodes = new Map<string, DiagramNode>();
-    const edges: DiagramEdge[] = [];
-    const wired = new Set<string>();
-    let unresolved = 0;
-
-    /**
-     * The box for a component, added on first use. A name matching no component of the part gets a
-     * box saying so, since a chain that stops there is exactly what the reader is looking for, and a
-     * reference that could not be followed gets one saying that instead.
-     *
-     * @param reference what the field names.
-     * @returns the box id.
-     */
-    const boxFor = async (reference: ComponentReference): Promise<string> => {
-        const name = reference.name ?? reference.written;
-        const key = name.toLowerCase();
-        const id = `c:${key}`;
-        if (nodes.has(id)) return id;
-        const component = reference.name ? byName.get(key) : undefined;
-        if (!component) {
-            unresolved++;
-            nodes.set(id, {
-                id,
-                label: name,
-                detail: reference.name
-                    ? l10n.t('no component of this part')
-                    : l10n.t('this reference could not be followed'),
-                kind: 'missing',
-            });
-            return id;
-        }
-        const written = memberValueNamed(component.group, 'Type');
-        // The written `Type` first, since that is the word the reader is looking at, and the class's
-        // own discriminator where the component takes its type from a base instead of writing one.
-        const kind =
-            written && isValueNode(written)
-                ? String(written.valueType.value)
-                : component.cls
-                  ? typeDef(component.cls)?.derivedType
-                  : undefined;
-        const delays = await delaysOf(component, token);
-        const plays = wiringMembers(component, isMediaEffectType, mediaEffectFieldNames).some((field) =>
-            memberValueNamed(component.group, field)
-        );
-        const detail = [kind, ...delays, plays ? l10n.t('plays effects') : undefined].filter(Boolean).join(' · ');
-        nodes.set(id, {
+/**
+ * The box for a component, added on first use. A name matching no component of the part gets a box
+ * saying so, since a chain that stops there is exactly what the reader is looking for, and a
+ * reference that could not be followed gets one saying that instead.
+ *
+ * @param build the drawing so far.
+ * @param reference what the field names.
+ * @param token cancels the wait evaluations of the box's detail line.
+ * @returns the box id.
+ */
+const boxFor = async (build: ChainBuild, reference: ComponentReference, token: CancellationToken): Promise<string> => {
+    const name = reference.name ?? reference.written;
+    const key = name.toLowerCase();
+    const id = `c:${key}`;
+    if (build.nodes.has(id)) return id;
+    const component = reference.name ? build.byName.get(key) : undefined;
+    if (!component) {
+        build.unresolved++;
+        build.nodes.set(id, {
             id,
-            label: component.name,
-            detail: detail || undefined,
-            kind: plays ? 'component' : 'member',
-            place: { uri, line: component.group.position.line + 1 },
+            label: name,
+            detail: reference.name
+                ? l10n.t('no component of this part')
+                : l10n.t('this reference could not be followed'),
+            kind: 'missing',
         });
         return id;
-    };
+    }
+    const written = memberValueNamed(component.group, 'Type');
+    // The written `Type` first, since that is the word the reader is looking at, and the class's
+    // own discriminator where the component takes its type from a base instead of writing one.
+    const kind =
+        written && isValueNode(written)
+            ? String(written.valueType.value)
+            : component.cls
+              ? typeDef(component.cls)?.derivedType
+              : undefined;
+    const delays = await delaysOf(component, token);
+    const plays = wiringMembers(component, isMediaEffectType, mediaEffectFieldNames).some((field) =>
+        memberValueNamed(component.group, field)
+    );
+    const detail = [kind, ...delays, plays ? l10n.t('plays effects') : undefined].filter(Boolean).join(' · ');
+    build.nodes.set(id, {
+        id,
+        label: component.name,
+        detail: detail || undefined,
+        kind: plays ? 'component' : 'member',
+        place: { uri: build.uri, line: component.group.position.line + 1 },
+    });
+    return id;
+};
 
-    // Only the components kept above are read, so a part that switches between two sets does not get
-    // the wiring of both drawn over each other.
-    /**
-     * The box for a component a proxy reaches on another part. Such a component is not this part's
-     * to have, so it gets a box saying where it lives rather than one calling it missing.
-     *
-     * @param reference what the proxy names.
-     * @returns the box id.
-     */
-    const otherPart = (reference: ComponentReference): string => {
-        const name = reference.name ?? reference.written;
-        const id = `${OTHER_PART_PREFIX}${name.toLowerCase()}`;
-        if (!nodes.has(id)) {
-            nodes.set(id, {
-                id,
-                label: name,
-                detail: l10n.t('on whichever part the proxy finds beside this one'),
-                kind: 'outside',
-            });
-        }
-        return id;
-    };
+/**
+ * The box for a component a proxy reaches on another part. Such a component is not this part's to
+ * have, so it gets a box saying where it lives rather than one calling it missing.
+ *
+ * @param build the drawing so far.
+ * @param reference what the proxy names.
+ * @returns the box id.
+ */
+const otherPartBox = (build: ChainBuild, reference: ComponentReference): string => {
+    const name = reference.name ?? reference.written;
+    const id = `${OTHER_PART_PREFIX}${name.toLowerCase()}`;
+    if (!build.nodes.has(id)) {
+        build.nodes.set(id, {
+            id,
+            label: name,
+            detail: l10n.t('on whichever part the proxy finds beside this one'),
+            kind: 'outside',
+        });
+    }
+    return id;
+};
 
-    for (const component of byName.values()) {
-        if (token.isCancellationRequested) return undefined;
+/**
+ * Draws an arrow for every trigger a component subscribes to. Only the components the drawing kept
+ * are read, so a part that switches between two sets does not get the wiring of both drawn over each
+ * other.
+ *
+ * @param build the drawing so far.
+ * @param token cancels the member reads.
+ * @returns false when the request was cancelled part way.
+ */
+const addTriggerEdges = async (build: ChainBuild, token: CancellationToken): Promise<boolean> => {
+    for (const component of build.byName.values()) {
+        if (token.isCancellationRequested) return false;
         for (const field of wiringMembers(component, isComponentTriggerType, componentTriggerFieldNames)) {
             const member = await memberOrInherited(component.group, field, token);
             if (!member) continue;
             for (const entry of isListNode(member) ? memberEntries(component.group, field) : [member]) {
                 const link = triggerLinkOf(entry);
                 if (!link) continue;
-                const from = await boxFor(await componentReferenceOf(link.source, token));
-                const to = await boxFor({ name: component.name, written: component.name });
+                const from = await boxFor(build, await componentReferenceOf(link.source, token), token);
+                const to = await boxFor(build, { name: component.name, written: component.name }, token);
                 // The output the trigger picks belongs on the arrow, since a component offering
                 // several of them fires each at a different moment.
-                edges.push({ from, to, kind: 'flow', label: link.output ? `${field} · ${link.output}` : field });
-                wired.add(from);
-                wired.add(to);
+                build.edges.push({ from, to, kind: 'flow', label: link.output ? `${field} · ${link.output}` : field });
+                build.wired.add(from);
+                build.wired.add(to);
             }
         }
     }
+    return true;
+};
 
-    // A proxy fires when the component it stands in for fires, so without this the chain breaks at
-    // every one of them and the branch beyond reads as something nothing sets off. Only a proxy the
-    // trigger pass above already reached is joined up: a storage proxy satisfies the trigger kind
-    // too, because every storage offers one, and drawing the resource plumbing of a part into its
-    // firing chain would fill the picture with pairs that fire nothing and are fired by nothing.
-    // A proxy standing in for another proxy joins the chain only once the first is in it, so the
-    // pass runs again while it keeps reaching further. Each one is expanded once, which bounds it.
+/**
+ * Joins each proxy up with the component it stands in for. A proxy fires when that component fires,
+ * so without this the chain breaks at every one of them and the branch beyond reads as something
+ * nothing sets off. Only a proxy the trigger pass already reached is joined up: a storage proxy
+ * satisfies the trigger kind too, because every storage offers one, and drawing the resource
+ * plumbing of a part into its firing chain would fill the picture with pairs that fire nothing and
+ * are fired by nothing.
+ *
+ * A proxy standing in for another proxy joins the chain only once the first is in it, so the pass
+ * runs again while it keeps reaching further. Each one is expanded once, which bounds it.
+ *
+ * @param build the drawing so far.
+ * @param token cancels the proxy target reads.
+ * @returns false when the request was cancelled part way.
+ */
+const addProxyEdges = async (build: ChainBuild, token: CancellationToken): Promise<boolean> => {
     const expanded = new Set<string>();
     for (let reached = true; reached;) {
         reached = false;
-        for (const component of byName.values()) {
-            if (token.isCancellationRequested) return undefined;
+        for (const component of build.byName.values()) {
+            if (token.isCancellationRequested) return false;
             if (!isProxyComponent(component.cls) || classSatisfiesKind(component.cls, TRIGGER_KIND) !== true) {
                 continue;
             }
             const self = `c:${component.name.toLowerCase()}`;
-            if (expanded.has(self) || !wired.has(self)) continue;
+            if (expanded.has(self) || !build.wired.has(self)) continue;
             expanded.add(self);
             const relayed = memberValueNamed(component.group, TRIGGER_OUTPUT_MEMBER);
             const output = relayed && isValueNode(relayed) ? String(relayed.valueType.value) : undefined;
             for (const target of await proxyTargetsOf(component.group, token)) {
                 const reference = await componentReferenceOf(target.component, token);
-                const from = target.otherPart ? otherPart(reference) : await boxFor(reference);
-                edges.push({
+                const from = target.otherPart ? otherPartBox(build, reference) : await boxFor(build, reference, token);
+                build.edges.push({
                     from,
                     to: self,
                     kind: 'flow',
                     label: output ? `proxies · ${output}` : l10n.t('proxies'),
                 });
-                wired.add(from);
+                build.wired.add(from);
                 reached = true;
             }
         }
     }
+    return true;
+};
 
-    // A component nothing fires and that fires nothing is not part of a chain, so it stays out of the
-    // drawing rather than filling it with disconnected boxes.
-    for (const id of [...nodes.keys()]) if (!wired.has(id)) nodes.delete(id);
-    if (nodes.size === 0) return undefined;
-
+/**
+ * The notes under the drawing: what it deliberately leaves out, and what it had to drop.
+ *
+ * @param unresolved how many written names match no component of the part.
+ * @param switched how many components share a name with another.
+ * @returns the notes, in display order.
+ */
+const chainNotes = (unresolved: number, switched: number): string[] => {
     const notes = [
         l10n.t(
             'A wait is shown only where it works out to one number. A wait a buff can move, and a particle lifetime rolled per shot, have no single value to show.'
@@ -365,6 +394,45 @@ export const buildEffectChainDiagram = async (
             )
         );
     }
+    return notes;
+};
+
+/**
+ * Builds the drawn firing chain of the part at an offset.
+ *
+ * @param document the parsed document.
+ * @param offset the caret's byte offset.
+ * @param token cancels the component walk and the delay evaluations.
+ * @returns the diagram, or undefined when the caret is not in a part that triggers anything.
+ */
+export const buildEffectChainDiagram = async (
+    document: AbstractNodeDocument,
+    offset: number,
+    token: CancellationToken
+): Promise<Diagram | undefined> => {
+    const part = partAt(document, offset);
+    if (!part) return undefined;
+    const components = await componentsOfPart(part, token);
+    if (components.length === 0) return undefined;
+
+    const { byName, switched } = distinctComponents(components);
+    const build: ChainBuild = {
+        byName,
+        nodes: new Map<string, DiagramNode>(),
+        edges: [],
+        wired: new Set<string>(),
+        uri: getStartOfAstNode(part).uri,
+        unresolved: 0,
+    };
+
+    if (!(await addTriggerEdges(build, token))) return undefined;
+    if (!(await addProxyEdges(build, token))) return undefined;
+
+    // A component nothing fires and that fires nothing is not part of a chain, so it stays out of the
+    // drawing rather than filling it with disconnected boxes.
+    const { nodes, edges } = build;
+    for (const id of [...nodes.keys()]) if (!build.wired.has(id)) nodes.delete(id);
+    if (nodes.size === 0) return undefined;
 
     // One colour per chain, named after the box it starts from, so a reader can follow what one
     // trigger sets off through a part whose twenty other arrows cross it.
@@ -384,6 +452,6 @@ export const buildEffectChainDiagram = async (
             ],
             coloured
         ),
-        notes,
+        notes: chainNotes(build.unresolved, switched),
     };
 };

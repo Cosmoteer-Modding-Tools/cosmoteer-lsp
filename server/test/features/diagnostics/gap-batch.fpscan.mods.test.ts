@@ -9,11 +9,11 @@ import { parser } from '../../../src/core/parser/parser';
 import { globalSettings } from '../../../src/settings';
 import { CosmoteerWorkspaceService } from '../../../src/workspace/cosmoteer-workspace.service';
 import { aliasRootIndex } from '../../../src/document/schema/alias-root';
-import { ReverseIncludeIndex } from '../../../src/features/navigation/reverse-include.index';
+import { ReverseIncludeIndex } from '../../../src/mod/reverse-include.index';
 import { SchemaIdIndex } from '../../../src/features/completion/schema-id.index';
 import { LocalizationKeyIndex } from '../../../src/features/completion/localization-key.index';
 import { MemberInjectionIndex } from '../../../src/mod/member-injection.index';
-import { ParserResultRegistrar } from '../../../src/registrar/parser-result-registrar';
+import { ParserResultRegistrar } from '../../../src/document/parser-result-registrar';
 import { ValidationError } from '../../../src/features/diagnostics/validator';
 import { validateIndicatorIndexes } from '../../../src/features/diagnostics/validator.indicator-index';
 import { validateBlendSpriteCodes } from '../../../src/features/diagnostics/validator.blend-sprite';
@@ -160,13 +160,25 @@ describe.skipIf(!HAVE)('the 0.9.0 checks over installed workshop mods', () => {
                     for (const pass of PASSES) {
                         judged.set(pass.name, (judged.get(pass.name) ?? 0) + 1);
                         for (const error of await pass.run(document, token).catch(() => [])) {
-                            findings.push(rel + ':' + (error.node.position.line + 1) + ' :: ' + pass.name + ' :: ' + error.message);
+                            findings.push(
+                                rel + ':' + (error.node.position.line + 1) + ' :: ' + pass.name + ' :: ' + error.message
+                            );
                         }
                     }
                 }
                 scannedMods++;
                 ParserResultRegistrar.instance.clear();
-                console.log('[gapscan] ' + modId + ' done (' + scannedMods + '/' + modDirs.length + ', ' + findings.length + ' findings)');
+                console.log(
+                    '[gapscan] ' +
+                        modId +
+                        ' done (' +
+                        scannedMods +
+                        '/' +
+                        modDirs.length +
+                        ', ' +
+                        findings.length +
+                        ' findings)'
+                );
                 writeFileSync(OUT_FILE, findings.join('\n'), 'utf8');
             }
         } finally {

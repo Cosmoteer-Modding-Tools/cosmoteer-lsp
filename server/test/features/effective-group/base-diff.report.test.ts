@@ -4,7 +4,7 @@ import { CancellationToken } from 'vscode-languageserver';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
 import { generateBaseDiffReport } from '../../../src/features/effective-group/base-diff.report';
-import { filePathToUri } from '../../../src/features/navigation/navigation-strategy';
+import { filePathToUri } from '../../../src/document/reference-path';
 import { initWorkspace, workspaceFile } from '../../workspace-helper';
 
 const token = CancellationToken.None;

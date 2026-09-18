@@ -11,7 +11,7 @@ plugins {
 }
 
 group = "modding.cosmoteer.tools"
-version = "1.0.2"
+version = "1.1.0"
 
 repositories {
     mavenCentral()
@@ -122,7 +122,8 @@ val runRider = intellijPlatformTesting.runIde.register("runRider") {
     useInstaller = false
 }
 
-// The plugin ships the esbuild server bundle plus the assets the Kotlin side reads at runtime.
+// The plugin ships the esbuild server bundle plus the assets the Kotlin side reads at runtime,
+// which includes the webview pages esbuild writes to media/dist and the stylesheets beside them.
 // esbuild must have run at the repo root first (npm run compile); Gradle only stages files.
 // withType covers every sandbox variant (buildPlugin, runIde, runRider, tests).
 tasks.withType<PrepareSandboxTask>().configureEach {

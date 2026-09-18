@@ -14,7 +14,7 @@ import { getStartOfAstNode } from '../utils/ast.utils';
 import { FileTree, FileWithPath, isFile } from '../workspace/cosmoteer-workspace.service';
 import { getParsedFileDocument } from '../workspace/parsed-file-cache';
 import { resolveReference } from './effective-member';
-import { inheritanceEntriesOf, injectedMembersOf, memberNameOf, memberValueOf } from './reference-resolver';
+import { inheritanceEntriesOf, injectedMembersOf, memberNameOf, memberValueOf } from '../document/reference-resolver';
 import {
     EffectiveGroup,
     EffectiveList,

@@ -2,13 +2,20 @@ import { existsSync, readdirSync } from 'fs';
 import { mkdir, writeFile } from 'fs/promises';
 import { join } from 'path';
 import { CancellationToken } from 'vscode-languageserver';
-import { identityOfMod, manifestPathsIn, readManifest, scalarMember } from '../../../mod/mod-dependencies';
+import { identityOfMod, manifestPathsIn, readManifest, scalarMember } from '../../mod-report/mod-dependencies';
 import { isValidModId } from '../../../mod/mod-manifest';
+import { CosmoteerWorkspaceService } from '../../../workspace/cosmoteer-workspace.service';
 import { foldPathCase } from '../../../workspace/fs-cache';
 import { installedModRoots, localModDirs } from '../../../workspace/workshop-dir';
-import { gameVersionsInsertLiteral } from '../../diagnostics/validator.manifest-version';
+import { gameVersionsInsertLiteral } from '../../game-version';
 import { contentFileNameOf } from '../new-content/content-id';
-import { NewModApplyResult, NewModArgs, NewModDestination, NewModResult, NewModScanResult } from './new-mod.types';
+import {
+    NewModApplyResult,
+    NewModArgs,
+    NewModDestination,
+    NewModResult,
+    NewModScanResult,
+} from '../../../../../shared/new-mod.types';
 
 /**
  * The `workspace/executeCommand` id that creates a new mod. Both clients invoke it twice: without a
@@ -112,7 +119,9 @@ const scanRound = async (): Promise<NewModScanResult> => {
     return {
         kind: 'scan',
         destinations,
-        gameVersions: (await gameVersionsInsertLiteral().catch(() => undefined)) ?? '',
+        gameVersions:
+            (await gameVersionsInsertLiteral(CosmoteerWorkspaceService.instance.dataRootPath).catch(() => undefined)) ??
+            '',
         knownAuthors: await knownAuthors().catch(() => []),
     };
 };
@@ -220,7 +229,9 @@ const applyRound = async (args: NewModArgs): Promise<NewModApplyResult> => {
     const strings = join(modRoot, STRINGS_FOLDER, DEFAULT_LANGUAGE_FILE);
     try {
         await mkdir(join(modRoot, STRINGS_FOLDER), { recursive: true });
-        const versions = (await gameVersionsInsertLiteral().catch(() => undefined)) ?? '';
+        const versions =
+            (await gameVersionsInsertLiteral(CosmoteerWorkspaceService.instance.dataRootPath).catch(() => undefined)) ??
+            '';
         await writeFile(manifest, manifestText(id, name, author, versions), 'utf8');
         await writeFile(strings, stringsText(name), 'utf8');
     } catch {

@@ -2,7 +2,7 @@ import { ExtensionContext, Uri, l10n, window, workspace } from 'vscode';
 import { LanguageClient } from 'vscode-languageclient/node';
 import { creationFailureMessage, wiringNotes } from './nebula-wizard';
 import { applyForWizard, scanForWizard, wizardAnchor } from './wizard-client';
-import { escapeHtml, showWizardForm } from './wizard-form';
+import { escapeHtml, modFolderName, showWizardForm } from './wizard-form';
 import { NewTechApplyResult, NewTechPart, NewTechScanResult, TechForm } from './tech-wizard.types';
 
 /**
@@ -70,7 +70,7 @@ export async function createNewTech(context: ExtensionContext, client: LanguageC
     if (!uri) return;
     const scan = await scanForWizard<NewTechScanResult>(client, NEW_TECH_SERVER_COMMAND, uri, techFailureMessage);
     if (!scan) return;
-    const modName = scan.modRoot.replace(/\\/g, '/').split('/').filter(Boolean).pop() ?? scan.modRoot;
+    const modName = modFolderName(scan.modRoot);
     const partOptions = scan.parts
         .map((part) => `<option value="${escapeHtml(part.id)}">${escapeHtml(partLabel(part))}</option>`)
         .join('');

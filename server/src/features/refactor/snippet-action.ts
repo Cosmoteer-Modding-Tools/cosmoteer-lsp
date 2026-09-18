@@ -1,5 +1,6 @@
 import { CodeAction, CodeActionKind, Diagnostic, Range, TextEdit } from 'vscode-languageserver';
-import { hasSnippetCodeActionCapability } from '../../lsp/capabilities';
+import { InsertSnippetArgs } from '../../../../shared/snippet-action.types';
+import { hasSnippetCodeActionCapability } from '../../capabilities';
 
 /**
  * The client's own command for writing a snippet into the editor. The server deliberately leaves it
@@ -7,16 +8,6 @@ import { hasSnippetCodeActionCapability } from '../../lsp/capabilities';
  * has no way to carry one, so the client is the only place this can run.
  */
 export const INSERT_SNIPPET_ACTION_COMMAND = 'cosmoteer.insertSnippetFromAction';
-
-/** The arguments {@link INSERT_SNIPPET_ACTION_COMMAND} takes, as one object. */
-export interface InsertSnippetArgs {
-    /** The file the snippet is written into. */
-    uri: string;
-    /** The span the snippet replaces, empty for a pure insertion. */
-    range: Range;
-    /** The snippet body, in the tab-stop syntax both clients read. */
-    snippet: string;
-}
 
 /**
  * The plain text a snippet body stands for, so a client that cannot place a tab stop still gets the

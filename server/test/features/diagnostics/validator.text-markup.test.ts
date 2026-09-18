@@ -4,7 +4,9 @@ import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
 import { validateTextMarkup } from '../../../src/features/diagnostics/validator.text-markup';
 
-vi.mock('../../../src/mod/mod-root', () => ({ findModRoot: (uri: string) => (/vanilla/.test(uri) ? undefined : 'mod') }));
+vi.mock('../../../src/mod/mod-root', () => ({
+    findModRoot: (uri: string) => (/vanilla/.test(uri) ? undefined : 'mod'),
+}));
 
 const MOD_STRINGS = 'file:///c%3A/mod/strings/en.rules';
 const GAME_STRINGS = 'file:///c%3A/vanilla/strings/en.rules';

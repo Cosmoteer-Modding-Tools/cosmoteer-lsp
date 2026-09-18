@@ -8,12 +8,12 @@ import {
     isGroupNode,
     isListNode,
     isValueNode,
+    descendants,
 } from '../../core/ast/ast';
 import { isModRules } from '../../document/document-kind';
 import { inertCondition, InertCondition } from '../../document/schema/inert-fields';
 import { fieldOf } from '../../document/schema/schema';
 import { resolveGroupClass } from '../../document/schema/schema-context';
-import { childNodesOf } from '../../utils/ast.utils';
 import { referencedSegments } from './validator.ignored-field';
 import { ValidationError } from './validator';
 
@@ -118,37 +118,33 @@ export const validateInertFields = async (
 ): Promise<ValidationError[]> => {
     if (isModRules(document.uri)) return [];
     const errors: ValidationError[] = [];
-    const visit = (node: AbstractNode): void => {
-        if (cancellationToken.isCancellationRequested) return;
-        if (isGroupNode(node)) {
-            const cls = resolveGroupClass(node);
-            if (cls) {
-                for (const element of node.elements) {
-                    if (!isAssignmentNode(element)) continue;
-                    const value = element.right;
-                    if (!value) continue;
-                    const name = element.left.name;
-                    const condition = inertCondition(cls, name);
-                    if (!condition) continue;
-                    if (condition.kind === 'siblingAbsent' && node.inheritance?.length) continue;
-                    if (!fieldOf(cls, name)) continue;
-                    if (referencedSegments(document).has(name.toLowerCase())) continue;
-                    if (!isInert(node, condition)) continue;
-                    const start = element.left.position.start;
-                    const end = value.position.end;
-                    errors.push({
-                        message: messageFor(name, condition),
-                        node: element.left,
-                        range: { start, end },
-                        severity: 'hint',
-                        unnecessary: true,
-                        data: { remove: { title: l10n.t("Remove '{0}'", name), start, end } },
-                    });
-                }
-            }
+    for (const node of descendants(document)) {
+        if (cancellationToken.isCancellationRequested) break;
+        if (!isGroupNode(node)) continue;
+        const cls = resolveGroupClass(node);
+        if (!cls) continue;
+        for (const element of node.elements) {
+            if (!isAssignmentNode(element)) continue;
+            const value = element.right;
+            if (!value) continue;
+            const name = element.left.name;
+            const condition = inertCondition(cls, name);
+            if (!condition) continue;
+            if (condition.kind === 'siblingAbsent' && node.inheritance?.length) continue;
+            if (!fieldOf(cls, name)) continue;
+            if (referencedSegments(document).has(name.toLowerCase())) continue;
+            if (!isInert(node, condition)) continue;
+            const start = element.left.position.start;
+            const end = value.position.end;
+            errors.push({
+                message: messageFor(name, condition),
+                node: element.left,
+                range: { start, end },
+                severity: 'hint',
+                unnecessary: true,
+                data: { remove: { title: l10n.t("Remove '{0}'", name), start, end } },
+            });
         }
-        for (const child of childNodesOf(node)) visit(child);
-    };
-    visit(document);
+    }
     return errors;
 };

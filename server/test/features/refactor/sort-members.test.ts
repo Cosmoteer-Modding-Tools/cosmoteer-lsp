@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { sortMembersCodeAction } from '../../../src/features/refactor/sort-members';
-import { filePathToUri } from '../../../src/features/navigation/navigation-strategy';
+import { filePathToUri } from '../../../src/document/reference-path';
 import { parseText } from '../../../src/utils/ast.utils';
 import { initWorkspace, workspaceFile } from '../../workspace-helper';
 

@@ -6,7 +6,7 @@ import { join } from 'path';
 import { pathToFileURL } from 'url';
 import { lexer } from '../../src/core/lexer/lexer';
 import { parser } from '../../src/core/parser/parser';
-import { stepIntoNode } from '../../src/semantics/reference-resolver';
+import { stepIntoNode } from '../../src/document/reference-resolver';
 import { getStartOfAstNode } from '../../src/utils/ast.utils';
 import {
     cachedParseFilePath,
@@ -16,7 +16,7 @@ import {
     invalidateFsPath,
     onFsInvalidation,
 } from '../../src/workspace/fs-cache';
-import { ParserResultRegistrar } from '../../src/registrar/parser-result-registrar';
+import { ParserResultRegistrar } from '../../src/document/parser-result-registrar';
 import { GroupNode, isValueNode } from '../../src/core/ast/ast';
 
 // Performance regression tests for the caching layers added in the 2026-07 performance pass.

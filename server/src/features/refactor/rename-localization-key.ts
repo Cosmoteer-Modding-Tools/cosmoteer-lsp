@@ -9,12 +9,20 @@ import { isStringsDocument, keyDeclarationsOf, LocalizationKeyIndex } from '../c
 import { modStringsFiles } from '../diagnostics/localization-key-insert';
 import { findModRoot } from '../../mod/mod-root';
 import { isUnderFolder } from '../../mod/strings-folder';
-import { filePathToUri } from '../navigation/navigation-strategy';
-import { normalizeUri } from '../navigation/reference-location';
+import { filePathToUri } from '../../document/reference-path';
+import { normalizeUri } from '../../document/reference-location';
 import { stringValueNodesOf } from '../navigation/schema-reference.navigation';
-import { documentsMentioningWhere, modFolderPaths } from '../navigation/workspace-files';
+import { documentsMentioningWhere, modFolderPaths } from '../../workspace/workspace-files';
 import { dedupeEdits } from '../../utils/text-edit.utils';
 import * as l10n from '@vscode/l10n';
+
+/**
+ * What a segment of a localization key may be called. The game resolves a key by walking the path one
+ * segment at a time, and a segment that is all digits addresses a list position while `.`, `..`, `^`
+ * and `~` are navigation steps, so any of those stops being a name and sends the lookup elsewhere.
+ * Every key segment the base game ships is inside this charset.
+ */
+const VALID_SEGMENT = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 /**
  * Why a rename was turned down. The message is written for the author, so an editor that surfaces the
@@ -43,14 +51,6 @@ interface LocalizationKeyRenameTarget {
     /** The segment's span in the document the rename was started from. */
     range: Range;
 }
-
-/**
- * What a segment of a localization key may be called. The game resolves a key by walking the path one
- * segment at a time, and a segment that is all digits addresses a list position while `.`, `..`, `^`
- * and `~` are navigation steps, so any of those stops being a name and sends the lookup elsewhere.
- * Every key segment the base game ships is inside this charset.
- */
-const VALID_SEGMENT = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 /** A `/`-delimited segment of a key path and its character span within the written key. */
 interface KeySegment {
@@ -275,6 +275,164 @@ const writesTarget = (written: string, target: LocalizationKeyRenameTarget): boo
     return target.isPrefix && folded.startsWith(`${wanted}/`);
 };
 
+/** How a rename step records one rewrite, so the steps never see the edit map itself. */
+type AddEdit = (uri: string, range: Range, text: string) => void;
+
+/**
+ * Rewrites the key's own declaration in every language file of the mod that carries one. A file that
+ * does not declare the key contributes nothing, which is the normal state of a half-translated mod.
+ *
+ * @param target the key segment being renamed.
+ * @param newName the segment's new spelling.
+ * @param files the mod's language files.
+ * @param add records one rewrite.
+ * @param readOverride the unsaved text of an open strings file, preferred over its bytes on disk.
+ * @param cancellationToken cancels the reads.
+ * @returns true when at least one file declared the key.
+ */
+const renameDeclarations = async (
+    target: LocalizationKeyRenameTarget,
+    newName: string,
+    files: readonly string[],
+    add: AddEdit,
+    readOverride: ((absPath: string) => string | undefined) | undefined,
+    cancellationToken: CancellationToken
+): Promise<boolean> => {
+    let declared = false;
+    for (const file of files) {
+        if (cancellationToken.isCancellationRequested) throw new CancellationError();
+        const text = readOverride?.(file) ?? (await readFile(file, 'utf-8').catch(() => undefined));
+        if (text === undefined) continue;
+        let document: AbstractNodeDocument;
+        try {
+            document = parseText(text, file);
+        } catch {
+            continue;
+        }
+        for (const declaration of keyDeclarationsOf(document)) {
+            if (!declaration.nameNode || declaration.path.toLowerCase() !== target.path.toLowerCase()) continue;
+            declared = true;
+            add(filePathToUri(file), identifierRange(declaration.nameNode), newName);
+        }
+    }
+    return declared;
+};
+
+/**
+ * Turns the rename down when it cannot be carried out safely: when somebody else declares the key,
+ * when this mod declares it nowhere, or when the new path is already in use.
+ *
+ * @param target the key segment being renamed.
+ * @param newName the segment's new spelling.
+ * @param own the mod's own language files, as normalized uris.
+ * @param declared whether one of them declares the key.
+ * @param folderPaths the project folders the key index is asked about.
+ * @param cancellationToken cancels the lookups.
+ */
+const refuseUnsafeRename = async (
+    target: LocalizationKeyRenameTarget,
+    newName: string,
+    own: ReadonlySet<string>,
+    declared: boolean,
+    folderPaths: string[],
+    cancellationToken: CancellationToken
+): Promise<void> => {
+    // A key the base game or another mod also declares cannot be renamed from here: those files are
+    // not this mod's to write, and rewriting only this mod's half would leave the game finding the
+    // old key in one place and the new one in the other. Checked before the mod's own declaration,
+    // so a mod merely using somebody else's key is told whose it is.
+    const sources = await LocalizationKeyIndex.instance
+        .sourcesDeclaring(target.path, target.isPrefix, folderPaths, cancellationToken)
+        .catch(() => [] as string[]);
+    const foreign = sources.find((source) => !own.has(source));
+    if (foreign) {
+        throw new RenameRefusedError(
+            l10n.t('"{0}" is also declared in "{1}", which this rename cannot change.', target.path, foreign)
+        );
+    }
+    if (!declared) {
+        throw new RenameRefusedError(
+            l10n.t('No language file of this mod declares "{0}", so there is nothing to rename.', target.path)
+        );
+    }
+
+    // Renaming onto a path that is already in use would merge two strings into one with nothing to
+    // show for it, so it is turned down. The whole branch under the new path counts, since a key and
+    // a group cannot share a name. A change of capitalization is the one safe case, because the game
+    // reads both spellings as the same key anyway.
+    if (newName.toLowerCase() === target.segment.toLowerCase()) return;
+    const taken = renamedPath(target, newName).toLowerCase();
+    const keysLower = await LocalizationKeyIndex.instance
+        .allKeysLower(folderPaths, cancellationToken)
+        .catch(() => new Set<string>());
+    for (const key of keysLower) {
+        if (key !== taken && !key.startsWith(`${taken}/`)) continue;
+        throw new RenameRefusedError(
+            l10n.t('"{0}" is already used by another localization key.', renamedPath(target, newName))
+        );
+    }
+};
+
+/**
+ * Rewrites every `KeyString` field in the mod that points at the key. The search skips the game
+ * tree, which is read-only, and the rewrite stays inside the mod that declares the key, since
+ * another mod's files are not this one's to change.
+ *
+ * @param target the key segment being renamed.
+ * @param newName the segment's new spelling.
+ * @param documentUri the file the rename was started from, which decides the mod being edited.
+ * @param folderPaths the project folders to search.
+ * @param add records one rewrite.
+ * @param cancellationToken cancels the search.
+ */
+const renameKeyReferences = async (
+    target: LocalizationKeyRenameTarget,
+    newName: string,
+    documentUri: string,
+    folderPaths: string[],
+    add: AddEdit,
+    cancellationToken: CancellationToken
+): Promise<void> => {
+    const modRoot = findModRoot(documentUri);
+    const searchFolders = modFolderPaths(folderPaths);
+    const fieldNames = localizationKeyFieldNames();
+    for await (const document of documentsMentioningFolded(
+        searchFolders.length > 0 ? searchFolders : folderPaths,
+        target.path,
+        cancellationToken
+    )) {
+        // A strings file holds the declarations, which were rewritten above. Its values are display
+        // text, never a key pointing anywhere.
+        if (isStringsDocument(document)) continue;
+        if (modRoot && !isUnderFolder(document.uri, modRoot)) continue;
+        for (const node of stringValueNodesOf(document)) {
+            if (cancellationToken.isCancellationRequested) throw new CancellationError();
+            const written = String(node.valueType.value);
+            const trimmed = written.trim();
+            if (!trimmed || !writesTarget(trimmed, target)) continue;
+            const name = assignmentNameOf(node);
+            if (!name || !fieldNames.has(name.toLowerCase())) continue;
+            const field = await fieldOfValueNode(node, cancellationToken).catch(() => undefined);
+            if (!isLocalizationKeyType(field?.valueType)) continue;
+            const base = literalContentStart(node);
+            if (base === undefined) continue;
+            const lead = written.length - written.trimStart().length;
+            const segment = keySegmentsOf(trimmed)[target.segmentIndex];
+            if (!segment) continue;
+            add(
+                filePathToUri(getStartOfAstNode(node).uri),
+                Range.create(
+                    node.position.line,
+                    base + lead + segment.start,
+                    node.position.line,
+                    base + lead + segment.end
+                ),
+                newName
+            );
+        }
+    }
+};
+
 /**
  * The whole rename as one edit: the key's declaration rewritten in every language file the mod ships,
  * plus every `KeyString` field in the project that points at it. Renaming a group rewrites the group's
@@ -323,100 +481,9 @@ export const buildLocalizationKeyRenameEdit = async (
     // The declarations, one language file at a time. The mod's own files are the only ones this can
     // write, which is what keeps the read-only game install out of every rename.
     const own = new Set(files.map((file) => normalizeUri(file)));
-    let declared = false;
-    for (const file of files) {
-        if (cancellationToken.isCancellationRequested) throw new CancellationError();
-        const text = readOverride?.(file) ?? (await readFile(file, 'utf-8').catch(() => undefined));
-        if (text === undefined) continue;
-        let document: AbstractNodeDocument;
-        try {
-            document = parseText(text, file);
-        } catch {
-            continue;
-        }
-        for (const declaration of keyDeclarationsOf(document)) {
-            if (!declaration.nameNode || declaration.path.toLowerCase() !== target.path.toLowerCase()) continue;
-            declared = true;
-            add(filePathToUri(file), identifierRange(declaration.nameNode), newName);
-        }
-    }
-    // A key the base game or another mod also declares cannot be renamed from here: those files are
-    // not this mod's to write, and rewriting only this mod's half would leave the game finding the
-    // old key in one place and the new one in the other. Checked before the mod's own declaration,
-    // so a mod merely using somebody else's key is told whose it is.
-    const sources = await LocalizationKeyIndex.instance
-        .sourcesDeclaring(target.path, target.isPrefix, folderPaths, cancellationToken)
-        .catch(() => [] as string[]);
-    const foreign = sources.find((source) => !own.has(source));
-    if (foreign) {
-        throw new RenameRefusedError(
-            l10n.t('"{0}" is also declared in "{1}", which this rename cannot change.', target.path, foreign)
-        );
-    }
-    if (!declared) {
-        throw new RenameRefusedError(
-            l10n.t('No language file of this mod declares "{0}", so there is nothing to rename.', target.path)
-        );
-    }
-
-    // Renaming onto a path that is already in use would merge two strings into one with nothing to
-    // show for it, so it is turned down. The whole branch under the new path counts, since a key and
-    // a group cannot share a name. A change of capitalization is the one safe case, because the game
-    // reads both spellings as the same key anyway.
-    if (newName.toLowerCase() !== target.segment.toLowerCase()) {
-        const taken = renamedPath(target, newName).toLowerCase();
-        const keysLower = await LocalizationKeyIndex.instance
-            .allKeysLower(folderPaths, cancellationToken)
-            .catch(() => new Set<string>());
-        for (const key of keysLower) {
-            if (key !== taken && !key.startsWith(`${taken}/`)) continue;
-            throw new RenameRefusedError(
-                l10n.t('"{0}" is already used by another localization key.', renamedPath(target, newName))
-            );
-        }
-    }
-
-    // The fields pointing at the key. The search skips the game tree, which is read-only, and the
-    // rewrite stays inside the mod that declares the key: another mod's files are not this one's to
-    // change, and the mod being edited is the whole of what an author expects a rename to touch.
-    const modRoot = findModRoot(documentUri);
-    const searchFolders = modFolderPaths(folderPaths);
-    const fieldNames = localizationKeyFieldNames();
-    for await (const document of documentsMentioningFolded(
-        searchFolders.length > 0 ? searchFolders : folderPaths,
-        target.path,
-        cancellationToken
-    )) {
-        // A strings file holds the declarations, which were rewritten above. Its values are display
-        // text, never a key pointing anywhere.
-        if (isStringsDocument(document)) continue;
-        if (modRoot && !isUnderFolder(document.uri, modRoot)) continue;
-        for (const node of stringValueNodesOf(document)) {
-            if (cancellationToken.isCancellationRequested) throw new CancellationError();
-            const written = String(node.valueType.value);
-            const trimmed = written.trim();
-            if (!trimmed || !writesTarget(trimmed, target)) continue;
-            const name = assignmentNameOf(node);
-            if (!name || !fieldNames.has(name.toLowerCase())) continue;
-            const field = await fieldOfValueNode(node, cancellationToken).catch(() => undefined);
-            if (!isLocalizationKeyType(field?.valueType)) continue;
-            const base = literalContentStart(node);
-            if (base === undefined) continue;
-            const lead = written.length - written.trimStart().length;
-            const segment = keySegmentsOf(trimmed)[target.segmentIndex];
-            if (!segment) continue;
-            add(
-                filePathToUri(getStartOfAstNode(node).uri),
-                Range.create(
-                    node.position.line,
-                    base + lead + segment.start,
-                    node.position.line,
-                    base + lead + segment.end
-                ),
-                newName
-            );
-        }
-    }
+    const declared = await renameDeclarations(target, newName, files, add, readOverride, cancellationToken);
+    await refuseUnsafeRename(target, newName, own, declared, folderPaths, cancellationToken);
+    await renameKeyReferences(target, newName, documentUri, folderPaths, add, cancellationToken);
 
     dedupeEdits(changes);
     return { changes };

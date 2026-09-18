@@ -1,4 +1,12 @@
 /**
+ * The working form of an extraction plan, which holds the records the analysis derived from the AST.
+ * The JSON-safe form that crosses the client boundary is shared with the clients, in
+ * shared/shared-base.types.ts.
+ */
+
+import { BaseLocation, ExtractionTier, SerializedPlan } from '../../../../../shared/shared-base.types';
+
+/**
  * One top-level member of a container, carrying the exact source span a rewrite deletes and the
  * normalized text two containers are compared by. An AssignmentNode has no position of its own and a
  * container's `position.start` is its `{`, not its name, so the span is derived rather than read off
@@ -53,26 +61,6 @@ export interface Participant {
     members: Map<string, MemberRecord>;
 }
 
-/** Where a base a container inherits actually lives, kept so it can be read and edited again. */
-export interface BaseLocation {
-    /** The on-disk path of the file holding the base. */
-    fsPath: string;
-    /** The names of the groups leading to the base inside that file, outermost first. */
-    groupPath: string[];
-}
-
-/** Which duplication a plan came from, reported so the user can tell the shapes apart. */
-export type ExtractionTier =
-    /** Containers that already share a base and still repeat fields it does not carry. */
-    | 'sharedBase'
-    /** Containers of the same schema class that share no base at all, the classic copied file. */
-    | 'cloneFamily'
-    /**
-     * Containers that already share a base, and are the only things in the mod inheriting it, so the
-     * repeated fields belong in that base rather than in a new file wedged in front of it.
-     */
-    | 'existingBase';
-
 /** A ready-to-apply extraction: the members to move, who they move away from, and where they go. */
 export interface ExtractionPlan {
     /** Stable content hash of the participants and fields, so a plan survives a client round trip. */
@@ -104,25 +92,6 @@ export interface ExtractionPlan {
     existingBase?: BaseLocation;
     /** Source bytes the rewrite removes across all participants, the ranking key. */
     savedBytes: number;
-}
-
-/** The JSON-safe form of a plan, the shape that crosses the client boundary. */
-export interface SerializedPlan {
-    id: string;
-    tier: ExtractionTier;
-    className: string;
-    groupName: string;
-    fields: string[];
-    /** Each participant by file uri and the byte offset of its container's name. */
-    participants: Array<{ uri: string; fsPath: string; offset: number }>;
-    donor: { uri: string; fsPath: string; offset: number };
-    baseFsPath: string;
-    inheritedRef?: string;
-    /** The group inside the existing base file the members move onto, only on an `existingBase` plan. */
-    existingBase?: BaseLocation;
-    savedBytes: number;
-    /** A one-line human description for the client's picker. */
-    label: string;
 }
 
 /**

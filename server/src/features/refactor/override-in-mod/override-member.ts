@@ -9,7 +9,7 @@ import {
 } from '../../../core/ast/ast';
 import { isTypableTargetPath } from '../../../mod/action-rooting.index';
 import { memberPathOf } from '../../../semantics/node-path';
-import { memberNameOf, memberValueOf, stepIntoNode } from '../../../semantics/reference-resolver';
+import { memberNameOf, memberValueOf, stepIntoNode } from '../../../document/reference-resolver';
 import { reindent } from '../shared-base/base-file.emitter';
 import { hasMultiLineString, memberSpanOf } from '../shared-base/member-record';
 import { analyzeReferences, applyRebases } from '../shared-base/reference-safety';
@@ -28,30 +28,7 @@ import { overridesTargetPath } from './overrides-action.emitter';
  * also the only way a single value can be changed without replacing the group around it.
  */
 
-/** Why no override can be written for what the caret sits on. */
-export type OverrideRefusal =
-    /** The offset names no member of the file any more. */
-    | 'stale'
-    /** The caret sits in a `[ ]` body, whose elements the game addresses by position. */
-    | 'insideList'
-    /** A hop of the path is written as a number, which names a position rather than a name. */
-    | 'indexSegment'
-    /** The member, or a group around it, carries no name to address it by. */
-    | 'unnamedMember'
-    /** An earlier member of the same name is what the path would reach. */
-    | 'shadowedName'
-    /** The member has no value to copy. */
-    | 'emptyMember'
-    /** The member declares bases of its own, which a copy of its body would drop. */
-    | 'inheritedMember'
-    /** A quoted text in the member runs across a line break, so it cannot be re-indented. */
-    | 'multiLineText'
-    /** The member's value reaches outside itself, so it means something else from the mod. */
-    | 'scopeRelativeValue'
-    /** A path the member carries cannot be re-expressed against the game folder. */
-    | 'unrebasablePath'
-    /** The path that came out is not one the game addresses by plain member names. */
-    | 'untypablePath';
+import { OverrideRefusal } from '../../../../../shared/override-in-mod.types';
 
 /** The one `Overrides` entry that changes the member the caret sits on. */
 export interface OverrideMember {

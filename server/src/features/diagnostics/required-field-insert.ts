@@ -9,6 +9,9 @@ import type { ValidationErrorData } from './validator';
 /** The payload a required-field diagnostic carries for its quick fix, see {@link ValidationErrorData}. */
 type RequiredFieldInsert = NonNullable<ValidationErrorData['insertRequiredFields']>;
 
+/** Whatever may follow the last member on its line without being a member itself. */
+const TRAILING_RUN = /^[ \t]*[,;]?[ \t]*(\/\/.*|\/\*(?:(?!\*\/)[\s\S])*\*\/[ \t]*)?$/;
+
 /**
  * The literal a scaffolded field is written with, neutral enough to read as a placeholder and still a
  * value the game loads. Only the kinds that have such a value are covered, and every other kind is
@@ -41,6 +44,12 @@ export const placeholderValue = (valueType: ValueType): string | null => {
  * The indentation the group's members are written with, read from the line the insertion point sits
  * on. This is the same run of spaces and tabs a member record keeps as its own indent, taken from the
  * text rather than from a node, so a file written with spaces keeps them.
+ *
+ * This reads an offset, where `memberIndentOf` in the shared writer reads a container, and the two
+ * part company on a member that shares its line with its siblings (`:~{ File="x"; Tier=1; }`): this
+ * one takes the line's own leading whitespace, the shared one refuses the line and falls back to the
+ * container's nesting depth. Neither is wrong, and a group written on one line never reaches either,
+ * since the members are joined inline instead.
  *
  * @param text the file's source.
  * @param offset the insertion point.
@@ -87,9 +96,6 @@ export const requiredFieldInsert = (
     }
     return fields.length > 0 ? { offset, groupEnd, fields } : undefined;
 };
-
-/** Whatever may follow the last member on its line without being a member itself. */
-const TRAILING_RUN = /^[ \t]*[,;]?[ \t]*(\/\/.*|\/\*(?:(?!\*\/)[\s\S])*\*\/[ \t]*)?$/;
 
 /**
  * The offset the scaffold is written at, moved past whatever trails the last member on its line.

@@ -14,6 +14,8 @@ import { LanguageClient } from 'vscode-languageclient/node';
 import { createCosmoteerPanel, disposeAll, imageDataUri, stringsScript, webviewShell } from '../webview-util';
 import { partGridEditorStrings } from '../webview-strings';
 import { EditMessage, PartGridData, PartGridEditResult } from './editor-panel.types';
+import { PartGridPanelMessage } from './editor-panel.types';
+import { COSMOTEER_METHOD } from '../../../shared/lsp-methods';
 
 /**
  * Owns the single live part grid editor webview. It asks the language server for the part at the
@@ -102,7 +104,7 @@ export class PartGridEditorPanel {
     /** Queries the server and posts the payload with inlined sprite images to the webview. */
     private async render(uri: Uri, position: Position): Promise<void> {
         this.tracked = { uri, position };
-        const data = await this.client.sendRequest<PartGridData | null>('cosmoteer/partGridData', {
+        const data = await this.client.sendRequest<PartGridData | null>(COSMOTEER_METHOD.partGridData, {
             textDocument: { uri: uri.toString() },
             position: { line: position.line, character: position.character },
         });
@@ -126,13 +128,7 @@ export class PartGridEditorPanel {
      * WorkspaceEdit applied locally so undo stays native), `openLocation` jumps to a value's
      * source, and `refresh` re-renders on demand.
      */
-    private async onMessage(message: {
-        type: string;
-        uri?: string;
-        range?: unknown;
-        mutation?: unknown;
-        dataVersion?: number;
-    }): Promise<void> {
+    private async onMessage(message: PartGridPanelMessage): Promise<void> {
         if (message.type === 'edit' && this.tracked && this.anchor) {
             await this.applyMutation({
                 type: 'edit',
@@ -159,7 +155,7 @@ export class PartGridEditorPanel {
         }
         this.editInFlight = true;
         try {
-            const result = await this.client.sendRequest<PartGridEditResult | null>('cosmoteer/partGridEdit', {
+            const result = await this.client.sendRequest<PartGridEditResult | null>(COSMOTEER_METHOD.partGridEdit, {
                 textDocument: { uri: this.tracked.uri.toString() },
                 anchor: this.anchor,
                 dataVersion: message.dataVersion,
@@ -211,7 +207,7 @@ export class PartGridEditorPanel {
 <div id="sidebar"></div>
 </div>
 ${stringsScript(nonce, partGridEditorStrings())}
-<script nonce="${nonce}" src="${asset('part-grid-editor.js')}"></script>
+<script nonce="${nonce}" src="${asset('dist', 'part-grid-editor.js')}"></script>
 </body>
 </html>`;
     }

@@ -1,6 +1,5 @@
 import { existsSync } from 'fs';
 import { mkdir, writeFile } from 'fs/promises';
-import { relative } from 'path';
 import { CancellationToken } from 'vscode-languageserver';
 import {
     AbstractNode,
@@ -10,19 +9,28 @@ import {
     isValueNode,
     ValueNode,
 } from '../../core/ast/ast';
-import { identityOfMod, ModIdentity } from '../../mod/mod-dependencies';
+import { identityOfMod, ModIdentity } from '../mod-report/mod-dependencies';
 import { namedMembersOf } from '../../utils/ast.utils';
-import { filePathToUri } from '../navigation/navigation-strategy';
-import { lineEndingOf } from '../refactor/command-host';
+import { filePathToUri } from '../../document/reference-path';
 import { authorPrefixOf } from '../refactor/new-content/content-id';
 import { NewContentHost, writeLocalizationKeys } from '../refactor/new-content/new-content.command';
-import { gameRootListTarget, manifestForRegistration } from '../refactor/new-content/registration.emitter';
+import { gameRootListTarget } from '../refactor/new-content/registration.emitter';
 import { relativeRulesReference } from '../refactor/shared-base/base-file.emitter';
 import { dirOf, readRulesFile, resolveBasePath } from '../refactor/shared-base/base-index';
 import { memberOf } from '../refactor/new-content/registry-ids';
 import { factionSegment, keyLabelOf } from './builtin-ships.emitter';
 import { LineEnding } from './builtin-ships.types';
-import { elementTextOf, ManifestWiring, modRootFor, wireIntoManifest } from './mod-wiring';
+import {
+    BARE_RULES_ID,
+    ManifestWiring,
+    ResolvedGameRoot,
+    elementTextOf,
+    installReference,
+    modRootFor,
+    registrationLineEnding,
+    wireIntoManifest,
+    resolveGameRoot,
+} from './mod-wiring';
 import {
     NebulaBase,
     NebulaColor,
@@ -96,9 +104,6 @@ const FALLBACK_COLOR: NebulaColor = [128, 128, 128];
 
 /** The folder a nebula's own files go under, mirroring the game's own tree. */
 const NEBULAS_FOLDER = 'nebulas';
-
-/** A nebula id as the game accepts one: a bare word, since spawners and doodads write it unquoted. */
-const NEBULA_ID = /^[A-Za-z][A-Za-z0-9_]*$/;
 
 /** A scan result carrying nothing but the reason there is nothing to report. */
 const scanFailed = (failure: NewNebulaFailure): NewNebulaScanResult => ({
@@ -199,7 +204,7 @@ const basesOf = async (dataRoot: string): Promise<(NebulaBase & { file: string }
         if (!file || !read) continue;
         const idNode = memberOf(read.document, ID_MEMBER);
         const id = isValueNode(idNode) ? String(idNode.valueType.value).trim() : '';
-        if (!NEBULA_ID.test(id)) continue;
+        if (!BARE_RULES_ID.test(id)) continue;
         const material = memberOf(read.document, MATERIAL_LOW_MEMBER);
         const colors = COLOR_FIELDS.map(
             (field) => (material ? materialColorOf(material, field) : undefined) ?? FALLBACK_COLOR
@@ -271,17 +276,6 @@ const nebulaFilesOf = (modRoot: string, id: string): NebulaFiles => {
         doodad: `${folder}/doodad_nebula_${segment}.rules`,
     };
 };
-
-/**
- * The reference a mod file names one of the game's own files by: `<./Data/…>` resolves against the
- * install wherever the mod sits, which a path relative to the mod would not.
- *
- * @param dataRoot the game's `Data` directory.
- * @param file a file under it.
- * @returns the reference, without the reading sigil.
- */
-const installReference = (dataRoot: string, file: string): string =>
-    `<./Data/${relative(dataRoot, file).replace(/\\/g, '/')}>`;
 
 /**
  * The nebula file: the base inherited whole, with the id, the texts and every coloured material
@@ -438,6 +432,114 @@ const takenIdsOf = async (
 };
 
 /**
+ * The spawner figures the client asked for, each falling back to the one the game's own storms use
+ * when what arrived is not a figure the generator could read.
+ *
+ * @param args the client's arguments.
+ * @returns the figures.
+ */
+const spawnerFiguresOf = (args: NewNebulaArgs): SpawnerFigures => ({
+    radius:
+        Number.isFinite(args.radius) && (args.radius as number) > 0
+            ? Math.round(args.radius as number)
+            : DEFAULT_RADIUS,
+    count: rangeOf(args.count, DEFAULT_COUNT),
+    distance: rangeOf(args.distance, DEFAULT_DISTANCE),
+    spawnChance:
+        Number.isFinite(args.spawnChance) && (args.spawnChance as number) >= 0 && (args.spawnChance as number) <= 100
+            ? Math.round(args.spawnChance as number)
+            : DEFAULT_SPAWN_CHANCE,
+    avoidStartingSector: args.avoidStartingSector !== false,
+});
+
+/** What a nebula's own three files are written from, once the base has been read. */
+interface NebulaPlan {
+    readonly id: string;
+    readonly label: string;
+    readonly doodadId: string;
+    /** The base file the nebula inherits, as the new file has to spell the reference. */
+    readonly baseReference: string;
+    /** The members of the base that carry a colour, which the new file overrides. */
+    readonly coloredMembers: ReturnType<typeof coloredMembersOf>;
+    readonly colors: NebulaColors;
+    readonly figures: SpawnerFigures;
+}
+
+/**
+ * Writes a nebula's own files: the type, the career spawner entry and the palette doodad.
+ *
+ * @param plan what the files are written from.
+ * @param files where they go.
+ * @param lineEnding the ending the new files are written with.
+ * @returns the files written, or undefined when a write failed.
+ */
+const writeNebulaFiles = async (
+    plan: NebulaPlan,
+    files: NebulaFiles,
+    lineEnding: LineEnding
+): Promise<string[] | undefined> => {
+    const created: string[] = [];
+    try {
+        await mkdir(files.folder, { recursive: true });
+        await writeFile(
+            files.nebula,
+            nebulaFileText(plan.id, plan.label, plan.baseReference, plan.coloredMembers, plan.colors, lineEnding),
+            { encoding: 'utf-8', flag: 'wx' }
+        );
+        await writeFile(files.spawner, spawnerFileText(plan.id, plan.figures, lineEnding), {
+            encoding: 'utf-8',
+            flag: 'wx',
+        });
+        await writeFile(files.doodad, doodadFileText(plan.doodadId, plan.id, plan.label, lineEnding), {
+            encoding: 'utf-8',
+            flag: 'wx',
+        });
+        created.push(files.nebula, files.spawner, files.doodad);
+    } catch {
+        return undefined;
+    }
+    return created;
+};
+
+/**
+ * The actions a manifest has to carry for a nebula to be met: its registry entry, its career
+ * spawner entry and its palette doodad.
+ *
+ * @param files the nebula's own files.
+ * @param game the game tree the targets are read against.
+ * @param manifestDir the directory the manifest sits in, which its references are relative to.
+ * @returns one wiring per key, each with the target it needs or undefined when the game names none.
+ */
+const nebulaWirings = (files: NebulaFiles, game: ResolvedGameRoot, manifestDir: string): Wiring[] => {
+    const { dataRoot, rootPath, rootDocument } = game;
+    const reference = (file: string, member?: string): string =>
+        `&${relativeRulesReference(manifestDir, file, member)}`;
+    return [
+        {
+            key: 'registry',
+            target: registryTarget(rootDocument, rootPath, dataRoot),
+            reference: reference(files.nebula, 'Nebula'),
+            file: files.nebula,
+            wholeList: false,
+        },
+        {
+            key: 'spawner',
+            target: existsSync(`${dataRoot.replace(/\\/g, '/')}/${SPAWNER_FILE}`) ? SPAWNER_TARGET : undefined,
+            reference: reference(files.spawner, SPAWNER_LIST),
+            file: files.spawner,
+            wholeList: true,
+        },
+        {
+            key: 'doodad',
+            target: gameRootListTarget(rootDocument, rootPath, dataRoot, DOODADS_MEMBER),
+            reference: reference(files.doodad),
+            file: files.doodad,
+            wholeList: false,
+        },
+    ];
+};
+
+/**
  * Create the nebula and wire it in.
  *
  * @param args the client's arguments.
@@ -453,11 +555,10 @@ const applyRound = async (
     cancellationToken: CancellationToken
 ): Promise<NewNebulaApplyResult> => {
     const id = (args.id ?? '').trim();
-    if (!NEBULA_ID.test(id)) return applyFailed(id, 'invalidId');
-    const dataRoot = host.dataRoot();
-    const root = await host.gameRoot().catch(() => undefined);
-    const rootDocument = (root?.content as { parsedDocument?: AbstractNodeDocument } | undefined)?.parsedDocument;
-    if (!dataRoot || !root?.path || !rootDocument) return applyFailed(id, 'noGameRoot');
+    if (!BARE_RULES_ID.test(id)) return applyFailed(id, 'invalidId');
+    const game = await resolveGameRoot(host);
+    if (!game) return applyFailed(id, 'noGameRoot');
+    const { dataRoot } = game;
     const bases = await basesOf(dataRoot);
     if (!bases || bases.length === 0) return applyFailed(id, 'noGameRoot');
     const taken = await takenIdsOf(bases, host, cancellationToken);
@@ -469,62 +570,27 @@ const applyRound = async (
     const base = bases.find((candidate) => candidate.id.toLowerCase() === wantedBase) ?? bases[0];
     const baseFile = await readRulesFile(base.file);
     if (!baseFile) return applyFailed(id, 'noGameRoot');
-    const colors = (
-        Array.isArray(args.colors) && args.colors.length === 3
-            ? args.colors.map((color, index) => colorOf(color) ?? base.colors[index])
-            : base.colors
-    ) as NebulaColors;
-    const figures: SpawnerFigures = {
-        radius:
-            Number.isFinite(args.radius) && (args.radius as number) > 0
-                ? Math.round(args.radius as number)
-                : DEFAULT_RADIUS,
-        count: rangeOf(args.count, DEFAULT_COUNT),
-        distance: rangeOf(args.distance, DEFAULT_DISTANCE),
-        spawnChance:
-            Number.isFinite(args.spawnChance) &&
-            (args.spawnChance as number) >= 0 &&
-            (args.spawnChance as number) <= 100
-                ? Math.round(args.spawnChance as number)
-                : DEFAULT_SPAWN_CHANCE,
-        avoidStartingSector: args.avoidStartingSector !== false,
-    };
-
     const identity = await identityOfMod(modRoot).catch((): ModIdentity => ({ root: modRoot }));
     const prefix = authorPrefixOf(identity.manifestId);
-    const doodadId = `${prefix ? `${prefix}.` : ''}nebula_${factionSegment(id)}`;
     const label = keyLabelOf(id);
     const tooltipKey = `${NEBULAS_MEMBER}/${label}`;
     const hudKey = `${NEBULAS_MEMBER}/${label}HudFmt`;
+    const plan: NebulaPlan = {
+        id,
+        label,
+        doodadId: `${prefix ? `${prefix}.` : ''}nebula_${factionSegment(id)}`,
+        baseReference: installReference(dataRoot, base.file),
+        coloredMembers: coloredMembersOf(baseFile.document),
+        colors: (Array.isArray(args.colors) && args.colors.length === 3
+            ? args.colors.map((color, index) => colorOf(color) ?? base.colors[index])
+            : base.colors) as NebulaColors,
+        figures: spawnerFiguresOf(args),
+    };
 
-    const choice = manifestForRegistration(modRoot);
-    const lineEnding: LineEnding =
-        choice.kind === 'manifest' ? lineEndingOf((await readRulesFile(choice.fsPath))?.text ?? '') : '\n';
+    const { choice, lineEnding } = await registrationLineEnding(modRoot);
 
-    const created: string[] = [];
-    try {
-        await mkdir(files.folder, { recursive: true });
-        await writeFile(
-            files.nebula,
-            nebulaFileText(
-                id,
-                label,
-                installReference(dataRoot, base.file),
-                coloredMembersOf(baseFile.document),
-                colors,
-                lineEnding
-            ),
-            { encoding: 'utf-8', flag: 'wx' }
-        );
-        await writeFile(files.spawner, spawnerFileText(id, figures, lineEnding), { encoding: 'utf-8', flag: 'wx' });
-        await writeFile(files.doodad, doodadFileText(doodadId, id, label, lineEnding), {
-            encoding: 'utf-8',
-            flag: 'wx',
-        });
-        created.push(files.nebula, files.spawner, files.doodad);
-    } catch {
-        return applyFailed(id, 'writeFailed');
-    }
+    const created = await writeNebulaFiles(plan, files, lineEnding);
+    if (!created) return applyFailed(id, 'writeFailed');
     host.filesChanged(created);
 
     // The tooltip opens with the name in bold and goes on with a line to fill, and the hud text
@@ -550,33 +616,7 @@ const applyRound = async (
         manifests = choice.manifests;
     } else if (choice.kind === 'manifest') {
         manifestPath = choice.fsPath;
-        const manifestDir = dirOf(choice.fsPath);
-        const reference = (file: string, member?: string): string =>
-            `&${relativeRulesReference(manifestDir, file, member)}`;
-        const spawnerExists = existsSync(`${dataRoot.replace(/\\/g, '/')}/${SPAWNER_FILE}`);
-        const wirings: Wiring[] = [
-            {
-                key: 'registry',
-                target: registryTarget(rootDocument, root.path, dataRoot),
-                reference: reference(files.nebula, 'Nebula'),
-                file: files.nebula,
-                wholeList: false,
-            },
-            {
-                key: 'spawner',
-                target: spawnerExists ? SPAWNER_TARGET : undefined,
-                reference: reference(files.spawner, SPAWNER_LIST),
-                file: files.spawner,
-                wholeList: true,
-            },
-            {
-                key: 'doodad',
-                target: gameRootListTarget(rootDocument, root.path, dataRoot, DOODADS_MEMBER),
-                reference: reference(files.doodad),
-                file: files.doodad,
-                wholeList: false,
-            },
-        ];
+        const wirings = nebulaWirings(files, game, dirOf(choice.fsPath));
         if (await wireIntoManifest(choice.fsPath, modRoot, wirings, wiring, host)) changed.push(choice.fsPath);
     }
 

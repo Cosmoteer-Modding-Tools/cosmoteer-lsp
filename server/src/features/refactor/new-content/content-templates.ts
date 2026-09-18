@@ -1,7 +1,7 @@
 import * as l10n from '@vscode/l10n';
 import { displayNameOf, localizationLabelOf } from './content-id';
 import { gameRootPathOf, gameRootReferenceOf } from './game-root-reference';
-import { ContentKind } from './new-content.types';
+import { ContentKind } from '../../../../../shared/new-content.types';
 
 /**
  * The file a new piece of content starts as, one hand-written template per kind.

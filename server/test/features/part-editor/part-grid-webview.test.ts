@@ -1,13 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { createRequire } from 'module';
-import { join, resolve } from 'path';
+import { mediaBundle } from '../../media-bundle';
 
-// The webview's pure geometry, imported straight from the shipped media script (its module.exports
-// guard activates outside a webview). The view transform must round-trip for every rotation/flip
-// combination, or clicks would land on the wrong cells in rotated views.
+// The webview's pure geometry, read out of the built page (its exports become the CommonJS ones,
+// and nothing starts without a host bridge). The view transform must round-trip for every
+// rotation/flip combination, or clicks would land on the wrong cells in rotated views.
 const require = createRequire(import.meta.url);
-const REPO_ROOT = resolve(__dirname, '..', '..', '..', '..');
-const webview = require(join(REPO_ROOT, 'media', 'part-grid-editor.js')) as {
+const webview = require(mediaBundle('part-grid-editor.js')) as {
     rotateQuarter(x: number, y: number, rotation: number): [number, number];
     gridToStage(x: number, y: number, view: object, center: { x: number; y: number }): [number, number];
     stageToGrid(sx: number, sy: number, view: object, center: { x: number; y: number }): [number, number];
@@ -18,6 +17,41 @@ const webview = require(join(REPO_ROOT, 'media', 'part-grid-editor.js')) as {
     doorEdgeFor(cell: { x: number; y: number }, rect: { x: number; y: number; width: number; height: number }): string | null;
     edgeRegionDistanceAt(rect: { x: number; y: number; width: number; height: number }, point: { x: number; y: number }): number;
     backingRatio(size: { width: number; height: number }, dpr: number): number;
+    LAYER_KINDS: Record<string, LayerKind>;
+    countOf(layer: object): number;
+    pointMemberOf(layer: object): LayerMember;
+    numberMemberOf(layer: object): LayerMember;
+};
+
+/** One member accessor pair of a layer kind, the undo reader paired with the local-apply writer. */
+type LayerMember = { read(layer: object): unknown; write(layer: object, value: unknown): void };
+
+/** One entry of the layer-kind registry the page dispatches every per-kind behaviour through. */
+type LayerKind = {
+    count(layer: object): number;
+    point?: LayerMember;
+    number?: LayerMember;
+    draw?: unknown;
+    hitTest?: unknown;
+    panel?: unknown;
+};
+
+/** A minimal layer payload of each kind, enough for the pure registry members to read. */
+const SAMPLE_LAYERS: Record<string, Record<string, unknown>> = {
+    cellSet: { cells: [{ cell: { x: 0, y: 0 } }, { cell: { x: 1, y: 0 } }] },
+    cellToValues: { entries: [{ cell: { x: 0, y: 0 }, values: ['Top'] }] },
+    pointList: { points: [{ point: { x: 0, y: 0 } }, { point: { x: 1, y: 1 } }, { point: { x: 2, y: 2 } }] },
+    cellPairList: { pairs: [{ external: { x: -1, y: 0 }, internal: { x: 0, y: 0 } }] },
+    point: { point: { x: 0.5, y: 0.5 } },
+    cell: { cell: { x: 1, y: 1 } },
+    cellDirection: { cell: { x: 1, y: 1 }, direction: 'Up' },
+    cellRay: { cell: { x: 1, y: 1 }, direction: 'Up', maxTiles: 7 },
+    polygon: { vertices: [{ point: { x: 0, y: 0 } }, { point: { x: 1, y: 0 } }, { point: { x: 1, y: 1 } }] },
+    circle: { center: { x: 1, y: 1 }, radius: 3 },
+    edgeRegion: { distance: 2 },
+    rectList: { entries: [{ tag: 'tall', rect: { x: 0, y: 0, width: 1, height: 1 } }] },
+    componentPoints: { entries: [{ component: 'a' }, { component: 'b' }] },
+    rect: { rect: { x: 0, y: 0, width: 2, height: 2 } },
 };
 
 describe('part grid webview geometry', () => {
@@ -181,5 +215,130 @@ describe('part grid webview geometry', () => {
         expect(ratio).toBeLessThan(1);
         expect(Math.max(huge.width, huge.height) * ratio).toBeLessThanOrEqual(8192);
         expect(huge.width * ratio * (huge.height * ratio)).toBeLessThanOrEqual(1 << 25);
+    });
+});
+
+describe('part grid layer-kind registry', () => {
+    // The registry is the one place a layer kind is declared. Before it, the same fourteen kinds
+    // were spread over five parallel switch chains up to 1500 lines apart, and a kind added to four
+    // of them silently lost the fifth behaviour. These tests hold that shape.
+
+    it('declares every behaviour for every kind it knows', () => {
+        const kinds = Object.keys(webview.LAYER_KINDS);
+        expect(kinds).toHaveLength(14);
+        for (const name of kinds) {
+            const kind = webview.LAYER_KINDS[name];
+            expect(typeof kind.count, `${name} count`).toBe('function');
+            expect(typeof kind.draw, `${name} draw`).toBe('function');
+            expect(typeof kind.hitTest, `${name} hitTest`).toBe('function');
+            expect(typeof kind.panel, `${name} panel`).toBe('function');
+        }
+        // Every kind the page can be handed has a sample below, so the counting test covers them all.
+        expect(kinds.sort()).toEqual(Object.keys(SAMPLE_LAYERS).sort());
+    });
+
+    it('counts the authored entries of each kind', () => {
+        const countFor = (kind: string) => webview.countOf({ kind, ...SAMPLE_LAYERS[kind] });
+        expect(countFor('cellSet')).toBe(2);
+        expect(countFor('cellToValues')).toBe(1);
+        expect(countFor('pointList')).toBe(3);
+        expect(countFor('cellPairList')).toBe(1);
+        expect(countFor('polygon')).toBe(3);
+        expect(countFor('rectList')).toBe(1);
+        expect(countFor('componentPoints')).toBe(2);
+        // The single-value kinds count one when they hold anything at all.
+        for (const kind of ['point', 'cell', 'cellDirection', 'cellRay', 'circle', 'edgeRegion', 'rect']) {
+            expect(countFor(kind), kind).toBe(1);
+        }
+    });
+
+    it('counts an empty layer of every kind as zero', () => {
+        const empty: Record<string, unknown> = {
+            cells: [],
+            entries: [],
+            points: [],
+            pairs: [],
+            vertices: [],
+            point: null,
+            cell: null,
+            center: null,
+            radius: null,
+            distance: null,
+            rect: null,
+        };
+        for (const kind of Object.keys(webview.LAYER_KINDS)) {
+            expect(webview.countOf({ kind, ...empty }), kind).toBe(0);
+        }
+        // An unknown kind counts zero rather than throwing, so a payload from a newer server that
+        // names a kind this page does not have still renders its other layers.
+        expect(webview.countOf({ kind: 'notAKind' })).toBe(0);
+    });
+
+    it('reads and writes the single point member each kind names', () => {
+        // The circle's point member is its center, every other kind's is `point`. Reading is the
+        // undo half (the value the inverse restores), writing the optimistic local apply.
+        const circle = { kind: 'circle', center: { x: 1, y: 1 }, point: { x: 9, y: 9 } };
+        expect(webview.pointMemberOf(circle).read(circle)).toEqual({ x: 1, y: 1 });
+        webview.pointMemberOf(circle).write(circle, { x: 2, y: 3 });
+        expect(circle.center).toEqual({ x: 2, y: 3 });
+        expect(circle.point).toEqual({ x: 9, y: 9 });
+
+        const single = { kind: 'point', point: { x: 4, y: 5 } };
+        expect(webview.pointMemberOf(single).read(single)).toEqual({ x: 4, y: 5 });
+        webview.pointMemberOf(single).write(single, null);
+        expect(single.point).toBeNull();
+    });
+
+    it('reads and writes the single number member each kind names', () => {
+        const cases: [string, string, number][] = [
+            ['circle', 'radius', 3],
+            ['cellRay', 'maxTiles', 7],
+            ['edgeRegion', 'distance', 2],
+        ];
+        for (const [kind, member, value] of cases) {
+            const layer: Record<string, unknown> = { kind, ...SAMPLE_LAYERS[kind] };
+            expect(webview.numberMemberOf(layer).read(layer), kind).toBe(value);
+            webview.numberMemberOf(layer).write(layer, 42);
+            expect(layer[member], kind).toBe(42);
+        }
+        // A kind holding no single number reads null and its write is a no-op, which is what the
+        // undo path needs: a mutation with no prior value to restore.
+        const cells = { kind: 'cellSet', cells: [] };
+        expect(webview.numberMemberOf(cells).read(cells)).toBeNull();
+        expect(() => webview.numberMemberOf(cells).write(cells, 1)).not.toThrow();
+        expect(Object.keys(cells)).toEqual(['kind', 'cells']);
+    });
+
+    it('routes the point and number inverses through the registry members', () => {
+        const data = {
+            layers: [
+                { id: 'circle', kind: 'circle', center: { x: 1, y: 2 }, radius: 3 },
+                { id: 'marker', kind: 'point', point: { x: 4, y: 5 } },
+                { id: 'ray', kind: 'cellRay', cell: { x: 0, y: 0 }, maxTiles: 7 },
+                { id: 'cells', kind: 'cellSet', cells: [] },
+            ],
+        };
+        expect(webview.inverseOf({ op: 'setPoint', layerId: 'circle', point: null }, data)).toEqual({
+            op: 'setPoint',
+            layerId: 'circle',
+            point: { x: 1, y: 2 },
+        });
+        expect(webview.inverseOf({ op: 'setPoint', layerId: 'marker', point: { x: 0, y: 0 } }, data)).toEqual({
+            op: 'setPoint',
+            layerId: 'marker',
+            point: { x: 4, y: 5 },
+        });
+        expect(webview.inverseOf({ op: 'setNumber', layerId: 'ray', field: 'MaxTiles', value: 2 }, data)).toEqual({
+            op: 'setNumber',
+            layerId: 'ray',
+            field: 'MaxTiles',
+            value: 7,
+        });
+        expect(webview.inverseOf({ op: 'setNumber', layerId: 'cells', field: 'Nothing', value: 2 }, data)).toEqual({
+            op: 'setNumber',
+            layerId: 'cells',
+            field: 'Nothing',
+            value: null,
+        });
     });
 });

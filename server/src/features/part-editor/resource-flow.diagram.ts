@@ -69,16 +69,6 @@ const CLASSES = {
 } as const;
 
 /**
- * One way a component spends a resource it does not own. The weapons, the thrusters, the drives and
- * the shields all take from a storage on their own part, and none of them lives in a resource
- * namespace: a gun's ammo draw is a member of the emitter, a thruster's fuel draw a member of the
- * thruster. A drawing that walked only the resource components would show every gun's magazine
- * filling and never emptying, which is the one question a reader opens this picture with.
- *
- * Each entry says where to read that draw, in the two forms the engine accepts for all of them: the
- * entries of a list, and the single-entry shorthand written flat beside it.
- */
-/**
  * The class behind fire suppression, hull repair and the heat exchanger. It trades a status held over
  * an area against a storage, and it is the reason the table below carries a direction: its two
  * storage members sit on one class and point opposite ways.
@@ -107,6 +97,16 @@ interface ResourceDraw {
     readonly sentence: () => string;
 }
 
+/**
+ * One way a component spends a resource it does not own. The weapons, the thrusters, the drives and
+ * the shields all take from a storage on their own part, and none of them lives in a resource
+ * namespace: a gun's ammo draw is a member of the emitter, a thruster's fuel draw a member of the
+ * thruster. A drawing that walked only the resource components would show every gun's magazine
+ * filling and never emptying, which is the one question a reader opens this picture with.
+ *
+ * Each entry says where to read that draw, in the two forms the engine accepts for all of them: the
+ * entries of a list, and the single-entry shorthand written flat beside it.
+ */
 export const DRAWS: readonly ResourceDraw[] = [
     {
         cls: 'Cosmoteer.Ships.Parts.Weapons.EmitterRules',
@@ -482,6 +482,560 @@ const numberText = (value: number): string => String(Math.round(value * 1000) / 
  */
 const partNameOf = (part: GroupNode): string => memberText(part, 'ID') ?? part.identifier?.name ?? l10n.t('this part');
 
+/** The drawing as the passes over the part's components build it up. */
+interface FlowBuild {
+    /** The part's resource components, one per name, by their lower-cased name. */
+    readonly byName: Map<string, FlowNode>;
+    /** The boxes, in the order they were added. */
+    readonly nodes: DiagramNode[];
+    /** The arrows drawn so far. */
+    readonly edges: DiagramEdge[];
+    /** The file the part is written in, which every box's place points into. */
+    readonly uri: string;
+    /** What the part cannot make for itself. */
+    readonly takesIn: Set<string>;
+    /** What the part offers the rest of the ship. */
+    readonly givesOut: Set<string>;
+    /** Cancels every read the passes make. */
+    readonly token: CancellationToken;
+    /** How many of the names written in the part match no component of it. */
+    unresolved: number;
+    /** How many quantities were drawn without their number because they do not work out to one. */
+    unreadableNumbers: number;
+    /** Whether a hold is drawn, which names no resource and so is said in neither set. */
+    carriesGoods: boolean;
+    /** How many component names are declared twice, in the sets a toggle switches between. */
+    switched: number;
+}
+
+/**
+ * The number a member works out to.
+ *
+ * @param node the value node, or undefined when the member is absent.
+ * @param token cancels the evaluation.
+ * @returns the number, or null when it is absent or does not work out to one.
+ */
+const evaluatedNumber = async (node: AbstractNode | undefined, token: CancellationToken): Promise<number | null> =>
+    node ? await evaluateNumericValue(node, token).catch(() => null) : null;
+
+/**
+ * The resource a side of an arrow holds, so the arrow can name what moves along it.
+ *
+ * @param side the box the arrow touches.
+ * @returns the resource id, or undefined for a box that names none.
+ */
+const resourceOf = (side: FlowNode | string): string | undefined =>
+    typeof side === 'string' ? undefined : side.resource;
+
+/**
+ * The words on an arrow: how much of what moves along it, and how often. The resource is the one
+ * the storage end of the arrow holds, since that is where the type is written, and a quantity
+ * that does not work out to one number is left off rather than guessed at.
+ *
+ * @param quantity the number of resources moved, null where it is unwritten or unreadable.
+ * @param resource the resource moving, undefined where the storage names none.
+ * @param cadence how often it moves, empty where nothing says.
+ * @returns the label.
+ */
+const movementLabel = (quantity: number | null, resource: string | undefined, cadence: string): string => {
+    const what =
+        quantity === null
+            ? (resource ?? l10n.t('resources'))
+            : l10n.t('{0} × {1}', numberText(quantity), resource ?? l10n.t('resources'));
+    return cadence ? l10n.t('{0} {1}', what, cadence) : what;
+};
+
+/**
+ * Adds the box standing for the world outside the part, once, the first time an arrow needs it.
+ *
+ * @param build the drawing so far.
+ * @param id which outside end is wanted.
+ * @returns the box id, so the caller can wire to it.
+ */
+const outside = (build: FlowBuild, id: typeof CREW_ID | typeof NETWORK_ID): string => {
+    if (!build.nodes.some((node) => node.id === id)) {
+        build.nodes.push({
+            id,
+            label: id === CREW_ID ? l10n.t('the ship') : l10n.t('the parts next door'),
+            detail:
+                id === CREW_ID
+                    ? l10n.t('crew carry resources here from elsewhere on the ship')
+                    : l10n.t('the resource network this part is wired into'),
+            kind: 'outside',
+        });
+    }
+    return id;
+};
+
+/**
+ * The box for a storage that lives on another part.
+ *
+ * @param build the drawing so far.
+ * @param reference the component the rules name.
+ * @param prefix which kind of link reached it, so two links to one name stay two boxes.
+ * @param detail where the storage sits, which is the whole point of drawing it apart.
+ * @returns the box id.
+ */
+const elsewhere = (build: FlowBuild, reference: ComponentReference, prefix: string, detail: string): string => {
+    const name = reference.name ?? reference.written;
+    const id = `${prefix}${name.toLowerCase()}`;
+    if (!build.nodes.some((node) => node.id === id)) build.nodes.push({ id, label: name, detail, kind: 'outside' });
+    return id;
+};
+
+/**
+ * The box for a storage this part pools from another one through a buff.
+ *
+ * @param build the drawing so far.
+ * @param reference the component the buff rules name.
+ * @param incoming true when the buff comes in, so the storage sits on the part providing it.
+ * @returns the box id.
+ */
+const buffed = (build: FlowBuild, reference: ComponentReference, incoming: boolean): string =>
+    elsewhere(
+        build,
+        reference,
+        BUFFED_PREFIX,
+        incoming
+            ? l10n.t('on each part sending this one the buff it pools through')
+            : l10n.t('on each part this one buffs')
+    );
+
+/**
+ * The box one end of an arrow lands on. A name matching no component of the part gets a box
+ * saying so, and a reference that could not be followed gets one saying that instead, since the
+ * two are different problems and only the first is the author's mistake.
+ *
+ * @param build the drawing so far.
+ * @param reference what the field names.
+ * @returns the box, either a component of this part or the stand-in drawn for it.
+ */
+const endpointFor = (build: FlowBuild, reference: ComponentReference): FlowNode | string => {
+    const found = reference.name ? build.byName.get(reference.name.toLowerCase()) : undefined;
+    if (found) return found;
+    const id = `x:${(reference.name ?? reference.written).toLowerCase()}`;
+    if (!build.nodes.some((node) => node.id === id)) {
+        build.unresolved++;
+        build.nodes.push({
+            id,
+            label: reference.name ?? reference.written,
+            detail: reference.name
+                ? l10n.t('no component of this part')
+                : l10n.t('this reference could not be followed'),
+            kind: 'missing',
+        });
+    }
+    return id;
+};
+
+/**
+ * Adds one arrow between two ends of the wiring.
+ *
+ * @param build the drawing so far.
+ * @param from the component the resources leave.
+ * @param to the component they arrive in.
+ * @param label what moves along the arrow, and how often.
+ * @param series the resource the arrow is coloured by, which is the one either end holds unless
+ * the caller knows better, such as the goods a flex grid stacks that no storage names.
+ */
+const wire = (
+    build: FlowBuild,
+    from: FlowNode | string,
+    to: FlowNode | string,
+    label: string,
+    series = resourceOf(from) ?? resourceOf(to)
+): void => {
+    const idOf = (side: FlowNode | string): string => (typeof side === 'string' ? side : side.id);
+    // A mismatch is only claimed where both sides resolved and both name a resource, since every
+    // proxy component in this schema is a link the walk cannot follow.
+    const mismatch =
+        typeof from !== 'string' &&
+        typeof to !== 'string' &&
+        !!from.resource &&
+        !!to.resource &&
+        from.resource !== to.resource;
+    build.edges.push({ from: idOf(from), to: idOf(to), kind: mismatch ? 'warning' : 'flow', label, series });
+};
+
+/**
+ * The component whose firing drives a triggered component, named so the box can say what sets it
+ * off rather than only that something does. A trigger is written as the component's id, or as a
+ * group naming it in `ID` where one component offers several triggers.
+ *
+ * @param group the component group.
+ * @param token cancels the reference resolution.
+ * @returns the component's name, or undefined where the trigger names none this walk can follow.
+ */
+const triggerNameOf = async (group: GroupNode, token: CancellationToken): Promise<string | undefined> => {
+    const written = memberValue(group, 'Trigger');
+    if (written) return (await componentReferenceOf(written, token)).name;
+    for (const element of group.elements) {
+        if (!isGroupNode(element) || element.identifier?.name.toLowerCase() !== 'trigger') continue;
+        const id = memberValue(element, 'ID');
+        if (id) return (await componentReferenceOf(id, token)).name;
+    }
+    return undefined;
+};
+
+/**
+ * The resource held by the storage a member names, for the components that carry no resource type
+ * of their own and are only readable through the storage they act on.
+ *
+ * @param build the drawing so far.
+ * @param group the component group.
+ * @param field the member naming the storage.
+ * @returns the resource id, or undefined when the storage is unknown or names none.
+ */
+const storageResourceOf = async (build: FlowBuild, group: GroupNode, field: string): Promise<string | undefined> => {
+    const written = memberValue(group, field);
+    if (!written) return undefined;
+    const name = (await componentReferenceOf(written, build.token)).name;
+    return name ? build.byName.get(name.toLowerCase())?.resource : undefined;
+};
+
+/**
+ * How often a converter runs, in the words that go on its arrows.
+ *
+ * @param entry the converter.
+ * @param token cancels the interval evaluation.
+ * @returns the cadence, empty where the component does not say.
+ */
+const cadenceOf = async (entry: FlowNode, token: CancellationToken): Promise<string> => {
+    if (entry.role === 'triggered-converter') return l10n.t('per trigger');
+    if (entry.role !== 'converter') return '';
+    const interval = await evaluatedNumber(numberMember(entry.component.group, 'Interval'), token);
+    return interval === null ? '' : l10n.t('every {0} s', numberText(interval));
+};
+
+/**
+ * What a component does, in one sentence with its own numbers in it. This is the line that makes
+ * the picture readable without the schema open beside it, so it says the behavior rather than
+ * the class name: a storage says what it holds and how much of it, a converter says how often it
+ * runs, and a component fed by the crew says so.
+ *
+ * @param build the drawing so far.
+ * @param entry the component.
+ * @returns the sentence.
+ */
+const sentenceFor = async (build: FlowBuild, entry: FlowNode): Promise<string> => {
+    const token = build.token;
+    const group = entry.component.group;
+    const resource = entry.resource ?? l10n.t('resources');
+    switch (entry.role) {
+        case 'storage': {
+            const max = await evaluatedNumber(numberMember(group, 'MaxResources'), token);
+            const held =
+                max === null ? l10n.t('holds {0}', resource) : l10n.t('holds up to {0} {1}', numberText(max), resource);
+            return (await inheritedIsOn(group, 'SuppliesResources', token))
+                ? l10n.t('{0}, and the crew may carry it away', held)
+                : held;
+        }
+        case 'multi-storage':
+            return l10n.t('several storages pooled into one');
+        case 'converter': {
+            const interval = await evaluatedNumber(numberMember(group, 'Interval'), token);
+            return interval === null
+                ? l10n.t('converts one resource into another on a timer')
+                : l10n.t('converts every {0} s', numberText(interval));
+        }
+        case 'triggered-converter': {
+            const trigger = await triggerNameOf(group, token);
+            return trigger
+                ? l10n.t('converts once each time {0} fires', trigger)
+                : l10n.t('converts once each time it is triggered');
+        }
+        case 'inline-converter':
+            return l10n.t('converts on demand out of another storage, holding nothing itself');
+        case 'consumer':
+            return l10n.t('crew deliver {0} here', resource);
+        case 'storage-proxy': {
+            // It holds nothing of its own: every read and write goes to the storage it names,
+            // scaled where the rules say so, which is worth saying since the number a reader
+            // sees on the proxy is not the number in the store behind it.
+            const scale = await evaluatedNumber(numberMember(group, 'QuantityScale'), token);
+            return scale === null || scale === 1
+                ? l10n.t('stands in for another storage, holding nothing itself')
+                : l10n.t('stands in for another storage, counting {0} for each of its resources', numberText(scale));
+        }
+        case 'flex-grid':
+            // A cargo hold names no resource: it takes whatever stacks, and the crew both fill
+            // it and empty it, which is why it is drawn wired to the ship in both directions.
+            return l10n.t('a hold the crew stack any tradeable goods in');
+        case 'draws': {
+            const draws = drawsOf(entry.component.cls);
+            return draws[0]?.sentence() ?? l10n.t('spends resources it does not hold');
+        }
+        case 'change': {
+            const amount = await evaluatedNumber(numberMember(group, 'Amount'), token);
+            const target = await storageResourceOf(build, group, 'ResourceStorage');
+            const trigger = await triggerNameOf(group, token);
+            const when = trigger ? l10n.t('each time {0} fires', trigger) : l10n.t('each time it is triggered');
+            if (amount === null) return l10n.t('changes {0} {1}', target ?? l10n.t('a storage'), when);
+            const moved = movementLabel(Math.abs(amount), target, '');
+            return amount < 0 ? l10n.t('takes {0} out {1}', moved, when) : l10n.t('puts {0} in {1}', moved, when);
+        }
+        case 'drain-sink': {
+            const absorbs = await evaluatedNumber(numberMember(group, 'AbsorbsResourceDrain'), token);
+            const recovery = await evaluatedNumber(numberMember(group, 'RecoveryRate'), token);
+            const soaks =
+                absorbs === null
+                    ? l10n.t('soaks up {0} drain aimed at this part', resource)
+                    : l10n.t('soaks up {0} points of {1} drain aimed at this part', numberText(absorbs), resource);
+            return recovery === null
+                ? soaks
+                : l10n.t('{0}, and gets {1} of that back a second', soaks, numberText(recovery));
+        }
+        case 'network-in':
+            return l10n.t('takes {0} in and hands it to the parts next door', resource);
+        case 'network-out':
+            return l10n.t('fills itself with {0} from the parts next door', resource);
+        case 'network-store':
+            return l10n.t('opens a storage to the parts next door');
+        default:
+            return memberText(group, 'Type') ?? l10n.t('moves resources');
+    }
+};
+
+/**
+ * Draws what a converter pulls in and what it puts back out, on the cadence it runs at.
+ *
+ * @param build the drawing so far.
+ * @param entry the converter.
+ */
+const wireConverter = async (build: FlowBuild, entry: FlowNode): Promise<void> => {
+    const { token } = build;
+    const group = entry.component.group;
+    const cadence = await cadenceOf(entry, token);
+    for (const input of conversionEntries(group, 'From')) {
+        const other = endpointFor(build, await componentReferenceOf(input.storage, token));
+        const quantity = input.quantity ? await evaluatedNumber(input.quantity, token) : 1;
+        if (quantity === null) build.unreadableNumbers++;
+        wire(build, other, entry, movementLabel(quantity, resourceOf(other), cadence));
+    }
+    for (const output of conversionEntries(group, 'To')) {
+        const other = endpointFor(build, await componentReferenceOf(output.storage, token));
+        const quantity = output.quantity ? await evaluatedNumber(output.quantity, token) : 1;
+        if (quantity === null) build.unreadableNumbers++;
+        wire(build, entry, other, movementLabel(quantity, resourceOf(other), cadence));
+    }
+};
+
+/**
+ * Draws the components that spend or deliver a resource held somewhere else: a resource change, a
+ * consumer on the crew's delivery list, a weapon or thruster drawing on a storage, and a proxy
+ * standing in for one.
+ *
+ * @param build the drawing so far.
+ * @param entry the component.
+ */
+const wireSpender = async (build: FlowBuild, entry: FlowNode): Promise<void> => {
+    const { token } = build;
+    const group = entry.component.group;
+
+    if (entry.role === 'change') {
+        for (const value of memberValues(group, 'ResourceStorage')) {
+            const other = endpointFor(build, await componentReferenceOf(value, token));
+            // A change adds what its `Amount` says and takes away what a negative one says, so
+            // the arrow follows the number rather than the field. An amount that does not work
+            // out to one number is drawn as an addition, which the note below says.
+            const amount = await evaluatedNumber(numberMember(group, 'Amount'), token);
+            if (amount === null) build.unreadableNumbers++;
+            const label = movementLabel(
+                amount === null ? null : Math.abs(amount),
+                resourceOf(other),
+                l10n.t('per trigger')
+            );
+            if (amount !== null && amount < 0) wire(build, other, entry, label);
+            else wire(build, entry, other, label);
+        }
+    }
+
+    if (entry.role === 'consumer') {
+        // A consumer is what puts the part on the crew's delivery list, so the resource comes
+        // from the ship rather than from anywhere inside the part, and lands in the storage the
+        // consumer names.
+        wire(build, outside(build, CREW_ID), entry, entry.resource ?? l10n.t('resources'));
+        if (entry.resource) build.takesIn.add(entry.resource);
+        for (const value of memberValues(group, 'Storage')) {
+            const other = endpointFor(build, await componentReferenceOf(value, token));
+            wire(build, entry, other, entry.resource ?? resourceOf(other) ?? l10n.t('resources'));
+        }
+    }
+
+    if (entry.role === 'draws') {
+        // The storage a gun, a thruster, a drive or a shield spends out of lives on the same
+        // part, so the arrow runs from that storage into the component that empties it, and the
+        // other way round for the one member that fills a storage instead.
+        for (const draw of drawsOf(entry.component.cls)) {
+            for (const site of await drawEntries(group, draw, token)) {
+                const other = endpointFor(build, await componentReferenceOf(site.storage, token));
+                const quantity = site.quantity
+                    ? await evaluatedNumber(site.quantity, token)
+                    : (draw.defaultQuantity ?? null);
+                if (site.quantity && quantity === null) build.unreadableNumbers++;
+                const label = movementLabel(quantity, resourceOf(other), draw.cadence());
+                if (draw.direction === 'from') wire(build, other, entry, label);
+                else wire(build, entry, other, label);
+            }
+        }
+    }
+
+    if (entry.role === 'storage-proxy') {
+        // Everything read from or written to the proxy lands in the storage it names, so the
+        // arrow runs to that storage. Without it a proxy is a dead end, and the pool feeding it
+        // looks like it spreads resources into nothing.
+        for (const target of await proxyTargetsOf(group, token)) {
+            const reference = await componentReferenceOf(target.component, token);
+            const other = target.otherPart
+                ? elsewhere(
+                      build,
+                      reference,
+                      PROXIED_PREFIX,
+                      l10n.t('on whichever part the proxy finds beside this one')
+                  )
+                : endpointFor(build, reference);
+            wire(build, entry, other, l10n.t('stands in for'));
+        }
+    }
+};
+
+/**
+ * Draws the components that face outward: the hold the crew stack goods in, a storage the crew may
+ * carry from, the storages a pool spreads over, and the three network ends.
+ *
+ * @param build the drawing so far.
+ * @param entry the component.
+ */
+const wirePool = async (build: FlowBuild, entry: FlowNode): Promise<void> => {
+    const { token } = build;
+    const group = entry.component.group;
+
+    if (entry.role === 'flex-grid') {
+        wire(build, outside(build, CREW_ID), entry, l10n.t('goods'), l10n.t('goods'));
+        wire(build, entry, outside(build, CREW_ID), l10n.t('goods'), l10n.t('goods'));
+        build.carriesGoods = true;
+    }
+
+    if (entry.role === 'storage' && (await inheritedIsOn(group, 'SuppliesResources', token))) {
+        wire(build, entry, outside(build, CREW_ID), entry.resource ?? l10n.t('resources'));
+        if (entry.resource) build.givesOut.add(entry.resource);
+    }
+
+    if (entry.role === 'multi-storage') {
+        for (const value of memberValues(group, 'ResourceStorages')) {
+            const other = endpointFor(build, await componentReferenceOf(value, token));
+            wire(build, entry, other, l10n.t('spread across'));
+        }
+        for (const element of group.elements) {
+            // Found by the class the schema types the group as, the same way the sibling check
+            // finds it, rather than by the member name each of them would otherwise repeat.
+            if (!isGroupNode(element) || !classAncestry(resolveGroupClass(element) ?? '').includes(BUFF_PROXY_CLASS)) {
+                continue;
+            }
+            const incoming = memberValues(element, INCOMING_BUFFS_MEMBER).length > 0;
+            for (const field of VIA_BUFFS_COMPONENTS) {
+                for (const value of memberValues(element, field)) {
+                    const reference = await componentReferenceOf(value, token);
+                    wire(build, entry, buffed(build, reference, incoming), l10n.t('spread across'));
+                }
+            }
+        }
+    }
+
+    if (entry.role === 'network-in') {
+        wire(build, entry, outside(build, NETWORK_ID), entry.resource ?? l10n.t('resources'));
+        if (entry.resource) build.givesOut.add(entry.resource);
+    }
+
+    if (entry.role === 'network-out') {
+        wire(build, outside(build, NETWORK_ID), entry, entry.resource ?? l10n.t('resources'));
+        if (entry.resource) build.takesIn.add(entry.resource);
+    }
+
+    if (entry.role === 'network-store') {
+        for (const value of memberValues(group, 'ResourceStorage')) {
+            const other = endpointFor(build, await componentReferenceOf(value, token));
+            const resource = entry.resource ?? resourceOf(other) ?? l10n.t('resources');
+            wire(build, other, outside(build, NETWORK_ID), resource);
+            wire(build, outside(build, NETWORK_ID), other, resource);
+            if (entry.resource) {
+                build.givesOut.add(entry.resource);
+                build.takesIn.add(entry.resource);
+            }
+        }
+    }
+};
+
+/**
+ * The notes under the drawing: how to read it, what it leaves out, and what it could not read.
+ *
+ * @param build the finished drawing.
+ * @returns the notes, in display order.
+ */
+const flowNotes = (build: FlowBuild): string[] => {
+    const notes = [
+        l10n.t(
+            'Read an arrow as what moves along it: the amount, the resource, and how often it moves. A box says what its component does with what reaches it.'
+        ),
+        l10n.t('Only the members that move resources are drawn. A toggle or a trigger naming a component is left out.'),
+        l10n.t(
+            'A storage pooled through a buff sits on the part at the other end of that buff, so it is drawn as a store outside this part rather than as one of its own components.'
+        ),
+    ];
+    if (build.unresolved > 0) {
+        notes.push(l10n.t('{0} of the names written here match no component of this part.', String(build.unresolved)));
+    }
+    if (build.switched > 0) {
+        notes.push(
+            l10n.t(
+                '{0} of this part’s components share a name with another, in the sets a toggle switches between. Only the first of each is drawn, since only one of them is wired in at a time.',
+                String(build.switched)
+            )
+        );
+    }
+    if (build.unreadableNumbers > 0) {
+        notes.push(
+            l10n.t(
+                '{0} of the amounts here do not work out to one number, usually because a buff can move them, so those arrows say what moves without saying how much.',
+                String(build.unreadableNumbers)
+            )
+        );
+    }
+    if (build.edges.some((edge) => edge.kind === 'warning')) {
+        notes.push(
+            l10n.t(
+                'A red arrow runs between two components holding different resources, which is only marked where both of them resolved.'
+            )
+        );
+    }
+    return notes;
+};
+
+/**
+ * The heading under the title, which answers "what is this part doing with resources" before the
+ * boxes are read at all. A part that moves none is the common case for armor, which carries a drain
+ * sink and nothing else, and saying that outright is better than a picture of one box and no arrows.
+ *
+ * @param build the finished drawing.
+ * @returns the subtitle.
+ */
+const flowSubtitle = (build: FlowBuild): string => {
+    const { takesIn, givesOut, carriesGoods } = build;
+    const goodsClause = carriesGoods ? l10n.t('Crew stack tradeable goods here and carry them away again.') : '';
+    if (takesIn.size === 0 && givesOut.size === 0 && !carriesGoods) {
+        return build.edges.length === 0
+            ? l10n.t('Nothing moves here. These components hold or absorb resources without passing them on.')
+            : l10n.t('Everything it moves stays inside the part.');
+    }
+    return [
+        takesIn.size > 0 ? l10n.t('Takes in: {0}.', [...takesIn].sort().join(', ')) : '',
+        givesOut.size > 0 ? l10n.t('Gives back: {0}.', [...givesOut].sort().join(', ')) : '',
+        goodsClause,
+    ]
+        .filter(Boolean)
+        .join(' ');
+};
+
 /**
  * Builds the drawn resource wiring of the part at an offset.
  *
@@ -501,82 +1055,20 @@ export const buildResourceFlowDiagram = async (
     const flow = components.filter((component) => isFlowComponent(component.cls));
     if (flow.length === 0) return undefined;
 
-    const byName = new Map<string, FlowNode>();
-    const nodes: DiagramNode[] = [];
-    const edges: DiagramEdge[] = [];
-    const uri = getStartOfAstNode(part).uri;
-    let unresolved = 0;
-    // How many quantities were drawn without their number because they do not work out to one.
-    let unreadableNumbers = 0;
-    // What the part cannot make for itself, and what it offers the rest of the ship.
-    const takesIn = new Set<string>();
-    const givesOut = new Set<string>();
-    // A hold names no resource of its own, so it cannot be said in either set, and a part that is
-    // only a hold would otherwise be summed up as moving nothing.
-    let carriesGoods = false;
-    // How many component names are declared twice, in the alternative sets a toggle switches between.
-    let switched = 0;
-
-    /**
-     * The number a member works out to.
-     *
-     * @param node the value node, or undefined when the member is absent.
-     * @returns the number, or null when it is absent or does not work out to one.
-     */
-    const numberOf = async (node: AbstractNode | undefined): Promise<number | null> =>
-        node ? await evaluateNumericValue(node, token).catch(() => null) : null;
-
-    /**
-     * Adds the box standing for the world outside the part, once, the first time an arrow needs it.
-     *
-     * @param id which outside end is wanted.
-     * @returns the box id, so the caller can wire to it.
-     */
-    const outside = (id: typeof CREW_ID | typeof NETWORK_ID): string => {
-        if (!nodes.some((node) => node.id === id)) {
-            nodes.push({
-                id,
-                label: id === CREW_ID ? l10n.t('the ship') : l10n.t('the parts next door'),
-                detail:
-                    id === CREW_ID
-                        ? l10n.t('crew carry resources here from elsewhere on the ship')
-                        : l10n.t('the resource network this part is wired into'),
-                kind: 'outside',
-            });
-        }
-        return id;
+    const build: FlowBuild = {
+        byName: new Map<string, FlowNode>(),
+        nodes: [],
+        edges: [],
+        uri: getStartOfAstNode(part).uri,
+        takesIn: new Set<string>(),
+        givesOut: new Set<string>(),
+        token,
+        unresolved: 0,
+        unreadableNumbers: 0,
+        carriesGoods: false,
+        switched: 0,
     };
-
-    /**
-     * The box for a storage this part pools from another one through a buff.
-     *
-     * @param reference the component the buff rules name.
-     * @param incoming true when the buff comes in, so the storage sits on the part providing it.
-     * @returns the box id.
-     */
-    const buffed = (reference: ComponentReference, incoming: boolean): string =>
-        elsewhere(
-            reference,
-            BUFFED_PREFIX,
-            incoming
-                ? l10n.t('on each part sending this one the buff it pools through')
-                : l10n.t('on each part this one buffs')
-        );
-
-    /**
-     * The box for a storage that lives on another part.
-     *
-     * @param reference the component the rules name.
-     * @param prefix which kind of link reached it, so two links to one name stay two boxes.
-     * @param detail where the storage sits, which is the whole point of drawing it apart.
-     * @returns the box id.
-     */
-    const elsewhere = (reference: ComponentReference, prefix: string, detail: string): string => {
-        const name = reference.name ?? reference.written;
-        const id = `${prefix}${name.toLowerCase()}`;
-        if (!nodes.some((node) => node.id === id)) nodes.push({ id, label: name, detail, kind: 'outside' });
-        return id;
-    };
+    const { byName, nodes, edges } = build;
 
     for (const component of flow) {
         const key = component.name.toLowerCase();
@@ -584,7 +1076,7 @@ export const buildResourceFlowDiagram = async (
         // and only one of the two is ever registered at a time. The first is kept, which is the one
         // written before the overclocked or otherwise switched-in alternative.
         if (byName.has(key)) {
-            switched++;
+            build.switched++;
             continue;
         }
         // Both a storage and a consumer name their resource in `ResourceType`, and a component that
@@ -594,434 +1086,33 @@ export const buildResourceFlowDiagram = async (
         byName.set(key, { component, id: `c:${key}`, role, resource });
     }
 
-    /**
-     * What a component does, in one sentence with its own numbers in it. This is the line that makes
-     * the picture readable without the schema open beside it, so it says the behavior rather than
-     * the class name: a storage says what it holds and how much of it, a converter says how often it
-     * runs, and a component fed by the crew says so.
-     *
-     * @param entry the component.
-     * @returns the sentence.
-     */
-    async function sentenceFor(entry: FlowNode): Promise<string> {
-        const group = entry.component.group;
-        const resource = entry.resource ?? l10n.t('resources');
-        switch (entry.role) {
-            case 'storage': {
-                const max = await numberOf(numberMember(group, 'MaxResources'));
-                const held =
-                    max === null
-                        ? l10n.t('holds {0}', resource)
-                        : l10n.t('holds up to {0} {1}', numberText(max), resource);
-                return (await inheritedIsOn(group, 'SuppliesResources', token))
-                    ? l10n.t('{0}, and the crew may carry it away', held)
-                    : held;
-            }
-            case 'multi-storage':
-                return l10n.t('several storages pooled into one');
-            case 'converter': {
-                const interval = await numberOf(numberMember(group, 'Interval'));
-                return interval === null
-                    ? l10n.t('converts one resource into another on a timer')
-                    : l10n.t('converts every {0} s', numberText(interval));
-            }
-            case 'triggered-converter': {
-                const trigger = await triggerNameOf(group);
-                return trigger
-                    ? l10n.t('converts once each time {0} fires', trigger)
-                    : l10n.t('converts once each time it is triggered');
-            }
-            case 'inline-converter':
-                return l10n.t('converts on demand out of another storage, holding nothing itself');
-            case 'consumer':
-                return l10n.t('crew deliver {0} here', resource);
-            case 'storage-proxy': {
-                // It holds nothing of its own: every read and write goes to the storage it names,
-                // scaled where the rules say so, which is worth saying since the number a reader
-                // sees on the proxy is not the number in the store behind it.
-                const scale = await numberOf(numberMember(group, 'QuantityScale'));
-                return scale === null || scale === 1
-                    ? l10n.t('stands in for another storage, holding nothing itself')
-                    : l10n.t(
-                          'stands in for another storage, counting {0} for each of its resources',
-                          numberText(scale)
-                      );
-            }
-            case 'flex-grid':
-                // A cargo hold names no resource: it takes whatever stacks, and the crew both fill
-                // it and empty it, which is why it is drawn wired to the ship in both directions.
-                return l10n.t('a hold the crew stack any tradeable goods in');
-            case 'draws': {
-                const draws = drawsOf(entry.component.cls);
-                return draws[0]?.sentence() ?? l10n.t('spends resources it does not hold');
-            }
-            case 'change': {
-                const amount = await numberOf(numberMember(group, 'Amount'));
-                const target = await storageResourceOf(group, 'ResourceStorage');
-                const trigger = await triggerNameOf(group);
-                const when = trigger ? l10n.t('each time {0} fires', trigger) : l10n.t('each time it is triggered');
-                if (amount === null) return l10n.t('changes {0} {1}', target ?? l10n.t('a storage'), when);
-                const moved = movementLabel(Math.abs(amount), target, '');
-                return amount < 0 ? l10n.t('takes {0} out {1}', moved, when) : l10n.t('puts {0} in {1}', moved, when);
-            }
-            case 'drain-sink': {
-                const absorbs = await numberOf(numberMember(group, 'AbsorbsResourceDrain'));
-                const recovery = await numberOf(numberMember(group, 'RecoveryRate'));
-                const soaks =
-                    absorbs === null
-                        ? l10n.t('soaks up {0} drain aimed at this part', resource)
-                        : l10n.t('soaks up {0} points of {1} drain aimed at this part', numberText(absorbs), resource);
-                return recovery === null
-                    ? soaks
-                    : l10n.t('{0}, and gets {1} of that back a second', soaks, numberText(recovery));
-            }
-            case 'network-in':
-                return l10n.t('takes {0} in and hands it to the parts next door', resource);
-            case 'network-out':
-                return l10n.t('fills itself with {0} from the parts next door', resource);
-            case 'network-store':
-                return l10n.t('opens a storage to the parts next door');
-            default:
-                return memberText(group, 'Type') ?? l10n.t('moves resources');
-        }
-    }
-
-    /**
-     * The component whose firing drives a triggered component, named so the box can say what sets it
-     * off rather than only that something does. A trigger is written as the component's id, or as a
-     * group naming it in `ID` where one component offers several triggers.
-     *
-     * @param group the component group.
-     * @returns the component's name, or undefined where the trigger names none this walk can follow.
-     */
-    const triggerNameOf = async (group: GroupNode): Promise<string | undefined> => {
-        const written = memberValue(group, 'Trigger');
-        if (written) return (await componentReferenceOf(written, token)).name;
-        for (const element of group.elements) {
-            if (!isGroupNode(element) || element.identifier?.name.toLowerCase() !== 'trigger') continue;
-            const id = memberValue(element, 'ID');
-            if (id) return (await componentReferenceOf(id, token)).name;
-        }
-        return undefined;
-    };
-
-    /**
-     * The resource held by the storage a member names, for the components that carry no resource type
-     * of their own and are only readable through the storage they act on.
-     *
-     * @param group the component group.
-     * @param field the member naming the storage.
-     * @returns the resource id, or undefined when the storage is unknown or names none.
-     */
-    const storageResourceOf = async (group: GroupNode, field: string): Promise<string | undefined> => {
-        const written = memberValue(group, field);
-        if (!written) return undefined;
-        const name = (await componentReferenceOf(written, token)).name;
-        return name ? byName.get(name.toLowerCase())?.resource : undefined;
-    };
-
-    /**
-     * The box one end of an arrow lands on. A name matching no component of the part gets a box
-     * saying so, and a reference that could not be followed gets one saying that instead, since the
-     * two are different problems and only the first is the author's mistake.
-     *
-     * @param reference what the field names.
-     * @returns the box, either a component of this part or the stand-in drawn for it.
-     */
-    const endpointFor = (reference: ComponentReference): FlowNode | string => {
-        const found = reference.name ? byName.get(reference.name.toLowerCase()) : undefined;
-        if (found) return found;
-        const id = `x:${(reference.name ?? reference.written).toLowerCase()}`;
-        if (!nodes.some((node) => node.id === id)) {
-            unresolved++;
-            nodes.push({
-                id,
-                label: reference.name ?? reference.written,
-                detail: reference.name
-                    ? l10n.t('no component of this part')
-                    : l10n.t('this reference could not be followed'),
-                kind: 'missing',
-            });
-        }
-        return id;
-    };
-
-    const resourceOf = (side: FlowNode | string): string | undefined =>
-        typeof side === 'string' ? undefined : side.resource;
-
-    /**
-     * Adds one arrow between two ends of the wiring.
-     *
-     * @param from the component the resources leave.
-     * @param to the component they arrive in.
-     * @param label what moves along the arrow, and how often.
-     * @param series the resource the arrow is coloured by, which is the one either end holds unless
-     * the caller knows better, such as the goods a flex grid stacks that no storage names.
-     */
-    const wire = (
-        from: FlowNode | string,
-        to: FlowNode | string,
-        label: string,
-        series = resourceOf(from) ?? resourceOf(to)
-    ): void => {
-        const idOf = (side: FlowNode | string): string => (typeof side === 'string' ? side : side.id);
-        // A mismatch is only claimed where both sides resolved and both name a resource, since every
-        // proxy component in this schema is a link the walk cannot follow.
-        const mismatch =
-            typeof from !== 'string' &&
-            typeof to !== 'string' &&
-            !!from.resource &&
-            !!to.resource &&
-            from.resource !== to.resource;
-        edges.push({ from: idOf(from), to: idOf(to), kind: mismatch ? 'warning' : 'flow', label, series });
-    };
-
-    /**
-     * The words on an arrow: how much of what moves along it, and how often. The resource is the one
-     * the storage end of the arrow holds, since that is where the type is written, and a quantity
-     * that does not work out to one number is left off rather than guessed at.
-     *
-     * @param quantity the number of resources moved, null where it is unwritten or unreadable.
-     * @param resource the resource moving, undefined where the storage names none.
-     * @param cadence how often it moves, empty where nothing says.
-     * @returns the label.
-     */
-    const movementLabel = (quantity: number | null, resource: string | undefined, cadence: string): string => {
-        const what =
-            quantity === null
-                ? (resource ?? l10n.t('resources'))
-                : l10n.t('{0} × {1}', numberText(quantity), resource ?? l10n.t('resources'));
-        return cadence ? l10n.t('{0} {1}', what, cadence) : what;
-    };
-
-    /**
-     * How often a converter runs, in the words that go on its arrows.
-     *
-     * @param entry the converter.
-     * @returns the cadence, empty where the component does not say.
-     */
-    const cadenceOf = async (entry: FlowNode): Promise<string> => {
-        if (entry.role === 'triggered-converter') return l10n.t('per trigger');
-        if (entry.role !== 'converter') return '';
-        const interval = await numberOf(numberMember(entry.component.group, 'Interval'));
-        return interval === null ? '' : l10n.t('every {0} s', numberText(interval));
-    };
-
-    /**
-     * The resource a side of an arrow holds, so the arrow can name what moves along it.
-     *
-     * @param side the box the arrow touches.
-     * @returns the resource id, or undefined for a box that names none.
-     */
     // The sentences are written once every component is known, since a component that names no
     // resource of its own, such as a resource change, is described with the one its storage holds.
     for (const entry of byName.values()) {
         nodes.push({
             id: entry.id,
             label: entry.component.name,
-            detail: await sentenceFor(entry),
+            detail: await sentenceFor(build, entry),
             kind:
                 entry.role === 'storage' || entry.role === 'multi-storage' || entry.role === 'flex-grid'
                     ? 'resource'
                     : 'component',
-            place: { uri, line: entry.component.group.position.line + 1 },
+            place: { uri: build.uri, line: entry.component.group.position.line + 1 },
         });
     }
 
     for (const entry of byName.values()) {
         if (token.isCancellationRequested) return undefined;
-        const group = entry.component.group;
-
         if (entry.role === 'converter' || entry.role === 'triggered-converter' || entry.role === 'inline-converter') {
-            const cadence = await cadenceOf(entry);
-            for (const input of conversionEntries(group, 'From')) {
-                const other = endpointFor(await componentReferenceOf(input.storage, token));
-                const quantity = input.quantity ? await numberOf(input.quantity) : 1;
-                if (quantity === null) unreadableNumbers++;
-                wire(other, entry, movementLabel(quantity, resourceOf(other), cadence));
-            }
-            for (const output of conversionEntries(group, 'To')) {
-                const other = endpointFor(await componentReferenceOf(output.storage, token));
-                const quantity = output.quantity ? await numberOf(output.quantity) : 1;
-                if (quantity === null) unreadableNumbers++;
-                wire(entry, other, movementLabel(quantity, resourceOf(other), cadence));
-            }
+            await wireConverter(build, entry);
         }
-
-        if (entry.role === 'change') {
-            for (const value of memberValues(group, 'ResourceStorage')) {
-                const other = endpointFor(await componentReferenceOf(value, token));
-                // A change adds what its `Amount` says and takes away what a negative one says, so
-                // the arrow follows the number rather than the field. An amount that does not work
-                // out to one number is drawn as an addition, which the note below says.
-                const amount = await numberOf(numberMember(group, 'Amount'));
-                if (amount === null) unreadableNumbers++;
-                const label = movementLabel(
-                    amount === null ? null : Math.abs(amount),
-                    resourceOf(other),
-                    l10n.t('per trigger')
-                );
-                if (amount !== null && amount < 0) wire(other, entry, label);
-                else wire(entry, other, label);
-            }
-        }
-
-        if (entry.role === 'consumer') {
-            // A consumer is what puts the part on the crew's delivery list, so the resource comes
-            // from the ship rather than from anywhere inside the part, and lands in the storage the
-            // consumer names.
-            wire(outside(CREW_ID), entry, entry.resource ?? l10n.t('resources'));
-            if (entry.resource) takesIn.add(entry.resource);
-            for (const value of memberValues(group, 'Storage')) {
-                const other = endpointFor(await componentReferenceOf(value, token));
-                wire(entry, other, entry.resource ?? resourceOf(other) ?? l10n.t('resources'));
-            }
-        }
-
-        if (entry.role === 'draws') {
-            // The storage a gun, a thruster, a drive or a shield spends out of lives on the same
-            // part, so the arrow runs from that storage into the component that empties it, and the
-            // other way round for the one member that fills a storage instead.
-            for (const draw of drawsOf(entry.component.cls)) {
-                for (const site of await drawEntries(group, draw, token)) {
-                    const other = endpointFor(await componentReferenceOf(site.storage, token));
-                    const quantity = site.quantity ? await numberOf(site.quantity) : (draw.defaultQuantity ?? null);
-                    if (site.quantity && quantity === null) unreadableNumbers++;
-                    const label = movementLabel(quantity, resourceOf(other), draw.cadence());
-                    if (draw.direction === 'from') wire(other, entry, label);
-                    else wire(entry, other, label);
-                }
-            }
-        }
-
-        if (entry.role === 'storage-proxy') {
-            // Everything read from or written to the proxy lands in the storage it names, so the
-            // arrow runs to that storage. Without it a proxy is a dead end, and the pool feeding it
-            // looks like it spreads resources into nothing.
-            for (const target of await proxyTargetsOf(group, token)) {
-                const reference = await componentReferenceOf(target.component, token);
-                const other = target.otherPart
-                    ? elsewhere(reference, PROXIED_PREFIX, l10n.t('on whichever part the proxy finds beside this one'))
-                    : endpointFor(reference);
-                wire(entry, other, l10n.t('stands in for'));
-            }
-        }
-
-        if (entry.role === 'flex-grid') {
-            wire(outside(CREW_ID), entry, l10n.t('goods'), l10n.t('goods'));
-            wire(entry, outside(CREW_ID), l10n.t('goods'), l10n.t('goods'));
-            carriesGoods = true;
-        }
-
-        if (entry.role === 'storage' && (await inheritedIsOn(group, 'SuppliesResources', token))) {
-            wire(entry, outside(CREW_ID), entry.resource ?? l10n.t('resources'));
-            if (entry.resource) givesOut.add(entry.resource);
-        }
-
-        if (entry.role === 'multi-storage') {
-            for (const value of memberValues(group, 'ResourceStorages')) {
-                const other = endpointFor(await componentReferenceOf(value, token));
-                wire(entry, other, l10n.t('spread across'));
-            }
-            for (const element of group.elements) {
-                // Found by the class the schema types the group as, the same way the sibling check
-                // finds it, rather than by the member name each of them would otherwise repeat.
-                if (
-                    !isGroupNode(element) ||
-                    !classAncestry(resolveGroupClass(element) ?? '').includes(BUFF_PROXY_CLASS)
-                ) {
-                    continue;
-                }
-                const incoming = memberValues(element, INCOMING_BUFFS_MEMBER).length > 0;
-                for (const field of VIA_BUFFS_COMPONENTS) {
-                    for (const value of memberValues(element, field)) {
-                        const reference = await componentReferenceOf(value, token);
-                        wire(entry, buffed(reference, incoming), l10n.t('spread across'));
-                    }
-                }
-            }
-        }
-
-        if (entry.role === 'network-in') {
-            wire(entry, outside(NETWORK_ID), entry.resource ?? l10n.t('resources'));
-            if (entry.resource) givesOut.add(entry.resource);
-        }
-
-        if (entry.role === 'network-out') {
-            wire(outside(NETWORK_ID), entry, entry.resource ?? l10n.t('resources'));
-            if (entry.resource) takesIn.add(entry.resource);
-        }
-
-        if (entry.role === 'network-store') {
-            for (const value of memberValues(group, 'ResourceStorage')) {
-                const other = endpointFor(await componentReferenceOf(value, token));
-                const resource = entry.resource ?? resourceOf(other) ?? l10n.t('resources');
-                wire(other, outside(NETWORK_ID), resource);
-                wire(outside(NETWORK_ID), other, resource);
-                if (entry.resource) {
-                    givesOut.add(entry.resource);
-                    takesIn.add(entry.resource);
-                }
-            }
-        }
+        await wireSpender(build, entry);
+        await wirePool(build, entry);
     }
-
-    const notes = [
-        l10n.t(
-            'Read an arrow as what moves along it: the amount, the resource, and how often it moves. A box says what its component does with what reaches it.'
-        ),
-        l10n.t('Only the members that move resources are drawn. A toggle or a trigger naming a component is left out.'),
-        l10n.t(
-            'A storage pooled through a buff sits on the part at the other end of that buff, so it is drawn as a store outside this part rather than as one of its own components.'
-        ),
-    ];
-    if (unresolved > 0) {
-        notes.push(l10n.t('{0} of the names written here match no component of this part.', String(unresolved)));
-    }
-    if (switched > 0) {
-        notes.push(
-            l10n.t(
-                '{0} of this part’s components share a name with another, in the sets a toggle switches between. Only the first of each is drawn, since only one of them is wired in at a time.',
-                String(switched)
-            )
-        );
-    }
-    if (unreadableNumbers > 0) {
-        notes.push(
-            l10n.t(
-                '{0} of the amounts here do not work out to one number, usually because a buff can move them, so those arrows say what moves without saying how much.',
-                String(unreadableNumbers)
-            )
-        );
-    }
-    if (edges.some((edge) => edge.kind === 'warning')) {
-        notes.push(
-            l10n.t(
-                'A red arrow runs between two components holding different resources, which is only marked where both of them resolved.'
-            )
-        );
-    }
-
-    // The heading answers "what is this part doing with resources" before the boxes are read at all.
-    // A part that moves none is the common case for armor, which carries a drain sink and nothing
-    // else, and saying that outright is better than a picture of one box and no arrows.
-    const goodsClause = carriesGoods ? l10n.t('Crew stack tradeable goods here and carry them away again.') : '';
-    const subtitle =
-        takesIn.size > 0 || givesOut.size > 0 || carriesGoods
-            ? [
-                  takesIn.size > 0 ? l10n.t('Takes in: {0}.', [...takesIn].sort().join(', ')) : '',
-                  givesOut.size > 0 ? l10n.t('Gives back: {0}.', [...givesOut].sort().join(', ')) : '',
-                  goodsClause,
-              ]
-                  .filter(Boolean)
-                  .join(' ')
-            : edges.length === 0
-              ? l10n.t('Nothing moves here. These components hold or absorb resources without passing them on.')
-              : l10n.t('Everything it moves stays inside the part.');
 
     return {
         title: l10n.t('Resource flow of {0}', partNameOf(part)),
-        subtitle,
+        subtitle: flowSubtitle(build),
         nodes,
         edges,
         legend: legendFor(
@@ -1035,6 +1126,6 @@ export const buildResourceFlowDiagram = async (
             ],
             edges
         ),
-        notes,
+        notes: flowNotes(build),
     };
 };

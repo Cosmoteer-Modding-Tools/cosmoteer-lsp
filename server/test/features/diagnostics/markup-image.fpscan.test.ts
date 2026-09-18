@@ -8,12 +8,12 @@ import { parser } from '../../../src/core/parser/parser';
 import { globalSettings } from '../../../src/settings';
 import { CosmoteerWorkspaceService } from '../../../src/workspace/cosmoteer-workspace.service';
 import { aliasRootIndex } from '../../../src/document/schema/alias-root';
-import { ReverseIncludeIndex } from '../../../src/features/navigation/reverse-include.index';
+import { ReverseIncludeIndex } from '../../../src/mod/reverse-include.index';
 import { SchemaIdIndex } from '../../../src/features/completion/schema-id.index';
 import { LocalizationKeyIndex } from '../../../src/features/completion/localization-key.index';
 import { MemberInjectionIndex } from '../../../src/mod/member-injection.index';
 import { invalidateModContext } from '../../../src/mod/mod-context';
-import { ParserResultRegistrar } from '../../../src/registrar/parser-result-registrar';
+import { ParserResultRegistrar } from '../../../src/document/parser-result-registrar';
 import { validateTextMarkup } from '../../../src/features/diagnostics/validator.text-markup';
 import { resetTextImageNames } from '../../../src/features/text-markup/text-image.names';
 import { buildActionRootingForScan, resetActionRootingForScan } from '../../scan-rooting-helper';
@@ -75,7 +75,11 @@ describe.skipIf(!HAVE)('image names a language file draws', () => {
             return undefined;
         };
         globalSettings.cosmoteerPath = DATA_DIR;
-        const noop: WorkDoneProgressReporter = { begin: () => undefined, report: () => undefined, done: () => undefined };
+        const noop: WorkDoneProgressReporter = {
+            begin: () => undefined,
+            report: () => undefined,
+            done: () => undefined,
+        };
         CosmoteerWorkspaceService.instance.setConnection({
             languages: { diagnostics: { refresh: () => undefined } },
             window: { showWarningMessage: () => undefined },

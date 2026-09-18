@@ -1,21 +1,11 @@
 import { commands, ExtensionContext, l10n, window } from 'vscode';
 import { ExecuteCommandRequest, LanguageClient } from 'vscode-languageclient/node';
+import { ModSchemaSummary } from '../../../shared/mod-schema.types';
 
 /**
  * Reading the code mods' assemblies into the schema on demand, for a mod that was built or installed
  * after the server started.
  */
-
-/** Mirror of the server's code mod schema summary (see server features/mod-schema/mod-schema.ts). */
-interface ModSchemaSummary {
-    assemblies: number;
-    types: number;
-    discriminators: number;
-    fromCache: boolean;
-    unreadable: string[];
-    /** Set when `codeMods.enabled` is off, so the command says so instead of "nothing found". */
-    disabled?: boolean;
-}
 
 /**
  * Registers the rebuild command.

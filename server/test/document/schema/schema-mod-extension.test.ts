@@ -12,7 +12,7 @@ import {
     typeDef,
     wikiUrlForType,
 } from '../../../src/document/schema/schema';
-import { ModSchemaExtension } from '../../../src/features/mod-schema/extract';
+import { ModSchemaExtension } from '../../../src/document/schema/schema.types';
 
 // The one write seam on the schema: a code mod's extracted types are merged in and taken back out
 // again. The read side memoizes heavily (discriminator index, per-class field lists, field name

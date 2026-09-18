@@ -4,6 +4,29 @@
 
 ### Added
 
+- The part table now exports an Excel workbook in place of copying itself out as CSV. The rows come over as a real table with its filter and an average under every column, the grouping becomes columns of its own, numbers stay numbers with the format their unit asks for, the comparison against another part carries over as shading, each part links back to the file it is written in, and a second sheet says what the export was made of. Every formula column is written out as a live Excel formula, so `[MaxHealth] / [@Tiles]` keeps computing in the workbook and can be changed there.
+
+- Three ways a part can send the game's resource search off the ship are now reported. A storage's `PickUpLocation` or `DeliveryLocation` and a resource grid's `GridRect` are read in tiles from the part's top left corner, so a value that lands past the part names a cell it does not own, and a resource sink on a part crew cannot walk through is searched for from cells that are not in the ship's path grid at all. Far enough out, each of these ends the search with an index error and takes the game down with it. Turn it off with `cosmoteerLSPRules.diagnostics.validatePartGeometry`.
+
+- Four ways a galaxy generator can load cleanly and then build a map the game cannot use are now reported. A career generator that runs no `RandomSectorTypes` spawner puts every star system but the starting one on the first sector type, which silently decides its generator, trade routes, missions and encounters. A `ProgressionNodeTiers` priority doubles as an index into an array its own `DesiredTierDeltas` sizes. A `ConnectionRadius` at or below the node spacing leaves a galaxy with no FTL routes at all. A `StartingNodePicker` window written the wrong way round, or a faction candidate count of zero, discards every node. Turn it off with `cosmoteerLSPRules.diagnostics.validateGalaxyGenerators`.
+
+- A resource storage composed out of itself is now reported. A `MultiResourceStorage` answers how much it holds by asking every storage it names, and an `InlineResourceConverter` by asking the one it converts from, so a ring of them asks the same question forever and the game disappears the first time such a part is placed or a ship carrying one is loaded. A stack overflow leaves no dialog and nothing in the log, so the file is the only place it can be caught. Turn it off with `cosmoteerLSPRules.diagnostics.validateStorageCycles`.
+
+- Four numbers the class reading them cannot survive are now reported. A continuous beam whose `Duration` is above zero and whose `HitInterval` is not, including one that writes no interval at all, loops without advancing its damage clock and freezes the game the first time it fires. An `InlineResourceConverter` `FromQuantity` or `ToQuantity` below one is divided by the moment the part is built. A `ShipIconGlowShipScale` of zero sizes a render target from an infinity. Nugget art sliced into more tiers than `MaxPerNugget` holds divides by an empty tier. Turn it off with `cosmoteerLSPRules.diagnostics.validateNumericDomains`.
+
+- A storage handing a crew more of a resource than one crew member can carry is now reported. The storage works out the transfer from its own `MaxResourcesPickUp` or `InitPickUp` and subtracts that whole number from itself, while the crew keeps only a stack, so the difference is destroyed with nothing said anywhere. The stack is read out of the resource file the id names, with a manifest replacement of that member applied. Turn it off with `cosmoteerLSPRules.diagnostics.validateResourcePickups`.
+
+### Fixed
+
+- A region or radius written as zero shows in the part grid editor again. `Distance = 0` says the region is exactly the part rect and `Radius = 0` is a circle with no reach, both of which the author wrote on purpose, but the layer list read a zero as nothing written: the layer opened switched off, carried no count, and said nothing about why.
+- A part grid that cannot be drawn now says so instead of leaving the last picture on screen. The render ran inside a promise continuation, so anything it threw became an unhandled rejection: the tool window kept whatever it had drawn before, the sidebar still read correctly, and nothing anywhere told the author the view had gone stale.
+- Completion inside the name of a field that is already written now offers that field again. With the cursor in `Ki|nd = Combat` the field counted as already present and was withheld, so the popup, filtered by the letters before the cursor, came up empty.
+- Eight refusals that a refactoring can report now each say what happened. Moving a block into a file of its own gave only "The block could not be moved." when the block had moved since the offer was made or when it is the one thing its file declares, creating a component said as little when the reference had moved, and a new content file that could not be registered named no reason for five of the cases that stop it.
+
+## 1.0.2 - 2026-09-13
+
+### Added
+
 - A value that divides by zero is now reported. The game reads it as NaN, which a fractional field keeps as its value and a whole-number field refuses with an overflow while it loads, so the same expression is a silent wrong number in one field and a file the game will not load in another. Turn it off with `cosmoteerLSPRules.diagnostics.validateDivisionByZero`.
 
 ### Fixed
@@ -15,6 +38,7 @@
 - A call whose arguments carry a comma is now reported unless it is quoted, because a comma ends a value. The same goes for a reference written bare in an expression, where only `(&path)` is substituted.
 - An expression written in quotes is now evaluated, so the hover and the hint show its value. That is the form the game's own files use for every call with a comma in it.
 - A percentage multiplied by a reference is no longer labelled a percentage, which read a recoil as 3000%.
+- Field documentation no longer calls armor a structural part. `HealthType` is `Operational` on every vanilla part but the five structure pieces, so a bullet's structural hit, penetration and status rules never apply to armor plating.
 - Signature help now reads only the line the cursor is on and ignores what a comment or an escaped quote says.
 - A string left without its closing quote now ends at the end of its line, the way the game's own reader ends it, and is reported on the quote that opened it. Typing a quote in front of a word that was already there used to swallow the rest of the file.
 - A value left half written no longer takes the member below it. A line ending in an operator, in a sign, or in a call that is still open used to absorb the next field, which then disappeared.

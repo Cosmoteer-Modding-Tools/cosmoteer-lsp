@@ -1,7 +1,7 @@
 import * as l10n from '@vscode/l10n';
 import { CancellationToken } from 'vscode-languageserver';
-import { AbstractNode, AbstractNodeDocument, GroupNode, isGroupNode, isListNode } from '../../core/ast/ast';
-import { childNodesOf, memberValueNamed } from '../../utils/ast.utils';
+import { AbstractNode, AbstractNodeDocument, isGroupNode, isListNode, descendants } from '../../core/ast/ast';
+import { memberValueNamed } from '../../utils/ast.utils';
 import { resolveGroupClass } from '../../document/schema/schema-context';
 import { classAncestry } from '../../document/schema/schema';
 import { evaluateNumericValue } from '../../semantics/value-evaluator';
@@ -85,12 +85,7 @@ export const validateValueRanges = async (
     cancellationToken: CancellationToken
 ): Promise<ValidationError[]> => {
     const errors: ValidationError[] = [];
-    const groups: GroupNode[] = [];
-    const collect = (node: AbstractNode): void => {
-        if (isGroupNode(node)) groups.push(node);
-        for (const child of childNodesOf(node)) collect(child);
-    };
-    for (const element of document.elements) collect(element);
+    const groups = [...descendants(document)].filter(isGroupNode);
 
     for (const group of groups) {
         if (cancellationToken.isCancellationRequested) return errors;

@@ -1,9 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { join } from 'path';
 import { CancellationToken } from 'vscode-languageserver';
-import { FullNavigationStrategy } from '../../src/features/navigation/full.navigation-strategy';
+import { navigate as navigateReference } from '../../src/semantics/navigate-reference';
 import { ValidationForValue } from '../../src/features/diagnostics/validator.value';
-import { ReferenceAutoCompletionStrategy } from '../../src/features/completion/strategy/reference.autocompletion-strategy';
+import { completeReference } from '../../src/features/completion/autocompletion.reference-path';
 import { AbstractNode, AbstractNodeDocument, GroupNode, ListNode, ValueNode, isGroupNode, isListNode } from '../../src/core/ast/ast';
 import { parseFilePath } from '../../src/utils/ast.utils';
 import { flattenGroup } from '../../src/semantics/effective-group';
@@ -16,22 +16,20 @@ import { initWorkspace, valueOf, WORKSPACE_DATA_DIR } from '../workspace-helper'
 import { FIXTURES_DIR } from '../helpers';
 
 // End-to-end resolution of the members mod actions merge into game-tree nodes, through the real
-// resolver (FullNavigationStrategy) and completion strategy over an on-disk fixture mod. The mod
+// resolver and the reference completion over an on-disk fixture mod. The mod
 // (test/fixtures/action-resolution-mod/mod.rules) patches `parts/derived_part.rules`:
 //   - AddBase appends `overclock_base.rules`/Part to derived_part's Part (slot 1, since a static
 //     base already sits at slot 0) -> `^/1/OVERCLOCK_MEMBER` must resolve.
 //   - Overrides injects `OverriddenComp` and Add(Name) injects `AddedComp` into Part/Components.
 // This is the committed counterpart of the scratchpad LSP drivers, covering the index -> resolver
 // integration the extension-source unit tests only stub.
-const nav = new FullNavigationStrategy();
-const completion = new ReferenceAutoCompletionStrategy();
 const token = CancellationToken.None;
 const MOD_DIR = join(FIXTURES_DIR, 'action-resolution-mod');
 const PART = '<./Data/parts/derived_part.rules>/Part';
 const BASE_PART = '<./Data/parts/base_part.rules>/Part';
 
 let origin: AbstractNodeDocument;
-const navigate = (path: string) => nav.navigate(path, origin, join(MOD_DIR, 'consumer.rules'), token);
+const navigate = (path: string) => navigateReference(path, origin, join(MOD_DIR, 'consumer.rules'), token);
 
 const pos = { line: 0, characterStart: 0, characterEnd: 0, start: 0, end: 0 };
 const refNode = (value: string): ValueNode => ({
@@ -41,7 +39,7 @@ const refNode = (value: string): ValueNode => ({
     parent: origin,
 });
 const complete = (value: string) =>
-    completion.complete({ node: refNode(value), isInheritanceNode: false, cancellationToken: token });
+    completeReference({ node: refNode(value), isInheritanceNode: false, cancellationToken: token });
 
 beforeAll(async () => {
     await initWorkspace();

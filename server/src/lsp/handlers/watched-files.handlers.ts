@@ -1,30 +1,20 @@
 import { CancellationToken, FileChangeType } from 'vscode-languageserver/node';
-import { WorkspaceSymbolService } from '../../features/navigation/workspace-symbol.service';
-import { SchemaIdIndex } from '../../features/completion/schema-id.index';
-import { TemplateBaseIndex } from '../../features/diagnostics/template-base.index';
-import { LocalizationKeyIndex } from '../../features/completion/localization-key.index';
-import { ReverseIncludeIndex } from '../../features/navigation/reverse-include.index';
-import { MentionIndex } from '../../features/navigation/mention.index';
-import { AddBaseIndex } from '../../mod/add-base.index';
-import { MemberInjectionIndex } from '../../mod/member-injection.index';
-import { ActionRootingIndex } from '../../mod/action-rooting.index';
+import { MentionIndex } from '../../workspace/mention.index';
 import { aliasRootIndex } from '../../document/schema/alias-root';
 import { invalidateSchemaContextCache } from '../../document/schema/schema-context';
-import { invalidateComponentIdCache } from '../../features/diagnostics/validator.schema-sibling';
-import { invalidateEffectiveChainCache } from '../../semantics/effective-group';
-import { invalidateLooseDeclarationCache } from '../../features/diagnostics/validator.schema-id-reference';
 import { clearModRootCache } from '../../mod/mod-root';
 import { invalidateModContext } from '../../mod/mod-context';
 import { reachabilityKey } from '../../mod/mod-reachability';
 import { invalidateFsPath } from '../../workspace/fs-cache';
 import { basenameOf, isManifestBasename, isRulesFileName } from '../../document/document-kind';
-import { filePathToUri } from '../../features/navigation/navigation-strategy';
-import { uriToFsPath } from '../../features/navigation/workspace-files';
-import { hasPullDiagnosticsCapability } from '../capabilities';
+import { filePathToUri } from '../../document/reference-path';
+import { uriToFsPath } from '../../workspace/workspace-files';
+import { hasPullDiagnosticsCapability } from '../../capabilities';
 import { connection } from '../context';
-import { diagnosticsCache, inlayHintCache } from '../document-caches';
+import { invalidateDerivedCaches } from '../document-caches';
 import { codeModAutoRefreshEnabled, refreshModSchema } from '../mod-schema';
 import { markProjectIndexesDirty, openDocumentNorms } from '../open-documents';
+import { PROJECT_INDEXES } from '../project-indexes';
 import { invalidateShipLayersFor } from '../ship-layers';
 import { bumpWorkspaceScanEpoch } from '../scan-epoch';
 import { bumpValidationScopeEpoch, validationScopeKeys, wholeWorkspaceEnabled } from '../validation-scope';
@@ -88,14 +78,9 @@ export function register(): void {
             // event that can move it. It is dropped here rather than with the per-edit index set.
             invalidateShipLayersFor(change.uri);
             if (change.type === FileChangeType.Deleted) {
-                WorkspaceSymbolService.instance.remove(change.uri);
-                SchemaIdIndex.instance.remove(change.uri);
-                TemplateBaseIndex.instance.remove(change.uri);
-                LocalizationKeyIndex.instance.remove(change.uri);
-                ReverseIncludeIndex.instance.remove(change.uri);
-                AddBaseIndex.instance.remove(change.uri);
-                MemberInjectionIndex.instance.remove(change.uri);
-                ActionRootingIndex.instance.remove(change.uri);
+                // Only the indexes that hold a per-file contribution have a removal. The mention
+                // index is marked dirty above instead, and its next sync drops the gone file.
+                for (const index of PROJECT_INDEXES) index.remove?.(change.uri);
                 // Clear any whole-workspace diagnostics we published for the now-deleted file.
                 await retractWorkspaceDiagnostics(change.uri);
             } else {
@@ -109,11 +94,7 @@ export function register(): void {
         // pull-capable client to re-pull, which recomputes against the new disk state. Cached scan
         // results of unchanged files can derive from the changed ones the same way.
         if (params.changes.length > 0) {
-            diagnosticsCache.clear();
-            inlayHintCache.clear();
-            invalidateComponentIdCache();
-            invalidateEffectiveChainCache();
-            invalidateLooseDeclarationCache();
+            invalidateDerivedCaches();
             bumpWorkspaceScanEpoch();
             if (hasPullDiagnosticsCapability) connection.languages.diagnostics.refresh();
         }

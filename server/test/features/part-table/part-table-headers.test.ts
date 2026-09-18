@@ -1,14 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { createRequire } from 'module';
-import { join, resolve } from 'path';
+import { mediaBundle } from '../../media-bundle';
 
-// The part table page's header shortening, imported straight from the shipped media script (its
-// module.exports guard activates outside a webview). A member path makes a poor column header: it is
-// long, it repeats the same leading segments on every component field, and its last segment is often
-// the least telling part of it.
+// The part table page's header shortening, read out of the built page (its exports become the
+// CommonJS ones, and nothing starts without a host bridge). A member path makes a poor column
+// header: it is long, it repeats the same leading segments on every component field, and its last
+// segment is often the least telling part of it.
 const require = createRequire(import.meta.url);
-const REPO_ROOT = resolve(__dirname, '..', '..', '..', '..');
-const page = require(join(REPO_ROOT, 'media', 'part-table.js')) as {
+const page = require(mediaBundle('part-table.js')) as {
     headerOf(path: string): { context: string; label: string };
     headersFor(keys: readonly string[]): Map<string, { context: string; label: string }>;
     parseTyped(text: string): { value: number; text: string } | null;

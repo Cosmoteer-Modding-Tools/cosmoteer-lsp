@@ -1,8 +1,15 @@
 import * as path from 'path';
 import { commands, ExtensionContext, l10n, ProgressLocation, Uri, window, workspace } from 'vscode';
 import { ExecuteCommandRequest, LanguageClient } from 'vscode-languageclient/node';
-import { DiffPreviewFile, DiffPreviewProvider, showDiffPreview, showPatchPreview } from '../preview/diff-preview';
+import { DiffPreviewProvider, showDiffPreview, showPatchPreview } from '../preview/diff-preview';
 import { openDocumentPaths, saveAndTidy } from '../shared-base/apply-cleanup';
+import {
+    CloneApplyResult,
+    CloneDeclarationArgs,
+    CloneFailure,
+    ClonePreviewResult,
+    CloneScanResult,
+} from '../../../shared/clone-declaration.types';
 
 /**
  * Cloning a declaration under a new id, with everything inside the copy that names the old id
@@ -19,82 +26,6 @@ export const CLONE_DECLARATION_LOCAL_COMMAND = 'cosmoteer.cloneDeclarationFromAc
 
 /** What an id may be spelled with, the same set the server and the rename refactoring enforce. */
 const VALID_CLONE_ID = /^[A-Za-z0-9_.]+$/;
-
-/**
- * Mirror of the server's clone arguments (see server
- * features/refactor/clone-declaration/clone.command.ts).
- */
-interface CloneDeclarationArgs {
-    uri: string;
-    offset: number;
-    newId?: string;
-    destinationDir?: string;
-    preview?: boolean;
-}
-
-/** Mirror of the server's report round. */
-interface CloneScanResult {
-    kind: 'scan';
-    id: string;
-    identityKey: string;
-    unit: 'directory' | 'file' | 'listElement';
-    files: number;
-    proposedId: string;
-    destinationDir: string;
-    modRoots: string[];
-    failure?: CloneFailure;
-}
-
-/** Mirror of the server's preview round. */
-interface ClonePreviewResult {
-    kind: 'preview';
-    diff: string;
-    changed: DiffPreviewFile[];
-    omitted: number;
-    writes: string[];
-    copied: string[];
-    stringsFiles: string[];
-    destinationDir: string;
-    newId: string;
-    unit: 'directory' | 'file' | 'listElement';
-    droppedOtherIds: string[];
-    keys: Array<{ from: string; to: string }>;
-    failure?: CloneFailure;
-    detail?: string[];
-}
-
-/** Mirror of the server's apply round. */
-interface CloneApplyResult {
-    kind: 'apply';
-    created: string;
-    createdPaths: string[];
-    changedFiles: string[];
-    stringsFiles: string[];
-    droppedOtherIds: string[];
-    keys: number;
-    newId: string;
-    unit: 'directory' | 'file' | 'listElement';
-    failure?: CloneFailure;
-    detail?: string[];
-}
-
-/** Why a clone did nothing, as the server words it. */
-type CloneFailure =
-    | 'stale'
-    | 'noDeclaration'
-    | 'inheritedIdentity'
-    | 'unreadableBase'
-    | 'severalIdentities'
-    | 'invalidId'
-    | 'idUnchanged'
-    | 'idTaken'
-    | 'notEditable'
-    | 'ambiguousDestination'
-    | 'destinationExists'
-    | 'unresolvablePath'
-    | 'escapingPath'
-    | 'writeFailed'
-    | 'editRejected';
 
 /**
  * Say why a clone did not happen, one message per reason the server reports, each naming what the user

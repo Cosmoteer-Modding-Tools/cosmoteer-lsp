@@ -20,8 +20,8 @@ import {
     isListNode,
     isValueNode,
     ValueNode,
+    childNodesOf,
 } from '../../core/ast/ast';
-import { childNodesOf } from '../../utils/ast.utils';
 import { schema } from './schema';
 import { ValueType } from './schema.types';
 

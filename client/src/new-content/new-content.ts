@@ -2,6 +2,15 @@ import { commands, ExtensionContext, l10n, Uri, window, workspace } from 'vscode
 import { ExecuteCommandRequest, LanguageClient } from 'vscode-languageclient/node';
 import { openDocumentPaths, saveAndTidy } from '../shared-base/apply-cleanup';
 import { wizardAnchor } from '../wizards/wizard-client';
+import {
+    ContentKind,
+    ContentKindInfo,
+    NewContentApplyResult,
+    NewContentFailure,
+    NewContentScanResult,
+    NewContentShip,
+    RegistrationFailure,
+} from '../../../shared/new-content.types';
 
 /**
  * A new content file, written and wired into the game in one step, because a file nothing registers
@@ -15,79 +24,6 @@ import { wizardAnchor } from '../wizards/wizard-client';
  * no-feedback forwarder and the questions have to be asked here.
  */
 export const NEW_CONTENT_LOCAL_COMMAND = 'cosmoteer.newContentFile';
-
-/**
- * Mirror of the server's content kinds (see server
- * features/refactor/new-content/new-content.types.ts).
- */
-export type ContentKind =
-    | 'part'
-    | 'resource'
-    | 'bullet'
-    | 'mediaEffect'
-    | 'logoShip'
-    | 'decalFolder'
-    | 'editorGroup'
-    | 'partStat'
-    | 'partToggle'
-    | 'buff'
-    | 'codexPage';
-
-/** Mirror of what one content kind would do in the mod. */
-interface ContentKindInfo {
-    kind: ContentKind;
-    folder: string;
-    registration: 'ship' | 'manifest' | 'none';
-    pointedAtBy?: string;
-    blocked?: string;
-}
-
-/** Mirror of a ship class a new part could be registered in. */
-interface NewContentShip {
-    key: string;
-    groupName: string;
-    id?: string;
-    fsPath: string;
-    target: 'workspace' | 'vanilla';
-    via: 'shipFile' | 'modAction';
-    blocked?: string;
-}
-
-/** Mirror of the server's scan round. */
-interface NewContentScanResult {
-    kind: 'scan';
-    modRoot: string;
-    modId: string;
-    idPrefix: string;
-    kinds: ContentKindInfo[];
-    ships: NewContentShip[];
-    failure?: NewContentFailure;
-}
-
-/** Mirror of the server's apply round. */
-interface NewContentApplyResult {
-    kind: 'apply';
-    created: string;
-    contentKind: ContentKind;
-    id: string;
-    route: 'ship' | 'manifest' | 'none';
-    registeredIn: string;
-    registrationFailure?: string;
-    manifests?: string[];
-    changedFiles: string[];
-    localizationKeys: string[];
-    localizationFiles: string[];
-    reference: string;
-    pointedAtBy?: string;
-    usage?: string;
-    placeholderAssets: string[];
-    previousLogo?: string;
-    failure?: NewContentFailure;
-}
-
-/** Mirror of why the server created nothing at all. */
-type NewContentFailure =
-    'noModRoot' | 'notEditable' | 'unknownKind' | 'invalidName' | 'pathTaken' | 'idTaken' | 'writeFailed';
 
 /**
  * Create a new content file: ask what to create, what to call it and where to register it, then let
@@ -323,6 +259,8 @@ function newContentFailureMessage(failure: NewContentFailure): string {
             return l10n.t(
                 'Cosmoteer: that id is already declared, and two files with one id means the game keeps only one of them.'
             );
+        case 'noSource':
+            return l10n.t('Cosmoteer: that is not a saved ship, so there was nothing to copy in.');
         case 'writeFailed':
             return l10n.t('Cosmoteer: the file could not be written, so nothing was created.');
     }
@@ -335,7 +273,7 @@ function newContentFailureMessage(failure: NewContentFailure): string {
  * @param manifests the manifest names to choose between, only for `ambiguousManifest`.
  * @returns the message to show.
  */
-function newContentRegistrationMessage(failure: string, manifests?: string[]): string {
+function newContentRegistrationMessage(failure: RegistrationFailure, manifests?: string[]): string {
     switch (failure) {
         case 'noShipChosen':
             return l10n.t('Nothing registers it yet, so no ship will build it until one lists it.');
@@ -358,8 +296,16 @@ function newContentRegistrationMessage(failure: string, manifests?: string[]): s
             return l10n.t('That ship declares no Parts list to add to.');
         case 'editRejected':
             return l10n.t('The editor turned the registration down, so the file is not wired in yet.');
-        default:
-            return l10n.t('It could not be registered, so nothing loads it yet.');
+        case 'stale':
+            return l10n.t('The new file had moved by the time the registration was written, so nothing lists it yet.');
+        case 'noShipClasses':
+            return l10n.t('Neither this mod nor the game declares a ship class to list it in.');
+        case 'unknownShip':
+            return l10n.t('The ship class that was picked is no longer there, so nothing lists it yet.');
+        case 'noModRoot':
+            return l10n.t('The registration would have gone into a manifest, and this folder is in no mod.');
+        case 'notEditable':
+            return l10n.t('The registration would have gone into a file that is not yours to edit.');
     }
 }
 

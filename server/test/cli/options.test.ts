@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { resolve } from 'path';
 import { helpText, LintOptions, parseArguments } from '../../src/cli/options';
-import { RULES } from '../../src/cli/rule-ids';
+import { RULES } from '../../src/features/diagnostics/rule-ids';
 
 /**
  * Parse a command line that is expected to be understood.

@@ -11,7 +11,7 @@ import {
     schemaValueCompletionsAtOffset,
 } from '../../../src/features/completion/autocompletion.schema-fields';
 import { modRulesOffsetCompletions } from '../../../src/features/completion/autocompletion.mod-rules';
-import { Completion } from '../../../src/features/completion/autocompletion.service';
+import { Completion } from '../../../src/features/completion/autocompletion.service.types';
 
 const token = CancellationToken.None;
 const labels = (cs: Completion[] | undefined): string[] =>

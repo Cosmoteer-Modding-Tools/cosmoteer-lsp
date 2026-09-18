@@ -13,7 +13,7 @@ import { fieldOf } from '../../document/schema/schema';
 import { declaringFieldOf, schemaReferenceFieldOf } from '../navigation/schema-id-reference.navigation';
 import { stringValueNodesOf } from '../navigation/schema-reference.navigation';
 import { namedMembersOf } from '../../utils/ast.utils';
-import { uriToFsPath } from '../navigation/workspace-files';
+import { uriToFsPath } from '../../workspace/workspace-files';
 import { PartLayerScope, ShipLayerContext, judgeLayer, layerScopeForPart } from '../ships/ship-layer.index';
 import { ValidationError } from './validator';
 import * as l10n from '@vscode/l10n';

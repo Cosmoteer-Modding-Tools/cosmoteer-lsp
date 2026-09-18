@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { countBySeverity, filterFindings, sortFindings, toFinding } from '../../src/cli/findings';
 import { reportPath, uriToFsPath } from '../../src/cli/uri';
-import { UNTAGGED_RULE_ID } from '../../src/cli/rule-ids';
+import { UNTAGGED_RULE_ID } from '../../src/features/diagnostics/rule-ids';
 import { finding } from './report-fixture';
 
 const ROOTS = process.platform === 'win32' ? ['C:\\mods\\demo'] : ['/mods/demo'];

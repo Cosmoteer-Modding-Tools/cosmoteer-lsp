@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { FIXTURES_DIR } from '../helpers';
-import { readManifest } from '../../src/mod/mod-dependencies';
+import { readManifest } from '../../src/features/mod-report/mod-dependencies';
 import {
     GameVersionInfo,
     compareGameVersions,

@@ -6,7 +6,7 @@ import { documentRootOf, namedMembersOf } from '../../utils/ast.utils';
 import { collectPartComponentIds, NON_SIBLING_FIELDS } from '../diagnostics/validator.schema-sibling';
 import { targetsAnotherPart } from '../../semantics/part-components';
 import { BUILTIN_IDS } from '../../document/schema/entity-schema';
-import { Completion } from './autocompletion.service';
+import { Completion } from './autocompletion.service.types';
 
 /** The registry whose ids the engine resolves part-wide (across nesting and inherited bases). */
 const PART_COMPONENT_REGISTRY = 'PartComponentRules';

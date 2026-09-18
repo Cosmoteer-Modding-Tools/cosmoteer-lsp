@@ -5,10 +5,16 @@ import { CancellationToken } from 'vscode-languageserver';
 import { AbstractNodeDocument } from '../core/ast/ast';
 import { lexer } from '../core/lexer/lexer';
 import { parser } from '../core/parser/parser';
-import { ParserResultRegistrar } from '../registrar/parser-result-registrar';
+import { ParserResultRegistrar } from '../document/parser-result-registrar';
 import { CancellationError } from '../utils/cancellation';
-import { recordNavigationDep } from '../utils/navigation-deps';
+import { recordNavigationDep } from './navigation-deps';
 import { perfCount } from '../utils/perf-counters';
+import { foldPathCase } from '../utils/uri-path';
+
+// `foldPathCase` lives in the dependency-free utils layer, where the path helpers that have no
+// business knowing about a cache belong. It is re-exported here because every cache key in the
+// server is folded next to a call into this module.
+export { foldPathCase };
 
 // Reference resolution and reference completion walk `<…>` file paths segment by segment. Before
 // this cache, every resolved reference paid one `readdir` per path segment and re-read + re-parsed
@@ -27,6 +33,15 @@ const READDIR_CAP = 16_384;
  *  whole-workspace scan's cross-file working set exceeds this on real mods, but raising it to
  *  1024 bought only ~0.6s of a 15s scan for ~130MB of peak heap, so the lower bound wins. */
 const PARSE_CAP = 512;
+/** Upper bound of memoized cache keys, bounded by wholesale reset like the derived-string memos
+ *  elsewhere. */
+const KEY_MEMO_CAP = 16384;
+/** How long a modification time stays too young to prove anything. Filesystem timestamps are
+ *  quantized, so a write can land inside the same tick as the read that cached the old content,
+ *  and the two are then indistinguishable by mtime alone. */
+const MTIME_SETTLE_MS = 2_000;
+/** Upper bound of memoized existence answers, well past the distinct paths a mod names. */
+const EXISTS_MEMO_CAP = 32_768;
 
 type ReaddirEntry = { mtimeMs: number; entries: Dirent[]; seenGen?: number };
 type ParseEntry = {
@@ -91,30 +106,10 @@ export const onFsInvalidation = (listener: FsInvalidationListener): void => {
     invalidationListeners.push(listener);
 };
 
-/** Whether the platform's default filesystem resolves paths case-insensitively. On Linux two
- *  paths differing only in case are distinct files, so folding keys there would let one file's
- *  cache entry answer for the other.
- *
- *  The game draws the same line, in `Halfling.IO.FilePath`: it compares every path through a
- *  comparer chosen as `IsCaseSensitive ? Ordinal : OrdinalIgnoreCase`, which is what decides
- *  whether it reads two spellings of a mod folder as one. It answers `IsCaseSensitive` by
- *  probing the filesystem rather than by naming the operating system. */
-const CASE_INSENSITIVE_PATHS = process.platform === 'win32' || process.platform === 'darwin';
-
-/**
- * Case-folds a path-derived cache key only where the filesystem is case-insensitive, so derived
- * caches (the navigation and asset memos) share the same collision-safety as the fs caches here.
- *
- * @param pathKey the path or path-derived string to fold.
- * @returns the folded key on Windows/macOS, the unchanged string elsewhere.
- */
-export const foldPathCase = (pathKey: string): string => (CASE_INSENSITIVE_PATHS ? pathKey.toLowerCase() : pathKey);
-
 // The same paths are canonicalized on every cache lookup (one per stat-validated hit), and
 // path.resolve plus two string passes per call showed up in scan profiles. Bounded by wholesale
 // reset, mirroring the derived-string memos elsewhere.
 const keyMemo = new Map<string, string>();
-const KEY_MEMO_CAP = 16384;
 
 /**
  * Canonical cache key for an OS path (case-folded only where the filesystem is case-insensitive).
@@ -130,11 +125,6 @@ const keyOf = (fsPath: string): string => {
     keyMemo.set(fsPath, key);
     return key;
 };
-
-/** How long a modification time stays too young to prove anything. Filesystem timestamps are
- *  quantized, so a write can land inside the same tick as the read that cached the old content,
- *  and the two are then indistinguishable by mtime alone. */
-const MTIME_SETTLE_MS = 2_000;
 
 /**
  * Whether a modification time is recent enough that a later write could still share it.
@@ -298,9 +288,6 @@ export const cachedParseFilePath = async (
  *  a real file before they judge the member, which is one probe per reference of every member of
  *  every file, over the same handful of paths a mod writes everywhere. */
 const existsMemo: Map<string, boolean> = new Map();
-
-/** Upper bound of memoized existence answers, well past the distinct paths a mod names. */
-const EXISTS_MEMO_CAP = 32_768;
 
 /**
  * `existsSync` with a memo that lives until the next filesystem invalidation. Synchronous, for the

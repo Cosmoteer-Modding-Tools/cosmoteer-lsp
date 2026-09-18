@@ -14,9 +14,9 @@ import {
     registerMemberEnumerationSource,
     registerMemberExtensionSource,
     registerMemberReplacementSource,
-} from '../semantics/reference-resolver';
-import { modFolderPaths } from '../features/navigation/workspace-files';
-import { FullNavigationStrategy } from '../features/navigation/full.navigation-strategy';
+} from '../document/reference-resolver';
+import { modFolderPaths } from '../workspace/workspace-files';
+import { navigate } from '../semantics/navigate-reference';
 import { FileTree, FileWithPath, isFile } from '../workspace/cosmoteer-workspace.service';
 import { ModAction } from './action';
 import { resolveActionTarget, resolveActionTargetMember } from './action-target-resolver';
@@ -49,8 +49,6 @@ interface InjectedMember {
     /** What it does to a member of that name the target writes itself. */
     readonly precedence: InjectionPrecedence;
 }
-
-const navigation = new FullNavigationStrategy();
 
 /**
  * Project index of the members that `mod.rules` actions merge into a game-tree node, either a nested
@@ -224,9 +222,12 @@ export class MemberInjectionIndex extends ModActionNodeIndex<InjectedMember> {
      * @returns the members of the file or group it lands on, empty when it lands nowhere usable.
      */
     private async referencedOverrideMembers(source: ValueNode): Promise<[string, AbstractNode][]> {
-        const resolved = await navigation
-            .navigate(String(source.valueType.value), source, getStartOfAstNode(source).uri, CancellationToken.None)
-            .catch(() => null);
+        const resolved = await navigate(
+            String(source.valueType.value),
+            source,
+            getStartOfAstNode(source).uri,
+            CancellationToken.None
+        ).catch(() => null);
         if (!resolved) return [];
         if (isFile(resolved as unknown as FileTree)) {
             const document = await parseFilePath((resolved as FileWithPath).path).catch(() => null);

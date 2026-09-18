@@ -4,7 +4,7 @@ import { join } from 'path';
 import { pathToFileURL } from 'url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { CancellationToken } from 'vscode-languageserver';
-import { RenameService } from '../../../src/features/navigation/rename.service';
+import { rename } from '../../../src/features/navigation/rename.service';
 import { AbstractNodeDocument, isGroupNode } from '../../../src/core/ast/ast';
 import { parseFilePath } from '../../../src/utils/ast.utils';
 import { walkAst } from '../../helpers';
@@ -14,7 +14,6 @@ import { initWorkspace } from '../../workspace-helper';
 // it is not a value, which is what a `{ … }` element leaves behind. It is a reference the game reads
 // like any other, so renaming what it names has to rewrite it, from either end of the rename.
 const token = CancellationToken.None;
-const service = RenameService.instance;
 
 let root = '';
 let folders: string[] = [];
@@ -55,7 +54,7 @@ describe('renaming through a bare list reference', () => {
 
     it('rewrites the bare element when the declaration is renamed', async () => {
         const identifier = groupIdentifier(particles, 'Foo');
-        const edit = await service.rename(
+        const edit = await rename(
             particles,
             { line: identifier.position.line, character: identifier.position.characterStart },
             'Bar',
@@ -69,7 +68,7 @@ describe('renaming through a bare list reference', () => {
         // The caret sits on the `Foo` segment of the element, the last name in the path.
         const line = 5;
         const text = '\t\t&<particles.rules>/PARTICLES/Foo';
-        const edit = await service.rename(
+        const edit = await rename(
             part,
             { line, character: text.indexOf('/Foo') + 2 },
             'Bar',

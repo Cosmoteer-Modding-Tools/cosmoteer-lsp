@@ -10,6 +10,7 @@ import {
     isGroupNode,
     isListNode,
     isValueNode,
+    childNodesOf,
 } from '../../core/ast/ast';
 import { isModRules, isRulesFileName } from '../../document/document-kind';
 import { registryOf, typeDef } from '../../document/schema/schema';
@@ -30,10 +31,10 @@ import {
 import { stringValueNodesOf } from '../navigation/schema-reference.navigation';
 import { ActionRootingIndex } from '../../mod/action-rooting.index';
 import type { ValueType } from '../../document/schema/schema.types';
-import { normalizeUri } from '../navigation/reference-location';
-import { documentsMentioning, uriToFsPath } from '../navigation/workspace-files';
-import { ReverseIncludeIndex } from '../navigation/reverse-include.index';
-import { childNodesOf, parseText } from '../../utils/ast.utils';
+import { normalizeUri } from '../../document/reference-location';
+import { documentsMentioning, uriToFsPath } from '../../workspace/workspace-files';
+import { ReverseIncludeIndex } from '../../mod/reverse-include.index';
+import { parseText } from '../../utils/ast.utils';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
 import { workshopContentDir } from '../../workspace/workshop-dir';
 import { workshopModOf } from '../mod-schema/workshop-link';
@@ -44,7 +45,7 @@ import {
     identityOfMod,
     isDeclaredDependency,
     isSameMod,
-} from '../../mod/mod-dependencies';
+} from '../mod-report/mod-dependencies';
 import { closestMatch } from '../../utils/did-you-mean';
 import { globalSettings } from '../../settings';
 import { didYouMeanFix, ValidationError } from './validator';
@@ -86,6 +87,18 @@ export function* idReferencesOf(document: AbstractNodeDocument): Generator<IdRef
 }
 
 /**
+ * The component registries whose ids are container-local: the engine names each component after its
+ * node name inside the owner's `Components { … }` map (`PartRules` and `BulletRules` both do this),
+ * and a reference resolves against the owner's own components rather than a global pool.
+ * Judging them here would be worse than not judging them: two bullets each defining `DamagePool` means
+ * one bullet's copy would excuse a reference in another bullet that has none, so the check could never
+ * catch the bug it exists for. The part-local sibling validator owns these instead.
+ */
+const CONTAINER_LOCAL_REGISTRIES: ReadonlySet<string> = new Set(['PartComponentRules', 'BulletComponentRules']);
+
+const INSTALLED_MOD_VERDICTS_CAP = 512;
+
+/**
  * True when the reference is the key of a self-keyed map (`RenderLayers { MyLayer { … } }`,
  * `TradeShips { Starstone { … } }`), which the engine reads as a declaration: writing the key is what
  * brings the instance into existence, so an unknown key is a new instance rather than a typo, and
@@ -102,16 +115,6 @@ const isSelfKeyedDeclaration = (reference: IdReference): boolean =>
     !!reference.isMapKey &&
     !!reference.fieldName &&
     SELF_KEYED_MAP_FIELDS.get(reference.fieldName.toLowerCase()) === reference.targetClass;
-
-/**
- * The component registries whose ids are container-local: the engine names each component after its
- * node name inside the owner's `Components { … }` map (`PartRules` and `BulletRules` both do this),
- * and a reference resolves against the owner's own components rather than a global pool.
- * Judging them here would be worse than not judging them: two bullets each defining `DamagePool` means
- * one bullet's copy would excuse a reference in another bullet that has none, so the check could never
- * catch the bug it exists for. The part-local sibling validator owns these instead.
- */
-const CONTAINER_LOCAL_REGISTRIES: ReadonlySet<string> = new Set(['PartComponentRules', 'BulletComponentRules']);
 
 /** Whether id references targeting `cls` are judged at all (see the layer notes above). */
 export const isValidatedIdClass = (cls: string): boolean => {
@@ -198,7 +201,6 @@ export const gameTreeExemptions = new Set<string>();
  * names, or null when no installed mod declares it.
  */
 const installedModVerdicts = new Map<string, string | null>();
-const INSTALLED_MOD_VERDICTS_CAP = 512;
 
 /**
  * Which installed workshop mod declares the id, the dependency escape hatch of the cross-file id

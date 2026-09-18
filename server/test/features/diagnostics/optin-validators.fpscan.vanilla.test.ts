@@ -8,8 +8,8 @@ import { parser } from '../../../src/core/parser/parser';
 import { globalSettings } from '../../../src/settings';
 import { CosmoteerWorkspaceService } from '../../../src/workspace/cosmoteer-workspace.service';
 import { aliasRootIndex } from '../../../src/document/schema/alias-root';
-import { ReverseIncludeIndex } from '../../../src/features/navigation/reverse-include.index';
-import { ParserResultRegistrar } from '../../../src/registrar/parser-result-registrar';
+import { ReverseIncludeIndex } from '../../../src/mod/reverse-include.index';
+import { ParserResultRegistrar } from '../../../src/document/parser-result-registrar';
 import { validateSchemaSiblingReferences } from '../../../src/features/diagnostics/validator.schema-sibling';
 import { validateCrossFileIdReferences } from '../../../src/features/diagnostics/validator.schema-id-reference';
 import { validateLocalizationKeys } from '../../../src/features/diagnostics/validator.localization-key';
@@ -20,8 +20,7 @@ import { validateUnreceivableBuffs } from '../../../src/features/diagnostics/val
 // Everything the game ships loads fine in-game, so every finding here is a false positive by
 // definition. Zero findings across all four passes is the contract that lets them run by default.
 // Needs the install, self-skips without it.
-const DATA_DIR =
-    process.env.COSMOTEER_DATA_DIR ?? 'C:/Program Files (x86)/Steam/steamapps/common/Cosmoteer/Data';
+const DATA_DIR = process.env.COSMOTEER_DATA_DIR ?? 'C:/Program Files (x86)/Steam/steamapps/common/Cosmoteer/Data';
 const HAVE_DATA = existsSync(DATA_DIR);
 const token = CancellationToken.None;
 
@@ -51,7 +50,11 @@ const report = (name: string, findings: string[]): void => {
 describe.skipIf(!HAVE_DATA)('default-on validators over vanilla Data', () => {
     beforeAll(async () => {
         globalSettings.cosmoteerPath = DATA_DIR;
-        const noop: WorkDoneProgressReporter = { begin: () => undefined, report: () => undefined, done: () => undefined };
+        const noop: WorkDoneProgressReporter = {
+            begin: () => undefined,
+            report: () => undefined,
+            done: () => undefined,
+        };
         const svc = CosmoteerWorkspaceService.instance;
         svc.setConnection({
             languages: { diagnostics: { refresh: () => undefined } },
@@ -131,9 +134,8 @@ describe.skipIf(!HAVE_DATA)('default-on validators over vanilla Data', () => {
         // the engine does: `Metatype = Distress` names the encounter whose `ID = "distress"`, and
         // `Layer = "indicators"` names the ships' `Indicators` render layer. Both were only ever
         // exempt because the comparison was case-sensitive.
-        const { gameTreeExemptions, labelFieldExemptions } = await import(
-            '../../../src/features/diagnostics/validator.schema-id-reference'
-        );
+        const { gameTreeExemptions, labelFieldExemptions } =
+            await import('../../../src/features/diagnostics/validator.schema-id-reference');
         expect([...gameTreeExemptions].sort()).toEqual([
             'graveyard_platform',
             'shrapnel',

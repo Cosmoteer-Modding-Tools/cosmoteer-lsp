@@ -90,7 +90,7 @@ export const validateLocalizationKeys = async (
             additionalInfo: suggestion ? `${base} ${l10n.t('Did you mean "{0}"?', suggestion)}` : base,
             data: {
                 ...(suggestion
-                    ? { quickFix: { title: l10n.t('Change to "{0}"', suggestion), newText: suggestion } }
+                    ? { quickFix: { title: l10n.t("Change to '{0}'", suggestion), newText: suggestion } }
                     : {}),
                 insertLocalizationKey: { key },
             },

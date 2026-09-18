@@ -11,9 +11,9 @@ import { basenameOf } from '../../document/document-kind';
 import { documentRootClass } from '../../document/schema/document-root';
 import { entityDeclarationsOf, sameId } from '../../document/schema/entity-schema';
 import { getStartOfAstNode } from '../../utils/ast.utils';
-import { DefinitionService } from './definition.service';
-import { enclosingContainerKey, referenceNodesOf } from './reference-index';
-import { definitionLocationOf, locationKey } from './reference-location';
+import { resolveReferenceLocation } from './reference-target';
+import { enclosingContainerKey, referenceNodesOf } from './reference-nodes';
+import { definitionLocationOf, locationKey } from '../../document/reference-location';
 import { Position } from 'vscode-languageserver';
 import {
     schemaReferenceFieldOf,
@@ -22,7 +22,7 @@ import {
     mapKeyReferenceAt,
 } from './schema-id-reference.navigation';
 import { stringValueNodesOf } from './schema-reference.navigation';
-import { documentsMentioning, uriToFsPath } from './workspace-files';
+import { documentsMentioning, uriToFsPath } from '../../workspace/workspace-files';
 
 /** A cross-file id symbol: a whole-file root identified by its `ID`, plus where it's declared. */
 export interface IdSymbol {
@@ -198,7 +198,7 @@ export const fileReferenceName = (uriOrPath: string): string => basenameOf(uriTo
  * (`PartsUnlocked = [&<./Data/ships/terran/cannon_med/cannon_med.rules>/Part/ID]`). Such a reference
  * carries no id text at all, so {@link idReferenceSites} can never see it. The candidates are
  * pre-filtered on the declaring file's name instead, and each survivor is resolved with the same
- * {@link DefinitionService} go-to-definition uses and kept when it lands on the declaration itself.
+ * {@link resolveReferenceTarget} go-to-definition uses and kept when it lands on the declaration itself.
  *
  * A document that repeats one reference (a tech tree naming the same part file from several techs)
  * resolves it once, memoized by the reference text plus the scope it resolves against, since an OT
@@ -226,9 +226,7 @@ export async function* fileReferenceSites(
         const memoKey = `${raw} ${enclosingContainerKey(reference)}`;
         let resolvedKey = resolvedByRef.get(memoKey);
         if (resolvedKey === undefined && !resolvedByRef.has(memoKey)) {
-            const resolved = await DefinitionService.instance
-                .resolveReferenceLocation(document, reference, cancellationToken)
-                .catch(() => null);
+            const resolved = await resolveReferenceLocation(document, reference, cancellationToken).catch(() => null);
             resolvedKey = resolved ? locationKey(resolved) : null;
             resolvedByRef.set(memoKey, resolvedKey);
         }

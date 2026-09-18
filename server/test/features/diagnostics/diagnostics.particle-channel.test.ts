@@ -8,7 +8,7 @@ import { AbstractNodeDocument } from '../../../src/core/ast/ast';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
 import { validateUnusedParticleChannels } from '../../../src/features/diagnostics/validator.particle-channel';
-import { ReverseIncludeIndex } from '../../../src/features/navigation/reverse-include.index';
+import { ReverseIncludeIndex } from '../../../src/mod/reverse-include.index';
 import { initWorkspace } from '../../workspace-helper';
 
 const token = CancellationToken.None;

@@ -1,8 +1,8 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { CancellationToken } from 'vscode-languageserver';
-import { ReferenceIndex } from '../../../src/features/navigation/reference-index';
-import { RenameService } from '../../../src/features/navigation/rename.service';
-import { DefinitionService } from '../../../src/features/navigation/definition.service';
+import { findReferences } from '../../../src/features/navigation/reference-index';
+import { rename } from '../../../src/features/navigation/rename.service';
+import { getDefinition } from '../../../src/features/navigation/definition.service';
 import { AbstractNode, AbstractNodeDocument, isAssignmentNode, isMathExpressionNode } from '../../../src/core/ast/ast';
 import { parseFilePath, findNodeByIdentifier } from '../../../src/utils/ast.utils';
 import { initWorkspace, WORKSPACE_DATA_DIR, workspaceFile } from '../../workspace-helper';
@@ -39,14 +39,14 @@ describe('reference embedded in a math expression', () => {
     it('go-to-definition lands on the sibling declaration (Base = 10)', async () => {
         const ref = firstEmbeddedBase(doc);
         const cursor = { line: ref.position.line, character: ref.position.characterStart + 2 };
-        const location = singleLocation(await DefinitionService.instance.getDefinition(doc, cursor, token, FOLDERS));
+        const location = singleLocation(await getDefinition(doc, cursor, token, FOLDERS));
         expect(location.range.start.line).toBe(4); // `Base = 10` is the 5th line (0-based 4)
     });
 
     it('find-all-references includes the declaration and every in-expression use', async () => {
         const ref = firstEmbeddedBase(doc);
         const cursor = { line: ref.position.line, character: ref.position.characterStart + 2 };
-        const refs = await ReferenceIndex.instance.findReferences(doc, cursor, true, FOLDERS, token);
+        const refs = await findReferences(doc, cursor, true, FOLDERS, token);
         // Base = 10 (decl) + `(&Base)` in Doubled + two `&Base` in Mixed = 4 sites.
         expect(refs.length).toBe(4);
     });
@@ -54,7 +54,7 @@ describe('reference embedded in a math expression', () => {
     it('rename rewrites the declaration and all embedded uses (no dangling reference)', async () => {
         const ref = firstEmbeddedBase(doc);
         const cursor = { line: ref.position.line, character: ref.position.characterStart + 2 };
-        const edit = await RenameService.instance.rename(doc, cursor, 'BaseX', FOLDERS, token);
+        const edit = await rename(doc, cursor, 'BaseX', FOLDERS, token);
         const edits = Object.values(edit?.changes ?? {}).flat();
         expect(edits.length).toBe(4);
     });

@@ -18,7 +18,7 @@ import {
 } from '../../../src/core/ast/ast';
 import { documentHighlightsAt } from '../../../src/features/navigation/document-highlight';
 import { particleChannelsOf } from '../../../src/features/navigation/particle-channel';
-import { referenceNodesOf } from '../../../src/features/navigation/reference-index';
+import { referenceNodesOf } from '../../../src/features/navigation/reference-nodes';
 import { globalSettings } from '../../../src/settings';
 import { CosmoteerWorkspaceService } from '../../../src/workspace/cosmoteer-workspace.service';
 
@@ -133,7 +133,11 @@ const positionOf = (file: string, position: { line: number; character: number })
 describe.skipIf(!HAVE)('documentHighlight over a real corpus', () => {
     it('holds its invariants at every probe', { timeout: 60 * 60 * 1000 }, async () => {
         globalSettings.cosmoteerPath = DATA_DIR;
-        const noop: WorkDoneProgressReporter = { begin: () => undefined, report: () => undefined, done: () => undefined };
+        const noop: WorkDoneProgressReporter = {
+            begin: () => undefined,
+            report: () => undefined,
+            done: () => undefined,
+        };
         const service = CosmoteerWorkspaceService.instance;
         service.setConnection({
             languages: { diagnostics: { refresh: () => undefined } },
@@ -181,14 +185,22 @@ describe.skipIf(!HAVE)('documentHighlight over a real corpus', () => {
                 for (const highlight of highlights) {
                     const { start, end } = highlight.range;
                     if (start.line !== end.line) {
-                        violations.push({ ...positionOf(rel, position), kind: 'multi-line', detail: JSON.stringify(highlight.range) });
+                        violations.push({
+                            ...positionOf(rel, position),
+                            kind: 'multi-line',
+                            detail: JSON.stringify(highlight.range),
+                        });
                         continue;
                     }
                     const known = spans.some(
                         (span) => span.line === start.line && span.start <= start.character && span.end >= end.character
                     );
                     if (!known) {
-                        violations.push({ ...positionOf(rel, position), kind: 'unknown-range', detail: JSON.stringify(highlight.range) });
+                        violations.push({
+                            ...positionOf(rel, position),
+                            kind: 'unknown-range',
+                            detail: JSON.stringify(highlight.range),
+                        });
                     }
                 }
                 const covers = highlights.some(

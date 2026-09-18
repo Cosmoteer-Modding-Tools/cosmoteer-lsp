@@ -3,13 +3,12 @@ import { join } from 'path';
 import { CancellationToken } from 'vscode-languageserver';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
-import { FullNavigationStrategy } from '../../../src/features/navigation/full.navigation-strategy';
-import { MentionIndex } from '../../../src/features/navigation/mention.index';
+import { navigate } from '../../../src/semantics/navigate-reference';
+import { MentionIndex } from '../../../src/workspace/mention.index';
 import { findNodeByIdentifier } from '../../../src/utils/ast.utils';
 import { isAssignmentNode, isGroupNode, isValueNode } from '../../../src/core/ast/ast';
 import { findReferenceNode, FIXTURES_DIR } from '../../helpers';
 
-const nav = new FullNavigationStrategy();
 const token = CancellationToken.None;
 const parse = (src: string, uri = 'file:///t.rules') => parser(lexer(src), uri).value;
 
@@ -22,7 +21,7 @@ describe('reference navigation ignores case like the game', () => {
     it('resolves a case-mismatched in-file path', async () => {
         const doc = parse(SRC);
         const node = findReferenceNode(doc, '&base/value');
-        const result = await nav.navigate(String(node.valueType.value), node, doc.uri, token);
+        const result = await navigate(String(node.valueType.value), node, doc.uri, token);
         expect(result).toBeTruthy();
         expect(isValueNode(result as never) && (result as unknown as { valueType: { value: unknown } }).valueType.value).toBe(5);
     });
@@ -30,7 +29,7 @@ describe('reference navigation ignores case like the game', () => {
     it('prefers the exact-case member when two differ only by case', async () => {
         const doc = parse('foo = 1\nFoo = 2\nUse = &Foo\n');
         const node = findReferenceNode(doc, '&Foo');
-        const result = await nav.navigate('&Foo', node, doc.uri, token);
+        const result = await navigate('&Foo', node, doc.uri, token);
         expect(isValueNode(result as never) && (result as unknown as { valueType: { value: unknown } }).valueType.value).toBe(2);
     });
 });

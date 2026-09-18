@@ -4,8 +4,8 @@ import { join } from 'path';
 import { tmpdir } from 'os';
 import { CancellationToken } from 'vscode-languageserver';
 import { parseText } from '../../../src/utils/ast.utils';
-import { filePathToUri } from '../../../src/features/navigation/navigation-strategy';
-import { TemplateBaseIndex } from '../../../src/features/diagnostics/template-base.index';
+import { filePathToUri } from '../../../src/document/reference-path';
+import { TemplateBaseIndex } from '../../../src/workspace/template-base.index';
 import { clearFsCaches } from '../../../src/workspace/fs-cache';
 import {
     prepareTypeHierarchy,

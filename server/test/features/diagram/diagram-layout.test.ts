@@ -1,13 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { createRequire } from 'module';
-import { join, resolve } from 'path';
+import { mediaBundle } from '../../media-bundle';
 
-// The diagram page's pure layout, imported straight from the shipped media script (its
-// module.exports guard activates outside a webview). A cycle in the graph is a thing these diagrams
-// are asked to draw rather than a reason to refuse one, so the layering has to terminate on one.
+// The diagram page's pure layout, read out of the built page (its exports become the CommonJS ones,
+// and nothing starts without a host bridge). A cycle in the graph is a thing these diagrams are
+// asked to draw rather than a reason to refuse one, so the layering has to terminate on one.
 const require = createRequire(import.meta.url);
-const REPO_ROOT = resolve(__dirname, '..', '..', '..', '..');
-const page = require(join(REPO_ROOT, 'media', 'diagram-view.js')) as {
+const page = require(mediaBundle('diagram-view.js')) as {
     assignLayers(nodes: Array<{ id: string }>, edges: Array<{ from: string; to: string }>): Map<string, number>;
     orderLayers(
         nodes: Array<{ id: string }>,

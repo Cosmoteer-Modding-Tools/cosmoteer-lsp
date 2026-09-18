@@ -1,5 +1,5 @@
 import { join, relative, resolve } from 'path';
-import { filePathToDirectoryPath } from '../navigation/navigation-strategy';
+import { filePathToDirectoryPath } from '../../document/reference-path';
 import { findModRoot } from '../../mod/mod-root';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
 

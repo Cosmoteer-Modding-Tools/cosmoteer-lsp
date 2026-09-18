@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { CancellationToken, Range } from 'vscode-languageserver';
 import { evaluateNumericValue } from '../../src/semantics/value-evaluator';
-import { InlayHintService } from '../../src/features/inlay/inlay-hint.service';
+import { getInlayHints } from '../../src/features/inlay/inlay-hint.service';
 import { AbstractNode, AbstractNodeDocument, isAssignmentNode } from '../../src/core/ast/ast';
 import { parseFixture, valueOf, walkAst } from '../helpers';
 import { initWorkspace } from '../workspace-helper';
@@ -46,7 +46,7 @@ describe('repair-cost real-world shape', () => {
     });
 
     it('shows inlay hints for the reference assignment, list math and the repair fraction', async () => {
-        const hints = await InlayHintService.instance.getInlayHints(doc, Range.create(0, 0, 100, 0), token);
+        const hints = await getInlayHints(doc, Range.create(0, 0, 100, 0), token);
         const labelOnLine = (line: number) => hints.filter((h) => h.position.line === line).map((h) => h.label);
         expect(labelOnLine(1)).toContain('= 100'); // COST = &BASE_COST (reference assignment)
         expect(labelOnLine(9)).toContain('= 200'); // ceil(...) inside the Resources list

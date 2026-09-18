@@ -9,8 +9,9 @@ import {
     isValueNode,
     ListNode,
     ValueNode,
+    descendants,
 } from '../../core/ast/ast';
-import { childNodesOf, memberValueNamed } from '../../utils/ast.utils';
+import { memberValueNamed } from '../../utils/ast.utils';
 import { listElementType } from '../../document/schema/schema-context';
 import { ValidationError } from './validator';
 
@@ -45,11 +46,11 @@ const integerOf = (node: AbstractNode): number | undefined => {
  * @returns a generator of the indicator lists found under it.
  */
 function* indicatorListsIn(node: AbstractNode): Generator<ListNode> {
-    if (isListNode(node)) {
-        const element = listElementType(node);
-        if (element?.kind === 'group' && element.ref === INDICATOR_RULES) yield node;
+    for (const candidate of descendants(node)) {
+        if (!isListNode(candidate)) continue;
+        const element = listElementType(candidate);
+        if (element?.kind === 'group' && element.ref === INDICATOR_RULES) yield candidate;
     }
-    for (const child of childNodesOf(node)) yield* indicatorListsIn(child);
 }
 
 /**

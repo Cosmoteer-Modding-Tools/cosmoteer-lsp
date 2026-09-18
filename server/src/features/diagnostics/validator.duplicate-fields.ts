@@ -3,7 +3,7 @@ import { AbstractNodeDocument } from '../../core/ast/ast';
 import { isModRules } from '../../document/document-kind';
 import { containerAtOffset, plansForDocument } from '../refactor/shared-base/shared-base.analysis-entry';
 import { ExtractionPlan } from '../refactor/shared-base/plan.types';
-import { normalizeUri } from '../navigation/reference-location';
+import { normalizeUri } from '../../document/reference-location';
 import { ValidationError } from './validator';
 import * as l10n from '@vscode/l10n';
 

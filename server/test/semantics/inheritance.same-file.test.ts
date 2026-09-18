@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { CancellationToken } from 'vscode-languageserver';
 import { lexer } from '../../src/core/lexer/lexer';
 import { parser } from '../../src/core/parser/parser';
-import { FullNavigationStrategy } from '../../src/features/navigation/full.navigation-strategy';
+import { navigate } from '../../src/semantics/navigate-reference';
 import { AbstractNode, isListNode, isGroupNode } from '../../src/core/ast/ast';
 import { parseFixture } from '../helpers';
 
@@ -43,10 +43,9 @@ describe('same-file inheritance by bare name', () => {
         // with the node itself as start. A relative `&` on an inheritance member must
         // resolve against the container (sibling), not the inheriting group's members.
         const doc = parseFixture('sibling-inheritance.rules');
-        const nav = new FullNavigationStrategy();
         const right = findGroup(doc, 'BatteryStorageRight')!;
         const inhNode = (right as unknown as { inheritance: AbstractNode[] }).inheritance[0];
-        const result = await nav.navigate('&BatteryStorageLeft', inhNode, doc.uri, token);
+        const result = await navigate('&BatteryStorageLeft', inhNode, doc.uri, token);
         expect(
             result && isGroupNode(result as AbstractNode) && (result as { identifier?: { name: string } }).identifier?.name
         ).toBe('BatteryStorageLeft');
@@ -54,11 +53,10 @@ describe('same-file inheritance by bare name', () => {
 
     it('resolves an inherited member through the sibling (BatteryStorageRight -> Type)', async () => {
         const doc = parseFixture('sibling-inheritance.rules');
-        const nav = new FullNavigationStrategy();
         // `&~/…` is resolved from a node WITH a parent, as real reference nodes are.
         const start = findGroup(doc, 'BatteryStorageRight')!;
         // Type is defined only on BatteryStorageLeft; it must be reachable on the child.
-        const result = await nav.navigate('&~/Components/BatteryStorageRight/Type', start, doc.uri, token);
+        const result = await navigate('&~/Components/BatteryStorageRight/Type', start, doc.uri, token);
         expect(result && 'valueType' in result && (result as { valueType: { value: unknown } }).valueType.value).toBe(
             'ResourceStorage'
         );
@@ -66,9 +64,8 @@ describe('same-file inheritance by bare name', () => {
 
     it('does not override a member the child redefines (MaxResources stays 50)', async () => {
         const doc = parseFixture('sibling-inheritance.rules');
-        const nav = new FullNavigationStrategy();
         const start = findGroup(doc, 'BatteryStorageRight')!;
-        const result = await nav.navigate('&~/Components/BatteryStorageRight/MaxResources', start, doc.uri, token);
+        const result = await navigate('&~/Components/BatteryStorageRight/MaxResources', start, doc.uri, token);
         expect(result && 'valueType' in result && (result as { valueType: { value: unknown } }).valueType.value).toBe(
             50
         );
@@ -116,22 +113,20 @@ describe('list-element `: ../^/0/List/N` inheritance (game `^` = own inheritance
     it('resolves the inheritance ref to the base list element (not null)', async () => {
         const doc = parser(lexer(SRC), 'file:///t.rules');
         expect(doc.parserErrors).toEqual([]);
-        const nav = new FullNavigationStrategy();
         const inhNode = inhRefOfDerivedElement(doc);
         expect(inhNode.valueType.value).toBe('../^/0/Effects/0');
         // The validator starts the walk from the container of the inheriting group (`node.parent.parent`),
         // matching the game's `OTInheritanceReferenceNode.GetFindRoot` (`Parent.Parent.Parent`).
         const start = (inhNode.parent as AbstractNode).parent as AbstractNode;
-        const result = await nav.navigate(inhNode.valueType.value, start, doc.value.uri, token);
+        const result = await navigate(inhNode.valueType.value, start, doc.value.uri, token);
         expect(result && isGroupNode(result as AbstractNode)).toBe(true);
     });
 
     it('reaches a member defined only on the base element through the `^/0` inheritance', async () => {
         const doc = parser(lexer(SRC), 'file:///t.rules');
-        const nav = new FullNavigationStrategy();
         const inhNode = inhRefOfDerivedElement(doc);
         const start = (inhNode.parent as AbstractNode).parent as AbstractNode;
-        const color = await nav.navigate(`${inhNode.valueType.value}/Color`, start, doc.value.uri, token);
+        const color = await navigate(`${inhNode.valueType.value}/Color`, start, doc.value.uri, token);
         expect(color && 'valueType' in color && (color as { valueType: { value: unknown } }).valueType.value).toBe(1);
     });
 });

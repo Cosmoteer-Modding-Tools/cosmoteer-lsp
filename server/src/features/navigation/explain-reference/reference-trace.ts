@@ -11,13 +11,13 @@ import {
     isValueNode,
 } from '../../../core/ast/ast';
 import { getStartOfAstNode } from '../../../utils/ast.utils';
-import { isNumber } from '../../../utils/utils';
+import { isNumber } from '../../../utils/text.utils';
 import { closestMatch } from '../../../utils/did-you-mean';
 import { splitVirtualColon } from '../../../utils/reference.utils';
-import { extractSubstrings, filePathToDirectoryPath, stripReferenceWhitespace } from '../navigation-strategy';
-import { relativeReferenceScope } from '../full.navigation-strategy';
-import { isReferenceValue } from '../definition.service';
-import { inheritanceEntriesOf, stepIntoNode } from '../../../semantics/reference-resolver';
+import { extractSubstrings, filePathToDirectoryPath, stripReferenceWhitespace } from '../../../document/reference-path';
+import { relativeReferenceScope } from '../../../semantics/navigate-reference';
+import { isReferenceValue } from '../reference-target';
+import { inheritanceEntriesOf, stepIntoNode } from '../../../document/reference-resolver';
 import { resolveReference } from '../../../semantics/effective-member';
 import { flattenGroup, flattenList } from '../../../semantics/effective-group';
 import { resolveVirtualInheritanceTargets } from '../../../semantics/inheritor-resolver';
@@ -26,7 +26,7 @@ import {
     inheritanceExtendsMissingMember,
     isInheritanceInSameFile,
     isRuntimeRootReference,
-} from '../../diagnostics/validator.value';
+} from '../reference-shape';
 import { isActionTargetValueNode } from '../../../mod/action';
 import { parseModActions } from '../../../mod/action-parser';
 import { normalizeTargetPath } from '../../../mod/action-target-resolver';
@@ -367,32 +367,21 @@ const actionToleratesMissingTarget = (node: ValueNode): boolean => {
 };
 
 /**
- * Explains one reference: which of its segments resolved, where the last one that did landed, and
- * what the game would have found there.
+ * Resolves every prefix of the path through the shared navigation. Resolution is sequential, so the
+ * first prefix that fails is the first hop that fails and everything past it is unreachable.
  *
- * @param node the reference value to explain.
- * @param token cancels every resolution the walk performs.
- * @returns the trace, or null when the node is not a reference.
+ * @param shape the path's shape.
+ * @param startNode the node the first hop is looked up from.
+ * @param uri the file the reference is written in.
+ * @param token cancels every resolution.
+ * @returns what each prefix resolved to, how many resolved, and whether the walk was cancelled.
  */
-export const traceReference = async (node: ValueNode, token: CancellationToken): Promise<ReferenceTrace | null> => {
-    if (node.valueType.type !== 'Reference') return null;
-    const written = String(node.valueType.value);
-    const uri = getStartOfAstNode(node).uri;
-    // A mod action target names a place in the merged game tree rather than a path relative to the
-    // manifest, and the game resolves it from the Data root. Walking the written form instead would
-    // look for the target next to the file that writes it and call a correct target broken.
-    const actionTarget = isActionTargetValueNode(node) && written.includes('<');
-    const walked = stripReferenceWhitespace(actionTarget ? normalizeTargetPath(written) : written);
-    // The value validator resolves an inheritance reference written as `..` from the inheriting
-    // group's container, because that is the scope the game reads it in. Start where it starts.
-    const startNode: AbstractNode = isInheritanceInSameFile(node) && node.parent?.parent ? node.parent.parent : node;
-    const shape = shapeOf(walked);
-    const at: TracePlace = { uri, line: node.position?.line };
-    const runtimeRooted = isRuntimeRootReference(node);
-    const virtualPath = hasVirtualInheritanceSegment(walked);
-
-    // Every prefix, resolved through the shared navigation. Resolution is sequential, so the first
-    // prefix that fails is the first hop that fails and everything past it is unreachable.
+const resolvePrefixes = async (
+    shape: PathShape,
+    startNode: AbstractNode,
+    uri: string,
+    token: CancellationToken
+): Promise<{ resolvedAt: Array<Resolved | null>; resolvedCount: number; cancelled: boolean }> => {
     const resolvedAt: Array<Resolved | null> = new Array<Resolved | null>(shape.segments.length).fill(null);
     let resolvedCount = 0;
     let cancelled = false;
@@ -410,15 +399,21 @@ export const traceReference = async (node: ValueNode, token: CancellationToken):
         resolvedAt[count - 1] = resolved;
         resolvedCount = count;
     }
-    const fullyResolved = shape.segments.length > 0 && resolvedCount === shape.segments.length;
-    // A path with no segments at all (`&`, `&/`) has no hop to fail at, so there is nothing to
-    // explain and nothing to index into.
-    const failedAt = fullyResolved || cancelled || shape.segments.length === 0 ? -1 : resolvedCount;
+    return { resolvedAt, resolvedCount, cancelled };
+};
 
-    // Where the first hop is looked up. A relative `&Name` starts one scope up from the bearer, a
-    // super path starts at the game's own cosmoteer.rules, and a `<…>` path starts at a folder rather
-    // than at a node.
-    const origin: Resolved | null = shape.hasFileToken
+/**
+ * Where the first hop is looked up. A relative `&Name` starts one scope up from the bearer, a super
+ * path starts at the game's own cosmoteer.rules, and a `<…>` path starts at a folder rather than at
+ * a node.
+ *
+ * @param shape the path's shape.
+ * @param walked the whitespace-stripped path.
+ * @param startNode the node the reference is read from.
+ * @returns the origin, or null when the path opens on a file.
+ */
+const originOf = async (shape: PathShape, walked: string, startNode: AbstractNode): Promise<Resolved | null> =>
+    shape.hasFileToken
         ? null
         : shape.superRooted
           ? await gameRootDocument()
@@ -426,6 +421,22 @@ export const traceReference = async (node: ValueNode, token: CancellationToken):
             ? (relativeReferenceScope(walked, startNode) ?? null)
             : startNode;
 
+/**
+ * Labels every hop of the path: the segment, its kind, whether it resolved, where it landed, and
+ * what a step into the node before it found. A hop past the last one that resolved is unreached.
+ *
+ * @param shape the path's shape.
+ * @param resolvedAt what each prefix resolved to.
+ * @param resolvedCount how many prefixes resolved.
+ * @param origin where the first hop is looked up.
+ * @returns one hop per segment.
+ */
+const buildHops = async (
+    shape: PathShape,
+    resolvedAt: Array<Resolved | null>,
+    resolvedCount: number,
+    origin: Resolved | null
+): Promise<ReferenceHop[]> => {
     const hops: ReferenceHop[] = [];
     for (let index = 0; index < shape.segments.length; index++) {
         const segment = shape.segments[index];
@@ -456,6 +467,158 @@ export const traceReference = async (node: ValueNode, token: CancellationToken):
         }
         hops.push(hop);
     }
+    return hops;
+};
+
+/**
+ * What the game would have found at the place the walk stopped.
+ *
+ * @param hops the labelled hops.
+ * @param failedAt the hop that failed.
+ * @param withheld the reason names must be withheld, when there is one.
+ * @param lastGood the last thing that resolved.
+ * @param uri the file the reference is written in.
+ * @param token cancels the cross-file fold.
+ * @returns what is available there.
+ */
+const availableAtStop = async (
+    hops: readonly ReferenceHop[],
+    failedAt: number,
+    withheld: 'runtime-root' | 'virtual' | undefined,
+    lastGood: Resolved | null,
+    uri: string,
+    token: CancellationToken
+): Promise<AvailableAt> => {
+    const failing = hops[failedAt];
+    if (withheld) return { kind: 'withheld', reason: withheld };
+    // The member is there. Listing the names around it, or offering the nearest one as a
+    // correction, would point at the wrong thing entirely: what fails is one step further on.
+    if (failing.aliasBroken) return { kind: 'alias', text: failing.aliasText ?? '', declaredAt: failing.memberAt };
+    if (failing.kind === 'file') return { kind: 'file', directory: searchedDirectory(failing.segment, uri) };
+    if (failing.baseCount !== undefined) return { kind: 'bases', count: failing.baseCount };
+    const stopped = lastGood ? await asNode(lastGood) : null;
+    if (isContainer(stopped)) return await availableIn(stopped, token);
+    if (stopped && isValueNode(stopped)) return { kind: 'value', text: String(stopped.valueType.value) };
+    return { kind: 'none' };
+};
+
+/**
+ * The nearest member name to the segment that failed, and the whole value rewritten with it. Only a
+ * plain name can be a typo of another plain name. An index, an operator or a file token has no near
+ * miss worth offering.
+ *
+ * @param available what the walk found at the place it stopped.
+ * @param failing the segment that failed.
+ * @param written the reference as the author wrote it.
+ * @returns the suggestion and the corrected value, each absent when there is nothing close.
+ */
+const suggestionOf = (
+    available: AvailableAt,
+    failing: string,
+    written: string
+): { suggestion?: string; correctedValue?: string } => {
+    if (available.kind !== 'members' || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(failing)) return {};
+    const suggestion =
+        closestMatch(
+            failing,
+            available.names.map((member) => member.name)
+        ) ?? undefined;
+    const cut = suggestion ? written.lastIndexOf(failing) : -1;
+    if (suggestion && cut >= 0) {
+        return { suggestion, correctedValue: written.slice(0, cut) + suggestion + written.slice(cut + failing.length) };
+    }
+    return { suggestion };
+};
+
+/**
+ * Every concrete inheritor a `:` path also points at, which is what the game picks between when it
+ * builds one. Those are worth naming whether or not the base's own declaration resolved.
+ *
+ * @param walked the whitespace-stripped path.
+ * @param node the reference value.
+ * @param uri the file the reference is written in.
+ * @param token cancels the search.
+ * @returns the places the path can land on.
+ */
+const virtualTargetsOf = async (
+    walked: string,
+    node: ValueNode,
+    uri: string,
+    token: CancellationToken
+): Promise<TracePlace[]> => {
+    const split = splitVirtualColon(walked);
+    if (!split) return [];
+    const base = split.basePath.replace(/^&$/, '')
+        ? await resolvePath(split.basePath, node, uri, token)
+        : (node.parent ?? null);
+    if (!base || isFile(base as unknown as FileTree)) return [];
+    const targets = await resolveVirtualInheritanceTargets(base as AbstractNode, split.memberPath, token).catch(
+        () => []
+    );
+    return targets.map((target) => placeOf(target));
+};
+
+/**
+ * Whether the alias the walk could not follow closes on itself, which the game treats as a load
+ * failure. A plain dead end reads the same from outside.
+ *
+ * @param shape the path's shape.
+ * @param hops the labelled hops.
+ * @param resolvedAt what each prefix resolved to.
+ * @param origin where the first hop is looked up.
+ * @param failedAt the hop that failed.
+ * @param token cancels the chain walk.
+ * @returns true when the chain closes on itself.
+ */
+const aliasCycleAt = async (
+    shape: PathShape,
+    hops: readonly ReferenceHop[],
+    resolvedAt: Array<Resolved | null>,
+    origin: Resolved | null,
+    failedAt: number,
+    token: CancellationToken
+): Promise<boolean> => {
+    const before = failedAt === 0 ? origin : resolvedAt[failedAt - 1];
+    const beforeNode = before ? await asNode(before) : null;
+    const raw = beforeNode
+        ? stepIntoNode(beforeNode, hops[failedAt].segment, shape.segments[failedAt - 1] === '^')
+        : null;
+    return raw && isReferenceValue(raw) ? await aliasChainCycles(raw, token) : false;
+};
+
+/**
+ * Explains one reference: which of its segments resolved, where the last one that did landed, and
+ * what the game would have found there.
+ *
+ * @param node the reference value to explain.
+ * @param token cancels every resolution the walk performs.
+ * @returns the trace, or null when the node is not a reference.
+ */
+export const traceReference = async (node: ValueNode, token: CancellationToken): Promise<ReferenceTrace | null> => {
+    if (node.valueType.type !== 'Reference') return null;
+    const written = String(node.valueType.value);
+    const uri = getStartOfAstNode(node).uri;
+    // A mod action target names a place in the merged game tree rather than a path relative to the
+    // manifest, and the game resolves it from the Data root. Walking the written form instead would
+    // look for the target next to the file that writes it and call a correct target broken.
+    const actionTarget = isActionTargetValueNode(node) && written.includes('<');
+    const walked = stripReferenceWhitespace(actionTarget ? normalizeTargetPath(written) : written);
+    // The value validator resolves an inheritance reference written as `..` from the inheriting
+    // group's container, because that is the scope the game reads it in. Start where it starts.
+    const startNode: AbstractNode = isInheritanceInSameFile(node) && node.parent?.parent ? node.parent.parent : node;
+    const shape = shapeOf(walked);
+    const at: TracePlace = { uri, line: node.position?.line };
+    const runtimeRooted = isRuntimeRootReference(node);
+    const virtualPath = hasVirtualInheritanceSegment(walked);
+
+    const { resolvedAt, resolvedCount, cancelled } = await resolvePrefixes(shape, startNode, uri, token);
+    const fullyResolved = shape.segments.length > 0 && resolvedCount === shape.segments.length;
+    // A path with no segments at all (`&`, `&/`) has no hop to fail at, so there is nothing to
+    // explain and nothing to index into.
+    const failedAt = fullyResolved || cancelled || shape.segments.length === 0 ? -1 : resolvedCount;
+
+    const origin = await originOf(shape, walked, startNode);
+    const hops = await buildHops(shape, resolvedAt, resolvedCount, origin);
 
     // The mod's own additions are a second resolver the validator and go to definition both consult,
     // so a global a mod inserts (`&/SW_SOUNDS/…`) resolves there and nowhere else. Without this the
@@ -490,79 +653,24 @@ export const traceReference = async (node: ValueNode, token: CancellationToken):
     // out of them, is how an author is talked into rewriting a reference that works in the game.
     const withheld = withheldReasonOf(hops, failedAt);
 
-    let available: AvailableAt = { kind: 'none' };
     // Nothing is listed for a reference that resolves after all. The mod supplies it, and naming the
     // members of the file the vanilla walk stopped in would read as a defect where there is none.
-    if (failedAt >= 0 && !modOrigin) {
-        const failing = hops[failedAt];
-        if (withheld) {
-            available = { kind: 'withheld', reason: withheld };
-        } else if (failing.aliasBroken) {
-            // The member is there. Listing the names around it, or offering the nearest one as a
-            // correction, would point at the wrong thing entirely: what fails is one step further on.
-            available = { kind: 'alias', text: failing.aliasText ?? '', declaredAt: failing.memberAt };
-        } else if (failing.kind === 'file') {
-            available = { kind: 'file', directory: searchedDirectory(failing.segment, uri) };
-        } else if (failing.baseCount !== undefined) {
-            available = { kind: 'bases', count: failing.baseCount };
-        } else {
-            const stopped = lastGood ? await asNode(lastGood) : null;
-            if (isContainer(stopped)) available = await availableIn(stopped, token);
-            else if (stopped && isValueNode(stopped))
-                available = { kind: 'value', text: String(stopped.valueType.value) };
-        }
-    }
+    const available: AvailableAt =
+        failedAt >= 0 && !modOrigin
+            ? await availableAtStop(hops, failedAt, withheld, lastGood, uri, token)
+            : { kind: 'none' };
 
-    // Only a plain name can be a typo of another plain name. An index, an operator or a file token
-    // has no near miss worth offering.
-    let suggestion: string | undefined;
-    let correctedValue: string | undefined;
-    if (available.kind === 'members' && failedAt >= 0 && !extendsMissingMember && !optionalTarget) {
-        const failing = hops[failedAt].segment;
-        if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(failing)) {
-            suggestion =
-                closestMatch(
-                    failing,
-                    available.names.map((member) => member.name)
-                ) ?? undefined;
-            const cut = suggestion ? written.lastIndexOf(failing) : -1;
-            if (suggestion && cut >= 0) {
-                correctedValue = written.slice(0, cut) + suggestion + written.slice(cut + failing.length);
-            }
-        }
-    }
+    const { suggestion, correctedValue }: { suggestion?: string; correctedValue?: string } =
+        failedAt >= 0 && !extendsMissingMember && !optionalTarget
+            ? suggestionOf(available, hops[failedAt].segment, written)
+            : {};
 
-    // A `:` path also points at every concrete inheritor, which is what the game picks between when
-    // it builds one. Those are worth naming whether or not the base's own declaration resolved.
-    let virtualTargets: TracePlace[] = [];
-    if (virtualPath && !cancelled) {
-        const split = splitVirtualColon(walked);
-        if (split) {
-            const base = split.basePath.replace(/^&$/, '')
-                ? await resolvePath(split.basePath, node, uri, token)
-                : (node.parent ?? null);
-            if (base && !isFile(base as unknown as FileTree)) {
-                const targets = await resolveVirtualInheritanceTargets(
-                    base as AbstractNode,
-                    split.memberPath,
-                    token
-                ).catch(() => []);
-                virtualTargets = targets.map((target) => placeOf(target));
-            }
-        }
-    }
+    const virtualTargets = virtualPath && !cancelled ? await virtualTargetsOf(walked, node, uri, token) : [];
 
-    // An alias the walk could not follow is either a chain that closes on itself, which the game
-    // treats as a load failure, or a plain dead end. They read the same from outside.
-    let cycles = false;
-    if (failedAt >= 0 && hops[failedAt].aliasBroken && !modOrigin && !cancelled) {
-        const before = failedAt === 0 ? origin : resolvedAt[failedAt - 1];
-        const beforeNode = before ? await asNode(before) : null;
-        const raw = beforeNode
-            ? stepIntoNode(beforeNode, hops[failedAt].segment, shape.segments[failedAt - 1] === '^')
-            : null;
-        if (raw && isReferenceValue(raw)) cycles = await aliasChainCycles(raw, token);
-    }
+    const cycles =
+        failedAt >= 0 && hops[failedAt].aliasBroken && !modOrigin && !cancelled
+            ? await aliasCycleAt(shape, hops, resolvedAt, origin, failedAt, token)
+            : false;
 
     // The order is the order the reasons override one another: anything the game really resolves
     // comes first, then every shape the game decides for itself, and only what is left over is a

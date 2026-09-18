@@ -1,0 +1,86 @@
+===== C:\Users\fpabs\Documents\Projekte\cosmoteer-rules-2\server\test\fixtures\mod-health-mod =====
+# Mod overview — Mod health fixture
+
+- **ID**: Test.ModHealth
+- **Name**: Mod health fixture
+- **Version**: 1
+- **StringsFolder**: strings
+
+## Mod health
+
+One row per check the whole mod can be asked, counted over the files the game loads from it. Each row names what to open rather than scoring the mod.
+
+| Check | Finding | Where |
+| --- | --- | --- |
+| ✓ Action targets | Every action names a target the game finds. |  |
+| ⚠ Files the game loads | The manifest reaches 9 of the 10 `.rules` files. The game never opens the rest. | [unreached.rules:1](vscode://file/C%3A/Users/fpabs/Documents/Projekte/cosmoteer-rules-2/server/test/fixtures/mod-health-mod/unreached.rules:1) |
+| ⚠ Ids registered twice | 2 declarations register an id another file of this mod registers too. | [parts/armor_a.rules:3](vscode://file/C%3A/Users/fpabs/Documents/Projekte/cosmoteer-rules-2/server/test/fixtures/mod-health-mod/parts/armor_a.rules:3)<br>[parts/armor_b.rules:4](vscode://file/C%3A/Users/fpabs/Documents/Projekte/cosmoteer-rules-2/server/test/fixtures/mod-health-mod/parts/armor_b.rules:4) |
+| ⚠ Part grid geometry | One part-grid value sits where the part that writes it cannot reach. | [parts/door_part.rules:9](vscode://file/C%3A/Users/fpabs/Documents/Projekte/cosmoteer-rules-2/server/test/fixtures/mod-health-mod/parts/door_part.rules:9) |
+| ⚠ Language coverage | English declares 2 keys. Missing elsewhere, with the count each language is short: Deutsch \| German (1). | [strings/de.rules:1](vscode://file/C%3A/Users/fpabs/Documents/Projekte/cosmoteer-rules-2/server/test/fixtures/mod-health-mod/strings/de.rules:1) |
+| ⚠ Fields the game never reads | One field is written that the game never reads. | [effects/curve.rules:11](vscode://file/C%3A/Users/fpabs/Documents/Projekte/cosmoteer-rules-2/server/test/fixtures/mod-health-mod/effects/curve.rules:11) |
+| ⚠ Repeated field sets | 3 groups repeat a field set other files write word for word, which the Cosmoteer: Extract Shared Base Files command turns into one shared base. | [parts/armor_a.rules:1](vscode://file/C%3A/Users/fpabs/Documents/Projekte/cosmoteer-rules-2/server/test/fixtures/mod-health-mod/parts/armor_a.rules:1)<br>[parts/armor_b.rules:2](vscode://file/C%3A/Users/fpabs/Documents/Projekte/cosmoteer-rules-2/server/test/fixtures/mod-health-mod/parts/armor_b.rules:2)<br>[parts/armor_c.rules:1](vscode://file/C%3A/Users/fpabs/Documents/Projekte/cosmoteer-rules-2/server/test/fixtures/mod-health-mod/parts/armor_c.rules:1) |
+| ✓ Installed mods | No mod on this machine writes a node this mod writes. |  |
+| ⚠ Overrides that change nothing | One field restates a value its group already inherits. | [parts/door_part.rules:6](vscode://file/C%3A/Users/fpabs/Documents/Projekte/cosmoteer-rules-2/server/test/fixtures/mod-health-mod/parts/door_part.rules:6) |
+
+## Actions (2)
+
+Each action patches the effective game tree. ✓ the target exists, ✗ it resolves to nothing (the action does nothing in game), · existence is not required (create/ignore flag).
+
+1. ✓ **AddMany** `<ships/partship.rules>/PartShip/Parts` ← `[ inline list ]`
+2. · **Add** **TestHealthCurve** `<effects/effects.rules>` ← `&<effects/curve.rules>` _(IgnoreIfNotExisting)_
+
+## File reachability
+
+9 of 10 `.rules` files are reachable from the manifest (action sources, their includes and inheritance, and the strings folder). The game never loads the rest.
+
+### Unreachable files (1)
+
+Dead content: backups and templates are expected here, but a part or effect you meant to ship should not be.
+
+<details>
+<summary><b>(mod root)</b> (1)</summary>
+
+- [unreached.rules](vscode://file/C%3A/Users/fpabs/Documents/Projekte/cosmoteer-rules-2/server/test/fixtures/mod-health-mod/unreached.rules)
+
+</details>
+
+## Part unlocks
+
+No file in the project declares a tech, so nothing here can say what gates a part.
+
+===== C:\Users\fpabs\Documents\Projekte\cosmoteer-rules-2\server\test\fixtures\mod-health-clean-mod =====
+# Mod overview — Mod health fixture with nothing to report
+
+- **ID**: Test.ModHealthClean
+- **Name**: Mod health fixture with nothing to report
+- **Version**: 1
+- **StringsFolder**: strings
+
+## Mod health
+
+One row per check the whole mod can be asked, counted over the files the game loads from it. Each row names what to open rather than scoring the mod.
+
+| Check | Finding | Where |
+| --- | --- | --- |
+| ✓ Action targets | Every action names a target the game finds. |  |
+| ✓ Files the game loads | The manifest reaches every `.rules` file in the mod. |  |
+| ✓ Ids registered twice | No id is registered by two files of this mod. |  |
+| ✓ Part grid geometry | Every part-grid value sits inside the part that writes it. |  |
+| ✓ Fields the game never reads | Every field these files write is one the game reads. |  |
+| ✓ Repeated field sets | No group repeats a field set another file of this mod writes. |  |
+| ✓ Installed mods | No mod on this machine writes a node this mod writes. |  |
+| ✓ Overrides that change nothing | No field restates a value its group already inherits. |  |
+
+## Actions (1)
+
+Each action patches the effective game tree. ✓ the target exists, ✗ it resolves to nothing (the action does nothing in game), · existence is not required (create/ignore flag).
+
+1. ✓ **AddMany** `<ships/partship.rules>/PartShip/Parts` ← `[ inline list ]`
+
+## File reachability
+
+3 of 3 `.rules` files are reachable from the manifest (action sources, their includes and inheritance, and the strings folder). The game never loads the rest.
+
+## Part unlocks
+
+No file in the project declares a tech, so nothing here can say what gates a part.

@@ -2,30 +2,19 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { BlockCommentSpan, lexer } from '../core/lexer/lexer';
 import { parser } from '../core/parser/parser';
 import { AbstractNodeDocument } from '../core/ast/ast';
-import { ParserResultRegistrar } from '../registrar/parser-result-registrar';
+import { ParserResultRegistrar } from '../document/parser-result-registrar';
 import { ModRulesRegistrar } from '../mod/mod-rules.registrar';
-import { WorkspaceSymbolService } from '../features/navigation/workspace-symbol.service';
-import { SchemaIdIndex } from '../features/completion/schema-id.index';
-import { TemplateBaseIndex } from '../features/diagnostics/template-base.index';
-import { LocalizationKeyIndex } from '../features/completion/localization-key.index';
-import { ReverseIncludeIndex } from '../features/navigation/reverse-include.index';
-import { AddBaseIndex } from '../mod/add-base.index';
-import { MemberInjectionIndex } from '../mod/member-injection.index';
-import { ActionRootingIndex } from '../mod/action-rooting.index';
 import { aliasRootIndex } from '../document/schema/alias-root';
 import { basenameOf, isModRules, isShaderDocument } from '../document/document-kind';
 import { invalidateModContext } from '../mod/mod-context';
-import { invalidateComponentIdCache } from '../features/diagnostics/validator.schema-sibling';
-import { invalidateEffectiveChainCache } from '../semantics/effective-group';
-import { invalidateLooseDeclarationCache } from '../features/diagnostics/validator.schema-id-reference';
-import { clearNavigationMemo, invalidateNavigationMemoForFile } from '../features/navigation/full.navigation-strategy';
-import { normalizeUri } from '../features/navigation/reference-location';
-import { uriToFsPath } from '../features/navigation/workspace-files';
+import { clearNavigationMemo, invalidateNavigationMemoForFile } from '../semantics/navigate-reference';
+import { normalizeUri } from '../document/reference-location';
+import { uriToFsPath } from '../workspace/workspace-files';
 import { collectIncludeText } from '../features/shader/shader-index';
 import { documents } from './context';
-import { diagnosticsCache, inlayHintCache } from './document-caches';
+import { invalidateDerivedCaches } from './document-caches';
+import { PROJECT_INDEXES } from './project-indexes';
 import { bumpWorkspaceScanEpoch } from './scan-epoch';
-import { invalidatePartTableFor } from '../features/part-table/part-table.service';
 
 /**
  * The parsed AST for an open document, parsing the live buffer on demand when the validation
@@ -91,22 +80,15 @@ export function ensureLexResult(document: TextDocument): {
  * next query. Every path that changes a file has to dirty the same set, an open-buffer edit, a disk
  * change and a refactor's write alike, so the set is named in one place here.
  *
- * The ship-layer index is not in the set: it reads ships and manifests from disk, so an unsaved
- * edit cannot change what it would build, and dropping it per keystroke made every edit of a file
- * under `ships/` re-walk the game tree for nothing. The disk-change paths drop it themselves.
+ * Which indexes take a per-file mark is decided in {@link PROJECT_INDEXES}, and the two that stay
+ * out of it say so there. Both read disk alone, the ship-layer index and the mention index, so an
+ * unsaved edit cannot change what they would build, and dropping them per keystroke made every
+ * edit re-walk the game tree for nothing. The disk-change paths mark them themselves.
  *
  * @param uri the uri of the file whose content changed.
  */
 export function markProjectIndexesDirty(uri: string): void {
-    WorkspaceSymbolService.instance.markDirty(uri);
-    SchemaIdIndex.instance.markDirty(uri);
-    TemplateBaseIndex.instance.markDirty(uri);
-    LocalizationKeyIndex.instance.markDirty(uri);
-    ReverseIncludeIndex.instance.markDirty(uri);
-    AddBaseIndex.instance.markDirty(uri);
-    MemberInjectionIndex.instance.markDirty(uri);
-    ActionRootingIndex.instance.markDirty(uri);
-    invalidatePartTableFor(uri);
+    for (const index of PROJECT_INDEXES) index.markDirty?.(uri);
 }
 
 /**
@@ -139,15 +121,7 @@ export function registerOpenDocument(document: TextDocument): void {
     // inherited base, a strings file, a component provider), so their version-keyed caches are
     // stale now even though their own versions did not change. Drop everyone else's entries.
     // The client's next pull recomputes them against the fresh AST.
-    for (const uri of [...diagnosticsCache.keys()]) {
-        if (uri !== document.uri) diagnosticsCache.delete(uri);
-    }
-    for (const uri of [...inlayHintCache.keys()]) {
-        if (uri !== document.uri) inlayHintCache.delete(uri);
-    }
-    invalidateComponentIdCache();
-    invalidateEffectiveChainCache();
-    invalidateLooseDeclarationCache();
+    invalidateDerivedCaches(document.uri);
     // An edit changes which symbols this file contributes. Re-index it lazily at the next
     // workspace-symbol query. (find-all-references is stateless, it re-reads per query.)
     markProjectIndexesDirty(document.uri);

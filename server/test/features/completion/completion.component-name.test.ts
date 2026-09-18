@@ -7,8 +7,8 @@ import { CancellationToken } from 'vscode-languageserver';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
 import { schemaFieldNameCompletions } from '../../../src/features/completion/autocompletion.schema-fields';
-import { Completion } from '../../../src/features/completion/autocompletion.service';
-import { ReverseIncludeIndex } from '../../../src/features/navigation/reverse-include.index';
+import { Completion } from '../../../src/features/completion/autocompletion.service.types';
+import { ReverseIncludeIndex } from '../../../src/mod/reverse-include.index';
 
 const token = CancellationToken.None;
 

@@ -11,15 +11,13 @@ import {
 import { getStartOfAstNode } from '../utils/ast.utils';
 import { inheritanceBaseLeafName } from '../utils/reference.utils';
 import { FileTree, isFile } from '../workspace/cosmoteer-workspace.service';
-import { TemplateBaseIndex } from '../features/diagnostics/template-base.index';
-import { FullNavigationStrategy } from '../features/navigation/full.navigation-strategy';
-import { definitionLocationOf, locationKey } from '../features/navigation/reference-location';
-import { uriToFsPath } from '../features/navigation/workspace-files';
+import { TemplateBaseIndex } from '../workspace/template-base.index';
+import { navigate } from './navigate-reference';
+import { definitionLocationOf, locationKey } from '../document/reference-location';
+import { uriToFsPath } from '../workspace/workspace-files';
 import { cachedParseFilePath } from '../workspace/fs-cache';
 
 /** The shared resolver, used to confirm a candidate inheritor by resolving its base back to the target. */
-const navigation = new FullNavigationStrategy();
-
 /** A named group or list: the only nodes a `:` base can be, since the base is addressed by name. */
 type NamedContainer = GroupNode | ListNode;
 
@@ -91,14 +89,12 @@ export const findInheritorsOf = async (
         collectCandidates(document, baseName, candidates);
         for (const { deriver, reference } of candidates) {
             if (seen.has(deriver) || !isValueNode(reference)) continue;
-            const resolved = await navigation
-                .navigate(
-                    String(reference.valueType.value),
-                    reference,
-                    getStartOfAstNode(reference).uri,
-                    cancellationToken
-                )
-                .catch(() => null);
+            const resolved = await navigate(
+                String(reference.valueType.value),
+                reference,
+                getStartOfAstNode(reference).uri,
+                cancellationToken
+            ).catch(() => null);
             if (
                 resolved &&
                 !isFile(resolved as FileTree) &&
@@ -134,9 +130,9 @@ export const resolveVirtualInheritanceTargets = async (
     const seen = new Set<AbstractNode>();
     for (const inheritor of inheritors) {
         if (cancellationToken.isCancellationRequested) break;
-        const target = await navigation
-            .navigate(memberPath, inheritor, getStartOfAstNode(inheritor).uri, cancellationToken)
-            .catch(() => null);
+        const target = await navigate(memberPath, inheritor, getStartOfAstNode(inheritor).uri, cancellationToken).catch(
+            () => null
+        );
         // Skip a whole-file/FileWithPath result: a `:` member always lands inside a deriving group.
         if (target && !isFile(target as FileTree) && !seen.has(target as AbstractNode)) {
             seen.add(target as AbstractNode);

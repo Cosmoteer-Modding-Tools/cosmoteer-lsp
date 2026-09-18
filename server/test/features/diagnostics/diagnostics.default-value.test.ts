@@ -80,7 +80,9 @@ Def
     });
 
     it('stays silent when a reference in the file reads the field', async () => {
-        const doc = parse(lightning('AnimationIntensity = 1', 'LightningShaderAnimationSegments = (&AnimationIntensity)'));
+        const doc = parse(
+            lightning('AnimationIntensity = 1', 'LightningShaderAnimationSegments = (&AnimationIntensity)')
+        );
         const errors = await validateDefaultValuedFields(doc, token);
         expect(errors.map((e) => e.message)).toEqual([]);
     });
@@ -116,7 +118,8 @@ Def
         // ctor initializer makes schemagen call it `optional` and gives it a default, but the bare
         // [Serialize] means the game throws on a missing value rather than applying that default.
         // Fading it would invite a deletion that breaks the load, so absentThrows must win.
-        const doc = parse(`Part
+        const doc = parse(
+            `Part
 {
     Components
     {
@@ -127,7 +130,9 @@ Def
         }
     }
 }
-`, 'file:///mod/parts/thing.rules');
+`,
+            'file:///mod/parts/thing.rules'
+        );
         // Pin that absentThrows is what silences this, not a resolution failure: the group resolves,
         // and the field meets every other condition for a hint (a default equal to the written value,
         // and `optional` true). Without the absentThrows guard this would be flagged.

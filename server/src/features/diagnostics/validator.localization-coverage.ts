@@ -9,7 +9,7 @@ import {
     LocalizationKeyIndex,
 } from '../completion/localization-key.index';
 import { findModRoot } from '../../mod/mod-root';
-import { uriToFsPath } from '../navigation/workspace-files';
+import { uriToFsPath } from '../../workspace/workspace-files';
 import { ValidationError } from './validator';
 
 /** A `{0}`, `{name}` or `{0:F1}` slot the game fills in when it renders the string. */

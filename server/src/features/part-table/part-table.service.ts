@@ -1,10 +1,7 @@
-import { readFile } from 'fs/promises';
-import * as l10n from '@vscode/l10n';
-import { CancellationToken, TextEdit, WorkspaceEdit } from 'vscode-languageserver';
+import { CancellationToken } from 'vscode-languageserver';
 import {
     AbstractNode,
     GroupNode,
-    isAssignmentNode,
     isExpressionNode,
     isFunctionCallNode,
     isGroupNode,
@@ -17,11 +14,10 @@ import { basenameOf, isModRules } from '../../document/document-kind';
 import { flattenGroup, flattenList } from '../../semantics/effective-group';
 import { MemberOrigin } from '../../semantics/effective-group.types';
 import { evaluateNumericValue } from '../../semantics/value-evaluator';
-import { formatWithUnit, unitForValue } from '../../semantics/value-units';
-import { offsetToPosition } from '../../utils/text.utils';
+import { formatWithUnit, unitForValue } from '../value-units';
 import { foldPathCase } from '../../workspace/fs-cache';
-import { filePathToUri } from '../navigation/navigation-strategy';
-import { uriToFsPath } from '../navigation/workspace-files';
+import { filePathToUri } from '../../document/reference-path';
+import { uriToFsPath } from '../../workspace/workspace-files';
 import { CatalogedPart, PartCatalogScope, catalogParts, partGroupOf } from './part-catalog';
 import { ResourcePrices, collectResourcePrices, priceOf } from './resource-prices';
 import {
@@ -30,8 +26,6 @@ import {
     PartTableCell,
     PartTableColumn,
     PartTableData,
-    PartTableEditHooks,
-    PartTableEditResult,
     PartTableFilter,
     PartTableRow,
     PartTableUnit,
@@ -109,7 +103,7 @@ const ROF_PATH = 'StatsByCategory/0/Stats/ROF';
 const BARRELS_SEGMENT = 'barrels';
 
 /** A value the walk reached, before anything is computed from it. */
-interface ReachedValue {
+export interface ReachedValue {
     readonly node: AbstractNode;
     readonly origin: MemberOrigin;
     /**
@@ -159,6 +153,67 @@ const KEY_LINES = 0x100000;
 const KEY_COLUMNS = 0x10000;
 
 /**
+ * A number written with one of the suffixes the game's evaluator rewrites before the arithmetic
+ * runs: a percentage becomes a fraction, `d` and `r` become radians. The lexer hands such a literal
+ * over as a string, so a shape test is what separates `90d` from an enum member.
+ */
+const SUFFIXED_NUMBER = /^-?\d*\.?\d+[%dr]?$/;
+
+/**
+ * Tells one process from another in a columns version. The counter starts over with the process,
+ * and a view that outlives a server restart would otherwise take the new process's first walk for
+ * the one it already holds the columns of.
+ */
+const PROCESS_STAMP = Math.random().toString(36).slice(2, 8);
+
+/** How often at most the walk reports its progress. */
+const PROGRESS_INTERVAL_MS = 100;
+
+/** The last path segment a crew-housing component keeps its capacity under. */
+const CREW_SEGMENT = 'crew';
+
+/** The component type that houses crew, which is the one whose `Crew` is a capacity. */
+const CREW_SOURCE_TYPE = 'crewsource';
+
+/** The member holding a part's alternative ids, which a saved ship may name it by. */
+const OTHER_IDS_MEMBER = 'otherids';
+
+/**
+ * A segment that marks a column as presentation rather than balance: where a sprite sits, how big
+ * an icon is, which layer something draws on. Such columns stay in the picker, but the opening set
+ * is for the numbers a part is balanced by, and the ranking alone cannot tell an icon's size from
+ * a shield's radius since every part draws its own icon.
+ */
+const PRESENTATION_SEGMENTS = new Set(
+    [
+        'SelectionPriority',
+        'EditorIcon',
+        'Blueprints',
+        'Graphics',
+        'Sprite',
+        'Sprites',
+        'Sound',
+        'Sounds',
+        'Location',
+        'Offset',
+        'Layer',
+        'Color',
+        'Texture',
+        'Icon',
+        'Scale',
+        'Rotation',
+        'Flags',
+        'Priority',
+        'Particles',
+        'Light',
+        'Lights',
+    ].map((segment) => segment.toLowerCase())
+);
+
+/** What a presentation segment ends in when it is named after what it holds, `DestroyedEffects`. */
+const PRESENTATION_SUFFIXES = ['effect', 'effects', 'sprite', 'sprites', 'sound', 'sounds', 'icon', 'animation'];
+
+/**
  * One number standing for one declaration: the file, the line and the column packed together.
  * Vanilla alone tallies close to a million values per build, and building a string for each of
  * them was the larger half of the tally.
@@ -183,7 +238,7 @@ const declarationKeyOf = (origin: MemberOrigin): number => {
  * @param uri the document's uri or plain path.
  * @returns the `file://` uri.
  */
-const clientUri = (uri: string): string => (uri.startsWith('file://') ? uri : filePathToUri(uri));
+export const clientUri = (uri: string): string => (uri.startsWith('file://') ? uri : filePathToUri(uri));
 
 /**
  * One spelling of a file for identity, whichever form a uri or a path arrives in.
@@ -191,17 +246,7 @@ const clientUri = (uri: string): string => (uri.startsWith('file://') ? uri : fi
  * @param uriOrPath the file's uri or path.
  * @returns the folded path.
  */
-const fileKey = (uriOrPath: string): string => foldPathCase(uriToFsPath(uriOrPath).replace(/\\/g, '/'));
-
-/**
- * A number written with one of the suffixes the game's evaluator rewrites before the arithmetic
- * runs: a percentage becomes a fraction, `d` and `r` become radians. The lexer hands such a literal
- * over as a string, so a shape test is what separates `90d` from an enum member.
- */
-const SUFFIXED_NUMBER = /^-?\d*\.?\d+[%dr]?$/;
-
-/** What a reader may type over a cell: a number, with or without one of the game's suffixes. */
-const WRITABLE_NUMBER = /^-?\d*\.?\d+([eE][-+]?\d+)?[%dr]?$/;
+export const fileKey = (uriOrPath: string): string => foldPathCase(uriToFsPath(uriOrPath).replace(/\\/g, '/'));
 
 /**
  * Whether a value could turn into a number, judged from its written shape alone. Deciding it for
@@ -425,7 +470,7 @@ const editorGroupsOf = async (group: GroupNode, token: CancellationToken): Promi
  * One part as the walk left it: everything about it except the values of the shown columns, which
  * are the only part that has to be recomputed when the reader changes what is on screen.
  */
-interface WalkedPart {
+export interface WalkedPart {
     readonly part: CatalogedPart;
     readonly group: GroupNode;
     readonly values: Map<string, ReachedValue>;
@@ -464,13 +509,6 @@ let walked:
  */
 let walkVersion = 0;
 
-/**
- * Tells one process from another in a columns version. The counter starts over with the process,
- * and a view that outlives a server restart would otherwise take the new process's first walk for
- * the one it already holds the columns of.
- */
-const PROCESS_STAMP = Math.random().toString(36).slice(2, 8);
-
 /** Drops the kept walk, so the next build reads the parts from disk again. */
 export const invalidatePartTable = (): void => {
     walked = undefined;
@@ -479,9 +517,6 @@ export const invalidatePartTable = (): void => {
 
 /** Who to tell how far a walk has come, set by the request layer. */
 let progressListener: ((done: number, total: number) => void) | undefined;
-
-/** How often at most the walk reports its progress. */
-const PROGRESS_INTERVAL_MS = 100;
 
 /**
  * Registers the listener told how many parts a walk has read so far. The first walk of a large mod
@@ -711,7 +746,7 @@ const keyedValuesOf = (entry: WalkedPart, member: string): Array<{ key: string; 
  * @param path the column path.
  * @returns the reached value, or undefined when the part holds none there.
  */
-const reachedAt = (entry: WalkedPart, path: string): ReachedValue | undefined => {
+export const reachedAt = (entry: WalkedPart, path: string): ReachedValue | undefined => {
     const direct = entry.values.get(path);
     if (direct) return direct;
     const lower = path.toLowerCase();
@@ -844,14 +879,14 @@ const DERIVED: readonly DerivedColumn[] = [
 const derivedAt = (path: string): DerivedColumn | undefined =>
     DERIVED.find((column) => column.path.toLowerCase() === path.toLowerCase());
 
-/** The last path segment a crew-housing component keeps its capacity under. */
-const CREW_SEGMENT = 'crew';
-
-/** The component type that houses crew, which is the one whose `Crew` is a capacity. */
-const CREW_SOURCE_TYPE = 'crewsource';
-
-/** The member holding a part's alternative ids, which a saved ship may name it by. */
-const OTHER_IDS_MEMBER = 'otherids';
+/**
+ * Whether a column is worked out from other columns rather than read from a file, which is what
+ * makes it unwritable.
+ *
+ * @param path the column path.
+ * @returns true when the table computes the column.
+ */
+export const isDerivedPath = (path: string): boolean => derivedAt(path) !== undefined;
 
 /**
  * A memoized number reader over one walked part, the evaluator every derived column shares.
@@ -900,15 +935,6 @@ const crewCapacityOf = async (
 };
 
 /**
- * The figures every part of a scope is judged by, keyed by every id it answers to. Built on the
- * same walk the table uses, so a table open beside the editor and a ship being registered read one
- * set of part files.
- *
- * @param scope the game context and the mod the parts come from.
- * @param token cancels the walk.
- * @returns the index.
- */
-/**
  * The part's footprint, read from its `Size`.
  *
  * @param numberAt the part's number reader.
@@ -922,6 +948,15 @@ const sizeOf = async (
     return width !== null && height !== null ? [width, height] : null;
 };
 
+/**
+ * The figures every part of a scope is judged by, keyed by every id it answers to. Built on the
+ * same walk the table uses, so a table open beside the editor and a ship being registered read one
+ * set of part files.
+ *
+ * @param scope the game context and the mod the parts come from.
+ * @param token cancels the walk.
+ * @returns the index.
+ */
 export const partStatsIndex = async (scope: PartCatalogScope, token: CancellationToken): Promise<PartStatsIndex> => {
     const byId = new Map<string, PartStats>();
     if (!scope.context.gameRootPath) return { byId, truncated: false };
@@ -957,41 +992,6 @@ export const partStatsIndex = async (scope: PartCatalogScope, token: Cancellatio
     }
     return { byId, truncated: all.truncated };
 };
-
-/**
- * A segment that marks a column as presentation rather than balance: where a sprite sits, how big
- * an icon is, which layer something draws on. Such columns stay in the picker, but the opening set
- * is for the numbers a part is balanced by, and the ranking alone cannot tell an icon's size from
- * a shield's radius since every part draws its own icon.
- */
-const PRESENTATION_SEGMENTS = new Set(
-    [
-        'SelectionPriority',
-        'EditorIcon',
-        'Blueprints',
-        'Graphics',
-        'Sprite',
-        'Sprites',
-        'Sound',
-        'Sounds',
-        'Location',
-        'Offset',
-        'Layer',
-        'Color',
-        'Texture',
-        'Icon',
-        'Scale',
-        'Rotation',
-        'Flags',
-        'Priority',
-        'Particles',
-        'Light',
-        'Lights',
-    ].map((segment) => segment.toLowerCase())
-);
-
-/** What a presentation segment ends in when it is named after what it holds, `DestroyedEffects`. */
-const PRESENTATION_SUFFIXES = ['effect', 'effects', 'sprite', 'sprites', 'sound', 'sounds', 'icon', 'animation'];
 
 /**
  * Whether a column is about how a part looks rather than what it does.
@@ -1385,311 +1385,10 @@ export const buildPartTable = async (
 };
 
 /**
- * The direct member of a group by name, in either `Name = value` or `Name { }` form, matched the way
- * the game matches names.
- *
- * @param container the group to look in.
- * @param name the member name.
- * @returns the member's value node, or null when the group writes no such member itself.
- */
-const ownMember = (container: GroupNode, name: string): AbstractNode | null => {
-    const lower = name.toLowerCase();
-    for (const element of container.elements) {
-        if (isAssignmentNode(element) && element.left.name.toLowerCase() === lower && element.right) {
-            return element.right;
-        }
-        if ((isGroupNode(element) || isListNode(element)) && element.identifier?.name.toLowerCase() === lower) {
-            return element;
-        }
-    }
-    return null;
-};
-
-/**
- * The current text of a file an edit may land in: the editor's buffer when it is open, the file on
- * disk otherwise.
- *
- * @param uri the file's uri or path.
- * @param hooks the request layer's hooks.
- * @returns the text, or null when the file could not be read.
- */
-const textOf = async (uri: string, hooks: PartTableEditHooks): Promise<string | null> => {
-    const open = hooks.openText(clientUri(uri));
-    if (open !== undefined) return open;
-    return readFile(uriToFsPath(uri), { encoding: 'utf-8' }).catch(() => null);
-};
-
-/**
- * Whether a file is one of the game's own, which a mod cannot edit.
- *
- * @param uri the file's uri or path.
- * @param hooks the request layer's hooks, carrying the game's root.
- * @returns true when the file sits under the game's data root.
- */
-const isGameFile = (uri: string, hooks: PartTableEditHooks): boolean => {
-    if (!hooks.dataRootPath) return false;
-    const root = fileKey(hooks.dataRootPath).replace(/\/+$/, '');
-    const file = fileKey(uri);
-    return file === root || file.startsWith(`${root}/`);
-};
-
-/**
- * The byte span a group member occupies in its file. An assignment carries no span of its own,
- * only its name and its value do, so the member runs from the one to the other.
- *
- * @param element the member.
- * @returns the start and end offsets, or null when the member has no measurable span.
- */
-const memberSpan = (element: AbstractNode): { start: number; end: number } | null => {
-    if (isAssignmentNode(element)) {
-        const end = element.right?.position.end ?? element.left.position.end;
-        return { start: element.left.position.start, end };
-    }
-    return element.position ? { start: element.position.start, end: element.position.end } : null;
-};
-
-/**
- * The edit that appends one member to a group, on a line of its own after the last member, with
- * the indentation that member has. An empty group takes the member on the line after its brace,
- * one tab deeper than the brace's own line.
- *
- * @param text the file's current text.
- * @param group the group to append to.
- * @param memberText the member as it should be written.
- * @returns the insertion, or null when the group's braces are not where the parse recorded them.
- */
-const appendMemberEdit = (text: string, group: GroupNode, memberText: string): TextEdit | null => {
-    if (text[group.position.end - 1] !== '}') return null;
-    const spans = group.elements.map(memberSpan).filter((span): span is { start: number; end: number } => !!span);
-    const last = spans[spans.length - 1];
-    const lineStartOf = (offset: number): number => text.lastIndexOf('\n', offset - 1) + 1;
-    let at: number;
-    let indent: string;
-    if (last) {
-        at = last.end;
-        const prefix = text.slice(lineStartOf(last.start), last.start);
-        indent = /^\s*$/.test(prefix) ? prefix : '\t';
-    } else {
-        const opener = group.identifier ? text.indexOf('{', group.identifier.position.end) : group.position.start;
-        if (opener < 0) return null;
-        at = opener + 1;
-        const prefix = text.slice(lineStartOf(opener), opener);
-        indent = `${/^\s*$/.test(prefix) ? prefix : ''}\t`;
-    }
-    const position = offsetToPosition(text, at);
-    return { range: { start: position, end: position }, newText: `\n${indent}${memberText}` };
-};
-
-/**
- * Whether a node's recorded span still holds the text it was parsed from. The kept walk holds
- * nodes from the parse of the moment, and a buffer that has moved on since would take the edit
- * somewhere else in the file.
- *
- * @param text the file's current text.
- * @param node the node to check.
- * @returns true when the span reads as a value still.
- */
-const spanIsCurrent = (text: string, node: AbstractNode): boolean => {
-    const slice = text.slice(node.position.start, node.position.end).trim();
-    if (slice.length === 0) return false;
-    if (isValueNode(node)) {
-        const written = String(node.valueType.value).trim();
-        return slice === written || slice.replace(/^\(|\)$/g, '') === written || Number(slice) === Number(written);
-    }
-    return true;
-};
-
-/**
- * The byte span a written value occupies, with its parentheses balanced. The parser leaves a
- * leading `(` out of a value's span while keeping the trailing `)`, so writing over the recorded
- * span alone would leave `(9500` behind. Every unmatched closing parenthesis inside the span is
- * paid for by taking in the opening one before it, and the other way round.
- *
- * @param text the file's current text.
- * @param node the value node.
- * @returns the start and end offsets of the whole written value.
- */
-const valueSpan = (text: string, node: AbstractNode): { start: number; end: number } => {
-    let { start, end } = node.position;
-    const balance = (): number => {
-        let open = 0;
-        for (let index = start; index < end; index++) {
-            if (text[index] === '(') open++;
-            else if (text[index] === ')') open--;
-        }
-        return open;
-    };
-    for (let unmatched = balance(); unmatched < 0; unmatched++) {
-        const before = text.lastIndexOf('(', start - 1);
-        if (before === -1 || text.slice(before + 1, start).trim().length > 0) break;
-        start = before;
-    }
-    for (let unmatched = balance(); unmatched > 0; unmatched--) {
-        const after = text.indexOf(')', end);
-        if (after === -1 || text.slice(end, after).trim().length > 0) break;
-        end = after + 1;
-    }
-    return { start, end };
-};
-
-/** How much of a replaced value the note repeats before it is cut. */
-const NOTE_SNIPPET_LENGTH = 40;
-
-/**
- * The edit that writes a number over a value in place, with the note saying what it replaced when
- * that was more than a number. A reference or an expression is what a reader loses by typing over
- * it, and the note is the one place that says so.
- *
- * @param uri the file the value is written in.
- * @param node the value node.
- * @param written the number as the reader typed it.
- * @param hooks the request layer's hooks.
- * @param where what the note says about the file, absent for the plain form.
- * @returns the edit, or the reason none can be made.
- */
-const overwriteInPlace = async (
-    uri: string,
-    node: AbstractNode,
-    written: string,
-    hooks: PartTableEditHooks,
-    where?: string
-): Promise<PartTableEditResult> => {
-    if (isGameFile(uri, hooks)) {
-        return {
-            status: 'refused',
-            message: l10n.t("{0} is one of the game's own files, which a mod cannot edit.", basenameOf(uri)),
-        };
-    }
-    const current = await textOf(uri, hooks);
-    if (current === null || !spanIsCurrent(current, node)) {
-        return { status: 'notFound', message: l10n.t('The table has to be read again before it can be edited.') };
-    }
-    const span = valueSpan(current, node);
-    const replaced = current.slice(span.start, span.end).trim();
-    const edit: TextEdit = {
-        range: { start: offsetToPosition(current, span.start), end: offsetToPosition(current, span.end) },
-        newText: written,
-    };
-    const file = basenameOf(uri);
-    const plain = isValueNode(node) && node.valueType.type !== 'Reference';
-    const snippet = replaced.length > NOTE_SNIPPET_LENGTH ? `${replaced.slice(0, NOTE_SNIPPET_LENGTH - 1)}…` : replaced;
-    let note: string;
-    if (where && plain) note = l10n.t('Written into {0}, {1}.', file, where);
-    else if (where) note = l10n.t('Written into {0}, {1}, in place of {2}.', file, where, snippet);
-    else if (plain) note = l10n.t('Written into {0}.', file);
-    else note = l10n.t('Written into {0} in place of {1}.', file, snippet);
-    return { status: 'ok', edit: { changes: { [clientUri(uri)]: [edit] } }, note };
-};
-
-/**
- * Builds the edit that writes a typed-over value into the file. A value the part writes itself is
- * written over in place, and so is one a mod's manifest merges into the part, in the manifest,
- * since the manifest is applied after the part's own file. A value the part inherits is added to
- * the part's own group as an override, with the groups on the way to it created inline, so the base
- * keeps its value for every other part that reads it. A value inside an inherited list cannot be
- * overridden one element at a time, and the game's own files cannot be written at all, so those are
- * refused with the reason.
+ * The walked part a table row was built from, which the writer needs to find the value again.
  *
  * @param rowKey the row's key.
- * @param path the column path.
- * @param text the value as the reader typed it.
- * @param hooks the request layer's hooks.
- * @returns the edit, or the reason none can be made.
+ * @returns the part, or undefined when the walk has been dropped or never held that row.
  */
-export const buildPartTableEdit = async (
-    rowKey: string,
-    path: string,
-    text: string,
-    hooks: PartTableEditHooks
-): Promise<PartTableEditResult> => {
-    const entry = walked?.parts.find((candidate) => candidate.part.key === rowKey);
-    if (!entry)
-        return { status: 'notFound', message: l10n.t('The table has to be read again before it can be edited.') };
-    const written = text.trim();
-    if (!WRITABLE_NUMBER.test(written)) {
-        return {
-            status: 'refused',
-            message: l10n.t('Write a number, with the % d or r suffix the value already has.'),
-        };
-    }
-    if (derivedAt(path)) {
-        return {
-            status: 'refused',
-            message: l10n.t('{0} is worked out from other columns. Edit those instead.', path),
-        };
-    }
-    const reached = reachedAt(entry, path);
-    if (!reached) return { status: 'refused', message: l10n.t('The part holds no value at {0}.', path) };
-
-    if (!reached.inherited) return overwriteInPlace(reached.origin.uri, reached.node, written, hooks);
-
-    // A manifest's value is the one the game ends up with whatever the part's file says, so it is
-    // written where the manifest writes it. The declaration may sit in a file the manifest reads
-    // its overrides from, which is still the mod's own.
-    if (reached.injected) {
-        return overwriteInPlace(
-            reached.origin.uri,
-            reached.node,
-            written,
-            hooks,
-            l10n.t('where the mod overrides the part')
-        );
-    }
-
-    // The value comes from a base. The part gets its own copy, nested as deep as the path goes,
-    // inside the deepest group the part already writes on the way there.
-    const ownUri = entry.part.fsPath;
-    if (isGameFile(ownUri, hooks)) {
-        return {
-            status: 'refused',
-            message: l10n.t("{0} is one of the game's own files, which a mod cannot edit.", basenameOf(ownUri)),
-        };
-    }
-    const segments = path.split('/');
-    let container: GroupNode = entry.group;
-    let index = 0;
-    while (index < segments.length - 1) {
-        const next = ownMember(container, segments[index]);
-        if (!next) break;
-        if (!isGroupNode(next)) {
-            return {
-                status: 'refused',
-                message: l10n.t(
-                    '{0} sits inside a list the part inherits, which cannot be overridden one value at a time.',
-                    path
-                ),
-            };
-        }
-        container = next;
-        index++;
-    }
-    const remaining = segments.slice(index);
-    if (remaining.some((segment) => /^\d+$/.test(segment))) {
-        return {
-            status: 'refused',
-            message: l10n.t(
-                '{0} sits inside a list the part inherits, which cannot be overridden one value at a time.',
-                path
-            ),
-        };
-    }
-    const current = await textOf(ownUri, hooks);
-    if (current === null) {
-        return { status: 'notFound', message: l10n.t('The table has to be read again before it can be edited.') };
-    }
-    const existing = remaining.length === 1 ? ownMember(container, remaining[0]) : null;
-    if (existing && !isGroupNode(existing) && !isListNode(existing)) {
-        return overwriteInPlace(ownUri, existing, written, hooks);
-    }
-    let elementText = `${remaining[remaining.length - 1]} = ${written}`;
-    for (let depth = remaining.length - 2; depth >= 0; depth--) elementText = `${remaining[depth]} { ${elementText} }`;
-    const edit = appendMemberEdit(current, container, elementText);
-    if (!edit)
-        return { status: 'notFound', message: l10n.t('The table has to be read again before it can be edited.') };
-    const workspaceEdit: WorkspaceEdit = { changes: { [clientUri(ownUri)]: [edit] } };
-    return {
-        status: 'ok',
-        edit: workspaceEdit,
-        note: l10n.t('Added to {0} as an override. The base keeps its value.', basenameOf(ownUri)),
-    };
-};
+export const walkedPartFor = (rowKey: string): WalkedPart | undefined =>
+    walked?.parts.find((candidate) => candidate.part.key === rowKey);

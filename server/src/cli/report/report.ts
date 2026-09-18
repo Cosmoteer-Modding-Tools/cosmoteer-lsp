@@ -1,7 +1,7 @@
 import type { LintFinding } from '../findings';
 import type { GamePathSource } from '../game-path';
 import type { ValidationScope } from '../options';
-import type { LintSeverity } from '../rule-ids';
+import type { LintSeverity } from '../../features/diagnostics/rule-ids';
 
 /** What the run knows about the game's own data, which decides how much the result is worth. */
 export interface GameDataStatus {

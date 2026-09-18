@@ -13,6 +13,8 @@ import { LanguageClient } from 'vscode-languageclient/node';
 import { createCosmoteerPanel, disposeAll, imageDataUri, stringsScript, webviewShell } from '../webview-util';
 import { shaderPreviewStrings } from '../webview-strings';
 import { ShaderPreviewData } from './preview-panel.types';
+import { ShaderPreviewPanelMessage } from './preview-panel.types';
+import { COSMOTEER_METHOD } from '../../../shared/lsp-methods';
 
 /**
  * Owns the single live shader-preview webview. It asks the language server for the material under the
@@ -107,7 +109,7 @@ export class ShaderPreviewPanel {
     private async render(uri: Uri, position: Position): Promise<void> {
         // Remember what we are previewing so a later document change can trigger a live re-render.
         this.tracked = { uri, position };
-        const data = await this.client.sendRequest<ShaderPreviewData | null>('cosmoteer/shaderPreview', {
+        const data = await this.client.sendRequest<ShaderPreviewData | null>(COSMOTEER_METHOD.shaderPreview, {
             textDocument: { uri: uri.toString() },
             position: { line: position.line, character: position.character },
         });
@@ -131,7 +133,7 @@ export class ShaderPreviewPanel {
     }
 
     /** Handles messages from the webview (currently only the "open shader source" affordance). */
-    private async onMessage(message: { type: string; uri?: string }): Promise<void> {
+    private async onMessage(message: ShaderPreviewPanelMessage): Promise<void> {
         if (message.type === 'openShader' && message.uri) {
             await commands.executeCommand('vscode.open', Uri.parse(message.uri));
         }
@@ -154,7 +156,7 @@ export class ShaderPreviewPanel {
 <div id="meta"></div>
 <div id="controls"></div>
 ${stringsScript(nonce, shaderPreviewStrings())}
-<script nonce="${nonce}" src="${asset('shader-preview.js')}"></script>
+<script nonce="${nonce}" src="${asset('dist', 'shader-preview.js')}"></script>
 </body>
 </html>`;
     }

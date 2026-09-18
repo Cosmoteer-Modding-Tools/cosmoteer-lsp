@@ -35,9 +35,18 @@ const PASSES: { name: string; run: Pass; trigger: RegExp }[] = [
     { name: 'indicator indexes', run: validateIndicatorIndexes, trigger: /HidesIndicators/i },
     { name: 'blend sprite codes', run: validateBlendSpriteCodes, trigger: /SituationCode/i },
     { name: 'refused enum values', run: validateRefusedEnumValues, trigger: /TargetType|FrameOfReference/i },
-    { name: 'mishandled fields', run: validateMishandledFields, trigger: /ExcludeID|AllowUndefinedBlendSprites|Exponent/i },
+    {
+        name: 'mishandled fields',
+        run: validateMishandledFields,
+        trigger: /ExcludeID|AllowUndefinedBlendSprites|Exponent/i,
+    },
     { name: 'component chains', run: validateChainedToCycles, trigger: /ChainedTo/i },
-    { name: 'value ranges', run: validateValueRanges, trigger: /Pellets|ChainStrikes|Count|Quantity|TierRange|RandomHealthRange|ModeRange|MinParts|Amount|Left|Right|Top|Bottom/ },
+    {
+        name: 'value ranges',
+        run: validateValueRanges,
+        trigger:
+            /Pellets|ChainStrikes|Count|Quantity|TierRange|RandomHealthRange|ModeRange|MinParts|Amount|Left|Right|Top|Bottom/,
+    },
     { name: 'bullet components', run: validateBulletComponents, trigger: /Components/i },
     { name: 'underlying parts', run: validateUnderlyingParts, trigger: /UnderlyingPart|CreatePart/i },
     { name: 'chained buffs', run: validateChainedBuffReceivable, trigger: /ChainsFromBuffType/i },
@@ -60,7 +69,11 @@ const rulesUnder = (root: string): string[] => {
 describe.skipIf(!HAVE_DATA)('the 0.9.0 checks over vanilla Data', () => {
     beforeAll(async () => {
         globalSettings.cosmoteerPath = DATA_DIR;
-        const noop: WorkDoneProgressReporter = { begin: () => undefined, report: () => undefined, done: () => undefined };
+        const noop: WorkDoneProgressReporter = {
+            begin: () => undefined,
+            report: () => undefined,
+            done: () => undefined,
+        };
         const service = CosmoteerWorkspaceService.instance;
         service.setConnection({
             languages: { diagnostics: { refresh: () => undefined } },
@@ -96,7 +109,8 @@ describe.skipIf(!HAVE_DATA)('the 0.9.0 checks over vanilla Data', () => {
             }
         }
         // Anti-vacuity: a pass that reached no file at all proves nothing by finding nothing.
-        for (const pass of PASSES) expect(judged.get(pass.name) ?? 0, `${pass.name} reached no file`).toBeGreaterThan(0);
+        for (const pass of PASSES)
+            expect(judged.get(pass.name) ?? 0, `${pass.name} reached no file`).toBeGreaterThan(0);
         expect(findings).toEqual([]);
     }, 600_000);
 });

@@ -5,7 +5,7 @@ import { tmpdir } from 'os';
 import { CancellationToken } from 'vscode-languageserver';
 import { parseText } from '../../../src/utils/ast.utils';
 import { clearFsCaches } from '../../../src/workspace/fs-cache';
-import { MentionIndex } from '../../../src/features/navigation/mention.index';
+import { MentionIndex } from '../../../src/workspace/mention.index';
 import {
     incomingCallsOf,
     outgoingCallsOf,

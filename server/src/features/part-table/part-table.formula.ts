@@ -80,11 +80,20 @@ interface Token {
     readonly text: string;
 }
 
-/** Thrown when a formula cannot be parsed, carrying the message the view shows instead of a column. */
-class FormulaError extends Error {}
-
 /** The two-character operators, tested ahead of the single-character ones. */
 const LONG_OPERATORS = ['<=', '>=', '==', '!=', '&&', '||'];
+
+/** The binary operators by precedence level, loosest first. */
+const PRECEDENCE: ReadonlyArray<readonly string[]> = [
+    ['||', 'or'],
+    ['&&', 'and'],
+    ['<', '<=', '>', '>=', '==', '!=', '='],
+    ['+', '-'],
+    ['*', '/', '%'],
+];
+
+/** Thrown when a formula cannot be parsed, carrying the message the view shows instead of a column. */
+class FormulaError extends Error {}
 
 /**
  * Splits a formula into tokens.
@@ -138,22 +147,13 @@ const tokenize = (formula: string): Token[] => {
 };
 
 /** The parsed shape of a formula, evaluated against one row at a time. */
-type Node =
+export type Node =
     | { readonly kind: 'number'; readonly value: number }
     | { readonly kind: 'column'; readonly path: string }
     | { readonly kind: 'glob'; readonly pattern: string; readonly matcher: RegExp }
     | { readonly kind: 'unary'; readonly operator: string; readonly operand: Node }
     | { readonly kind: 'binary'; readonly operator: string; readonly left: Node; readonly right: Node }
     | { readonly kind: 'call'; readonly name: string; readonly args: readonly Node[] };
-
-/** The binary operators by precedence level, loosest first. */
-const PRECEDENCE: ReadonlyArray<readonly string[]> = [
-    ['||', 'or'],
-    ['&&', 'and'],
-    ['<', '<=', '>', '>=', '==', '!=', '='],
-    ['+', '-'],
-    ['*', '/', '%'],
-];
 
 /**
  * Turns a column glob into the expression that tests a path against it. Compiled once at parse time
@@ -567,6 +567,21 @@ const parseFormulas = (formulas: Readonly<Record<string, string>> | undefined): 
         parsed.set(name.toLowerCase(), tree);
     }
     return parsed;
+};
+
+/**
+ * Reads a formula into the tree the evaluator walks, for a caller that does something else with
+ * it than compute it, such as writing it out in another expression language.
+ *
+ * @param formula the written formula.
+ * @returns the tree, or the message to show when the formula does not parse.
+ */
+export const parseFormula = (formula: string): { tree: Node } | { error: string } => {
+    try {
+        return { tree: parse(tokenize(formula)) };
+    } catch (error) {
+        return { error: error instanceof FormulaError ? error.message : 'The formula cannot be read.' };
+    }
 };
 
 /**

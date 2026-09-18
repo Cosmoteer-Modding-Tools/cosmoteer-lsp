@@ -4,7 +4,7 @@ import { AbstractNodeDocument } from '../../../core/ast/ast';
 import { isModRules, isShaderDocument } from '../../../document/document-kind';
 import { findModRoot } from '../../../mod/mod-root';
 import { foldPathCase } from '../../../workspace/fs-cache';
-import { uriToFsPath } from '../../navigation/workspace-files';
+import { uriToFsPath } from '../../../workspace/workspace-files';
 import { modRootsUnder } from '../register-part/ship-registry';
 import { OVERRIDE_IN_MOD_ACTION_COMMAND } from './override-in-mod.command';
 import { overrideMemberAt } from './override-member';

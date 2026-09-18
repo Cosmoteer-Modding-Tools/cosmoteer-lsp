@@ -17,12 +17,12 @@ import * as l10n from '@vscode/l10n';
 /** The minimum number of identical values before extracting to a shared field is offered. */
 const MIN_OCCURRENCES = 2;
 
-const rangeOf = (position: AstPosition): Range =>
-    Range.create(position.line, position.characterStart, position.line, position.characterEnd);
-
 /** A bare numeric literal, including the ObjectText unit suffixes (`50%`, `45d`, `2r`),
  *  which the parser types as String because only plain numbers become Number values. */
 const NUMERIC_LITERAL = /^[+-]?(\d+\.?\d*|\.\d+)(%|d|r)?$/;
+
+const rangeOf = (position: AstPosition): Range =>
+    Range.create(position.line, position.characterStart, position.line, position.characterEnd);
 
 /**
  * True for a plain literal an extraction can share: an unparenthesized, unquoted number (or

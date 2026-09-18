@@ -1,7 +1,7 @@
 import { ExtensionContext, Uri, l10n, window, workspace } from 'vscode';
 import { LanguageClient } from 'vscode-languageclient/node';
 import { applyForWizard, scanForWizard, wizardAnchor } from './wizard-client';
-import { escapeHtml, scriptJson, showWizardForm } from './wizard-form';
+import { ID_SUGGESTS_NAME_SCRIPT, escapeHtml, modFolderName, scriptJson, showWizardForm } from './wizard-form';
 import { NebulaForm, NewNebulaApplyResult, NewNebulaScanResult, Rgb } from './nebula-wizard.types';
 
 /**
@@ -15,6 +15,47 @@ export const NEW_NEBULA_LOCAL_COMMAND = 'cosmoteer.newNebula.create';
 
 /** The server command the wrapper runs. */
 const NEW_NEBULA_SERVER_COMMAND = 'cosmoteer.newNebula';
+
+/**
+ * The form's page script: the colours follow the base look until they are changed by hand, and an id
+ * that is free and a name that is filled in are what the form waits for.
+ */
+const NEBULA_FORM_SCRIPT = `
+    var bases = JSON.parse(strings.bases);
+    var taken = JSON.parse(strings.taken);
+    var hex = function (rgb) { return '#' + rgb.map(function (c) { return ('0' + Math.max(0, Math.min(255, c)).toString(16)).slice(-2); }).join(''); };
+    var rgb = function (value) { return [parseInt(value.slice(1, 3), 16), parseInt(value.slice(3, 5), 16), parseInt(value.slice(5, 7), 16)]; };
+${ID_SUGGESTS_NAME_SCRIPT}
+    byId('base').addEventListener('change', function () {
+        var base = bases.filter(function (b) { return b.id === byId('base').value; })[0];
+        if (!base) return;
+        byId('color1').value = hex(base.colors[0]);
+        byId('color2').value = hex(base.colors[1]);
+        byId('color3').value = hex(base.colors[2]);
+    });
+    window.wizard = {
+        validate: function () {
+            var id = byId('id').value.trim();
+            if (!/^[A-Za-z][A-Za-z0-9_]*$/.test(id)) return id ? strings.invalidId : ' ';
+            if (taken.indexOf(id.toLowerCase()) >= 0) return strings.takenId;
+            if (!byId('name').value.trim()) return strings.emptyName;
+            if (Number(byId('distanceMin').value) > Number(byId('distanceMax').value)) return strings.badRange;
+            return '';
+        },
+        answer: function () {
+            return {
+                id: byId('id').value.trim(),
+                name: byId('name').value.trim(),
+                base: byId('base').value,
+                colors: [rgb(byId('color1').value), rgb(byId('color2').value), rgb(byId('color3').value)],
+                radius: Number(byId('radius').value) || 100000,
+                count: [0, Math.max(1, Number(byId('countMax').value) || 2)],
+                distance: [Number(byId('distanceMin').value) || 0, Number(byId('distanceMax').value) || 25000],
+                spawnChance: Math.max(1, Math.min(100, Number(byId('chance').value) || 100)),
+                avoidStartingSector: byId('avoidStart').checked,
+            };
+        },
+    };`;
 
 /**
  * Creates a nebula in the mod of the active document.
@@ -75,7 +116,7 @@ export async function createNewNebula(
  * @returns the answers, or undefined when the form was closed.
  */
 const showNebulaForm = (context: ExtensionContext, scan: NewNebulaScanResult): Promise<NebulaForm | undefined> => {
-    const modName = scan.modRoot.replace(/\\/g, '/').split('/').filter(Boolean).pop() ?? scan.modRoot;
+    const modName = modFolderName(scan.modRoot);
     const hex = (rgb: Rgb): string =>
         `#${rgb.map((channel) => Math.max(0, Math.min(255, channel)).toString(16).padStart(2, '0')).join('')}`;
     const first = scan.bases[0];
@@ -155,48 +196,7 @@ ${scan.bases.map((base) => `<option value="${escapeHtml(base.id)}">${escapeHtml(
             taken: scriptJson(scan.takenIds.map((id) => id.toLowerCase())),
         },
         submit: l10n.t('Create nebula'),
-        script: `
-    var bases = JSON.parse(strings.bases);
-    var taken = JSON.parse(strings.taken);
-    var byId = function (id) { return document.getElementById(id); };
-    var nameTouched = false;
-    var hex = function (rgb) { return '#' + rgb.map(function (c) { return ('0' + Math.max(0, Math.min(255, c)).toString(16)).slice(-2); }).join(''); };
-    var rgb = function (value) { return [parseInt(value.slice(1, 3), 16), parseInt(value.slice(3, 5), 16), parseInt(value.slice(5, 7), 16)]; };
-    byId('id').addEventListener('input', function () {
-        if (nameTouched) return;
-        byId('name').value = byId('id').value.trim().split('_').filter(Boolean).map(function (w) { return w.charAt(0).toUpperCase() + w.slice(1); }).join(' ');
-    });
-    byId('name').addEventListener('input', function () { nameTouched = byId('name').value.trim().length > 0; });
-    byId('base').addEventListener('change', function () {
-        var base = bases.filter(function (b) { return b.id === byId('base').value; })[0];
-        if (!base) return;
-        byId('color1').value = hex(base.colors[0]);
-        byId('color2').value = hex(base.colors[1]);
-        byId('color3').value = hex(base.colors[2]);
-    });
-    window.wizard = {
-        validate: function () {
-            var id = byId('id').value.trim();
-            if (!/^[A-Za-z][A-Za-z0-9_]*$/.test(id)) return id ? strings.invalidId : ' ';
-            if (taken.indexOf(id.toLowerCase()) >= 0) return strings.takenId;
-            if (!byId('name').value.trim()) return strings.emptyName;
-            if (Number(byId('distanceMin').value) > Number(byId('distanceMax').value)) return strings.badRange;
-            return '';
-        },
-        answer: function () {
-            return {
-                id: byId('id').value.trim(),
-                name: byId('name').value.trim(),
-                base: byId('base').value,
-                colors: [rgb(byId('color1').value), rgb(byId('color2').value), rgb(byId('color3').value)],
-                radius: Number(byId('radius').value) || 100000,
-                count: [0, Math.max(1, Number(byId('countMax').value) || 2)],
-                distance: [Number(byId('distanceMin').value) || 0, Number(byId('distanceMax').value) || 25000],
-                spawnChance: Math.max(1, Math.min(100, Number(byId('chance').value) || 100)),
-                avoidStartingSector: byId('avoidStart').checked,
-            };
-        },
-    };`,
+        script: NEBULA_FORM_SCRIPT,
     });
 };
 

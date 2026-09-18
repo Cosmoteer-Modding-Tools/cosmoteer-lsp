@@ -10,6 +10,7 @@ import {
     ListNode,
     ValueNode,
     isValueNode,
+    childNodesOf,
 } from '../../core/ast/ast';
 import type { ValueType } from '../../document/schema/schema.types';
 import { isModRules } from '../../document/document-kind';
@@ -28,20 +29,18 @@ import {
     scalarPayloadFieldOf,
     scalarReferenceTargetOf,
 } from '../../document/schema/schema';
-import { FullNavigationStrategy } from '../navigation/full.navigation-strategy';
-import { ReverseIncludeIndex } from '../navigation/reverse-include.index';
+import { navigate } from '../../semantics/navigate-reference';
+import { ReverseIncludeIndex } from '../../mod/reverse-include.index';
 import { componentReferenceIdOf } from '../navigation/schema-reference.navigation';
 import { isSameOrSubclass } from '../navigation/schema-id-reference.navigation';
 import { BUILTIN_IDS } from '../../document/schema/entity-schema';
 import { includingDocumentsOf, overrideTargetsOf } from '../../mod/override-sources';
 import { isFile, FileWithPath } from '../../workspace/cosmoteer-workspace.service';
 import { BUFF_PROXY_CLASS, targetsAnotherPart } from '../../semantics/part-components';
-import { childNodesOf, getStartOfAstNode } from '../../utils/ast.utils';
+import { getStartOfAstNode } from '../../utils/ast.utils';
 import { closestMatch } from '../../utils/did-you-mean';
 import { didYouMeanFix, type ValidationError } from './validator';
 import * as l10n from '@vscode/l10n';
-
-const navigation = new FullNavigationStrategy();
 
 // A plain, single-segment identifier. Sibling `ID<…>` values are bare component names. Anything with
 // a `/`, `&`, `<`, math, or whitespace is a path/reference/expression we must not treat as a sibling id.
@@ -65,6 +64,9 @@ export const RUNTIME_INJECTED_IDS: ReadonlySet<string> = new Set(
  *    beam emitter references the prism's `IonBeamChainToggle`), so it resolves outside this part.
  */
 export const NON_SIBLING_FIELDS: ReadonlySet<string> = new Set(['overrideprioritykey', 'chainfiretogglecomponent']);
+
+/** The class of a whole-file bullet root, whose `Components` are named per bullet exactly like a part's. */
+const BULLET_RULES_CLASS = 'Cosmoteer.Bullets.BulletRules';
 
 const isNode = (value: unknown): value is AbstractNode =>
     !!value && !isFile(value as FileWithPath) && typeof (value as AbstractNode).type === 'string';
@@ -238,9 +240,9 @@ const collectComponentIdsUncached = async (
                     const ref = inheritance.valueType.value;
                     if (seenRefs.has(ref)) continue;
                     seenRefs.add(ref);
-                    const target = await navigation
-                        .navigate(ref, inheritance, getStartOfAstNode(node).uri, token)
-                        .catch(() => null);
+                    const target = await navigate(ref, inheritance, getStartOfAstNode(node).uri, token).catch(
+                        () => null
+                    );
                     if (isNode(target)) queue.push(target);
                 }
             }
@@ -271,9 +273,9 @@ const collectComponentIdsUncached = async (
                     const ref = node.right.valueType.value;
                     if (!seenRefs.has(ref)) {
                         seenRefs.add(ref);
-                        const target = await navigation
-                            .navigate(ref, node.right, getStartOfAstNode(node).uri, token)
-                            .catch(() => null);
+                        const target = await navigate(ref, node.right, getStartOfAstNode(node).uri, token).catch(
+                            () => null
+                        );
                         if (isNode(target)) queue.push(target);
                     }
                 }
@@ -307,6 +309,165 @@ export const resolvePartComponentDeclaration = async (
     if (!isDocumentNode(root)) return undefined;
     const partIds = await collectPartComponentIds(root, token);
     return partIds.declarations.get(id.toLowerCase());
+};
+
+/** The state one {@link validateSchemaSiblingReferences} run threads through its checks. */
+interface SiblingCheckContext {
+    /** The findings so far, in the order the walk produced them. */
+    readonly errors: ValidationError[];
+    /** The part-wide component-id collection the checks read. */
+    readonly partComponentIds: PartComponentIds;
+    /** The registry the owner's components belong to. */
+    readonly componentRegistry: string;
+    /** True when the owner is a bullet, which only changes the wording. */
+    readonly ownerIsBullet: boolean;
+    /** Cancels the walk. */
+    readonly cancellationToken: CancellationToken;
+}
+
+/**
+ * Reports a value that names no component anywhere in the part, with the nearest component as a fix
+ * and the option of declaring the component the reference asks for.
+ *
+ * @param ctx the findings and the part-wide ids of the run.
+ * @param value the written value node.
+ * @param written the component id as written.
+ */
+const flagMissingComponent = (ctx: SiblingCheckContext, value: ValueNode, written: string): void => {
+    const suggestion = closestMatch(written, [...ctx.partComponentIds.components.values()], true);
+    ctx.errors.push({
+        message: ctx.ownerIsBullet
+            ? l10n.t("No component named '{0}' in this bullet.", written)
+            : l10n.t("No component named '{0}' in this part.", written),
+        node: value,
+        severity: 'warning',
+        // Beside the rename, the other way out: the component the reference names may simply be
+        // one the part still has to declare, which is what the wire-first way of writing a part
+        // leaves behind.
+        data: { ...didYouMeanFix(suggestion).data, createComponent: { name: written } },
+    });
+};
+
+/**
+ * Reports a component of the wrong kind for the slot it is written in, which the engine decides
+ * rather than the schema: the id is resolved through a typed lookup, and a component of another
+ * kind either fails the part load or leaves the wiring doing nothing.
+ *
+ * Everything the answer cannot be certain about is left alone: a component whose declaration the
+ * walk did not reach, one whose class does not resolve, and one whose class the bundle records no
+ * capabilities for, which is every class that builds no physical component and every class a code
+ * mod brings.
+ *
+ * @param ctx the findings and the part-wide ids of the run.
+ * @param value the written value node.
+ * @param written the component id as written.
+ * @param slot the kind the field requires and what a wrong one costs.
+ */
+const checkKind = (
+    ctx: SiblingCheckContext,
+    value: ValueNode,
+    written: string,
+    slot: { kind: number; enforcement: string }
+): void => {
+    const declaration = ctx.partComponentIds.declarations.get(written.toLowerCase());
+    if (!declaration || !isGroupNode(declaration)) return;
+    const declaredClass = resolveGroupClass(declaration);
+    if (!declaredClass) return;
+    if (componentSatisfiesKind(declaredClass, slot.kind) !== false) return;
+    const label = kindLabel(slot.kind);
+    if (!label) return;
+    // Only the components of this part that would fit are worth offering, which is also the
+    // cheapest possible answer to "then what should I write here".
+    const fitting: string[] = [];
+    for (const [id, name] of ctx.partComponentIds.components) {
+        const candidate = ctx.partComponentIds.declarations.get(id);
+        if (!candidate || !isGroupNode(candidate)) continue;
+        const candidateClass = resolveGroupClass(candidate);
+        if (candidateClass && componentSatisfiesKind(candidateClass, slot.kind) === true) fitting.push(name);
+    }
+    ctx.errors.push({
+        message:
+            slot.enforcement === 'throws'
+                ? l10n.t(
+                      "'{0}' is not a {1}, so the game throws while building this part. This field reads the component as a {1}.",
+                      written,
+                      label
+                  )
+                : l10n.t(
+                      "'{0}' is not a {1}, so this field does nothing. The game reads the component as a {1} and skips one that is not.",
+                      written,
+                      label
+                  ),
+        node: value,
+        severity: 'warning',
+        // With one component of the right kind in the part, that is the answer whatever it is
+        // called. With several, only a name close to the written one is worth offering.
+        ...didYouMeanFix(fitting.length === 1 ? fitting[0] : (closestMatch(written, fitting, true) ?? undefined)),
+    });
+};
+
+/**
+ * Judges every component reference written as a field of one group.
+ *
+ * @param ctx the findings and the part-wide ids of the run.
+ * @param group the group to judge.
+ */
+const checkGroup = (ctx: SiblingCheckContext, group: GroupNode): void => {
+    const cls = classOfPartGroup(group);
+    if (!cls) return;
+    // A group that resolves its ids against another part cannot be judged against this one, so
+    // its references are skipped rather than false-positived (see {@link reachesOutsideThisOwner}).
+    if (reachesOutsideThisOwner(group)) return;
+
+    for (const [fieldName, value] of componentFieldValuesOf(group, cls, ctx.componentRegistry)) {
+        if (ctx.cancellationToken.isCancellationRequested) return;
+        if (NON_SIBLING_FIELDS.has(fieldName.toLowerCase())) continue;
+        const written = String(value.valueType.value);
+        if (!PLAIN_ID.test(written)) continue;
+        if (RUNTIME_INJECTED_IDS.has(written.toLowerCase())) continue;
+        const slot = expectedComponentOf(cls, fieldName);
+        if (ctx.partComponentIds.all.has(written.toLowerCase())) {
+            if (slot) checkKind(ctx, value, written, slot);
+            continue;
+        }
+        flagMissingComponent(ctx, value, written);
+    }
+};
+
+/**
+ * Judges component ids written in tuple slots (a network router's `Routes [ [from, to, cost] ]`):
+ * the engine resolves them part-wide like any other component id, so absence from the union is the
+ * same false-positive-free existence test the assignment form uses.
+ *
+ * @param ctx the findings and the part-wide ids of the run.
+ * @param list the list to judge.
+ */
+const checkTupleList = (ctx: SiblingCheckContext, list: ListNode): void => {
+    if (list.inheritance?.length) return;
+    for (const [index, element] of list.elements.entries()) {
+        if (ctx.cancellationToken.isCancellationRequested) return;
+        if (!isValueNode(element) || element.valueType.type !== 'String') continue;
+        if (!tupleComponentTargetAt(list, index)) continue;
+        const written = String(element.valueType.value);
+        if (!PLAIN_ID.test(written)) continue;
+        if (RUNTIME_INJECTED_IDS.has(written.toLowerCase())) continue;
+        if (ctx.partComponentIds.all.has(written.toLowerCase())) continue;
+        flagMissingComponent(ctx, element, written);
+    }
+};
+
+/**
+ * Walks a node and its children, judging every group and tuple list on the way.
+ *
+ * @param ctx the findings and the part-wide ids of the run.
+ * @param node the node to walk.
+ */
+const visitForSiblings = (ctx: SiblingCheckContext, node: AbstractNode): void => {
+    if (ctx.cancellationToken.isCancellationRequested) return;
+    if (isGroupNode(node)) checkGroup(ctx, node);
+    if (isListNode(node)) checkTupleList(ctx, node);
+    const children = childNodesOf(node);
+    for (const child of children) visitForSiblings(ctx, child);
 };
 
 /**
@@ -345,127 +506,16 @@ export const validateSchemaSiblingReferences = async (
     if (!hasCandidateSiblingReference(document, componentRegistry)) return [];
 
     const partComponentIds = await collectPartComponentIds(document, cancellationToken);
-    const componentIds = partComponentIds.all;
-    const errors: ValidationError[] = [];
-    // A bullet owns its components exactly like a part does, so only the wording differs.
-    const ownerIsBullet = componentRegistry !== 'PartComponentRules';
-
-    const flag = (value: ValueNode, written: string): void => {
-        const suggestion = closestMatch(written, [...partComponentIds.components.values()], true);
-        errors.push({
-            message: ownerIsBullet
-                ? l10n.t("No component named '{0}' in this bullet.", written)
-                : l10n.t("No component named '{0}' in this part.", written),
-            node: value,
-            severity: 'warning',
-            // Beside the rename, the other way out: the component the reference names may simply be
-            // one the part still has to declare, which is what the wire-first way of writing a part
-            // leaves behind.
-            data: { ...didYouMeanFix(suggestion).data, createComponent: { name: written } },
-        });
+    const ctx: SiblingCheckContext = {
+        errors: [],
+        partComponentIds,
+        componentRegistry,
+        // A bullet owns its components exactly like a part does, so only the wording differs.
+        ownerIsBullet: componentRegistry !== 'PartComponentRules',
+        cancellationToken,
     };
-
-    /**
-     * Reports a component of the wrong kind for the slot it is written in, which the engine decides
-     * rather than the schema: the id is resolved through a typed lookup, and a component of another
-     * kind either fails the part load or leaves the wiring doing nothing.
-     *
-     * Everything the answer cannot be certain about is left alone: a component whose declaration the
-     * walk did not reach, one whose class does not resolve, and one whose class the bundle records no
-     * capabilities for, which is every class that builds no physical component and every class a code
-     * mod brings.
-     *
-     * @param value the written value node.
-     * @param written the component id as written.
-     * @param slot the kind the field requires and what a wrong one costs.
-     */
-    const checkKind = (value: ValueNode, written: string, slot: { kind: number; enforcement: string }): void => {
-        const declaration = partComponentIds.declarations.get(written.toLowerCase());
-        if (!declaration || !isGroupNode(declaration)) return;
-        const declaredClass = resolveGroupClass(declaration);
-        if (!declaredClass) return;
-        if (componentSatisfiesKind(declaredClass, slot.kind) !== false) return;
-        const label = kindLabel(slot.kind);
-        if (!label) return;
-        // Only the components of this part that would fit are worth offering, which is also the
-        // cheapest possible answer to "then what should I write here".
-        const fitting: string[] = [];
-        for (const [id, name] of partComponentIds.components) {
-            const candidate = partComponentIds.declarations.get(id);
-            if (!candidate || !isGroupNode(candidate)) continue;
-            const candidateClass = resolveGroupClass(candidate);
-            if (candidateClass && componentSatisfiesKind(candidateClass, slot.kind) === true) fitting.push(name);
-        }
-        errors.push({
-            message:
-                slot.enforcement === 'throws'
-                    ? l10n.t(
-                          "'{0}' is not a {1}, so the game throws while building this part. This field reads the component as a {1}.",
-                          written,
-                          label
-                      )
-                    : l10n.t(
-                          "'{0}' is not a {1}, so this field does nothing. The game reads the component as a {1} and skips one that is not.",
-                          written,
-                          label
-                      ),
-            node: value,
-            severity: 'warning',
-            // With one component of the right kind in the part, that is the answer whatever it is
-            // called. With several, only a name close to the written one is worth offering.
-            ...didYouMeanFix(fitting.length === 1 ? fitting[0] : (closestMatch(written, fitting, true) ?? undefined)),
-        });
-    };
-
-    const checkGroup = (group: GroupNode): void => {
-        const cls = classOfPartGroup(group);
-        if (!cls) return;
-        // A group that resolves its ids against another part cannot be judged against this one, so
-        // its references are skipped rather than false-positived (see {@link reachesOutsideThisOwner}).
-        if (reachesOutsideThisOwner(group)) return;
-
-        for (const [fieldName, value] of componentFieldValuesOf(group, cls, componentRegistry)) {
-            if (cancellationToken.isCancellationRequested) return;
-            if (NON_SIBLING_FIELDS.has(fieldName.toLowerCase())) continue;
-            const written = String(value.valueType.value);
-            if (!PLAIN_ID.test(written)) continue;
-            if (RUNTIME_INJECTED_IDS.has(written.toLowerCase())) continue;
-            const slot = expectedComponentOf(cls, fieldName);
-            if (componentIds.has(written.toLowerCase())) {
-                if (slot) checkKind(value, written, slot);
-                continue;
-            }
-            flag(value, written);
-        }
-    };
-
-    // Component ids written in tuple slots (a network router's `Routes [ [from, to, cost] ]`): the
-    // engine resolves them part-wide like any other component id, so absence from the union is the
-    // same false-positive-free existence test the assignment form uses.
-    const checkTupleList = (list: ListNode): void => {
-        if (list.inheritance?.length) return;
-        for (const [index, element] of list.elements.entries()) {
-            if (cancellationToken.isCancellationRequested) return;
-            if (!isValueNode(element) || element.valueType.type !== 'String') continue;
-            if (!tupleComponentTargetAt(list, index)) continue;
-            const written = String(element.valueType.value);
-            if (!PLAIN_ID.test(written)) continue;
-            if (RUNTIME_INJECTED_IDS.has(written.toLowerCase())) continue;
-            if (componentIds.has(written.toLowerCase())) continue;
-            flag(element, written);
-        }
-    };
-
-    const visit = (node: AbstractNode): void => {
-        if (cancellationToken.isCancellationRequested) return;
-        if (isGroupNode(node)) checkGroup(node);
-        if (isListNode(node)) checkTupleList(node);
-        const children = childNodesOf(node);
-        for (const child of children) visit(child);
-    };
-
-    for (const element of document.elements) visit(element);
-    return errors;
+    for (const element of document.elements) visitForSiblings(ctx, element);
+    return ctx.errors;
 };
 
 /**
@@ -576,9 +626,6 @@ export const tupleComponentTargetAt = (list: ListNode, index: number): boolean =
     const element = slot.elements[index];
     return element?.kind === 'reference' && registryOf(element.target)?.name === 'PartComponentRules';
 };
-
-/** The class of a whole-file bullet root, whose `Components` are named per bullet exactly like a part's. */
-const BULLET_RULES_CLASS = 'Cosmoteer.Bullets.BulletRules';
 
 /**
  * The registry of the components a document owns, which is also the only registry whose ids its

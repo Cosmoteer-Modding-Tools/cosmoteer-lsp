@@ -10,9 +10,9 @@ import {
     GroupNode,
 } from '../../core/ast/ast';
 import { valueSymbolKind } from './document-symbol.service';
-import { filePathToUri } from './navigation-strategy';
-import { normalizeUri, rangeOf } from './reference-location';
-import { WatchedDocumentIndex } from './watched-document-index';
+import { filePathToUri } from '../../document/reference-path';
+import { normalizeUri, rangeOf } from '../../document/reference-location';
+import { WatchedDocumentIndex } from '../../workspace/watched-document-index';
 
 /** Cap on returned symbols, so an empty query over a large project can't flood the client. */
 const MAX_RESULTS = 2000;

@@ -8,8 +8,10 @@ set -e
 # `main` points at out/client/src/extension.mjs). tsc produces the test runner. `check-types` is
 # --noEmit, so a normal dev loop never emits the runner and this script must build it itself.
 #
-# tsc's `rootDir: src` strips the prefix, so client/src/test lands in out/client/test, not
-# out/client/src/test, and not the out/test that an older layout used.
+# tsc's `rootDir` is the repository root, so that both projects can compile the shared modules in
+# `shared/`, which sit outside either source tree. Nothing is stripped, so client/src/test lands in
+# out/client/client/src/test. Only this script reads tsc's emit: the extension, the server and the
+# lint command are the esbuild bundles, whose paths the rootDir does not decide.
 
 cd "$(dirname "$0")/.."
 
@@ -19,4 +21,4 @@ node esbuild.mjs
 # holds is decided by whichever npm linked last. This build must be the 6.x compiler.
 node node_modules/typescript/bin/tsc -b
 
-node ./out/client/test/runTest
+node ./out/client/client/src/test/runTest

@@ -190,13 +190,76 @@ export const isMathExpressionNode = (astNode: AbstractNode | null | undefined): 
     return astNode?.type === 'MathExpression';
 };
 
-export type AstType =
-    | AssignmentNode['type']
-    | GroupNode['type']
-    | ListNode['type']
-    | IdentifierNode['type']
-    | ValueNode['type']
-    | ExpressionNode['type']
-    | FunctionCallNode['type']
-    | AbstractNodeDocument['type']
-    | MathExpressionNode['type'];
+/**
+ * Every node the parser produces, as one union. `AbstractNode` is the shape they share and is what
+ * a consumer holding an unidentified node types it as; `AstNode` is the same node once it is known
+ * to be one of the nine, which is what lets `switch (node.type)` narrow and be checked for
+ * exhaustiveness. Prefer it over `AbstractNode` in a signature that will branch on the kind.
+ */
+export type AstNode =
+    | AbstractNodeDocument
+    | GroupNode
+    | ListNode
+    | IdentifierNode
+    | ValueNode
+    | ExpressionNode
+    | FunctionCallNode
+    | AssignmentNode
+    | MathExpressionNode;
+
+export type AstType = AstNode['type'];
+
+/**
+ * Narrows a node to the union, which is sound for anything the parser built: `type` is only ever
+ * one of the nine tags. It exists because the tree is typed as `AbstractNode` at nearly every seam,
+ * and a `switch` needs the union to narrow against.
+ *
+ * @param astNode the node to narrow.
+ * @returns the same node, typed as the union.
+ */
+export const asAstNode = (astNode: AbstractNode): AstNode => astNode as AstNode;
+
+/**
+ * The nodes directly under one node: a container's elements, or the value an assignment binds.
+ *
+ * Three things are deliberately left out of the children here, and a pass that needs them reaches
+ * for them itself:
+ * - a {@link MathExpressionNode}'s `elements` and a {@link FunctionCallNode}'s `arguments`, which
+ *   are operands of a value rather than members of a container. A pass that reads inside math
+ *   (`validator.division-by-zero.ts`) recurses into them by hand, on purpose.
+ * - a group's or list's `inheritance` bases, which are references to somewhere else rather than
+ *   content of this node. `rename-file-references.ts` walks them alongside the children.
+ *
+ * Widening this would silently change every pass that walks a document, so the omissions are
+ * documented rather than fixed.
+ *
+ * @param node the node to descend.
+ * @returns its direct children, empty for a leaf.
+ */
+export const childNodesOf = (node: AbstractNode): AbstractNode[] =>
+    isGroupNode(node) || isListNode(node) || isDocumentNode(node)
+        ? node.elements
+        : isAssignmentNode(node) && node.right
+          ? [node.right]
+          : [];
+
+/**
+ * Every node at or below `node`, depth first, parents before children. This is the shared
+ * replacement for a hand-written recursive `visit` closure: a pass that wants some particular kind
+ * filters this rather than re-writing the descent.
+ *
+ * Being a generator matters for the passes that stop early, which is most of them: nothing below
+ * the node that answered the question is visited. It does not check a cancellation token, because a
+ * caller that needs one has to decide what to answer when it trips, so that check stays in the loop
+ * body where the caller can see it.
+ *
+ * It descends through {@link childNodesOf}, so it inherits that function's omissions: math operands,
+ * call arguments and inheritance bases are not reached.
+ *
+ * @param node the node to start from, which is itself yielded first.
+ * @yields `node` and then each descendant.
+ */
+export function* descendants(node: AbstractNode): Generator<AbstractNode> {
+    yield node;
+    for (const child of childNodesOf(node)) yield* descendants(child);
+}

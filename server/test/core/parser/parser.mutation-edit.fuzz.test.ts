@@ -3,7 +3,7 @@ import { readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
-import { DocumentSymbolService } from '../../../src/features/navigation/document-symbol.service';
+import { getDocumentSymbols } from '../../../src/features/navigation/document-symbol.service';
 import { DocumentSymbol } from 'vscode-languageserver';
 
 // The existing prefix fuzz (parser.fuzz.test.ts) models typing a document from scratch. But the
@@ -16,7 +16,6 @@ import { DocumentSymbol } from 'vscode-languageserver';
 // does, swap-normalizing reversed ranges first (a container's own position is a reversed range even
 // in valid files, so the naive line-only check would miss it).
 const FIXTURES = join(__dirname, '../../fixtures');
-const symService = DocumentSymbolService.instance;
 
 // Structural characters most likely to malform an otherwise-valid file mid-edit.
 const INSERT_CHARS = ['[', ']', '{', '}', ':', '=', '&', '(', ')'];
@@ -42,7 +41,7 @@ const exercise = (text: string, ctx: string): void => {
     expect(() => (doc = parser(lexer(text), 'file:///t.rules').value), `${ctx}: parse threw`).not.toThrow();
     if (!doc) return;
     let symbols: DocumentSymbol[] = [];
-    expect(() => (symbols = symService.getDocumentSymbols(doc!)), `${ctx}: documentSymbol threw`).not.toThrow();
+    expect(() => (symbols = getDocumentSymbols(doc!)), `${ctx}: documentSymbol threw`).not.toThrow();
     symbols.forEach((s) => assertContained(s, ctx));
 };
 

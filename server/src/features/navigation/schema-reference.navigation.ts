@@ -9,8 +9,9 @@ import {
     isValueNode,
     ListNode,
     ValueNode,
+    childNodesOf,
 } from '../../core/ast/ast';
-import { assignmentNameOf, childNodesOf } from '../../utils/ast.utils';
+import { assignmentNameOf } from '../../utils/ast.utils';
 import { classOfGroup, listSlotType, registryForContainer } from '../../document/schema/schema-context';
 import { fieldOf, registryOf, scalarReferenceTargetOf } from '../../document/schema/schema';
 

@@ -6,7 +6,7 @@ import { AbstractNodeDocument } from '../../../src/core/ast/ast';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
 import { generateEffectiveGroupReport } from '../../../src/features/effective-group/effective-group.report';
-import { filePathToUri } from '../../../src/features/navigation/navigation-strategy';
+import { filePathToUri } from '../../../src/document/reference-path';
 import { AddBaseIndex } from '../../../src/mod/add-base.index';
 import { MemberInjectionIndex } from '../../../src/mod/member-injection.index';
 import { invalidateModContext } from '../../../src/mod/mod-context';

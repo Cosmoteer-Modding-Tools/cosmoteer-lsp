@@ -23,21 +23,22 @@ import {
     resolveGroupClass,
 } from '../document/schema/schema-context';
 import { ValueType } from '../document/schema/schema.types';
-import { FullNavigationStrategy } from '../features/navigation/full.navigation-strategy';
-import { normalizeUri } from '../features/navigation/reference-location';
-import { agreedValueType, ReverseIncludeIndex } from '../features/navigation/reverse-include.index';
-import { WatchedDocumentIndex } from '../features/navigation/watched-document-index';
-import { modFolderPaths } from '../features/navigation/workspace-files';
+import { navigate } from '../semantics/navigate-reference';
+import { normalizeUri } from '../document/reference-location';
+import { agreedValueType, ReverseIncludeIndex } from './reverse-include.index';
+import { WatchedDocumentIndex } from '../workspace/watched-document-index';
+import { modFolderPaths } from '../workspace/workspace-files';
 import { cachedParseFilePath } from '../workspace/fs-cache';
 import { FileTree, FileWithPath, isFile } from '../workspace/cosmoteer-workspace.service';
 import { Action } from './action';
 import { isActionFragmentDocument, parseModActions, textCouldCarryActions } from './action-parser';
 import { normalizeTargetPath, resolveActionTarget } from './action-target-resolver';
 
-const navigation = new FullNavigationStrategy();
-
 /** What a resolved target or source landing can be: a node inside a file, or a whole file. */
 type Landing = AbstractNode | FileWithPath | null;
+
+/** How many reference-to-reference hops a landing is followed through before giving up. */
+const MAX_REFERENCE_HOPS = 4;
 
 /**
  * The group-kind {@link ValueType} for a class FullName.
@@ -46,9 +47,6 @@ type Landing = AbstractNode | FileWithPath | null;
  * @returns the group type naming that class.
  */
 const groupType = (cls: string): ValueType => ({ kind: 'group', ref: cls, name: cls.split('.').pop() ?? cls });
-
-/** How many reference-to-reference hops a landing is followed through before giving up. */
-const MAX_REFERENCE_HOPS = 4;
 
 /**
  * Whether a target path is one this index can type: a `<file>` prefix followed only by plain member
@@ -492,9 +490,12 @@ export class ActionRootingIndex extends WatchedDocumentIndex implements AliasMem
         if (isGroupNode(source)) return topLevelMemberNames(source);
         if (!isValueNode(source) || source.valueType.type !== 'Reference') return [];
         let landing = await this.dereferenceLanding(
-            await navigation
-                .navigate(String(source.valueType.value), source, getStartOfAstNode(source).uri, cancellationToken)
-                .catch(() => null),
+            await navigate(
+                String(source.valueType.value),
+                source,
+                getStartOfAstNode(source).uri,
+                cancellationToken
+            ).catch(() => null),
             cancellationToken
         );
         // A member path can land on the assignment that names the member (`EditorGroups = &<editor_groups.rules>`),
@@ -522,9 +523,12 @@ export class ActionRootingIndex extends WatchedDocumentIndex implements AliasMem
         context: ValueNode,
         cancellationToken: CancellationToken
     ): Promise<string | undefined> {
-        let resolved: Landing = await navigation
-            .navigate(normalizeTargetPath(path), context, getStartOfAstNode(context).uri, cancellationToken)
-            .catch(() => null);
+        let resolved: Landing = await navigate(
+            normalizeTargetPath(path),
+            context,
+            getStartOfAstNode(context).uri,
+            cancellationToken
+        ).catch(() => null);
         resolved = await this.dereferenceLanding(resolved, cancellationToken);
         if (!resolved) return undefined;
 
@@ -567,9 +571,12 @@ export class ActionRootingIndex extends WatchedDocumentIndex implements AliasMem
             if (isFile(resolved as unknown as FileTree) || !isValueNode(node) || node.valueType.type !== 'Reference') {
                 return resolved;
             }
-            resolved = (await navigation
-                .navigate(String(node.valueType.value), node, getStartOfAstNode(node).uri, cancellationToken)
-                .catch(() => null)) as Landing;
+            resolved = (await navigate(
+                String(node.valueType.value),
+                node,
+                getStartOfAstNode(node).uri,
+                cancellationToken
+            ).catch(() => null)) as Landing;
         }
         return resolved;
     }
@@ -646,9 +653,9 @@ export class ActionRootingIndex extends WatchedDocumentIndex implements AliasMem
         let origin: AbstractNode = ref;
         let path = String(ref.valueType.value);
         for (let hop = 0; hop < MAX_REFERENCE_HOPS; hop++) {
-            const resolved = (await navigation
-                .navigate(path, origin, getStartOfAstNode(origin).uri, cancellationToken)
-                .catch(() => null)) as Landing;
+            const resolved = (await navigate(path, origin, getStartOfAstNode(origin).uri, cancellationToken).catch(
+                () => null
+            )) as Landing;
             if (!resolved) return;
             if (isFile(resolved as unknown as FileTree)) {
                 this.recordTarget(normalizeUri((resolved as FileWithPath).path), '', slot, source, contributed, lines);

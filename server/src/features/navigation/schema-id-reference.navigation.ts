@@ -10,14 +10,15 @@ import {
     isListNode,
     isValueNode,
     ValueNode,
+    childNodesOf,
 } from '../../core/ast/ast';
-import { assignmentNameOf, childNodesOf } from '../../utils/ast.utils';
+import { assignmentNameOf } from '../../utils/ast.utils';
 import { listSlotType, resolveGroupClass } from '../../document/schema/schema-context';
 import { documentRootClass } from '../../document/schema/document-root';
 import { fieldOf, scalarReferenceTargetOf, typeDef } from '../../document/schema/schema';
 import { entityDeclarationsOf, REFERENCE_MAP_KEY_FIELDS, sameId } from '../../document/schema/entity-schema';
-import { definitionLocationOf } from './reference-location';
-import { documentsMentioning, uriToFsPath } from './workspace-files';
+import { definitionLocationOf } from '../../document/reference-location';
+import { documentsMentioning, uriToFsPath } from '../../workspace/workspace-files';
 import { findModRoot } from '../../mod/mod-root';
 import { reachabilityKey, reachabilityMemo } from '../../mod/mod-reachability';
 

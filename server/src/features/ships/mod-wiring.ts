@@ -1,11 +1,14 @@
 import { existsSync } from 'fs';
+import { relative } from 'path';
+import { LineEnding } from './builtin-ships.types';
+import { manifestForRegistration } from '../refactor/new-content/registration.emitter';
 import { TextEdit } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { AbstractNode, isIdentifierNode, isValueNode } from '../../core/ast/ast';
+import { AbstractNode, AbstractNodeDocument, isIdentifierNode, isValueNode } from '../../core/ast/ast';
 import { findModRoot } from '../../mod/mod-root';
 import { parseText } from '../../utils/ast.utils';
 import { isUnder } from '../../utils/relative-path';
-import { uriToFsPath } from '../navigation/workspace-files';
+import { uriToFsPath } from '../../workspace/workspace-files';
 import { documentFor, lineEndingOf, openBuffers } from '../refactor/command-host';
 import { memberOf } from '../refactor/new-content/registry-ids';
 import { manifestActionMatches } from '../refactor/new-content/registration.emitter';
@@ -16,6 +19,7 @@ import {
 } from '../refactor/register-part/manifest-action.emitter';
 import { referenceTextsOf } from '../refactor/register-part/ship-registry';
 import { editableModRootOf } from '../refactor/shared-base/shared-base.analysis-entry';
+import { readRulesFile } from '../refactor/shared-base/base-index';
 
 /**
  * What the content wizards share: finding the mod a command may write into, reading scalar members
@@ -54,6 +58,17 @@ export const modRootFor = (
     return { failure: refused ? 'notEditable' : 'noModRoot' };
 };
 
+/** The `<…>` span of a reference, whatever member path follows it. */
+const REFERENCE_FILE = /^\s*&?\s*<([^<>]+)>/;
+
+/**
+ * The id shape every content wizard accepts: a bare ObjectText word, which is what the game reads a
+ * group name and an `ID` value as. Each wizard used to declare this same expression under its own
+ * name (`NEBULA_ID`, `PLANET_WORD`, `FACTION_ID`, `SIZE_ID`, `BARE_ID`), which made five spellings
+ * of one rule that has only ever had one definition.
+ */
+export const BARE_RULES_ID = /^[A-Za-z][A-Za-z0-9_]*$/;
+
 /**
  * The text of a scalar member, whatever the parser typed it as.
  *
@@ -80,9 +95,6 @@ export const elementTextOf = (element: AbstractNode): string | undefined => {
     if (isValueNode(element)) return String(element.valueType.value);
     return undefined;
 };
-
-/** The `<…>` span of a reference, whatever member path follows it. */
-const REFERENCE_FILE = /^\s*&?\s*<([^<>]+)>/;
 
 /**
  * Whether the mod's manifests already add a file to a target, whatever spelling the reference uses.
@@ -233,4 +245,60 @@ export const wireIntoManifest = async <K extends string>(
     if (await appendManifestActions(manifest, entries, host)) return true;
     for (const key of written) outcomes[key] = 'editRejected';
     return false;
+};
+
+/** The game's own files a wizard writes against, once every one of them is known to be readable. */
+export interface ResolvedGameRoot {
+    /** The game's `Data` directory. */
+    readonly dataRoot: string;
+    /** The path of the game's root rules file. */
+    readonly rootPath: string;
+    /** The parsed root document, which the registries are read out of. */
+    readonly rootDocument: AbstractNodeDocument;
+}
+
+/**
+ * The game tree a wizard needs before it writes anything: the `Data` directory, the root file and
+ * its parsed document. Every wizard asked for these three in the same order and refused with the
+ * same `noGameRoot` when any was missing.
+ *
+ * @param host the command host.
+ * @returns the three, or undefined when the install is unset or unreadable.
+ */
+export const resolveGameRoot = async (host: {
+    dataRoot(): string | undefined;
+    gameRoot(): Promise<{ path?: string; content?: unknown } | undefined>;
+}): Promise<ResolvedGameRoot | undefined> => {
+    const dataRoot = host.dataRoot();
+    const root = await host.gameRoot().catch(() => undefined);
+    const rootDocument = (root?.content as { parsedDocument?: AbstractNodeDocument } | undefined)?.parsedDocument;
+    if (!dataRoot || !root?.path || !rootDocument) return undefined;
+    return { dataRoot, rootPath: root.path, rootDocument };
+};
+
+/**
+ * A reference to a file of the game's own tree, written the way a rules file has to spell it: from
+ * the install root, through `./Data`. Three wizards each carried a byte-identical copy of this.
+ *
+ * @param dataRoot the game's `Data` directory.
+ * @param file the file being pointed at, inside that tree.
+ * @returns the reference text, brackets included.
+ */
+export const installReference = (dataRoot: string, file: string): string =>
+    `<./Data/${relative(dataRoot, file).replace(/\\/g, '/')}>`;
+
+/**
+ * The line ending a newly written file should use: the one the manifest it is registered from
+ * already uses, or `\n` when the registration does not go through a manifest.
+ *
+ * @param modRoot the mod being written into.
+ * @returns the manifest choice and the line ending that goes with it.
+ */
+export const registrationLineEnding = async (
+    modRoot: string
+): Promise<{ choice: ReturnType<typeof manifestForRegistration>; lineEnding: LineEnding }> => {
+    const choice = manifestForRegistration(modRoot);
+    const lineEnding: LineEnding =
+        choice.kind === 'manifest' ? lineEndingOf((await readRulesFile(choice.fsPath))?.text ?? '') : '\n';
+    return { choice, lineEnding };
 };

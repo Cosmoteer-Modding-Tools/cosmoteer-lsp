@@ -1,5 +1,5 @@
 import { resolve } from 'path';
-import { foldPathCase } from '../workspace/fs-cache';
+import { foldPathCase } from './uri-path';
 
 /**
  * A file's path relative to the workspace folder holding it, for a diff header or a report line.

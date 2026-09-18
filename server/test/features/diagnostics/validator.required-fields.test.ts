@@ -4,7 +4,7 @@ import { join } from 'path';
 import { tmpdir } from 'os';
 import { pathToFileURL } from 'url';
 import { CancellationToken } from 'vscode-languageserver';
-import { TemplateBaseIndex } from '../../../src/features/diagnostics/template-base.index';
+import { TemplateBaseIndex } from '../../../src/workspace/template-base.index';
 import { clearFsCaches } from '../../../src/workspace/fs-cache';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
@@ -93,7 +93,9 @@ describe('validateRequiredFields', () => {
     });
 
     it('does not flag a Layers music track that writes its Layers collection', async () => {
-        const src = nestedLayers('\t\tLayers\n\t\t[\n\t\t\t{\n\t\t\t\tType = File\n\t\t\t\tFile = "x.music"\n\t\t\t}\n\t\t]');
+        const src = nestedLayers(
+            '\t\tLayers\n\t\t[\n\t\t\t{\n\t\t\t\tType = File\n\t\t\t\tFile = "x.music"\n\t\t\t}\n\t\t]'
+        );
         expect(await validateRequiredFields(parse(src, musicUri), token)).toHaveLength(0);
     });
 
@@ -102,7 +104,8 @@ describe('validateRequiredFields', () => {
     describe('slot-typed nested groups', () => {
         // A part's salvage effects: the field names `MultiMediaEffectRules` outright, the group carries
         // no `Type=`, and the game throws on an absent `Effects` (`[Serialize]` with no `Optional = true`).
-        const effects = (body: string, base = '') => `Part${base}\n{\n\tSalvageProgressMediaEffects\n\t{\n${body}\n\t}\n}`;
+        const effects = (body: string, base = '') =>
+            `Part${base}\n{\n\tSalvageProgressMediaEffects\n\t{\n${body}\n\t}\n}`;
 
         it('flags a slot-typed group missing a required field', async () => {
             const errors = await validateRequiredFields(parse(effects('')), token);

@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { join } from 'path';
 import { pathToFileURL } from 'url';
 import { CancellationToken } from 'vscode-languageserver';
-import { ReverseIncludeIndex } from '../../../src/features/navigation/reverse-include.index';
+import { ReverseIncludeIndex } from '../../../src/mod/reverse-include.index';
 import { SchemaIdIndex } from '../../../src/features/completion/schema-id.index';
 import { globalSettings } from '../../../src/settings';
 import { FIXTURES_DIR } from '../../helpers';

@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { join } from 'path';
 import { CancellationToken } from 'vscode-languageserver';
-import { ReferenceAutoCompletionStrategy } from '../../../src/features/completion/strategy/reference.autocompletion-strategy';
+import { completeReference } from '../../../src/features/completion/autocompletion.reference-path';
 import { AbstractNode, AbstractNodeDocument, ValueNode } from '../../../src/core/ast/ast';
 import { parseFilePath } from '../../../src/utils/ast.utils';
 import { clearModRootCache } from '../../../src/mod/mod-root';
@@ -15,7 +15,6 @@ import { FIXTURES_DIR } from '../../helpers';
 // vanilla indicators file) and `&/BASE_AUDIO/` (a global aliasing a whole file) reflect the effective
 // tree. The origin (editing) file's URI is threaded through so the owning mod is found even though
 // the traversal walks into the vanilla cosmoteer.rules to follow the global.
-const completion = new ReferenceAutoCompletionStrategy();
 const token = CancellationToken.None;
 const MOD_DIR = join(FIXTURES_DIR, 'mod');
 const pos = { line: 0, characterStart: 0, characterEnd: 0, start: 0, end: 0 };
@@ -28,9 +27,9 @@ const refNode = (value: string, parent: AbstractNode): ValueNode => ({
 });
 
 const complete = (value: string, parent: AbstractNode) =>
-    completion.complete({ node: refNode(value, parent), isInheritanceNode: false, cancellationToken: token });
+    completeReference({ node: refNode(value, parent), isInheritanceNode: false, cancellationToken: token });
 
-describe('ReferenceAutoCompletionStrategy: mod override members', () => {
+describe('completeReference: mod override members', () => {
     // A document INSIDE the mod, so the completion origin resolves to the mod root.
     let modDoc: AbstractNodeDocument;
 
@@ -65,7 +64,7 @@ describe('ReferenceAutoCompletionStrategy: mod override members', () => {
 // EFFECTIVE game tree, so `&/` completion must offer them alongside the vanilla root members, and a
 // deeper path through such a global must list the aliased target's members even though vanilla
 // navigation cannot see it.
-describe('ReferenceAutoCompletionStrategy: mod-added cosmoteer.rules globals', () => {
+describe('completeReference: mod-added cosmoteer.rules globals', () => {
     let modDoc: AbstractNodeDocument;
 
     beforeAll(async () => {

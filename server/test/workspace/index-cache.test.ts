@@ -4,10 +4,10 @@ import { join } from 'path';
 import { tmpdir } from 'os';
 import { CancellationToken } from 'vscode-languageserver';
 import { initWorkspace, WORKSPACE_DATA_DIR, workspaceFile } from '../workspace-helper';
-import { WatchedDocumentIndex } from '../../src/features/navigation/watched-document-index';
-import { ReverseIncludeIndex } from '../../src/features/navigation/reverse-include.index';
+import { WatchedDocumentIndex } from '../../src/workspace/watched-document-index';
+import { ReverseIncludeIndex } from '../../src/mod/reverse-include.index';
 import { SchemaIdIndex } from '../../src/features/completion/schema-id.index';
-import { TemplateBaseIndex } from '../../src/features/diagnostics/template-base.index';
+import { TemplateBaseIndex } from '../../src/workspace/template-base.index';
 import { LocalizationKeyIndex } from '../../src/features/completion/localization-key.index';
 
 const token = CancellationToken.None;

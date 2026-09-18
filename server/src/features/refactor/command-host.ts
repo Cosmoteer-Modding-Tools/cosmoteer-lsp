@@ -1,13 +1,19 @@
 import { readFile } from 'fs/promises';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { filePathToUri } from '../navigation/navigation-strategy';
-import { normalizeUri } from '../navigation/reference-location';
+import { filePathToUri } from '../../document/reference-path';
+import { normalizeUri } from '../../document/reference-location';
 
 /** The facilities every refactor command reads the editor's buffers through. */
 interface OpenDocumentHost {
     /** The editor's open buffers, whose unsaved text wins over disk. */
     openDocuments(): readonly TextDocument[];
 }
+
+/** How many indented lines are read before the indentation style is called, so a huge file is not walked. */
+const INDENT_SAMPLE = 200;
+
+/** The leading whitespace of a line that has something on it. */
+const LINE_INDENT = /^([ \t]+)(?=[^\s])/gm;
 
 /**
  * The open buffers keyed by normalized uri, so a file open in the editor is read and edited live.
@@ -49,12 +55,6 @@ export const documentFor = async (
  * @returns the ending the file is written with.
  */
 export const lineEndingOf = (text: string): '\n' | '\r\n' => (text.includes('\r\n') ? '\r\n' : '\n');
-
-/** How many indented lines are read before the indentation style is called, so a huge file is not walked. */
-const INDENT_SAMPLE = 200;
-
-/** The leading whitespace of a line that has something on it. */
-const LINE_INDENT = /^([ \t]+)(?=[^\s])/gm;
 
 /**
  * The one indentation step a file is written with, read from its own lines: a tab where any line

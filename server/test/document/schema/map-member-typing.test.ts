@@ -12,7 +12,7 @@ import {
 } from '../../../src/core/ast/ast';
 import { resolveGroupClass } from '../../../src/document/schema/schema-context';
 import { schemaFieldNameCompletions } from '../../../src/features/completion/autocompletion.schema-fields';
-import { Completion } from '../../../src/features/completion/autocompletion.service';
+import { Completion } from '../../../src/features/completion/autocompletion.service.types';
 
 // A member of a map-typed slot takes the map's value type, so its `Type=` dispatches in the map's
 // declared registry even when the discriminator collides across registries. The regression case is a

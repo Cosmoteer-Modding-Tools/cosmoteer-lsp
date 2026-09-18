@@ -2,63 +2,12 @@ import {
     AbstractNode,
     GroupNode,
     isAssignmentNode,
-    isFunctionCallNode,
     isGroupNode,
     isIdentifierNode,
     isListNode,
-    isMathExpressionNode,
 } from '../../../core/ast/ast';
+import { memberSpan } from '../rules-edit';
 import { MemberRecord } from './plan.types';
-
-/**
- * The furthest byte offset any node of a subtree reaches. An assignment's value can be a math
- * expression or a function call whose own `position` covers only its first token, so the end of a
- * member is the maximum over its whole subtree rather than the value node's own `end`.
- *
- * @param node the node to measure.
- * @returns the highest end offset in the subtree, or 0 when the subtree carries no position.
- */
-const maxEndOffset = (node: AbstractNode | null | undefined): number => {
-    if (!node) return 0;
-    let end = node.position?.end ?? 0;
-    if (isGroupNode(node) || isListNode(node)) {
-        for (const element of node.elements) end = Math.max(end, maxEndOffset(element));
-        for (const base of node.inheritance ?? []) end = Math.max(end, maxEndOffset(base));
-    } else if (isAssignmentNode(node)) {
-        end = Math.max(end, maxEndOffset(node.left), maxEndOffset(node.right));
-    } else if (isFunctionCallNode(node)) {
-        for (const argument of node.arguments) end = Math.max(end, maxEndOffset(argument));
-    } else if (isMathExpressionNode(node)) {
-        for (const element of node.elements) end = Math.max(end, maxEndOffset(element));
-    }
-    return end;
-};
-
-/**
- * The source span of a top-level member, which no single node spans on its own: an assignment node
- * carries no position, and a group's or list's `position.start` is its `{`/`[`, leaving the name,
- * the `:` and the inheritance references outside it.
- *
- * @param node the member node (assignment, named container, or bare valueless field).
- * @returns the byte offsets of the member, or undefined when the node has no usable position (an
- * unclosed container leaves its end at zero).
- */
-export const memberSpanOf = (node: AbstractNode): { start: number; end: number } | undefined => {
-    let start: number | undefined;
-    let end = 0;
-    if (isAssignmentNode(node)) {
-        start = node.left.position?.start;
-        end = Math.max(maxEndOffset(node.left), maxEndOffset(node.right));
-    } else if ((isGroupNode(node) || isListNode(node)) && node.identifier) {
-        start = node.identifier.position?.start;
-        end = maxEndOffset(node);
-    } else if (isIdentifierNode(node)) {
-        start = node.position?.start;
-        end = node.position?.end ?? 0;
-    }
-    if (start === undefined || end <= start) return undefined;
-    return { start, end };
-};
 
 /** Character codes the member scanners compare against, kept out of the loops. */
 const QUOTE = 34;
@@ -66,6 +15,26 @@ const CARRIAGE_RETURN = 13;
 const SPACE = 32;
 const TAB = 9;
 const NEWLINE = 10;
+
+/**
+ * The source span of a named member, measured by {@link memberSpan} and narrowed to the members a
+ * record can be keyed by. A member record names what it holds, so an anonymous container, a bare
+ * list entry and a loose expression are not members here, where the shared writer does answer for
+ * them.
+ *
+ * @param node the member node (assignment, named container, or bare valueless field).
+ * @returns the byte offsets of the member, or undefined when the node is not a named member or has
+ * no usable position (an unclosed container leaves its end at zero).
+ */
+export const memberSpanOf = (node: AbstractNode): { start: number; end: number } | undefined => {
+    const named =
+        isAssignmentNode(node) ||
+        isIdentifierNode(node) ||
+        ((isGroupNode(node) || isListNode(node)) && node.identifier !== undefined);
+    if (!named) return undefined;
+    const span = memberSpan(node);
+    return span && span.end > span.start ? span : undefined;
+};
 
 /**
  * The comparison form of a member's source: indentation dropped, runs of spaces and tabs inside a

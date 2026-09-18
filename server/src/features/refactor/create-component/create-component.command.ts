@@ -7,11 +7,12 @@ import { parseText } from '../../../utils/ast.utils';
 import { fieldSnippet } from '../../completion/autocompletion.schema-fields';
 import { memberIndentAt, placeholderValue } from '../../diagnostics/required-field-insert';
 import { ownerComponentRegistryOf } from '../../diagnostics/validator.schema-sibling';
-import { uriToFsPath } from '../../navigation/workspace-files';
+import { uriToFsPath } from '../../../workspace/workspace-files';
 import { documentFor, indentUnitOf, lineEndingOf, openBuffers } from '../command-host';
 import { memberSpanOf } from '../shared-base/member-record';
 import { plainTextOf } from '../snippet-action';
-import { CreateComponentArgs, CreateComponentHost, CreateComponentResult } from './create-component.types';
+import { CreateComponentHost } from './create-component.types';
+import { CreateComponentArgs, CreateComponentResult } from '../../../../../shared/create-component.types';
 
 /**
  * The `workspace/executeCommand` id that declares a component a part or bullet references but does

@@ -15,21 +15,36 @@ const run = (node: ValueNode) => ValidationForValue.callback(node, token);
 
 describe('value diagnostics: parentheses and assets (node-level)', () => {
     it('flags a parenthesized plain value', async () => {
-        const node: ValueNode = { type: 'Value', valueType: { type: 'String', value: 'x' }, parenthesized: true, position: pos() };
+        const node: ValueNode = {
+            type: 'Value',
+            valueType: { type: 'String', value: 'x' },
+            parenthesized: true,
+            position: pos(),
+        };
         const error = await run(node);
         expect(error?.message).toBe('Value should not be parenthesized');
         expect(error?.additionalInfo).toBe('References in function calls need to be parenthesized or math expressions');
     });
 
     it('does not flag a parenthesized number (valid math grouping)', async () => {
-        const node: ValueNode = { type: 'Value', valueType: { type: 'Number', value: 1 }, parenthesized: true, position: pos() };
+        const node: ValueNode = {
+            type: 'Value',
+            valueType: { type: 'Number', value: 1 },
+            parenthesized: true,
+            position: pos(),
+        };
         expect(await run(node)).toBeUndefined();
     });
 
     it('flags an unquoted asset path that contains whitespace, as a warning', async () => {
         // The game loads simple unquoted paths fine. Only a path with whitespace is genuinely
         // ambiguous unquoted, so only that is flagged, and as a warning, not a hard error.
-        const node: ValueNode = { type: 'Value', valueType: { type: 'Sprite', value: 'foo bar.png' }, quoted: false, position: pos() };
+        const node: ValueNode = {
+            type: 'Value',
+            valueType: { type: 'Sprite', value: 'foo bar.png' },
+            quoted: false,
+            position: pos(),
+        };
         const error = await run(node);
         expect(error?.message).toBe('Asset paths should be quoted');
         expect(error?.additionalInfo).toBe('Assets should be quoted with ""');
@@ -39,7 +54,12 @@ describe('value diagnostics: parentheses and assets (node-level)', () => {
 
     it('does NOT flag a simple unquoted asset path (the game accepts it)', async () => {
         // `File = foo.png` (no whitespace) is valid unquoted. It must not be a quoting error.
-        const node: ValueNode = { type: 'Value', valueType: { type: 'Sprite', value: 'foo.png' }, quoted: false, position: pos() };
+        const node: ValueNode = {
+            type: 'Value',
+            valueType: { type: 'Sprite', value: 'foo.png' },
+            quoted: false,
+            position: pos(),
+        };
         const error = await run(node);
         expect(error?.message).not.toBe('Asset paths should be quoted');
     });

@@ -69,7 +69,10 @@ describe('component chains that close', () => {
     it('flags a pair chained to each other', async () => {
         expect(
             await findings(
-                partWith(['Left', 'Type = Sprite\n\t\t\tChainedTo = Right'], ['Right', 'Type = Sprite\n\t\t\tChainedTo = Left'])
+                partWith(
+                    ['Left', 'Type = Sprite\n\t\t\tChainedTo = Right'],
+                    ['Right', 'Type = Sprite\n\t\t\tChainedTo = Left']
+                )
             )
         ).toEqual([CYCLE]);
     });

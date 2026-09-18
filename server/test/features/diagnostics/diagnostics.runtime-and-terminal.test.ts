@@ -10,7 +10,13 @@ const token = CancellationToken.None;
 const collectReferences = (node: AbstractNode, out: ValueNode[] = []): ValueNode[] => {
     if (!node || typeof node !== 'object') return out;
     if (isValueNode(node) && node.valueType.type === 'Reference') out.push(node);
-    const n = node as unknown as { elements?: AbstractNode[]; inheritance?: AbstractNode[]; left?: AbstractNode; right?: AbstractNode; arguments?: AbstractNode[] };
+    const n = node as unknown as {
+        elements?: AbstractNode[];
+        inheritance?: AbstractNode[];
+        left?: AbstractNode;
+        right?: AbstractNode;
+        arguments?: AbstractNode[];
+    };
     if (isGroupNode(node) || isListNode(node) || node.type === 'Document') {
         (n.elements ?? []).forEach((c) => collectReferences(c, out));
         (n.inheritance ?? []).forEach((c) => collectReferences(c, out));

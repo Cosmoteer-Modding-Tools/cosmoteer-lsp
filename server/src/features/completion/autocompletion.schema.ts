@@ -9,7 +9,7 @@ import {
     isListNode,
     isValueNode,
 } from '../../core/ast/ast';
-import { AutoCompletion, Completion } from './autocompletion.service';
+import { AutoCompletion, Completion } from './autocompletion.service.types';
 import { documentScopeClass, registryForGroup, resolveGroupClass } from '../../document/schema/schema-context';
 import { documentRootRegistry } from '../../document/schema/document-root';
 import { enumDef, fieldOf } from '../../document/schema/schema';

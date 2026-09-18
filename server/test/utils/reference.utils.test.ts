@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { isValidReference } from '../../src/utils/reference.utils';
-import { stripReferenceWhitespace } from '../../src/features/navigation/navigation-strategy';
+import { stripReferenceWhitespace } from '../../src/document/reference-path';
 
 describe('stripReferenceWhitespace', () => {
     it('removes whitespace that ObjectText allows around `&`, `/` and segments', () => {

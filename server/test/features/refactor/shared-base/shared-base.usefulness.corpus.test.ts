@@ -17,7 +17,8 @@ import {
     judgeExistingBase,
     upgradePlansToExistingBase,
 } from '../../../../src/features/refactor/shared-base/existing-base';
-import { BaseLocation, ExtractionPlan } from '../../../../src/features/refactor/shared-base/plan.types';
+import { ExtractionPlan } from '../../../../src/features/refactor/shared-base/plan.types';
+import { BaseLocation } from '../../../../../shared/shared-base.types';
 
 // How much duplication the extraction actually finds across many mods, and how much of it the
 // per-file hint can reach on its own. The hint compares a directory, the command compares the whole

@@ -4,6 +4,7 @@ import { promises as fs } from 'fs';
 import { spawn } from 'child_process';
 import type { Connection } from 'vscode-languageserver';
 import { globalSettings } from '../../settings';
+import { COSMOTEER_METHOD } from '../../../../shared/lsp-methods';
 
 /** The payload an "Open in decompiler" hover link carries (see decompiler-link.ts). */
 export interface OpenInDecompilerArgs {
@@ -38,7 +39,7 @@ export const openInDecompiler = async (args: OpenInDecompilerArgs, connection: C
                 'Set "cosmoteerLSPRules.decompiler.executablePath" to your decompiler.',
             { title: 'Open Settings' }
         );
-        if (pick) void connection.sendRequest('cosmoteer/openSettings', { query: 'cosmoteerLSPRules.decompiler' });
+        if (pick) void connection.sendRequest(COSMOTEER_METHOD.openSettings, { query: 'cosmoteerLSPRules.decompiler' });
         return;
     }
     launch(decompiler, args.assemblyPath, args.docId, connection);

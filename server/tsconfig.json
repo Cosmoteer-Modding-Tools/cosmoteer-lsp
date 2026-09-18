@@ -8,7 +8,7 @@
         "strict": true,
         "skipLibCheck": true,
         "outDir": "../out/server",
-        "rootDir": "src",
+        "rootDir": "..",
         "incremental": true,
         "esModuleInterop": true,
         "types": ["node"],

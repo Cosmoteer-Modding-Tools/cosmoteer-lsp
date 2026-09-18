@@ -7,8 +7,8 @@ import { resolveGroupClass } from '../../document/schema/schema-context';
 import { flattenGroup, flattenListMember } from '../../semantics/effective-group';
 import { findMemberThroughInheritance } from '../../semantics/inheritance-resolver';
 import { resolveReference } from '../../semantics/effective-member';
-import { memberNameOf } from '../../semantics/reference-resolver';
-import { booleanOf, childNamed, enumNameOf } from '../part-editor/vector-forms';
+import { memberNameOf } from '../../document/reference-resolver';
+import { booleanOf, childNamed, enumNameOf } from '../../semantics/vector-forms';
 import { instantiatedParts } from './validator.part-geometry';
 import { ValidationError } from './validator';
 

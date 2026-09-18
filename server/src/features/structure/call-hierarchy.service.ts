@@ -25,11 +25,12 @@ import { workspaceRelativePath } from '../../utils/relative-path';
 import { cachedParseFilePath } from '../../workspace/fs-cache';
 import { FileTree, isFile } from '../../workspace/cosmoteer-workspace.service';
 import { atOrBefore, enclosingRange, orderRange, unionRange } from '../navigation/ast-range';
-import { FullNavigationStrategy } from '../navigation/full.navigation-strategy';
-import { filePathToUri } from '../navigation/navigation-strategy';
-import { normalizeUri, rangeOf } from '../navigation/reference-location';
-import { ReferenceIndex, referenceNodesOf } from '../navigation/reference-index';
-import { documentsMentioning, uriToFsPath } from '../navigation/workspace-files';
+import { navigate } from '../../semantics/navigate-reference';
+import { filePathToUri } from '../../document/reference-path';
+import { normalizeUri, rangeOf } from '../../document/reference-location';
+import { findReferences } from '../navigation/reference-index';
+import { referenceNodesOf } from '../navigation/reference-nodes';
+import { documentsMentioning, uriToFsPath } from '../../workspace/workspace-files';
 
 /**
  * Call hierarchy (`textDocument/prepareCallHierarchy` and its two expansions) over the ways one
@@ -52,8 +53,6 @@ import { documentsMentioning, uriToFsPath } from '../navigation/workspace-files'
  */
 
 /** The resolver that turns one written reference into the node it names. */
-const navigation = new FullNavigationStrategy();
-
 /** How many manifests the action-target search reads before it stops looking. */
 const MANIFEST_LIMIT = 64;
 
@@ -300,9 +299,13 @@ export const incomingCallsOf = async (
 ): Promise<CallHierarchyIncomingCall[]> => {
     const found = await declarationForItem(item, cancellationToken);
     if (!found) return [];
-    const sites: Location[] = await ReferenceIndex.instance
-        .findReferences(found.document, item.selectionRange.start, false, folderPaths, cancellationToken)
-        .catch(() => []);
+    const sites: Location[] = await findReferences(
+        found.document,
+        item.selectionRange.start,
+        false,
+        folderPaths,
+        cancellationToken
+    ).catch(() => []);
 
     const byItem = new Map<string, CallHierarchyIncomingCall>();
     const add = (declaration: Declaration, range: Range): void => {
@@ -356,9 +359,12 @@ export const outgoingCallsOf = async (
     const byItem = new Map<string, CallHierarchyOutgoingCall>();
     for (const reference of referenceNodesOf(found.declaration)) {
         if (cancellationToken.isCancellationRequested) break;
-        const target = await navigation
-            .navigate(String(reference.valueType.value), reference, getStartOfAstNode(reference).uri, cancellationToken)
-            .catch(() => null);
+        const target = await navigate(
+            String(reference.valueType.value),
+            reference,
+            getStartOfAstNode(reference).uri,
+            cancellationToken
+        ).catch(() => null);
         if (!target || isFile(target as FileTree)) continue;
         const declaration = enclosingDeclaration(target as AbstractNode);
         if (!declaration) continue;

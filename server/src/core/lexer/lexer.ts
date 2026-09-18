@@ -120,6 +120,15 @@ SINGLE_CHAR_TOKEN[CHAR.STAR] = TOKEN_TYPES.EXPRESSION;
 // parser/evaluator treat it as a unary suffix on the preceding operand (no right operand).
 SINGLE_CHAR_TOKEN[CHAR.BANG] = TOKEN_TYPES.EXPRESSION;
 
+/**
+ * The ASCII whitespace that produces no token and stays on its line, by character code. The newline
+ * is absent on purpose: it ends a value, so the main loop settles it before reading this table.
+ */
+const INLINE_WHITESPACE = new Uint8Array(128);
+for (const code of [CHAR.SPACE, CHAR.TAB, CHAR.CARRIAGE_RETURN, CHAR.VERTICAL_TAB, CHAR.FORM_FEED]) {
+    INLINE_WHITESPACE[code] = 1;
+}
+
 /** Matches the non-ASCII whitespace `\s` recognizes (NBSP, ideographic space, BOM, …). */
 const NON_ASCII_WHITESPACE = new RegExp('[\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff]');
 
@@ -332,6 +341,383 @@ export interface BlockCommentSpan {
 }
 
 /**
+ * Everything one lex run reads and writes. The scanners are module-level functions rather than
+ * closures over the run, so the cursor, the run flags and the token list travel through this object.
+ * Exactly one is built per {@link lexer} call, so nothing is allocated per character or per token.
+ */
+interface LexerState {
+    /** The document text being scanned. */
+    readonly input: string;
+    /** The offset of the next character to read. */
+    current: number;
+    /** The zero-based line the cursor stands on. */
+    lineNumber: number;
+    /** The zero-based column the cursor stands on. */
+    lineOffset: number;
+    /** The tokens produced so far, in source order. */
+    readonly tokens: Token[];
+    /**
+     * Tracks ObjectText value termination: an unsuppressed newline ends a field value. Mirrors the
+     * game's `OTToken.IsUnsuppressedNewLine`, which evaluates the whole insignificant run
+     * (whitespace + comments) between two real tokens: the run's newline is suppressed (line
+     * continuation) iff a `\` appears before the first newline in that run. So once a `\` is seen
+     * before any newline, the rest of the run (extra blank lines and `//` comment lines) is
+     * suppressed too.
+     */
+    sawUnsuppressedNewline: boolean;
+    /** Records a `\` seen in the current run before the run's first newline. */
+    runSuppressed: boolean;
+    /** Locks the current run's fate at its first newline. */
+    runNewlineSeen: boolean;
+    /** Where the block-comment spans are collected, when the caller asked for them. */
+    readonly blockComments?: BlockCommentSpan[];
+}
+
+/**
+ * Applies the run rule at a newline, the value-terminating newline of a whitespace run or of a `//`
+ * comment. Only the first newline in a run decides: it terminates unless an earlier `\` suppressed it.
+ *
+ * @param state the lex state.
+ */
+const markNewline = (state: LexerState): void => {
+    if (state.runNewlineSeen) return;
+    state.runNewlineSeen = true;
+    if (!state.runSuppressed) state.sawUnsuppressedNewline = true;
+};
+
+/**
+ * Appends a token and closes the insignificant run in front of it.
+ *
+ * @param state the lex state.
+ * @param token the token to append.
+ */
+const pushToken = (state: LexerState, token: Token): void => {
+    if (state.sawUnsuppressedNewline) token.precededByNewline = true;
+    state.sawUnsuppressedNewline = false;
+    state.runSuppressed = false;
+    state.runNewlineSeen = false;
+    state.tokens.push(token);
+};
+
+/**
+ * Emits the token one character stands for and steps over it. An operator keeps its own text,
+ * which the parser reads back off the token, while a structural token is known by its type alone.
+ *
+ * @param state the lex state.
+ * @param type the token type the character stands for.
+ */
+const pushSingleChar = (state: LexerState, type: TOKEN_TYPES): void => {
+    const { input, current } = state;
+    const value = type === TOKEN_TYPES.EXPRESSION ? input[current] : undefined;
+    pushToken(state, createToken(type, state.lineOffset++, state.lineNumber, current, current + 1, value));
+    state.current = current + 1;
+};
+
+/**
+ * Skips a `// …` comment and the newline that ends it. That newline is part of the insignificant
+ * run and follows the same rule as any other: it terminates the value unless an earlier `\` in the
+ * run suppressed it (`"a"\ <newline> //comment <newline> "b"` is one continued string).
+ *
+ * @param state the lex state, positioned on the opening `/`.
+ */
+const skipLineComment = (state: LexerState): void => {
+    const { input } = state;
+    let current = state.current + 2;
+    while (input[current] !== '\n') {
+        current++;
+        if (current >= input.length) {
+            break;
+        }
+    }
+    state.lineNumber++;
+    state.lineOffset = 0;
+    state.current = current + 1;
+    markNewline(state);
+};
+
+/**
+ * Skips a `/* … *\/` block comment, recording its span when the caller asked for the spans. The
+ * opening `/*` is two columns like any other text: counting the comment's characters but not its
+ * opener reported every token after it two columns early.
+ *
+ * @param state the lex state, positioned on the opening `/`.
+ */
+const skipBlockComment = (state: LexerState): void => {
+    const { input } = state;
+    const commentStart = state.current;
+    let current = commentStart + 2;
+    let lineNumber = state.lineNumber;
+    let lineOffset = state.lineOffset + 2;
+    let closed = true;
+    while (input[current] !== '*' || input[current + 1] !== '/') {
+        if (input[current] === '\n') {
+            lineNumber++;
+            lineOffset = 0;
+        } else {
+            // The newline itself starts the next line rather than sitting on it, so only a
+            // character that is not one advances the column.
+            lineOffset++;
+        }
+        current++;
+        if (current >= input.length) {
+            closed = false;
+            break;
+        }
+    }
+    state.current = current + 2;
+    state.lineNumber = lineNumber;
+    state.lineOffset = lineOffset + 2;
+    state.blockComments?.push({ start: commentStart, end: Math.min(state.current, input.length), closed });
+};
+
+/**
+ * Reads a verbatim string `@"…"` (ObjectText, C#-style): no `\` escapes, a doubled `""` is a
+ * literal quote, and it may span newlines. It ends at the first lone `"`. The loop only counts
+ * lines and finds boundaries, and the value is assembled from whole slices between `""` pairs
+ * instead of one string concatenation per character.
+ *
+ * @param state the lex state, positioned on the `@`.
+ */
+const scanVerbatimString = (state: LexerState): void => {
+    const { input } = state;
+    const start = state.current;
+    const lineOffsetBefore = state.lineOffset;
+    let value = '';
+    let current = start + 2;
+    let lineNumber = state.lineNumber;
+    let lineOffset = lineOffsetBefore + 2;
+    let segmentStart = current;
+    let closed = false;
+    while (current < input.length) {
+        if (input[current] === '"') {
+            if (input[current + 1] === '"') {
+                value += input.slice(segmentStart, current + 1);
+                current += 2;
+                lineOffset += 2;
+                segmentStart = current;
+                continue;
+            }
+            value += input.slice(segmentStart, current);
+            current++;
+            lineOffset++;
+            closed = true;
+            break;
+        }
+        if (input[current] === '\n') {
+            lineNumber++;
+            lineOffset = 0;
+        } else {
+            lineOffset++;
+        }
+        current++;
+    }
+    if (!closed) value += input.slice(segmentStart, current);
+    state.current = current;
+    state.lineNumber = lineNumber;
+    state.lineOffset = lineOffset;
+    pushToken(state, createToken(TOKEN_TYPES.STRING, lineOffsetBefore, lineNumber, start, current, value));
+};
+
+/**
+ * Reads a plain `"…"` string. A `\` escapes the next character (whatever it is), so `\\` is a
+ * literal backslash and the quote that follows it closes the string. Tracking the escape explicitly
+ * is what keeps a string ending in `\\` (e.g. `"\\"`) from running past its closing quote and
+ * swallowing the rest of the file. The value keeps escape sequences raw, so it is exactly the input
+ * between the quotes: the loop only counts lines and finds the closing quote, and the value is
+ * sliced once.
+ *
+ * @param state the lex state, positioned on the opening quote.
+ */
+const scanQuotedString = (state: LexerState): void => {
+    const { input } = state;
+    const start = state.current;
+    const lineOffsetBefore = state.lineOffset;
+    let current = start + 1;
+    let lineNumber = state.lineNumber;
+    let lineOffset = lineOffsetBefore + 1;
+    let contentEnd = input.length;
+    let unterminated = false;
+    while (current < input.length) {
+        const code = input.charCodeAt(current);
+        if (code === CHAR.BACKSLASH) {
+            current++;
+            lineOffset++;
+            if (current < input.length) {
+                // A `\` before the line break is ObjectText's line continuation, so the string
+                // really does carry on below. Count the line it crosses.
+                if (input.charCodeAt(current) === CHAR.NEWLINE) {
+                    lineNumber++;
+                    lineOffset = 0;
+                    current++;
+                    continue;
+                }
+                current++;
+                lineOffset++;
+            }
+            continue;
+        }
+        if (code === CHAR.QUOTE) {
+            contentEnd = current;
+            current++;
+            lineOffset++;
+            break;
+        }
+        if (code === CHAR.NEWLINE) {
+            // The game's tokenizer ends a plain string at the line break and reports the missing
+            // quote there. Running on would hand the rest of the file to one string: typing an
+            // opening quote in front of an existing word used to swallow hundreds of lines and bury
+            // the file in errors far from the edit.
+            contentEnd = current;
+            unterminated = true;
+            break;
+        }
+        lineOffset++;
+        current++;
+    }
+    if (current >= input.length && contentEnd === input.length) unterminated = true;
+    state.current = current;
+    state.lineNumber = lineNumber;
+    state.lineOffset = lineOffset;
+    const value = input.slice(start + 1, Math.min(contentEnd, current));
+    const token = createToken(TOKEN_TYPES.STRING, lineOffsetBefore, lineNumber, start, current, value);
+    if (unterminated) token.unterminatedString = true;
+    pushToken(state, token);
+};
+
+/**
+ * Reads an unquoted value, every character up to the one that ends it. The loop consumes contiguous
+ * input, so the text is sliced once at the end rather than accumulated character by character.
+ *
+ * @param state the lex state, positioned on the value's first character.
+ */
+const scanValue = (state: LexerState): void => {
+    const { input } = state;
+    const start = state.current;
+    const lineOffsetBefore = state.lineOffset;
+    let current = start;
+    let lineOffset = lineOffsetBefore;
+    // Whether every character consumed so far is a digit, space, or decimal point (the number
+    // predicate the `!`-factorial and `<number>/` checks need). Tracked incrementally so the loop
+    // does not re-scan the whole accumulated value on each character.
+    let numberSoFar = true;
+    // Whether an actual digit was consumed. The `<number>/` division split requires it so that
+    // dot-only prefixes stay whole: `../Ref` and `./Data/…` are paths, not division, while
+    // `0.065/1.75` and `.5/2` are division and must split.
+    let sawDigit = false;
+    // Whether the scanner stands inside a `<…>` file-path segment of a reference, where a
+    // backslash is a path separator rather than whitespace.
+    let insideFilePath = false;
+    for (;;) {
+        const valueCode = input.charCodeAt(current);
+        const kind = valueCode < 128 ? VALUE_CHAR_CLASS[valueCode] : VALUE_CHAR.ORDINARY;
+        if (kind === VALUE_CHAR.ENDS) break;
+        if (
+            kind !== VALUE_CHAR.ORDINARY &&
+            !belongsInValue(input, current, start, valueCode, numberSoFar, sawDigit, insideFilePath)
+        ) {
+            break;
+        }
+        if (valueCode === CHAR.LESS_THAN) insideFilePath = true;
+        else if (valueCode === CHAR.GREATER_THAN) insideFilePath = false;
+        if (numberSoFar && !isNumberCode(valueCode)) numberSoFar = false;
+        if (numberSoFar && isDigitCode(valueCode)) sawDigit = true;
+        if (numberSoFar && sawDigit && input.charCodeAt(current + 1) === CHAR.SLASH) {
+            current++;
+            // Keep the column counter in step with `current`. Without this every token after a
+            // `<number>/…` split (e.g. `1/16`) is reported one column too early.
+            lineOffset++;
+            break;
+        }
+        current++;
+        lineOffset++;
+        if (current >= input.length) break;
+    }
+    state.current = current;
+    state.lineOffset = lineOffset;
+    const untrimmedValue = input.slice(start, current);
+    const value = untrimmedValue.trim();
+    pushToken(
+        state,
+        createToken(
+            TOKEN_TYPES.VALUE,
+            lineOffsetBefore,
+            state.lineNumber,
+            start,
+            current - (untrimmedValue.length - value.length),
+            value
+        )
+    );
+};
+
+/**
+ * Reads a `true`/`false` keyword when one stands whole at the cursor. They are keywords only as
+ * whole words: a value that merely begins with one (`truest`, and localized prose such as
+ * `falsely`) is a single value to the game, so the character after the keyword has to be one no
+ * value could continue with.
+ *
+ * @param state the lex state, positioned on the candidate keyword.
+ * @returns true when a keyword token was emitted and the cursor moved past it.
+ */
+const scanKeyword = (state: LexerState): boolean => {
+    const { input, current } = state;
+    let length: number;
+    let type: TOKEN_TYPES;
+    if (input.startsWith('true', current) && keywordEndsAt(input, current + 4)) {
+        length = 4;
+        type = TOKEN_TYPES.TRUE;
+    } else if (input.startsWith('false', current) && keywordEndsAt(input, current + 5)) {
+        length = 5;
+        type = TOKEN_TYPES.FALSE;
+    } else {
+        return false;
+    }
+    pushToken(state, createToken(type, state.lineOffset, state.lineNumber, current, current + length));
+    state.lineOffset += length;
+    state.current = current + length;
+    return true;
+};
+
+/**
+ * Emits the token for a character the grammar has no place for, and steps over it. The column
+ * advances with it: without that every unexpected character shifted the tokens after it on the line
+ * one column left, misplacing their diagnostics and breaking the parser's source-adjacency check
+ * for assembled operators such as `@&` or `||`.
+ *
+ * @param state the lex state, positioned on the character.
+ */
+const pushUnexpected = (state: LexerState): void => {
+    const { input, current } = state;
+    // Only under 'verbose'. An UNEXPECTED token is emitted regardless, and parsing the whole game
+    // tree (find-all-references) would otherwise spew thousands of these.
+    if (globalSettings.trace.server === 'verbose') console.warn('unexcpected', input[current]);
+    pushToken(
+        state,
+        createToken(TOKEN_TYPES.UNEXPECTED, state.lineOffset, state.lineNumber, current, current + 1, input[current])
+    );
+    state.lineOffset++;
+    state.current = current + 1;
+};
+
+/**
+ * The state one lex run starts from.
+ *
+ * @param input the document text.
+ * @param blockComments where the block-comment spans are collected, when the caller asked for them.
+ * @returns the fresh state.
+ */
+const newLexerState = (input: string, blockComments?: BlockCommentSpan[]): LexerState => ({
+    input,
+    current: 0,
+    lineNumber: 0,
+    lineOffset: 0,
+    tokens: [],
+    sawUnsuppressedNewline: false,
+    runSuppressed: false,
+    runNewlineSeen: false,
+    blockComments,
+});
+
+/**
  * Turns rules source into the token stream the parser consumes.
  *
  * @param input the document text.
@@ -340,123 +726,59 @@ export interface BlockCommentSpan {
  * @returns the tokens, comments and whitespace excluded.
  */
 export const lexer = (input: string, blockComments?: BlockCommentSpan[]): Token[] => {
-    let current = 0;
-    let lineNumber = 0;
-    let lineOffset = 0;
-    const tokens: Token[] = [];
-    // Tracks ObjectText value termination: an unsuppressed newline ends a field value. Mirrors the
-    // game's `OTToken.IsUnsuppressedNewLine`, which evaluates the whole insignificant run (whitespace
-    // + comments) between two real tokens: the run's newline is suppressed (line continuation) iff a
-    // `\` appears before the first newline in that run. So once a `\` is seen before any newline, the
-    // rest of the run (extra blank lines and `//` comment lines) is suppressed too. `runSuppressed`
-    // records that early `\`. `runNewlineSeen` locks the run's fate at its first newline.
-    let sawUnsuppressedNewline = false;
-    let runSuppressed = false;
-    let runNewlineSeen = false;
-    // Apply the run rule at a newline (the value-terminating newline of a whitespace run or a `//`
-    // comment). Only the first newline in a run decides: it terminates unless an earlier `\` suppressed it.
-    const markNewline = (): void => {
-        if (runNewlineSeen) return;
-        runNewlineSeen = true;
-        if (!runSuppressed) sawUnsuppressedNewline = true;
-    };
-    const pushToken = (token: Token): void => {
-        if (sawUnsuppressedNewline) token.precededByNewline = true;
-        sawUnsuppressedNewline = false;
-        runSuppressed = false;
-        runNewlineSeen = false;
-        tokens.push(token);
-    };
-    /**
-     * Emits the token one character stands for and steps over it. An operator keeps its own text,
-     * which the parser reads back off the token, while a structural token is known by its type alone.
-     *
-     * @param type the token type the character stands for.
-     */
-    const pushSingleChar = (type: TOKEN_TYPES): void => {
-        const value = type === TOKEN_TYPES.EXPRESSION ? input[current] : undefined;
-        pushToken(createToken(type, lineOffset++, lineNumber, current, current + 1, value));
-        current++;
-    };
-    while (current < input.length) {
-        const code = input.charCodeAt(current);
+    const state = newLexerState(input, blockComments);
+    while (state.current < input.length) {
+        const code = input.charCodeAt(state.current);
 
         // The two characters whose meaning depends on what follows them, settled before the table
         // below, together with whitespace, which produces no token at all.
         switch (code) {
             case CHAR.SLASH:
-                if (input.charCodeAt(current + 1) === CHAR.SLASH) {
-                    current += 2;
-                    while (input[current] !== '\n') {
-                        current++;
-                        if (current >= input.length) {
-                            break;
-                        }
-                    }
-                    lineNumber++;
-                    lineOffset = 0;
-                    current++;
-                    // The newline that ends a `//` comment is part of the insignificant run and
-                    // follows the same rule: it terminates the value unless an earlier `\` in the run
-                    // suppressed it (`"a"\ <newline> //comment <newline> "b"` is one continued string).
-                    markNewline();
+                if (input.charCodeAt(state.current + 1) === CHAR.SLASH) {
+                    skipLineComment(state);
                     continue;
                 }
-                if (input.charCodeAt(current + 1) === CHAR.STAR) {
-                    const commentStart = current;
-                    let closed = true;
-                    // The opening `/*` is two columns like any other text. Counting the comment's
-                    // characters but not its opener reported every token after it two columns early.
-                    current += 2;
-                    lineOffset += 2;
-                    while (input[current] !== '*' || input[current + 1] !== '/') {
-                        if (input[current] === '\n') {
-                            lineNumber++;
-                            lineOffset = 0;
-                        } else {
-                            // The newline itself starts the next line rather than sitting on it, so
-                            // only a character that is not one advances the column.
-                            lineOffset++;
-                        }
-                        current++;
-                        if (current >= input.length) {
-                            closed = false;
-                            break;
-                        }
-                    }
-                    current += 2;
-                    lineOffset += 2;
-                    blockComments?.push({ start: commentStart, end: Math.min(current, input.length), closed });
+                if (input.charCodeAt(state.current + 1) === CHAR.STAR) {
+                    skipBlockComment(state);
                     continue;
                 }
                 // A `/` that opens no comment is the division operator.
-                pushSingleChar(TOKEN_TYPES.EXPRESSION);
+                pushSingleChar(state, TOKEN_TYPES.EXPRESSION);
                 continue;
             case CHAR.CARET:
                 // `^` is mXparser exponentiation except when it begins a `^/…` super-path reference
                 // (inheritance), which stays inside the VALUE token below. The value scanner guards
                 // the same disambiguation, so `2^8` splits but `^/0/Part` does not.
-                if (input.charCodeAt(current + 1) !== CHAR.SLASH) {
-                    pushSingleChar(TOKEN_TYPES.EXPRESSION);
+                if (input.charCodeAt(state.current + 1) !== CHAR.SLASH) {
+                    pushSingleChar(state, TOKEN_TYPES.EXPRESSION);
                     continue;
                 }
                 break;
             case CHAR.NEWLINE:
                 // A `\` earlier in this whitespace/comment run (before the run's first newline)
                 // suppresses it as an ObjectText line continuation; otherwise it terminates the value.
-                markNewline();
-                lineNumber++;
-                lineOffset = 0;
-                current++;
+                markNewline(state);
+                state.lineNumber++;
+                state.lineOffset = 0;
+                state.current++;
                 continue;
             case CHAR.SPACE:
             case CHAR.TAB:
             case CHAR.CARRIAGE_RETURN:
             case CHAR.VERTICAL_TAB:
-            case CHAR.FORM_FEED:
-                lineOffset++;
-                current++;
+            case CHAR.FORM_FEED: {
+                // The whole run of inline whitespace at once, so a line of indentation costs one
+                // write-back rather than one per space.
+                let at = state.current;
+                let column = state.lineOffset;
+                do {
+                    at++;
+                    column++;
+                } while (at < input.length && INLINE_WHITESPACE[input.charCodeAt(at)] === 1);
+                state.current = at;
+                state.lineOffset = column;
                 continue;
+            }
         }
 
         // Every character whose code alone fixes what it means: the structural tokens and the
@@ -464,209 +786,48 @@ export const lexer = (input: string, blockComments?: BlockCommentSpan[]): Token[
         // lexer ran for every character of every file a project walk parses.
         const single = code < 128 ? SINGLE_CHAR_TOKEN[code] : undefined;
         if (single !== undefined) {
-            pushSingleChar(single);
+            pushSingleChar(state, single);
             continue;
         }
 
         // The whitespace `\s` recognizes beyond ASCII (NBSP, ideographic space, BOM, …). Checked
         // before the value scanner, which takes every character from U+0080 up.
-        if (code >= 128 && NON_ASCII_WHITESPACE.test(input[current])) {
-            lineOffset++;
-            current++;
+        if (code >= 128 && NON_ASCII_WHITESPACE.test(input[state.current])) {
+            state.lineOffset++;
+            state.current++;
             continue;
         }
 
-        // Verbatim string `@"…"` (ObjectText, C#-style): no `\` escapes, a doubled `""` is a
-        // literal quote, and it may span newlines. Ends at the first lone `"`. The loop only
-        // counts lines and finds boundaries; the value is assembled from whole slices between
-        // `""` pairs instead of one string concatenation per character.
-        if (code === CHAR.AT && input.charCodeAt(current + 1) === CHAR.QUOTE) {
-            let value = '';
-            const start = current;
-            const lineOffsetBefore = lineOffset;
-            current += 2;
-            lineOffset += 2;
-            let segmentStart = current;
-            let closed = false;
-            while (current < input.length) {
-                if (input[current] === '"') {
-                    if (input[current + 1] === '"') {
-                        value += input.slice(segmentStart, current + 1);
-                        current += 2;
-                        lineOffset += 2;
-                        segmentStart = current;
-                        continue;
-                    }
-                    value += input.slice(segmentStart, current);
-                    current++;
-                    lineOffset++;
-                    closed = true;
-                    break;
-                }
-                if (input[current] === '\n') {
-                    lineNumber++;
-                    lineOffset = 0;
-                } else {
-                    lineOffset++;
-                }
-                current++;
-            }
-            if (!closed) value += input.slice(segmentStart, current);
-            pushToken(createToken(TOKEN_TYPES.STRING, lineOffsetBefore, lineNumber, start, current, value));
+        if (code === CHAR.AT && input.charCodeAt(state.current + 1) === CHAR.QUOTE) {
+            scanVerbatimString(state);
             continue;
         }
 
         if (code === CHAR.QUOTE) {
-            const start = current;
-            const lineOffsetBefore = lineOffset;
-            current++; // skip the opening quote
-            lineOffset++;
-            // A `\` escapes the next character (whatever it is), so `\\` is a literal backslash and
-            // the quote that follows it closes the string. Tracking the escape explicitly is what
-            // keeps a string ending in `\\` (e.g. `"\\"`) from running past its closing quote and
-            // swallowing the rest of the file.
-            // The value keeps escape sequences raw, so it is exactly the input between the quotes:
-            // the loop only counts lines and finds the closing quote, and the value is sliced once.
-            let contentEnd = input.length;
-            let unterminated = false;
-            while (current < input.length) {
-                const c = input.charCodeAt(current);
-                if (c === CHAR.BACKSLASH) {
-                    current++;
-                    lineOffset++;
-                    if (current < input.length) {
-                        // A `\` before the line break is ObjectText's line continuation, so the
-                        // string really does carry on below. Count the line it crosses.
-                        if (input.charCodeAt(current) === CHAR.NEWLINE) {
-                            lineNumber++;
-                            lineOffset = 0;
-                            current++;
-                            continue;
-                        }
-                        current++;
-                        lineOffset++;
-                    }
-                    continue;
-                }
-                if (c === CHAR.QUOTE) {
-                    contentEnd = current;
-                    current++;
-                    lineOffset++;
-                    break;
-                }
-                if (c === CHAR.NEWLINE) {
-                    // The game's tokenizer ends a plain string at the line break and reports the
-                    // missing quote there. Running on would hand the rest of the file to one string:
-                    // typing an opening quote in front of an existing word used to swallow hundreds
-                    // of lines and bury the file in errors far from the edit.
-                    contentEnd = current;
-                    unterminated = true;
-                    break;
-                }
-                lineOffset++;
-                current++;
-            }
-            if (current >= input.length && contentEnd === input.length) unterminated = true;
-            const value = input.slice(start + 1, Math.min(contentEnd, current));
-            const stringToken = createToken(TOKEN_TYPES.STRING, lineOffsetBefore, lineNumber, start, current, value);
-            if (unterminated) stringToken.unterminatedString = true;
-            pushToken(stringToken);
+            scanQuotedString(state);
             continue;
         }
 
-        // `true` and `false` are keywords only as whole words. A value that merely begins with one
-        // (`truest`, and localized prose such as `falsely`) is a single value to the game, so the
-        // character after the keyword has to be one no value could continue with.
-        if (input.startsWith('true', current) && keywordEndsAt(input, current + 4)) {
-            pushToken(createToken(TOKEN_TYPES.TRUE, lineOffset, lineNumber, current, current + 4));
-            lineOffset += 4;
-            current += 4;
-            continue;
-        }
-
-        if (input.startsWith('false', current) && keywordEndsAt(input, current + 5)) {
-            pushToken(createToken(TOKEN_TYPES.FALSE, lineOffset, lineNumber, current, current + 5));
-            lineOffset += 5;
-            current += 5;
-            continue;
-        }
+        if (scanKeyword(state)) continue;
 
         const valueClass = code < 128 ? VALUE_CHAR_CLASS[code] : VALUE_CHAR.ORDINARY;
         if (valueClass === VALUE_CHAR.ORDINARY || valueClass === VALUE_CHAR.CHECKED) {
-            const start = current;
-            const lineOffsetBefore = lineOffset;
-            // Whether every character consumed so far is a digit, space, or decimal point (the number
-            // predicate the `!`-factorial and `<number>/` checks need). Tracked incrementally so the loop
-            // does not re-scan the whole accumulated value on each character. The value string itself is
-            // not accumulated either. The loop consumes contiguous input, so it is sliced once at the end.
-            let numberSoFar = true;
-            // Whether an actual digit was consumed. The `<number>/` division split requires it so that
-            // dot-only prefixes stay whole: `../Ref` and `./Data/…` are paths, not division, while
-            // `0.065/1.75` and `.5/2` are division and must split.
-            let sawDigit = false;
-            // Whether the scanner stands inside a `<…>` file-path segment of a reference, where a
-            // backslash is a path separator rather than whitespace.
-            let insideFilePath = false;
-            for (;;) {
-                const valueCode = input.charCodeAt(current);
-                const kind = valueCode < 128 ? VALUE_CHAR_CLASS[valueCode] : VALUE_CHAR.ORDINARY;
-                if (kind === VALUE_CHAR.ENDS) break;
-                if (
-                    kind !== VALUE_CHAR.ORDINARY &&
-                    !belongsInValue(input, current, start, valueCode, numberSoFar, sawDigit, insideFilePath)
-                ) {
-                    break;
-                }
-                if (valueCode === CHAR.LESS_THAN) insideFilePath = true;
-                else if (valueCode === CHAR.GREATER_THAN) insideFilePath = false;
-                if (numberSoFar && !isNumberCode(valueCode)) numberSoFar = false;
-                if (numberSoFar && isDigitCode(valueCode)) sawDigit = true;
-                if (numberSoFar && sawDigit && input.charCodeAt(current + 1) === CHAR.SLASH) {
-                    current++;
-                    // Keep the column counter in step with `current`. Without this every token
-                    // after a `<number>/…` split (e.g. `1/16`) is reported one column too early.
-                    lineOffset++;
-                    break;
-                }
-                current++;
-                lineOffset++;
-                if (current >= input.length) break;
-            }
-            const untrimmedValue = input.slice(start, current);
-            const value = untrimmedValue.trim();
-            pushToken(
-                createToken(
-                    TOKEN_TYPES.VALUE,
-                    lineOffsetBefore,
-                    lineNumber,
-                    start,
-                    current - (untrimmedValue.length - value.length),
-                    value
-                )
-            );
+            scanValue(state);
             continue;
         }
         // `\` is whitespace in ObjectText, and a `\` before the run's first newline is a line
         // continuation that suppresses the value-terminating newline for the rest of the run (a `\`
         // after a newline comes too late and does not suppress). Skip the backslash.
         if (code === CHAR.BACKSLASH) {
-            if (!runNewlineSeen) runSuppressed = true;
-            lineOffset++;
-            current++;
+            if (!state.runNewlineSeen) state.runSuppressed = true;
+            state.lineOffset++;
+            state.current++;
             continue;
         }
-        // Only under 'verbose'. An UNEXPECTED token is emitted regardless, and parsing the
-        // whole game tree (find-all-references) would otherwise spew thousands of these.
-        if (globalSettings.trace.server === 'verbose') console.warn('unexcpected', input[current]);
-        pushToken(createToken(TOKEN_TYPES.UNEXPECTED, lineOffset, lineNumber, current, current + 1, input[current]));
-        // Advance the column too: without this every UNEXPECTED char shifted all following tokens
-        // on the line one column left, misplacing their diagnostics and breaking the parser's
-        // source-adjacency check for assembled operators such as `@&` or `||`.
-        lineOffset++;
-        current++;
+        pushUnexpected(state);
     }
 
-    return tokens;
+    return state.tokens;
 };
 
 /**

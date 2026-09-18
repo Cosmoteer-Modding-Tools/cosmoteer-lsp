@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Position } from 'vscode-languageserver';
 import { markupCompletionsAt } from '../../../src/features/completion/autocompletion.text-markup';
-import { CompletionSuggestion } from '../../../src/features/completion/autocompletion.service';
+import { CompletionSuggestion } from '../../../src/features/completion/autocompletion.service.types';
 
 const STRINGS = 'file:///c%3A/mod/strings/en.rules';
 

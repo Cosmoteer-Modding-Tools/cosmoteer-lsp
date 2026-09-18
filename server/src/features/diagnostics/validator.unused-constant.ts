@@ -9,10 +9,10 @@ import {
 } from '../../core/ast/ast';
 import { isModRules } from '../../document/document-kind';
 import { declaredFieldNames } from '../../document/schema/schema';
-import { MentionIndex } from '../navigation/mention.index';
-import { isCoveredByFolders, normalizeUri } from '../navigation/reference-location';
+import { MentionIndex } from '../../workspace/mention.index';
+import { isCoveredByFolders, normalizeUri } from '../../document/reference-location';
 import { isStringsFile } from '../../mod/strings-folder';
-import { ParserResultRegistrar } from '../../registrar/parser-result-registrar';
+import { ParserResultRegistrar } from '../../document/parser-result-registrar';
 import { addSegments, walkReferenceReads } from './validator.ignored-field';
 import { ValidationError } from './validator';
 import * as l10n from '@vscode/l10n';

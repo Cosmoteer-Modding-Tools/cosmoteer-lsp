@@ -6,10 +6,11 @@ import { CancellationToken, Connection, TextEdit, WorkDoneProgressReporter } fro
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
 import { aliasRootIndex } from '../../../src/document/schema/alias-root';
-import { ReverseIncludeIndex } from '../../../src/features/navigation/reverse-include.index';
+import { ReverseIncludeIndex } from '../../../src/mod/reverse-include.index';
 import { MemberInjectionIndex } from '../../../src/mod/member-injection.index';
 import { AddBaseIndex } from '../../../src/mod/add-base.index';
-import { buildPartTable, buildPartTableEdit } from '../../../src/features/part-table/part-table.service';
+import { buildPartTable } from '../../../src/features/part-table/part-table.service';
+import { buildPartTableEdit } from '../../../src/features/part-table/part-table.edit';
 import { PartTableData } from '../../../src/features/part-table/part-table.types';
 import { globalSettings } from '../../../src/settings';
 import { CosmoteerWorkspaceService } from '../../../src/workspace/cosmoteer-workspace.service';

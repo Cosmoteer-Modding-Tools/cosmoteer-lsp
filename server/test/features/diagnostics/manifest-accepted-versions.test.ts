@@ -7,11 +7,12 @@ import { tmpdir } from 'os';
 import { pathToFileURL } from 'url';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
-import { gameAssemblyPathFor, readGameVersionInfo } from '../../../src/features/game-version';
 import {
-    clearGameVersionsCache,
-    validateManifestVersion,
-} from '../../../src/features/diagnostics/validator.manifest-version';
+    clearGameVersionInfoCache,
+    gameAssemblyPathFor,
+    readGameVersionInfo,
+} from '../../../src/features/game-version';
+import { validateManifestVersion } from '../../../src/features/diagnostics/validator.manifest-version';
 import { CosmoteerWorkspaceService } from '../../../src/workspace/cosmoteer-workspace.service';
 
 // The game turns a mod off while loading when its `CompatibleGameVersions` names neither the
@@ -59,7 +60,7 @@ describe.runIf(HAVE_GAME)('a manifest against the versions the installed build a
             window: { showWarningMessage: () => undefined },
         } as unknown as Connection);
         await service.initialize(DATA_ROOT, noProgress);
-        clearGameVersionsCache();
+        clearGameVersionInfoCache();
         const info = await readGameVersionInfo(DATA_ROOT);
         installed = info.installed;
         // The oldest version the build still accepts: a mod naming it loads, however old it is.
@@ -168,7 +169,7 @@ describe.runIf(HAVE_GAME && CURRENT_CORPUS.length > 0)('the version check over t
             window: { showWarningMessage: () => undefined },
         } as unknown as Connection);
         await service.initialize(GAME_DATA, noProgress);
-        clearGameVersionsCache();
+        clearGameVersionInfoCache();
     });
 
     it('reports nothing on the manifests the game ships and on a mod kept current', async () => {

@@ -6,7 +6,8 @@ import { cachedPathExists, onFsInvalidation } from '../../../workspace/fs-cache'
 import { collectBaseUses, resolveBasePath } from './base-index';
 import { extractableMembers, ExtractableMember, judgeContainer } from './extractability';
 import { commentRanges } from './member-record';
-import { BaseLocation, ExtractionPlan, ExtractionTier, MemberRecord, Participant } from './plan.types';
+import { ExtractionPlan, MemberRecord, Participant } from './plan.types';
+import { BaseLocation, ExtractionTier } from '../../../../../shared/shared-base.types';
 
 /** How many containers must repeat a field set before extracting it is worth a base file. */
 const MIN_PARTICIPANTS = 3;
@@ -50,6 +51,9 @@ export interface Candidate {
     baseReference?: string;
 }
 
+/** How many identities are kept, comfortably more distinct base references than a mod writes. */
+const MAX_IDENTITY_ENTRIES = 20000;
+
 /**
  * The absolute identity of an inheritance reference, so the same base written from two directories
  * compares equal. Only a `<file path>` base has one: every other form resolves against the node it
@@ -80,9 +84,6 @@ export const baseIdentityOf = (reference: string, declaringDir: string): string 
  * reference in the mod.
  */
 const identityCache = new Map<string, string | undefined>();
-
-/** How many identities are kept, comfortably more distinct base references than a mod writes. */
-const MAX_IDENTITY_ENTRIES = 20000;
 
 onFsInvalidation(() => identityCache.clear());
 

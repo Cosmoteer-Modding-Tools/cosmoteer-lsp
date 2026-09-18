@@ -12,13 +12,11 @@ import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
 import { AbstractNodeDocument } from '../../../src/core/ast/ast';
 import { parseFilePath } from '../../../src/utils/ast.utils';
-import {
-    clearDocumentHighlightCache,
-    documentHighlightsAt,
-} from '../../../src/features/navigation/document-highlight';
-import { ReferenceIndex, referenceNodesOf } from '../../../src/features/navigation/reference-index';
+import { clearDocumentHighlightCache, documentHighlightsAt } from '../../../src/features/navigation/document-highlight';
+import { findReferences } from '../../../src/features/navigation/reference-index';
+import { referenceNodesOf } from '../../../src/features/navigation/reference-nodes';
 import { stringValueNodesOf } from '../../../src/features/navigation/schema-reference.navigation';
-import { normalizeUri } from '../../../src/features/navigation/reference-location';
+import { normalizeUri } from '../../../src/document/reference-location';
 import { initWorkspace, WORKSPACE_DATA_DIR, workspaceFile } from '../../workspace-helper';
 
 const token = CancellationToken.None;
@@ -249,7 +247,10 @@ describe('documentHighlight: references within one document', () => {
     });
 
     it('stays inside the document the cursor is in, the protocol asking for one file', async () => {
-        const highlights = await highlightsAt(aDoc, positionOf(aSrc, 'ToB = &<./Data/b.rules>/B/InnerValue', 'InnerValue'));
+        const highlights = await highlightsAt(
+            aDoc,
+            positionOf(aSrc, 'ToB = &<./Data/b.rules>/B/InnerValue', 'InnerValue')
+        );
 
         expect(rangeTexts(highlights, aSrc)).toEqual(['InnerValue']);
         // `InnerValue` is declared in b.rules, so the declaration is not part of this file's answer.
@@ -300,7 +301,7 @@ describe('documentHighlight: agrees with find-all-references, restricted to the 
             const needleOffset = testCase.needle.length - 1;
             const position = positionOf(entry.source, testCase.line, testCase.needle, needleOffset);
             const highlights = (await highlightsAt(entry.document, position)) ?? [];
-            const references = await ReferenceIndex.instance.findReferences(
+            const references = await findReferences(
                 entry.document,
                 position,
                 false,

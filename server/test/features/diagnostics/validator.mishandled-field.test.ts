@@ -24,7 +24,21 @@ const fixes = async (text: string): Promise<(string | undefined)[]> =>
  * @returns the part file text.
  */
 const partWith = (type: string, body: string[]): string =>
-    ['Part', '{', '\tID = test.mishandled', '\tComponents', '\t{', '\t\tX', '\t\t{', `\t\t\tType = ${type}`, ...body.map((line) => '\t\t\t' + line), '\t\t}', '\t}', '}', ''].join('\n');
+    [
+        'Part',
+        '{',
+        '\tID = test.mishandled',
+        '\tComponents',
+        '\t{',
+        '\t\tX',
+        '\t\t{',
+        `\t\t\tType = ${type}`,
+        ...body.map((line) => '\t\t\t' + line),
+        '\t\t}',
+        '\t}',
+        '}',
+        '',
+    ].join('\n');
 
 // Each of these loads without a word and leaves the game doing something other than what the file
 // says, which is the one thing neither the schema nor the dead-field check can see.

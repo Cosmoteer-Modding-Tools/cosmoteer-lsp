@@ -2,13 +2,12 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { CancellationToken } from 'vscode-languageserver';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
-import { FullNavigationStrategy } from '../../../src/features/navigation/full.navigation-strategy';
+import { navigate } from '../../../src/semantics/navigate-reference';
 import { ValueNode } from '../../../src/core/ast/ast';
 import { isValidReference } from '../../../src/utils/reference.utils';
 import { globalSettings } from '../../../src/settings';
 import { initWorkspace, WORKSPACE_DATA_DIR } from '../../workspace-helper';
 
-const nav = new FullNavigationStrategy();
 const token = CancellationToken.None;
 
 // A referencing file that lives at the workspace Data root, so `<effects/assets.rules>` resolves
@@ -40,19 +39,19 @@ describe('backslash-separated `<...>` file references resolve like forward-slash
 
     it('resolves a BACKSLASH reference `&<effects\\assets.rules>` (through the parsed value)', async () => {
         const node = refNode('&<effects\\assets.rules>');
-        const result = await nav.navigate(String(node.valueType.value), node, currentLocation, token);
+        const result = await navigate(String(node.valueType.value), node, currentLocation, token);
         expect(result).not.toBeNull();
     });
 
     it('still resolves the forward-slash form `&<effects/assets.rules>` (regression)', async () => {
         const node = refNode('&<effects/assets.rules>');
-        const result = await nav.navigate(String(node.valueType.value), node, currentLocation, token);
+        const result = await navigate(String(node.valueType.value), node, currentLocation, token);
         expect(result).not.toBeNull();
     });
 
     it('still returns null for a backslash path to a NON-existent file (genuine bad ref)', async () => {
         const node = refNode('&<effects\\does_not_exist.rules>');
-        const result = await nav.navigate(String(node.valueType.value), node, currentLocation, token);
+        const result = await navigate(String(node.valueType.value), node, currentLocation, token);
         expect(result).toBeNull();
     });
 });

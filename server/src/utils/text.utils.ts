@@ -18,14 +18,6 @@ export const offsetToPosition = (text: string, offset: number): { line: number; 
 };
 
 /**
- * The whitespace the line holding an offset begins with, so text inserted beside a member lines up
- * with it.
- *
- * @param text the source the offset is measured in.
- * @param offset any offset on the line.
- * @returns the line's leading spaces and tabs, empty when it has none.
- */
-/**
  * The offset just past the string literal starting at an offset, by the lexer's own rules: a
  * quoted `"…"` string where `\` escapes the next character, or a verbatim `@"…"` string where a
  * doubled `""` is a literal quote. An unterminated literal runs to the end of the text.
@@ -65,6 +57,14 @@ export const stringLiteralEnd = (text: string, start: number): number | undefine
     return undefined;
 };
 
+/**
+ * The whitespace the line holding an offset begins with, so text inserted beside a member lines up
+ * with it.
+ *
+ * @param text the source the offset is measured in.
+ * @param offset any offset on the line.
+ * @returns the line's leading spaces and tabs, empty when it has none.
+ */
 export const indentOfLineAt = (text: string, offset: number): string => {
     let start = offset;
     while (start > 0 && text[start - 1] !== '\n') start--;
@@ -72,3 +72,12 @@ export const indentOfLineAt = (text: string, offset: number): string => {
     while (end < text.length && (text[end] === ' ' || text[end] === '\t')) end++;
     return text.slice(start, end);
 };
+
+/**
+ * Whether a piece of text reads as a number, which is how a reference segment is told apart from
+ * a list index.
+ *
+ * @param value the text to test.
+ * @returns true when the text parses as a number.
+ */
+export const isNumber = (value: string): boolean => !isNaN(Number(value));

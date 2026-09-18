@@ -4,14 +4,14 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { CancellationToken, TextEdit } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { isGroupNode, isListNode } from '../../../../src/core/ast/ast';
-import { filePathToUri } from '../../../../src/features/navigation/navigation-strategy';
+import { filePathToUri } from '../../../../src/document/reference-path';
 import { registerPartInShip } from '../../../../src/features/refactor/register-part/register-part.command';
 import {
     RegisterPartApplyResult,
     RegisterPartArgs,
-    RegisterPartHost,
     RegisterPartScanResult,
-} from '../../../../src/features/refactor/register-part/register-part.types';
+} from '../../../../../shared/register-part.types';
+import { RegisterPartHost } from '../../../../src/features/refactor/register-part/register-part.types';
 import { shipEntryKey } from '../../../../src/features/refactor/register-part/ship-registry';
 import { clearBaseFileCache } from '../../../../src/features/refactor/shared-base/base-index';
 import { parseModActions } from '../../../../src/mod/action-parser';

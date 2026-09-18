@@ -3,7 +3,7 @@ import { AbstractNode, AbstractNodeDocument, isGroupNode, isValueNode, ValueNode
 import { assignmentNameOf } from '../../utils/ast.utils';
 import { fieldOf } from '../../document/schema/schema';
 import { memberScopeClassAt, resolveGroupClass } from '../../document/schema/schema-context';
-import { Completion } from '../completion/autocompletion.service';
+import { Completion } from '../completion/autocompletion.service.types';
 import { stringValueNodesOf, valueTextRange } from './schema-reference.navigation';
 
 /**
@@ -33,6 +33,9 @@ export interface ChannelOccurrence {
     /** The value node carrying the channel name. */
     readonly node: ValueNode;
 }
+
+/** Matches a `Field = <partial>` value position on a line prefix, capturing the field name. */
+const CHANNEL_VALUE_POSITION = /(?:^|[\s{;[])([A-Za-z_]\w*)\s*=\s*[A-Za-z0-9_.]*$/;
 
 /** The read/write direction a `ParticleDataID` field name implies (suffix `InOut` checked before `Out`). */
 const directionOf = (fieldName: string): ChannelDirection =>
@@ -98,9 +101,6 @@ export const channelDefinitionSite = (document: AbstractNodeDocument, name: stri
 
 /** The document range covering a channel occurrence's value text (for find-references / rename). */
 export const channelRangeOf = (channel: ChannelOccurrence) => valueTextRange(channel.node);
-
-/** Matches a `Field = <partial>` value position on a line prefix, capturing the field name. */
-const CHANNEL_VALUE_POSITION = /(?:^|[\s{;[])([A-Za-z_]\w*)\s*=\s*[A-Za-z0-9_.]*$/;
 
 /**
  * Channel-name completions when the cursor sits at a `ParticleDataID` field's value position, so

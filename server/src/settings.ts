@@ -111,8 +111,40 @@ export interface CosmoteerSettings {
         // toggle whose cell is inside the part are errors instead, since the game throws on the
         // first while reading the part and on the second when the part is created. Only values
         // written on a part that declares its own ID are judged, and Size is read through the
-        // inheritance chain.
+        // inheritance chain. The resource checks warn instead: a storage access point or a resource
+        // grid rect that lands on cells the part does not own, and a resource sink on a part crew
+        // cannot walk through, all of which can end a resource search with an index error.
         validatePartGeometry: boolean;
+        // When true (the default), flag a galaxy generator whose `Spawners` list builds a map the
+        // game cannot use: a career generator running no `RandomSectorTypes`, which silently puts
+        // every system on the first sector type; a `ProgressionNodeTiers` priority reaching past
+        // the array its own `DesiredTierDeltas` sizes; a `ConnectionRadius` at or below the node
+        // spacing, which leaves the galaxy with no routes; and a `StartingNodePicker` window or
+        // candidate count that keeps no node. A list whose elements cannot all be resolved is left
+        // alone rather than half judged.
+        validateGalaxyGenerators: boolean;
+        // When true (the default), flag a resource storage composed out of itself. A
+        // `MultiResourceStorage` asks every storage it names how much it holds and an
+        // `InlineResourceConverter` asks the one it converts from, neither carrying a visited
+        // set, so a ring is unbounded recursion the first time the part is built and the process
+        // disappears without a dialog. The graph is the part's folded `Components` dictionary, and
+        // a part whose components could not be read in full is left alone.
+        validateStorageCycles: boolean;
+        // When true (the default), flag a number the class reading it cannot survive, which the
+        // schema cannot express and the division check cannot see because the value is well formed
+        // where it stands. A continuous beam with no positive `HitInterval` loops without advancing
+        // its clock, an `InlineResourceConverter` quantity below one is divided by, a
+        // `ShipIconGlowShipScale` of zero sizes a render target from an infinity, and nugget art
+        // sliced into more tiers than `MaxPerNugget` divides by an empty tier. Read through the
+        // inheritance fold, and silent on a chain it could not read to the end.
+        validateNumericDomains: boolean;
+        // When true (the default), flag a storage whose `MaxResourcesPickUp` or `InitPickUp` is
+        // above the `MaxPerNugget` of the resource it hands out. The storage subtracts the whole
+        // amount from itself and the crew's setter clamps what arrives to one stack, so the
+        // difference is destroyed. The stack is read out of the resource file the id names, with a
+        // manifest replacement of that member applied. Two files declaring one id, or a resource
+        // that writes no stack at all, are left unjudged. Needs the game `Data` tree indexed.
+        validateResourcePickups: boolean;
         // When true (the default), flag an id two files of one mod both register for the same game
         // collection, which the game resolves by keeping one entry and dropping the rest. Only a
         // declaration the mod actually wires in through a manifest action or a game-root alias
@@ -344,6 +376,10 @@ export const defaultSettings: CosmoteerSettings = {
         validateRedundantOverrides: true,
         validateModManifest: true,
         validatePartGeometry: true,
+        validateGalaxyGenerators: true,
+        validateStorageCycles: true,
+        validateNumericDomains: true,
+        validateResourcePickups: true,
         validateDuplicateIds: true,
         validateUndeclaredDependencies: true,
         validateUnreceivableBuffs: true,

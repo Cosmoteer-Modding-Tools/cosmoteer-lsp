@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { filePathToDirectoryPath } from '../../../src/features/navigation/navigation-strategy';
+import { filePathToDirectoryPath } from '../../../src/document/reference-path';
 
 // `filePathToDirectoryPath` turns a document URI into the on-disk directory the reference resolver
 // walks. It used to hand-patch only the lowercase `c%3A` drive VS Code happens to send; an

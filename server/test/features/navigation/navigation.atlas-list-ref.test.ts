@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { CancellationToken } from 'vscode-languageserver';
-import { FullNavigationStrategy } from '../../../src/features/navigation/full.navigation-strategy';
+import { navigate } from '../../../src/semantics/navigate-reference';
 import { AbstractNode, AbstractNodeDocument, isGroupNode, isValueNode, ValueNode } from '../../../src/core/ast/ast';
 import { parseFilePath } from '../../../src/utils/ast.utils';
 import { lexer } from '../../../src/core/lexer/lexer';
@@ -13,7 +13,6 @@ import { walkAst } from '../../helpers';
 // (`&<file>/…/DamageLevels/0`), in a source file that also contains `floor((&ref) * (&ref))`
 // math. Before the function-call parse fixes that math corrupted the source file's AST, so the
 // reference below silently resolved to null (the real Star-Wars-A-Cosmos-Divided armor part bug).
-const nav = new FullNavigationStrategy();
 const token = CancellationToken.None;
 
 describe('cross-file reference into a list element (AtlasSprite regression)', () => {
@@ -37,7 +36,7 @@ describe('cross-file reference into a list element (AtlasSprite regression)', ()
             }
         }
         expect(ref, 'AtlasSprite reference node should parse').toBeDefined();
-        const result = await nav.navigate(String(ref!.valueType.value), ref!, workspaceFile('atlas_source.rules'), token);
+        const result = await navigate(String(ref!.valueType.value), ref!, workspaceFile('atlas_source.rules'), token);
         expect(result).not.toBeNull();
         expect(isGroupNode(result as AbstractNode)).toBe(true);
     });

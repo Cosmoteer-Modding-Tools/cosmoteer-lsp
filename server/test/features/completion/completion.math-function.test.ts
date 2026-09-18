@@ -7,7 +7,7 @@ import {
     AutoCompletionMathFunction,
     mathFunctionCompletionsAtLinePrefix,
 } from '../../../src/features/completion/autocompletion.math-function';
-import { Completion } from '../../../src/features/completion/autocompletion.service';
+import { Completion } from '../../../src/features/completion/autocompletion.service.types';
 
 const token = CancellationToken.None;
 const completer = new AutoCompletionMathFunction();

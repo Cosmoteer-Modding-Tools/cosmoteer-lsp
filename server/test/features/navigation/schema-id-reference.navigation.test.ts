@@ -17,10 +17,10 @@ import {
 } from '../../../src/core/ast/ast';
 import { resolveSchemaIdReference } from '../../../src/features/navigation/schema-id-reference.navigation';
 import { SchemaIdIndex } from '../../../src/features/completion/schema-id.index';
-import { ReferenceIndex } from '../../../src/features/navigation/reference-index';
-import { RenameRefusedError, RenameService, refuseEditsUnderRoot } from '../../../src/features/navigation/rename.service';
+import { findReferences } from '../../../src/features/navigation/reference-index';
+import { RenameRefusedError, refuseEditsUnderRoot, rename } from '../../../src/features/navigation/rename.service';
 import { TextEdit } from 'vscode-languageserver';
-import { HoverService } from '../../../src/features/hover/hover.service';
+import { getHover } from '../../../src/features/hover/hover.service';
 
 const parse = (src: string) => parser(lexer(src), 'file:///mod/parts/store.rules').value;
 const findValue = (node: AbstractNode, field: string): ValueNode | undefined => {
@@ -278,7 +278,7 @@ describe('resolveSchemaIdReference: cross-file ID<X> go-to-definition', () => {
         const doc = parser(lexer(STORE_SRC), storeUri).value;
         const line = 11;
         const character = STORE_SRC.split('\n')[line].indexOf('= battery') + 3;
-        const locs = await ReferenceIndex.instance.findReferences(doc, { line, character }, true, folders, token);
+        const locs = await findReferences(doc, { line, character }, true, folders, token);
         const uris = locs.map((l) => l.uri.toLowerCase());
         expect(uris.filter((u) => u.includes('store.rules'))).toHaveLength(2); // field + tuple usage
         expect(uris.some((u) => u.includes('battery.rules'))).toBe(true); // the declaration
@@ -290,7 +290,7 @@ describe('resolveSchemaIdReference: cross-file ID<X> go-to-definition', () => {
         const doc = parser(lexer(STORE_SRC), storeUri).value;
         const line = 11;
         const character = STORE_SRC.split('\n')[line].indexOf('= battery') + 3;
-        const edit = await RenameService.instance.rename(doc, { line, character }, 'power_cell', folders, token);
+        const edit = await rename(doc, { line, character }, 'power_cell', folders, token);
         expect(edit).not.toBeNull();
         const changed = Object.keys(edit!.changes!).map((u) => u.toLowerCase());
         expect(changed.some((u) => u.includes('store.rules'))).toBe(true);
@@ -306,7 +306,7 @@ describe('resolveSchemaIdReference: cross-file ID<X> go-to-definition', () => {
         const doc = parser(lexer(storeSrc), storeUri).value;
         const line = 7;
         const character = storeSrc.split('\n')[line].indexOf('= battery') + 3;
-        const hover = await HoverService.instance.getHover(doc, { line, character }, token, folders);
+        const hover = await getHover(doc, { line, character }, token, folders);
         const value = typeof hover?.contents === 'object' && 'value' in hover.contents ? hover.contents.value : '';
         expect(value).toContain('battery.rules'); // → defined in `battery.rules`
     });

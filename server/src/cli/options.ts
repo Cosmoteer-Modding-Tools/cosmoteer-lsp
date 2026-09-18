@@ -1,5 +1,5 @@
 import { resolve } from 'path';
-import { LintSeverity, RULES, SEVERITY_ORDER } from './rule-ids';
+import { LintSeverity, RULES, SEVERITY_ORDER } from '../features/diagnostics/rule-ids';
 
 /** How the run writes its findings. */
 type OutputFormat = 'text' | 'json' | 'sarif' | 'github';
@@ -68,6 +68,248 @@ const DEFAULT_TIMEOUT_MS = 15 * 60 * 1000;
  *  this, and every one of them costs a line of workflow log. */
 const DEFAULT_ANNOTATION_LIMIT = 50;
 
+/** Everything the written command line sets, before the run's options are made of it. */
+interface ParseState {
+    folders: string[];
+    exclude: Set<string>;
+    only?: Set<string>;
+    gamePath?: string;
+    useGame: boolean;
+    requireGame: boolean;
+    format: OutputFormat;
+    outFile?: string;
+    failOn: LintSeverity | 'none';
+    /** The level that was asked for, or undefined to let the format decide it. */
+    minSeverity?: LintSeverity;
+    scope: ValidationScope;
+    freshCache: boolean;
+    maxProblems: number;
+    timeoutMs: number;
+    annotationLimit: number;
+    serverPath?: string;
+    force: boolean;
+    quiet: boolean;
+    assertLoads: boolean;
+    allowUnverifiable: boolean;
+}
+
+/** One option the command line accepts. */
+interface FlagRow {
+    /** Every spelling that selects this row. */
+    flags: readonly string[];
+    /** Whether the argument after the flag belongs to it. */
+    takesValue?: boolean;
+    /**
+     * Read one written option into the state the run is built from.
+     *
+     * @param state what the command line has set so far.
+     * @param value the argument after the flag, empty for an option that takes none.
+     * @param option the spelling that was written, for the failure message.
+     * @returns the answer that ends the command line, or undefined when the option was read.
+     */
+    read(state: ParseState, value: string, option: string): ParsedArguments | undefined;
+}
+
+// Every option the tool accepts, as a table rather than as one long switch. The flag names are a
+// public contract, so a row is the whole of what one option does and the help text below lists the
+// same names in the words a reader needs.
+const FLAG_ROWS: readonly FlagRow[] = [
+    { flags: ['--help', '-h'], read: () => ({ kind: 'help' }) },
+    { flags: ['--version'], read: () => ({ kind: 'version' }) },
+    {
+        flags: ['--game'],
+        takesValue: true,
+        read: (state, value) => {
+            state.gamePath = value;
+            return undefined;
+        },
+    },
+    {
+        flags: ['--no-game'],
+        read: (state) => {
+            state.useGame = false;
+            return undefined;
+        },
+    },
+    {
+        flags: ['--require-game'],
+        read: (state) => {
+            state.requireGame = true;
+            return undefined;
+        },
+    },
+    {
+        flags: ['--no-require-game'],
+        read: (state) => {
+            state.requireGame = false;
+            return undefined;
+        },
+    },
+    {
+        flags: ['--format'],
+        takesValue: true,
+        read: (state, value, option) => {
+            if (!isOneOf(FORMATS, value)) return oneOfError(option, FORMATS, value);
+            state.format = value;
+            return undefined;
+        },
+    },
+    {
+        flags: ['--out'],
+        takesValue: true,
+        read: (state, value) => {
+            state.outFile = resolve(value);
+            return undefined;
+        },
+    },
+    {
+        flags: ['--fail-on'],
+        takesValue: true,
+        read: (state, value, option) => {
+            if (value !== 'none' && !isOneOf(SEVERITY_ORDER, value)) {
+                return oneOfError(option, [...SEVERITY_ORDER, 'none'], value);
+            }
+            state.failOn = value;
+            return undefined;
+        },
+    },
+    {
+        flags: ['--min-severity'],
+        takesValue: true,
+        read: (state, value, option) => {
+            if (!isOneOf(SEVERITY_ORDER, value)) return oneOfError(option, SEVERITY_ORDER, value);
+            state.minSeverity = value;
+            return undefined;
+        },
+    },
+    {
+        flags: ['--scope'],
+        takesValue: true,
+        read: (state, value, option) => {
+            if (!isOneOf(SCOPES, value)) return oneOfError(option, SCOPES, value);
+            state.scope = value;
+            return undefined;
+        },
+    },
+    {
+        flags: ['--rule'],
+        takesValue: true,
+        read: (state, value, option) => {
+            if (!isKnownRule(value)) return unknownRule(option, value);
+            (state.only ??= new Set<string>()).add(value);
+            return undefined;
+        },
+    },
+    {
+        flags: ['--no-rule'],
+        takesValue: true,
+        read: (state, value, option) => {
+            if (!isKnownRule(value)) return unknownRule(option, value);
+            state.exclude.add(value);
+            return undefined;
+        },
+    },
+    {
+        flags: ['--no-cache'],
+        read: (state) => {
+            state.freshCache = true;
+            return undefined;
+        },
+    },
+    {
+        flags: ['--max-problems'],
+        takesValue: true,
+        read: (state, value, option) => {
+            const count = readCount(value, option, 1, DEFAULT_MAX_PROBLEMS);
+            if (typeof count !== 'number') return count;
+            state.maxProblems = count;
+            return undefined;
+        },
+    },
+    {
+        flags: ['--timeout'],
+        takesValue: true,
+        read: (state, value, option) => {
+            const count = readCount(value, option, 1, 24 * 60 * 60);
+            if (typeof count !== 'number') return count;
+            state.timeoutMs = count * 1000;
+            return undefined;
+        },
+    },
+    {
+        flags: ['--annotation-limit'],
+        takesValue: true,
+        read: (state, value, option) => {
+            const count = readCount(value, option, 0, 1000000);
+            if (typeof count !== 'number') return count;
+            state.annotationLimit = count;
+            return undefined;
+        },
+    },
+    {
+        flags: ['--server'],
+        takesValue: true,
+        read: (state, value) => {
+            state.serverPath = resolve(value);
+            return undefined;
+        },
+    },
+    {
+        flags: ['--force'],
+        read: (state) => {
+            state.force = true;
+            return undefined;
+        },
+    },
+    {
+        flags: ['--quiet', '-q'],
+        read: (state) => {
+            state.quiet = true;
+            return undefined;
+        },
+    },
+    {
+        flags: ['--assert-loads'],
+        read: (state) => {
+            state.assertLoads = true;
+            return undefined;
+        },
+    },
+    {
+        flags: ['--allow-unverifiable'],
+        read: (state) => {
+            state.allowUnverifiable = true;
+            return undefined;
+        },
+    },
+];
+
+/** Every spelling the command line accepts, pointing at the row that reads it. */
+const FLAG_BY_NAME = new Map(FLAG_ROWS.flatMap((row) => row.flags.map((flag) => [flag, row] as const)));
+
+/**
+ * The state a run starts from, before the command line has set anything.
+ *
+ * @returns the defaults, as a fresh object every call.
+ */
+const initialState = (): ParseState => ({
+    folders: [],
+    exclude: new Set<string>(),
+    useGame: true,
+    requireGame: true,
+    format: 'text',
+    failOn: 'error',
+    scope: 'modRulesReachable',
+    freshCache: false,
+    maxProblems: DEFAULT_MAX_PROBLEMS,
+    timeoutMs: DEFAULT_TIMEOUT_MS,
+    annotationLimit: DEFAULT_ANNOTATION_LIMIT,
+    force: false,
+    quiet: false,
+    assertLoads: false,
+    allowUnverifiable: false,
+});
+
 /**
  * Read the command line.
  *
@@ -76,169 +318,52 @@ const DEFAULT_ANNOTATION_LIMIT = 50;
  *     command line could not be understood.
  */
 export const parseArguments = (argv: readonly string[]): ParsedArguments => {
-    const folders: string[] = [];
-    const exclude = new Set<string>();
-    let only: Set<string> | undefined;
-    let gamePath: string | undefined;
-    let useGame = true;
-    let requireGame = true;
-    let format: OutputFormat = 'text';
-    let outFile: string | undefined;
-    let failOn: LintSeverity | 'none' = 'error';
-    let minSeverity: LintSeverity | undefined;
-    let scope: ValidationScope = 'modRulesReachable';
-    let freshCache = false;
-    let maxProblems = DEFAULT_MAX_PROBLEMS;
-    let timeoutMs = DEFAULT_TIMEOUT_MS;
-    let annotationLimit = DEFAULT_ANNOTATION_LIMIT;
-    let serverPath: string | undefined;
-    let force = false;
-    let quiet = false;
-    let assertLoads = false;
-    let allowUnverifiable = false;
-
+    const state = initialState();
     for (let index = 0; index < argv.length; index++) {
         const argument = argv[index];
-        /**
-         * The value of the option being read, with a clear failure when it is missing.
-         *
-         * @returns the next argument, or undefined when the option was written last with no value.
-         */
-        const value = (): string | undefined => argv[++index];
-        switch (argument) {
-            case '--help':
-            case '-h':
-                return { kind: 'help' };
-            case '--version':
-                return { kind: 'version' };
-            case '--game': {
-                const given = value();
-                if (given === undefined) return missingValue(argument);
-                gamePath = given;
-                break;
+        const row = FLAG_BY_NAME.get(argument);
+        if (!row) {
+            if (argument.startsWith('-')) {
+                return { kind: 'error', message: `"${argument}" is not an option this tool knows.` };
             }
-            case '--no-game':
-                useGame = false;
-                break;
-            case '--require-game':
-                requireGame = true;
-                break;
-            case '--no-require-game':
-                requireGame = false;
-                break;
-            case '--format': {
-                const given = value();
-                if (given === undefined) return missingValue(argument);
-                if (!isOneOf(FORMATS, given)) return oneOfError(argument, FORMATS, given);
-                format = given;
-                break;
-            }
-            case '--out': {
-                const given = value();
-                if (given === undefined) return missingValue(argument);
-                outFile = resolve(given);
-                break;
-            }
-            case '--fail-on': {
-                const given = value();
-                if (given === undefined) return missingValue(argument);
-                if (given !== 'none' && !isOneOf(SEVERITY_ORDER, given)) {
-                    return oneOfError(argument, [...SEVERITY_ORDER, 'none'], given);
-                }
-                failOn = given;
-                break;
-            }
-            case '--min-severity': {
-                const given = value();
-                if (given === undefined) return missingValue(argument);
-                if (!isOneOf(SEVERITY_ORDER, given)) return oneOfError(argument, SEVERITY_ORDER, given);
-                minSeverity = given;
-                break;
-            }
-            case '--scope': {
-                const given = value();
-                if (given === undefined) return missingValue(argument);
-                if (!isOneOf(SCOPES, given)) return oneOfError(argument, SCOPES, given);
-                scope = given;
-                break;
-            }
-            case '--rule': {
-                const given = value();
-                if (given === undefined) return missingValue(argument);
-                if (!isKnownRule(given)) return unknownRule(argument, given);
-                (only ??= new Set<string>()).add(given);
-                break;
-            }
-            case '--no-rule': {
-                const given = value();
-                if (given === undefined) return missingValue(argument);
-                if (!isKnownRule(given)) return unknownRule(argument, given);
-                exclude.add(given);
-                break;
-            }
-            case '--no-cache':
-                freshCache = true;
-                break;
-            case '--max-problems': {
-                const given = readCount(value(), argument, 1, DEFAULT_MAX_PROBLEMS);
-                if (typeof given !== 'number') return given;
-                maxProblems = given;
-                break;
-            }
-            case '--timeout': {
-                const given = readCount(value(), argument, 1, 24 * 60 * 60);
-                if (typeof given !== 'number') return given;
-                timeoutMs = given * 1000;
-                break;
-            }
-            case '--annotation-limit': {
-                const given = readCount(value(), argument, 0, 1000000);
-                if (typeof given !== 'number') return given;
-                annotationLimit = given;
-                break;
-            }
-            case '--server': {
-                const given = value();
-                if (given === undefined) return missingValue(argument);
-                serverPath = resolve(given);
-                break;
-            }
-            case '--force':
-                force = true;
-                break;
-            case '--quiet':
-            case '-q':
-                quiet = true;
-                break;
-            case '--assert-loads':
-                assertLoads = true;
-                break;
-            case '--allow-unverifiable':
-                allowUnverifiable = true;
-                break;
-            default:
-                if (argument.startsWith('-')) {
-                    return { kind: 'error', message: `"${argument}" is not an option this tool knows.` };
-                }
-                folders.push(resolve(argument));
+            state.folders.push(resolve(argument));
+            continue;
         }
+        let value = '';
+        if (row.takesValue) {
+            const given = argv[++index];
+            if (given === undefined) return missingValue(argument);
+            value = given;
+        }
+        const answer = row.read(state, value, argument);
+        if (answer) return answer;
     }
+    return runOptions(state);
+};
 
-    if (folders.length === 0) folders.push(resolve('.'));
-    if (gamePath !== undefined && !useGame) {
+/**
+ * Make the run's options out of what the command line set, refusing the options that contradict
+ * each other.
+ *
+ * @param state what the command line set.
+ * @returns the options to run with, or the reason the command line could not be followed.
+ */
+const runOptions = (state: ParseState): ParsedArguments => {
+    if (state.folders.length === 0) state.folders.push(resolve('.'));
+    if (state.gamePath !== undefined && !state.useGame) {
         return {
             kind: 'error',
             message: 'A game path was given together with --no-game, which contradict each other.',
         };
     }
-    if (only && exclude.size > 0) {
+    if (state.only && state.exclude.size > 0) {
         return { kind: 'error', message: '--rule and --no-rule cannot both be used in one run.' };
     }
-    if (assertLoads) {
+    if (state.assertLoads) {
         // Every target of an action is a path into the game's own data, so without that data every
         // one of them resolves to nothing and the check would report that no mod loads. There is no
         // weaker answer worth giving, so the two ways of asking for one are refused.
-        if (!useGame || !requireGame) {
+        if (!state.useGame || !state.requireGame) {
             return {
                 kind: 'error',
                 message:
@@ -246,44 +371,45 @@ export const parseArguments = (argv: readonly string[]): ParsedArguments => {
                     'Without it the check would report that no mod loads at all, so --no-game and --no-require-game cannot be used with it.',
             };
         }
-        if (format === 'sarif' || format === 'github') {
+        if (state.format === 'sarif' || state.format === 'github') {
             return {
                 kind: 'error',
-                message: `--assert-loads writes text or json. A ${format} report carries findings on lines, and this check answers one question about the whole mod.`,
+                message: `--assert-loads writes text or json. A ${state.format} report carries findings on lines, and this check answers one question about the whole mod.`,
             };
         }
     }
-    if (allowUnverifiable && !assertLoads) {
+    if (state.allowUnverifiable && !state.assertLoads) {
         return { kind: 'error', message: '--allow-unverifiable only means something together with --assert-loads.' };
     }
     return {
         kind: 'run',
         options: {
-            folders,
-            gamePath,
-            useGame,
+            folders: state.folders,
+            gamePath: state.gamePath,
+            useGame: state.useGame,
             // Requiring a game tree that the run was told not to use could never be satisfied, so
             // asking for one turns the other off.
-            requireGame: useGame && requireGame,
-            format,
-            outFile,
-            failOn,
+            requireGame: state.useGame && state.requireGame,
+            format: state.format,
+            outFile: state.outFile,
+            failOn: state.failOn,
             // A machine-readable report is usually uploaded somewhere with a per-rule result cap,
             // and the hint-level passes alone produce thousands of findings on a large mod. Text
             // and JSON are read by a person or a script that asked for everything.
-            minSeverity: minSeverity ?? (format === 'sarif' || format === 'github' ? 'warning' : 'hint'),
-            scope,
-            only,
-            exclude,
-            freshCache,
-            maxProblems,
-            timeoutMs,
-            annotationLimit,
-            serverPath,
-            force,
-            quiet,
-            assertLoads,
-            allowUnverifiable,
+            minSeverity:
+                state.minSeverity ?? (state.format === 'sarif' || state.format === 'github' ? 'warning' : 'hint'),
+            scope: state.scope,
+            only: state.only,
+            exclude: state.exclude,
+            freshCache: state.freshCache,
+            maxProblems: state.maxProblems,
+            timeoutMs: state.timeoutMs,
+            annotationLimit: state.annotationLimit,
+            serverPath: state.serverPath,
+            force: state.force,
+            quiet: state.quiet,
+            assertLoads: state.assertLoads,
+            allowUnverifiable: state.allowUnverifiable,
         },
     };
 };
@@ -345,19 +471,13 @@ const unknownRule = (option: string, given: string): ParsedArguments => ({
 /**
  * Read a whole number option and keep it inside its range.
  *
- * @param given the value that was written, if any.
+ * @param given the value that was written.
  * @param option the option name, for the failure message.
  * @param least the smallest accepted value.
  * @param most the largest accepted value.
  * @returns the number, or the parse failure explaining what was wrong with it.
  */
-const readCount = (
-    given: string | undefined,
-    option: string,
-    least: number,
-    most: number
-): number | ParsedArguments => {
-    if (given === undefined) return missingValue(option);
+const readCount = (given: string, option: string, least: number, most: number): number | ParsedArguments => {
     const parsed = Number(given);
     if (!Number.isInteger(parsed) || parsed < least || parsed > most) {
         return { kind: 'error', message: `${option} accepts a whole number from ${least} to ${most}.` };

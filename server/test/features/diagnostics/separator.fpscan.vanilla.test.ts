@@ -23,8 +23,7 @@ import {
 // false positive by definition. The redundant-separator HINT is exempt from the zero contract
 // (vanilla itself ships hundreds of stylistic trailing separators); the scan only proves the pass
 // runs crash-free over every shipped file. Needs the install, self-skips without it.
-const DATA_DIR =
-    process.env.COSMOTEER_DATA_DIR ?? 'C:/Program Files (x86)/Steam/steamapps/common/Cosmoteer/Data';
+const DATA_DIR = process.env.COSMOTEER_DATA_DIR ?? 'C:/Program Files (x86)/Steam/steamapps/common/Cosmoteer/Data';
 const HAVE_DATA = existsSync(DATA_DIR);
 const token = CancellationToken.None;
 
@@ -76,7 +75,10 @@ describe.skipIf(!HAVE_DATA)('separator diagnostics over vanilla Data', () => {
                 }
             }
         }
-        console.log(`\n[missing-separator] ${findings.length} findings over ${scanned} files\n` + findings.slice(0, 50).join('\n'));
+        console.log(
+            `\n[missing-separator] ${findings.length} findings over ${scanned} files\n` +
+                findings.slice(0, 50).join('\n')
+        );
         expect(scanned).toBeGreaterThan(900);
         expect(findings.slice(0, 30)).toEqual([]);
     }, 600_000);

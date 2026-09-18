@@ -10,7 +10,7 @@ import {
     contentFilePathOf,
     emitContent,
 } from '../../../../src/features/refactor/new-content/content-templates';
-import { ContentKind } from '../../../../src/features/refactor/new-content/new-content.types';
+import { ContentKind } from '../../../../../shared/new-content.types';
 import { flattenGroup } from '../../../../src/semantics/effective-group';
 import { globalSettings } from '../../../../src/settings';
 import { parseText } from '../../../../src/utils/ast.utils';

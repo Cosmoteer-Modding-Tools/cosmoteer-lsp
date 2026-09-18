@@ -5,7 +5,7 @@ import { parser } from '../../../src/core/parser/parser';
 import { GroupNode, isGroupNode, isListNode } from '../../../src/core/ast/ast';
 import { groupClassCandidates, memberTypeIn, resolveGroupClass } from '../../../src/document/schema/schema-context';
 import { schemaFieldNameCompletions } from '../../../src/features/completion/autocompletion.schema-fields';
-import { Completion } from '../../../src/features/completion/autocompletion.service';
+import { Completion } from '../../../src/features/completion/autocompletion.service.types';
 
 // A wrapper class delegating its value form to a registry (`[Serialize(Alias="")]` on a polymorphic
 // member) reads both its own fields and the dispatched member's, written flat in one group. The

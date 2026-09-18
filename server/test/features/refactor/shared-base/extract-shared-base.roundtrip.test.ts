@@ -5,9 +5,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { CancellationToken } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { AbstractNode, isAssignmentNode, isGroupNode } from '../../../../src/core/ast/ast';
-import { FullNavigationStrategy } from '../../../../src/features/navigation/full.navigation-strategy';
+import { navigate } from '../../../../src/semantics/navigate-reference';
 import { getStartOfAstNode, parseText } from '../../../../src/utils/ast.utils';
-import { stepIntoNode } from '../../../../src/semantics/reference-resolver';
+import { stepIntoNode } from '../../../../src/document/reference-resolver';
 import { buildBaseFileText, relativeRulesReference } from '../../../../src/features/refactor/shared-base/base-file.emitter';
 import { buildConsumerEdits } from '../../../../src/features/refactor/shared-base/consumer-rewrite';
 import {
@@ -25,7 +25,6 @@ import { FIXTURES_DIR } from '../../../helpers';
 // what the game's own lookup mirrors. Nothing here is asserted against the plan, only against what a
 // reader of the rewritten files can still find.
 const token = CancellationToken.None;
-const navigation = new FullNavigationStrategy();
 const NAMES = ['hull_a.rules', 'hull_b.rules', 'hull_c.rules'];
 
 let root: string;
@@ -111,7 +110,7 @@ describe('a shared base extraction applied to files on disk', () => {
         for (const name of NAMES) {
             const { fsPath, group } = consumerPart(name);
             for (const key of plan.fields) {
-                const resolved = await navigation.navigate(spellingOf(key), group, fsPath, token);
+                const resolved = await navigate(spellingOf(key), group, fsPath, token);
                 expect(resolved, `${name} lost ${key}`).toBeTruthy();
 
                 // The lookup has to land in the generated base file, not somewhere the consumer
@@ -135,7 +134,7 @@ describe('a shared base extraction applied to files on disk', () => {
         // The generated file carries the old base over, so the whole chain and its override order
         // survive: consumer, then the generated base, then the base it was already inheriting.
         const { fsPath, group } = consumerPart('hull_a.rules');
-        const resolved = await navigation.navigate('IsBuildable', group, fsPath, token);
+        const resolved = await navigate('IsBuildable', group, fsPath, token);
         expect(resolved).toBeTruthy();
         expect((resolved as unknown as { valueType: { value: unknown } }).valueType.value).toBe(true);
         expect(getStartOfAstNode(resolved as AbstractNode).uri.replace(/\\/g, '/').toLowerCase()).toBe(
@@ -146,7 +145,7 @@ describe('a shared base extraction applied to files on disk', () => {
     it('keeps a field the consumers disagreed on in the consumer', async () => {
         const { fsPath, group } = consumerPart('hull_b.rules');
         expect(stepIntoNode(group, 'MaxHealth')).toBeTruthy();
-        const resolved = await navigation.navigate('MaxHealth', group, fsPath, token);
+        const resolved = await navigate('MaxHealth', group, fsPath, token);
         expect((resolved as unknown as { valueType: { value: unknown } }).valueType.value).toBe(2000);
     }, 30_000);
 });

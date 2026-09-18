@@ -10,9 +10,7 @@ const findings = (src: string) => validateAnonymousBlocks(parser(lexer(src), 'fi
 
 describe('unnamed blocks outside a list', () => {
     it('flags a mod action written without its Actions list (Ga.rules)', async () => {
-        const result = await findings(
-            '{\n\tAction = AddMany\n\tAddTo = "<gui/part_toggles.rules>/PartToggles"\n}\n'
-        );
+        const result = await findings('{\n\tAction = AddMany\n\tAddTo = "<gui/part_toggles.rules>/PartToggles"\n}\n');
         expect(result).toHaveLength(1);
         expect(result[0].message).toBe('This block needs a name');
     });

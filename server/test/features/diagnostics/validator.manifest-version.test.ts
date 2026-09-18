@@ -48,7 +48,7 @@ describe('manifest version selectability', () => {
         expect(await validate(dir, 'mod_old.rules', VERSIONED)).toEqual([]);
     });
 
-    it('stays silent when the file is the mod\'s only manifest', async () => {
+    it("stays silent when the file is the mod's only manifest", async () => {
         // A single-manifest mod is used unconditionally (GetModInfoPath returns early), so a lone
         // mod_*.rules without the field is fine.
         const dir = modFolder({ 'mod_only.rules': OLD_MANIFEST });

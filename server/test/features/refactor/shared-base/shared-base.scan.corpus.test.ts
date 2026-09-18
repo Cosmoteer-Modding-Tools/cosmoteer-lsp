@@ -9,7 +9,7 @@ import { parser } from '../../../../src/core/parser/parser';
 import { globalSettings } from '../../../../src/settings';
 import { CosmoteerWorkspaceService } from '../../../../src/workspace/cosmoteer-workspace.service';
 import { aliasRootIndex } from '../../../../src/document/schema/alias-root';
-import { ReverseIncludeIndex } from '../../../../src/features/navigation/reverse-include.index';
+import { ReverseIncludeIndex } from '../../../../src/mod/reverse-include.index';
 import { buildBaseFileText, relativeRulesReference } from '../../../../src/features/refactor/shared-base/base-file.emitter';
 import { buildConsumerEdits } from '../../../../src/features/refactor/shared-base/consumer-rewrite';
 import {

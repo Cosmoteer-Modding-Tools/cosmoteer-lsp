@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { CancellationToken, Range } from 'vscode-languageserver';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
-import { InlayHintService } from '../../../src/features/inlay/inlay-hint.service';
+import { getInlayHints } from '../../../src/features/inlay/inlay-hint.service';
 import { AbstractNodeDocument, isListNode, isAssignmentNode, isValueNode } from '../../../src/core/ast/ast';
 import { walkAst } from '../../helpers';
 import { initWorkspace } from '../../workspace-helper';
@@ -30,14 +30,14 @@ describe('negative numbers in lists', () => {
 
     it('does not emit an inlay hint for a coordinate pair', async () => {
         const doc = parse('VirtualInternalCells\n[\n\t{ExternalCell=[0, -1]; InternalCell=[1, 0]}\n]\n');
-        const hints = await InlayHintService.instance.getInlayHints(doc, Range.create(0, 0, 100, 0), token);
+        const hints = await getInlayHints(doc, Range.create(0, 0, 100, 0), token);
         expect(hints).toEqual([]);
     });
 
     it('still hints genuine math sitting next to a negative literal', async () => {
         // `[-1, 2 * 3]`: `-1` is a literal (no hint), `2 * 3` computes to 6.
         const doc = parse('M = [-1, 2 * 3]\n');
-        const hints = await InlayHintService.instance.getInlayHints(doc, Range.create(0, 0, 100, 0), token);
+        const hints = await getInlayHints(doc, Range.create(0, 0, 100, 0), token);
         expect(hints.map((h) => h.label)).toEqual(['= 6']);
     });
 });

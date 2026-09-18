@@ -3,7 +3,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { CancellationToken } from 'vscode-languageserver';
-import { filePathToUri } from '../../../../src/features/navigation/navigation-strategy';
+import { filePathToUri } from '../../../../src/document/reference-path';
 import { clearSharedBaseScanCache, modPlansIfBuilt } from '../../../../src/features/refactor/shared-base/mod-scan';
 import { plansForDocument } from '../../../../src/features/refactor/shared-base/shared-base.analysis-entry';
 import { parseText } from '../../../../src/utils/ast.utils';

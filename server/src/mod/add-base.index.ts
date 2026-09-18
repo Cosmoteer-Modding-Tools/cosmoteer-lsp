@@ -1,7 +1,7 @@
 import { CancellationToken } from 'vscode-languageserver';
 import { AbstractNode, ValueNode, isValueNode } from '../core/ast/ast';
-import { registerInheritanceExtensionSource } from '../semantics/reference-resolver';
-import { modFolderPaths } from '../features/navigation/workspace-files';
+import { registerInheritanceExtensionSource } from '../document/reference-resolver';
+import { modFolderPaths } from '../workspace/workspace-files';
 import { FileTree, isFile } from '../workspace/cosmoteer-workspace.service';
 import { ModAction } from './action';
 import { resolveActionTarget } from './action-target-resolver';

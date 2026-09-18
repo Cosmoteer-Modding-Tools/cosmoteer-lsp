@@ -1,5 +1,5 @@
 import type { LintFinding } from '../findings';
-import { LintSeverity, ruleById } from '../rule-ids';
+import { LintSeverity, ruleById } from '../../features/diagnostics/rule-ids';
 import { plural, type LintReport } from './report';
 
 // GitHub workflow commands. A line written in this shape becomes an annotation on the pull request

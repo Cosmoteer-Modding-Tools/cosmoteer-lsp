@@ -10,9 +10,9 @@ import { globalSettings } from '../../../../src/settings';
 import { CosmoteerWorkspaceService } from '../../../../src/workspace/cosmoteer-workspace.service';
 import { clearFsCaches } from '../../../../src/workspace/fs-cache';
 import { aliasRootIndex } from '../../../../src/document/schema/alias-root';
-import { ParserResultRegistrar } from '../../../../src/registrar/parser-result-registrar';
-import { FullNavigationStrategy } from '../../../../src/features/navigation/full.navigation-strategy';
-import { uriToFsPath } from '../../../../src/features/navigation/workspace-files';
+import { ParserResultRegistrar } from '../../../../src/document/parser-result-registrar';
+import { navigate } from '../../../../src/semantics/navigate-reference';
+import { uriToFsPath } from '../../../../src/workspace/workspace-files';
 import { getStartOfAstNode } from '../../../../src/utils/ast.utils';
 import { clearSharedBaseScanCache } from '../../../../src/features/refactor/shared-base/mod-scan';
 import { containerAtOffset } from '../../../../src/features/refactor/shared-base/shared-base.analysis-entry';
@@ -20,7 +20,7 @@ import { groupAtPath } from '../../../../src/features/refactor/shared-base/base-
 import { topLevelMembersOf } from '../../../../src/features/refactor/shared-base/member-record';
 import { applySharedBase, scanForSharedBases } from '../../../../src/features/refactor/shared-base/shared-base.command';
 import { SharedBaseHost } from '../../../../src/features/refactor/shared-base/shared-base.types';
-import { SerializedPlan } from '../../../../src/features/refactor/shared-base/plan.types';
+import { SerializedPlan } from '../../../../../shared/shared-base.types';
 
 // The extraction really applied to real content, and then asked whether the files still say what
 // they said. A fixture proves the mechanics; this proves the promise, which is that every field a
@@ -113,19 +113,17 @@ const sameValue = (text: string): string =>
  * Resolve a field name from a container through the real cross-file lookup, the one the game's own
  * resolution mirrors, and read back the source it landed on.
  *
- * @param navigation the lookup to use.
  * @param name the field name to ask for.
  * @param container the group to ask from.
  * @param fsPath the file that group lives in.
  * @returns what it resolved to, or undefined when it resolves to nothing.
  */
 const resolveField = async (
-    navigation: FullNavigationStrategy,
     name: string,
     container: GroupNode,
     fsPath: string
 ): Promise<Resolved | undefined> => {
-    const node = (await navigation.navigate(name, container, fsPath, token).catch(() => null)) as AbstractNode | null;
+    const node = (await navigate(name, container, fsPath, token).catch(() => null)) as AbstractNode | null;
     if (!node?.position) return undefined;
     const owner = getStartOfAstNode(node);
     const file = uriToFsPath(owner.uri).replace(/\\/g, '/');
@@ -174,8 +172,6 @@ const forgetEverything = (): void => {
  * @returns how many containers and fields were checked.
  */
 const applyAndVerify = async (plan: SerializedPlan, root: string): Promise<{ containers: number; fields: number }> => {
-    const navigation = new FullNavigationStrategy();
-
     // Before: for every participating container, what every field it declares resolves to. The moved
     // fields are the point, but the rest have to survive untouched too.
     const before: Array<{ fsPath: string; groupPath: string[]; fields: Map<string, Resolved | undefined> }> = [];
@@ -188,7 +184,7 @@ const applyAndVerify = async (plan: SerializedPlan, root: string): Promise<{ con
         expect(groupPath.length, `${fsPath} container has no name path`).toBeGreaterThan(0);
         const fields = new Map<string, Resolved | undefined>();
         for (const member of topLevelMembersOf(container!, text)) {
-            fields.set(member.name, await resolveField(navigation, member.name, container!, fsPath));
+            fields.set(member.name, await resolveField(member.name, container!, fsPath));
         }
         before.push({ fsPath, groupPath, fields });
     }
@@ -211,7 +207,7 @@ const applyAndVerify = async (plan: SerializedPlan, root: string): Promise<{ con
         const container = groupAtPath(parser(lexer(text), entry.fsPath).value, entry.groupPath);
         expect(container, `${entry.fsPath} lost ${entry.groupPath.join('/')}`).toBeDefined();
         for (const [name, was] of entry.fields) {
-            const now = await resolveField(navigation, name, container!, entry.fsPath);
+            const now = await resolveField(name, container!, entry.fsPath);
             fieldCount++;
             expect(now?.text, `${entry.fsPath} ${entry.groupPath.join('/')}/${name} changed value`).toBe(was?.text);
         }
@@ -219,7 +215,7 @@ const applyAndVerify = async (plan: SerializedPlan, root: string): Promise<{ con
         for (const key of plan.fields) {
             const spelling = [...entry.fields.keys()].find((name) => name.toLowerCase() === key);
             if (!spelling) continue;
-            const now = await resolveField(navigation, spelling, container!, entry.fsPath);
+            const now = await resolveField(spelling, container!, entry.fsPath);
             expect(now?.file, `${entry.fsPath} still declares ${spelling} itself`).not.toBe(
                 entry.fsPath.toLowerCase()
             );

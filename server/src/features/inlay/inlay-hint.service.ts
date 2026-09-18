@@ -17,16 +17,14 @@ import {
     evaluateNumericValue,
     resolveReferencedBaseValue,
 } from '../../semantics/value-evaluator';
-import { formatWithUnit, unitForValue } from '../../semantics/value-units';
+import { formatWithUnit, unitForValue } from '../value-units';
 import { globalSettings } from '../../settings';
-import { FullNavigationStrategy } from '../navigation/full.navigation-strategy';
+import { navigate } from '../../semantics/navigate-reference';
 import { getStartOfAstNode } from '../../utils/ast.utils';
 import { describeTargetInline } from '../hover/target-preview';
 import { FileWithPath } from '../../workspace/cosmoteer-workspace.service';
 
 /** The resolver for a reference whose target is not a number, shared by every hint that needs one. */
-const navigation = new FullNavigationStrategy();
-
 /**
  * Inlay hints (`textDocument/inlayHint`) showing the computed result of math assignments
  * `Damage = (&Base)/2 + ceil(17/2)` renders ` = 14` at the end of the line. The hardest part
@@ -36,227 +34,218 @@ const navigation = new FullNavigationStrategy();
  * A reference whose target is a group in the game's ModifiableValue shape gets the group's
  * `BaseValue` instead (`Arc = &…/Arc` renders ` /BaseValue = 160d`).
  */
-export class InlayHintService {
-    private static _instance: InlayHintService;
-    private constructor() {}
+export const getInlayHints = async (
+    document: AbstractNodeDocument,
+    range: Range,
+    cancellationToken: CancellationToken
+): Promise<InlayHint[]> => {
+    const hints: InlayHint[] = [];
+    await collect(document.elements, range, cancellationToken, hints);
+    return hints;
+};
 
-    public static get instance(): InlayHintService {
-        if (!InlayHintService._instance) {
-            InlayHintService._instance = new InlayHintService();
-        }
-        return InlayHintService._instance;
-    }
-
-    public async getInlayHints(
-        document: AbstractNodeDocument,
-        range: Range,
-        cancellationToken: CancellationToken
-    ): Promise<InlayHint[]> {
-        const hints: InlayHint[] = [];
-        await this.collect(document.elements, range, cancellationToken, hints);
-        return hints;
-    }
-
-    private async collect(
-        nodes: AbstractNode[],
-        range: Range,
-        cancellationToken: CancellationToken,
-        hints: InlayHint[]
-    ): Promise<void> {
-        for (const node of nodes) {
-            if (!node || cancellationToken.isCancellationRequested) continue;
-            if (isAssignmentNode(node)) {
-                const right = node.right;
-                if (!right) continue;
-                if (
-                    isMathExpressionNode(right) ||
-                    isFunctionCallNode(right) ||
-                    isReferenceValueNode(right) ||
-                    isSuffixedNumberLiteral(right)
-                ) {
-                    // Math/function results and plain reference assignments (`COST = &<file>/COST`)
-                    // both annotate with the number they resolve to. A cross-file or inherited
-                    // value is otherwise invisible without tracing it by hand. A bare percentage
-                    // literal (`Chance = 50%`) is annotated with its decimal value (`= 0.5 (50%)`),
-                    // the form the game's math actually uses, which the source doesn't show.
-                    await this.emitHint([right], range, cancellationToken, hints);
-                } else if (isListNode(right)) {
-                    await this.collectList(right.elements, range, cancellationToken, hints);
-                } else if (isGroupNode(right)) {
-                    await this.collect(right.elements, range, cancellationToken, hints);
-                }
-            } else if (isListNode(node)) {
-                await this.collectList(node.elements, range, cancellationToken, hints);
-            } else if (isGroupNode(node)) {
-                await this.collect(node.elements, range, cancellationToken, hints);
+const collect = async (
+    nodes: AbstractNode[],
+    range: Range,
+    cancellationToken: CancellationToken,
+    hints: InlayHint[]
+): Promise<void> => {
+    for (const node of nodes) {
+        if (!node || cancellationToken.isCancellationRequested) continue;
+        if (isAssignmentNode(node)) {
+            const right = node.right;
+            if (!right) continue;
+            if (
+                isMathExpressionNode(right) ||
+                isFunctionCallNode(right) ||
+                isReferenceValueNode(right) ||
+                isSuffixedNumberLiteral(right)
+            ) {
+                // Math/function results and plain reference assignments (`COST = &<file>/COST`)
+                // both annotate with the number they resolve to. A cross-file or inherited
+                // value is otherwise invisible without tracing it by hand. A bare percentage
+                // literal (`Chance = 50%`) is annotated with its decimal value (`= 0.5 (50%)`),
+                // the form the game's math actually uses, which the source doesn't show.
+                await emitHint([right], range, cancellationToken, hints);
+            } else if (isListNode(right)) {
+                await collectList(right.elements, range, cancellationToken, hints);
+            } else if (isGroupNode(right)) {
+                await collect(right.elements, range, cancellationToken, hints);
             }
+        } else if (isListNode(node)) {
+            await collectList(node.elements, range, cancellationToken, hints);
+        } else if (isGroupNode(node)) {
+            await collect(node.elements, range, cancellationToken, hints);
         }
     }
+};
 
-    /**
-     * List values store math inline-flattened with no grouping node. `[10 * 2, &A + 5, 30]`
-     * parses to `[10, *, 2, &A, +, 5, 30]`, the commas dropped. We re-segment by the only rule a
-     * flat arithmetic stream allows: an operand directly after an operand begins a new entry. Each
-     * segment that actually computes (contains an operator or function call) gets its own ` = N`.
-     */
-    private async collectList(
-        elements: AbstractNode[],
-        range: Range,
-        cancellationToken: CancellationToken,
-        hints: InlayHint[]
-    ): Promise<void> {
-        let group: AbstractNode[] = [];
-        let prevWasOperand = false;
-        const flush = async () => {
-            if (group.length) await this.emitHint(group, range, cancellationToken, hints);
-            group = [];
-            prevWasOperand = false;
-        };
-        for (const element of elements) {
-            if (!element || cancellationToken.isCancellationRequested) continue;
-            if (isExpressionNode(element)) {
-                group.push(element);
-                prevWasOperand = false;
-                continue;
-            }
-            // A nested container is its own scope, never part of a numeric segment.
-            if (isListNode(element)) {
-                await flush();
-                await this.collectList(element.elements, range, cancellationToken, hints);
-                continue;
-            }
-            if (isGroupNode(element)) {
-                await flush();
-                await this.collect(element.elements, range, cancellationToken, hints);
-                continue;
-            }
-            // Operand (value / function call): two operands in a row means a dropped comma.
-            if (prevWasOperand) await flush();
+/**
+ * List values store math inline-flattened with no grouping node. `[10 * 2, &A + 5, 30]`
+ * parses to `[10, *, 2, &A, +, 5, 30]`, the commas dropped. We re-segment by the only rule a
+ * flat arithmetic stream allows: an operand directly after an operand begins a new entry. Each
+ * segment that actually computes (contains an operator or function call) gets its own ` = N`.
+ */
+const collectList = async (
+    elements: AbstractNode[],
+    range: Range,
+    cancellationToken: CancellationToken,
+    hints: InlayHint[]
+): Promise<void> => {
+    let group: AbstractNode[] = [];
+    let prevWasOperand = false;
+    const flush = async () => {
+        if (group.length) await emitHint(group, range, cancellationToken, hints);
+        group = [];
+        prevWasOperand = false;
+    };
+    for (const element of elements) {
+        if (!element || cancellationToken.isCancellationRequested) continue;
+        if (isExpressionNode(element)) {
             group.push(element);
-            prevWasOperand = true;
+            prevWasOperand = false;
+            continue;
         }
-        await flush();
-    }
-
-    /**
-     * Evaluate one expression segment and, if it computes to a number, push its ` = N` hint at the
-     * segment's end. Single bare values (a plain `5`, a lone `&Ref`) are skipped. Only segments
-     * carrying real computation (an operator or function call) are worth annotating.
-     */
-    private async emitHint(
-        group: AbstractNode[],
-        range: Range,
-        cancellationToken: CancellationToken,
-        hints: InlayHint[]
-    ): Promise<void> {
-        // Worth annotating if it actually computes (operator / function / math group), OR it is a
-        // lone reference / percentage literal whose resolved number isn't visible in the source.
-        const computes =
-            group.some((node) => isExpressionNode(node) || isFunctionCallNode(node) || isMathExpressionNode(node)) ||
-            (group.length === 1 && (isReferenceValueNode(group[0]) || isSuffixedNumberLiteral(group[0])));
-        if (!computes) return;
-        const end = endPositionOf(group);
-        if (end.line < range.start.line || end.line > range.end.line) return;
-        const value = await evaluateExpressionGroup(group, cancellationToken);
-        if (value === null) {
-            // A lone reference that resolves to a group instead of a number may still carry the
-            // game's ModifiableValue shape (`Arc { BaseValue = 160d }`). Its BaseValue is the
-            // number the reference effectively supplies, so surface that member instead.
-            if (group.length === 1 && isReferenceValueNode(group[0])) {
-                if (await this.emitBaseValueHint(group[0], end, cancellationToken, hints)) return;
-                // Anything else a reference points at: a written value, a list's entries, a group's
-                // fields or a whole file. None of those work out to a number, and following one used
-                // to mean opening the file it names.
-                await this.emitTargetHint(group[0], end, cancellationToken, hints);
-            }
-            return;
+        // A nested container is its own scope, never part of a numeric segment.
+        if (isListNode(element)) {
+            await flush();
+            await collectList(element.elements, range, cancellationToken, hints);
+            continue;
         }
-        const unit = await unitForValue(group, cancellationToken).catch(() => undefined);
-        hints.push({
-            position: end,
-            label: `= ${formatWithUnit(value, unit)}`,
-            kind: InlayHintKind.Type,
-            paddingLeft: true,
-        });
-    }
-
-    /**
-     * Annotate a reference to a ModifiableValue group with the group's `BaseValue` member,
-     * rendering ` /BaseValue = 160d` after the reference. A plain literal shows exactly as
-     * written (`160d`, not its radians conversion), while a computed BaseValue (math, function
-     * call, reference) shows the number it evaluates to. Toggleable via the
-     * `inlayHints.showBaseValue` setting, on by default.
-     *
-     * @param reference the lone reference value node the hint annotates.
-     * @param position the position just after the reference, where the hint sits.
-     * @param cancellationToken token cancelling the request.
-     * @param hints the accumulator the hint is pushed into.
-     * @returns true when the target carried the ModifiableValue shape, so no other hint is wanted.
-     */
-    private async emitBaseValueHint(
-        reference: ValueNode,
-        position: Position,
-        cancellationToken: CancellationToken,
-        hints: InlayHint[]
-    ): Promise<boolean> {
-        const member = await resolveReferencedBaseValue(reference, cancellationToken);
-        if (!member) return false;
-        // The shape is what decides which hint belongs here, so the setting is read after it, or
-        // turning this one off would hand the slot to the generic preview instead of clearing it.
-        if (globalSettings.inlayHints?.showBaseValue === false) return true;
-        let label: string | null = null;
-        if (isValueNode(member) && member.valueType.type !== 'Reference') {
-            label = String(member.valueType.value);
-        } else {
-            const value = await evaluateNumericValue(member, cancellationToken);
-            if (value !== null) {
-                // The unit comes from the referencing field's own slot, not from the `BaseValue`
-                // member, whose declaring class is the generic ModifiableValue and names none.
-                const unit = await unitForValue([reference], cancellationToken).catch(() => undefined);
-                label = formatWithUnit(value, unit);
-            }
+        if (isGroupNode(element)) {
+            await flush();
+            await collect(element.elements, range, cancellationToken, hints);
+            continue;
         }
-        if (!label) return true;
-        hints.push({
-            position,
-            label: `/BaseValue = ${label}`,
-            kind: InlayHintKind.Type,
-            paddingLeft: true,
-        });
-        return true;
+        // Operand (value / function call): two operands in a row means a dropped comma.
+        if (prevWasOperand) await flush();
+        group.push(element);
+        prevWasOperand = true;
     }
+    await flush();
+};
 
-    /**
-     * Annotate a reference whose target is not a number with what it points at, cut to one short
-     * label: a written value, a list's entries, a group's fields, or the name of a whole file.
-     * Toggleable via the `inlayHints.showTargetValue` setting, on by default.
-     *
-     * @param reference the lone reference value node the hint annotates.
-     * @param position the position just after the reference, where the hint sits.
-     * @param cancellationToken token cancelling the request.
-     * @param hints the accumulator the hint is pushed into.
-     */
-    private async emitTargetHint(
-        reference: ValueNode,
-        position: Position,
-        cancellationToken: CancellationToken,
-        hints: InlayHint[]
-    ): Promise<void> {
-        if (globalSettings.inlayHints?.showTargetValue === false) return;
-        const target = await navigation
-            .navigate(String(reference.valueType.value), reference, getStartOfAstNode(reference).uri, cancellationToken)
-            .catch(() => null);
-        if (!target) return;
-        const label = describeTargetInline(target as AbstractNode | FileWithPath);
-        if (!label) return;
-        hints.push({
-            position,
-            label: `= ${label}`,
-            kind: InlayHintKind.Type,
-            paddingLeft: true,
-        });
+/**
+ * Evaluate one expression segment and, if it computes to a number, push its ` = N` hint at the
+ * segment's end. Single bare values (a plain `5`, a lone `&Ref`) are skipped. Only segments
+ * carrying real computation (an operator or function call) are worth annotating.
+ */
+const emitHint = async (
+    group: AbstractNode[],
+    range: Range,
+    cancellationToken: CancellationToken,
+    hints: InlayHint[]
+): Promise<void> => {
+    // Worth annotating if it actually computes (operator / function / math group), OR it is a
+    // lone reference / percentage literal whose resolved number isn't visible in the source.
+    const computes =
+        group.some((node) => isExpressionNode(node) || isFunctionCallNode(node) || isMathExpressionNode(node)) ||
+        (group.length === 1 && (isReferenceValueNode(group[0]) || isSuffixedNumberLiteral(group[0])));
+    if (!computes) return;
+    const end = endPositionOf(group);
+    if (end.line < range.start.line || end.line > range.end.line) return;
+    const value = await evaluateExpressionGroup(group, cancellationToken);
+    if (value === null) {
+        // A lone reference that resolves to a group instead of a number may still carry the
+        // game's ModifiableValue shape (`Arc { BaseValue = 160d }`). Its BaseValue is the
+        // number the reference effectively supplies, so surface that member instead.
+        if (group.length === 1 && isReferenceValueNode(group[0])) {
+            if (await emitBaseValueHint(group[0], end, cancellationToken, hints)) return;
+            // Anything else a reference points at: a written value, a list's entries, a group's
+            // fields or a whole file. None of those work out to a number, and following one used
+            // to mean opening the file it names.
+            await emitTargetHint(group[0], end, cancellationToken, hints);
+        }
+        return;
     }
-}
+    const unit = await unitForValue(group, cancellationToken).catch(() => undefined);
+    hints.push({
+        position: end,
+        label: `= ${formatWithUnit(value, unit)}`,
+        kind: InlayHintKind.Type,
+        paddingLeft: true,
+    });
+};
+
+/**
+ * Annotate a reference to a ModifiableValue group with the group's `BaseValue` member,
+ * rendering ` /BaseValue = 160d` after the reference. A plain literal shows exactly as
+ * written (`160d`, not its radians conversion), while a computed BaseValue (math, function
+ * call, reference) shows the number it evaluates to. Toggleable via the
+ * `inlayHints.showBaseValue` setting, on by default.
+ *
+ * @param reference the lone reference value node the hint annotates.
+ * @param position the position just after the reference, where the hint sits.
+ * @param cancellationToken token cancelling the request.
+ * @param hints the accumulator the hint is pushed into.
+ * @returns true when the target carried the ModifiableValue shape, so no other hint is wanted.
+ */
+const emitBaseValueHint = async (
+    reference: ValueNode,
+    position: Position,
+    cancellationToken: CancellationToken,
+    hints: InlayHint[]
+): Promise<boolean> => {
+    const member = await resolveReferencedBaseValue(reference, cancellationToken);
+    if (!member) return false;
+    // The shape is what decides which hint belongs here, so the setting is read after it, or
+    // turning this one off would hand the slot to the generic preview instead of clearing it.
+    if (globalSettings.inlayHints?.showBaseValue === false) return true;
+    let label: string | null = null;
+    if (isValueNode(member) && member.valueType.type !== 'Reference') {
+        label = String(member.valueType.value);
+    } else {
+        const value = await evaluateNumericValue(member, cancellationToken);
+        if (value !== null) {
+            // The unit comes from the referencing field's own slot, not from the `BaseValue`
+            // member, whose declaring class is the generic ModifiableValue and names none.
+            const unit = await unitForValue([reference], cancellationToken).catch(() => undefined);
+            label = formatWithUnit(value, unit);
+        }
+    }
+    if (!label) return true;
+    hints.push({
+        position,
+        label: `/BaseValue = ${label}`,
+        kind: InlayHintKind.Type,
+        paddingLeft: true,
+    });
+    return true;
+};
+
+/**
+ * Annotate a reference whose target is not a number with what it points at, cut to one short
+ * label: a written value, a list's entries, a group's fields, or the name of a whole file.
+ * Toggleable via the `inlayHints.showTargetValue` setting, on by default.
+ *
+ * @param reference the lone reference value node the hint annotates.
+ * @param position the position just after the reference, where the hint sits.
+ * @param cancellationToken token cancelling the request.
+ * @param hints the accumulator the hint is pushed into.
+ */
+const emitTargetHint = async (
+    reference: ValueNode,
+    position: Position,
+    cancellationToken: CancellationToken,
+    hints: InlayHint[]
+): Promise<void> => {
+    if (globalSettings.inlayHints?.showTargetValue === false) return;
+    const target = await navigate(
+        String(reference.valueType.value),
+        reference,
+        getStartOfAstNode(reference).uri,
+        cancellationToken
+    ).catch(() => null);
+    if (!target) return;
+    const label = describeTargetInline(target as AbstractNode | FileWithPath);
+    if (!label) return;
+    hints.push({
+        position,
+        label: `= ${label}`,
+        kind: InlayHintKind.Type,
+        paddingLeft: true,
+    });
+};
 
 /** A value node that points elsewhere (`&Name`, `&<file>/X`, `&/super`, …). Its resolved value is hidden. */
 const isReferenceValueNode = (node: AbstractNode): node is ValueNode =>

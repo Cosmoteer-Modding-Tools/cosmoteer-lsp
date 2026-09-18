@@ -8,8 +8,8 @@ import { parser } from '../../src/core/parser/parser';
 import { parseFilePath } from '../../src/utils/ast.utils';
 import { findModRoot, clearModRootCache } from '../../src/mod/mod-root';
 import { invalidateModContext, resolveFromModContextOnly, resolveWithModContext } from '../../src/mod/mod-context';
-import { FullNavigationStrategy } from '../../src/features/navigation/full.navigation-strategy';
-import { ParserResultRegistrar } from '../../src/registrar/parser-result-registrar';
+import { navigate as navigateReference } from '../../src/semantics/navigate-reference';
+import { ParserResultRegistrar } from '../../src/document/parser-result-registrar';
 import { globalSettings } from '../../src/settings';
 import { initWorkspace, valueOf, WORKSPACE_DATA_DIR } from '../workspace-helper';
 import { FIXTURES_DIR } from '../helpers';
@@ -140,7 +140,6 @@ describe('resolveWithModContext (effective game = vanilla + mod)', () => {
 // inheritance base and the list element all point at `/FOO`, so continuing the path past them fails
 // unless the nested hop falls back to the mod context the way the outermost one does.
 describe('nested hops resolve through the mod context', () => {
-    const navigation = new FullNavigationStrategy();
     let document: AbstractNodeDocument;
 
     beforeAll(async () => {
@@ -153,7 +152,7 @@ describe('nested hops resolve through the mod context', () => {
 
     // The return type is inferred rather than written as `unknown`: `valueOf` takes the node shapes
     // navigation answers, and `unknown` is assignable to none of them.
-    const navigate = (path: string) => navigation.navigate(path, document.elements[0], document.uri, token);
+    const navigate = (path: string) => navigateReference(path, document.elements[0], document.uri, token);
 
     it('continues past an alias whose value is a mod-added global (`ALIAS = &/FOO` then `&ALIAS/Bar`)', async () => {
         expect(valueOf(await navigate('&ALIAS/Bar'))).toBe(7);

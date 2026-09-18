@@ -2,6 +2,7 @@ import { Position, Uri, l10n } from 'vscode';
 import { LanguageClient } from 'vscode-languageclient/node';
 import { showCaretReport } from '../caret-report';
 import { VirtualContentProvider } from '../virtual-content-provider';
+import { COSMOTEER_METHOD } from '../../../shared/lsp-methods';
 
 /** The virtual-document scheme the rendered reference report is served under. */
 export const REFERENCE_TRACE_SCHEME = 'cosmoteer-reference-trace';
@@ -36,7 +37,7 @@ export const showReferenceTrace = (
         client,
         provider,
         {
-            method: 'cosmoteer/explainReference',
+            method: COSMOTEER_METHOD.explainReference,
             scheme: REFERENCE_TRACE_SCHEME,
             documentName: 'What This Reference Points At.md',
             missing: l10n.t('No report available: the cursor is not on a reference.'),

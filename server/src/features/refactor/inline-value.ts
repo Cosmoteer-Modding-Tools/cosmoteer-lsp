@@ -12,9 +12,9 @@ import {
     isValueNode,
 } from '../../core/ast/ast';
 import { isModRules } from '../../document/document-kind';
-import { isReferenceValue } from '../navigation/definition.service';
-import { FullNavigationStrategy } from '../navigation/full.navigation-strategy';
-import { uriToFsPath } from '../navigation/workspace-files';
+import { isReferenceValue } from '../navigation/reference-target';
+import { navigate } from '../../semantics/navigate-reference';
+import { uriToFsPath } from '../../workspace/workspace-files';
 import { getStartOfAstNode } from '../../utils/ast.utils';
 import { findNodeAtPosition } from '../../utils/ast.utils';
 import { FileWithPath, isFile } from '../../workspace/cosmoteer-workspace.service';
@@ -121,9 +121,12 @@ export const inlineValueCodeAction = async (
     const node = findNodeAtPosition(document, cursor);
     if (!isReferenceValue(node) || isInheritanceMember(node)) return undefined;
 
-    const target = await new FullNavigationStrategy()
-        .navigate(String(node.valueType.value), node, getStartOfAstNode(node).uri, cancellationToken)
-        .catch(() => null);
+    const target = await navigate(
+        String(node.valueType.value),
+        node,
+        getStartOfAstNode(node).uri,
+        cancellationToken
+    ).catch(() => null);
     if (!target || isFile(target as FileWithPath) || !isInlineableTarget(target as AbstractNode)) return undefined;
 
     const targetNode = target as ValueNode;

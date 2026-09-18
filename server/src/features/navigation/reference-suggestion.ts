@@ -8,8 +8,8 @@ import {
     isValueNode,
     ValueNode,
 } from '../../core/ast/ast';
-import { extractSubstrings } from './navigation-strategy';
-import { FullNavigationStrategy } from './full.navigation-strategy';
+import { extractSubstrings } from '../../document/reference-path';
+import { navigate } from '../../semantics/navigate-reference';
 import { getStartOfAstNode, namedMembersOf } from '../../utils/ast.utils';
 import { closestMatch } from '../../utils/did-you-mean';
 
@@ -36,7 +36,6 @@ export const suggestReferenceName = async (
     node: ValueNode,
     startNode: AbstractNode,
     uri: string,
-    navigation: FullNavigationStrategy,
     cancellationToken: CancellationToken
 ): Promise<{ suggestion: string; correctedValue: string } | null> => {
     const value = String(node.valueType.value);
@@ -53,13 +52,16 @@ export const suggestReferenceName = async (
         // Multi-segment: the prefix should resolve to a container suggest among its members.
         // A whole-file (`FileWithPath`) target has no `elements` to suggest from treat as none.
         let scope = asNode(
-            await navigation.navigate(value.slice(0, lastSlash), startNode, uri, cancellationToken).catch(() => null)
+            await navigate(value.slice(0, lastSlash), startNode, uri, cancellationToken).catch(() => null)
         );
         if (scope && isValueNode(scope) && scope.valueType.type === 'Reference') {
             scope = asNode(
-                await navigation
-                    .navigate(String(scope.valueType.value), scope, getStartOfAstNode(scope).uri, cancellationToken)
-                    .catch(() => null)
+                await navigate(
+                    String(scope.valueType.value),
+                    scope,
+                    getStartOfAstNode(scope).uri,
+                    cancellationToken
+                ).catch(() => null)
             );
         }
         if (hasElements(scope)) for (const [name] of namedMembersOf(scope)) candidates.add(name);

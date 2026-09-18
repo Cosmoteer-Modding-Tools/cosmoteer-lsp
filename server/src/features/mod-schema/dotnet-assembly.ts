@@ -72,6 +72,63 @@ const ELEMENT_CMOD_REQD = 0x1f;
 const ELEMENT_CMOD_OPT = 0x20;
 const ELEMENT_PINNED = 0x45;
 
+/** Operand widths of the single-byte opcodes, by opcode. A `-1` marks the variable-width switch. */
+const OPERAND_SIZE = new Int8Array(256).fill(0);
+/** Operand widths of the two-byte `0xfe`-prefixed opcodes, by second byte. */
+const OPERAND_SIZE_FE = new Int8Array(256).fill(0);
+{
+    const set = (table: Int8Array, size: number, codes: readonly number[]): void => {
+        for (const code of codes) table[code] = size;
+    };
+    const range = (from: number, to: number): number[] =>
+        Array.from({ length: to - from + 1 }, (_unused, index) => from + index);
+    // One-byte operands: the short argument and local forms, `ldc.i4.s`, and every short branch.
+    set(OPERAND_SIZE, 1, [...range(0x0e, 0x13), 0x1f, ...range(0x2b, 0x37), 0xde]);
+    // Four-byte operands: metadata tokens, long branch targets, `ldc.i4` and `ldc.r4`.
+    set(OPERAND_SIZE, 4, [
+        0x20,
+        0x22,
+        ...range(0x27, 0x29),
+        ...range(0x38, 0x44),
+        ...range(0x6f, 0x75),
+        0x79,
+        ...range(0x7b, 0x81),
+        0x8c,
+        0x8d,
+        0x8f,
+        ...range(0xa3, 0xa5),
+        0xc2,
+        0xc6,
+        0xd0,
+        0xdd,
+    ]);
+    // Eight-byte operands: `ldc.i8` and `ldc.r8`.
+    set(OPERAND_SIZE, 8, [0x21, 0x23]);
+    OPERAND_SIZE[0x45] = -1; // switch, whose operand length depends on its case count
+    // The `0xfe`-prefixed opcodes: `ldftn`/`ldvirtftn`/`initobj`/`constrained.`/`sizeof` take a
+    // token, the long argument and local forms a 16-bit index, and `unaligned.`/`no.` one byte.
+    set(OPERAND_SIZE_FE, 4, [0x06, 0x07, 0x15, 0x16, 0x1c]);
+    set(OPERAND_SIZE_FE, 2, [...range(0x09, 0x0e)]);
+    set(OPERAND_SIZE_FE, 1, [0x12, 0x19]);
+}
+
+/** Opcodes whose 32-bit operand is a metadata token, kept as a number for the caller to decode. */
+const TOKEN_OPCODES = new Set([0x28, 0x6f, 0x73, 0x74, 0x75, 0x7b, 0x7c, 0x7d, 0x7e, 0x7f, 0x80, 0x81, 0x8c, 0x8d]);
+
+/** `ldstr`, whose token names a `#US` literal rather than a table row. */
+const OPCODE_LDSTR = 0x72;
+/** `ldc.i4`, `ldc.i4.s`, `ldc.r4`, `ldc.r8`, the constant loads a field initializer compiles to. */
+const OPCODE_LDC_I4 = 0x20;
+const OPCODE_LDC_I4_S = 0x1f;
+const OPCODE_LDC_R4 = 0x22;
+const OPCODE_LDC_R8 = 0x23;
+const OPCODE_LDC_I8 = 0x21;
+
+/** The short branches, `br.s` through `blt.un.s` and `leave.s`, whose operand is a signed byte. */
+const SHORT_BRANCH_OPCODES = new Set([...Array.from({ length: 13 }, (_unused, index) => 0x2b + index), 0xde]);
+/** The long branches, `br` through `blt.un` and `leave`, whose operand is a signed 32-bit offset. */
+const LONG_BRANCH_OPCODES = new Set([...Array.from({ length: 13 }, (_unused, index) => 0x38 + index), 0xdd]);
+
 /** The short name of a FullName: the segment after the last `.`, or after a nested-type `/`. */
 export const shortNameOf = (fullName: string): string => {
     const slash = fullName.lastIndexOf('/');
@@ -950,58 +1007,6 @@ const readHandlerStarts = (buffer: Buffer, codeEnd: number): number[] => {
     return starts;
 };
 
-/** Operand widths of the single-byte opcodes, by opcode. A `-1` marks the variable-width switch. */
-const OPERAND_SIZE = new Int8Array(256).fill(0);
-/** Operand widths of the two-byte `0xfe`-prefixed opcodes, by second byte. */
-const OPERAND_SIZE_FE = new Int8Array(256).fill(0);
-{
-    const set = (table: Int8Array, size: number, codes: readonly number[]): void => {
-        for (const code of codes) table[code] = size;
-    };
-    const range = (from: number, to: number): number[] =>
-        Array.from({ length: to - from + 1 }, (_unused, index) => from + index);
-    // One-byte operands: the short argument and local forms, `ldc.i4.s`, and every short branch.
-    set(OPERAND_SIZE, 1, [...range(0x0e, 0x13), 0x1f, ...range(0x2b, 0x37), 0xde]);
-    // Four-byte operands: metadata tokens, long branch targets, `ldc.i4` and `ldc.r4`.
-    set(OPERAND_SIZE, 4, [
-        0x20,
-        0x22,
-        ...range(0x27, 0x29),
-        ...range(0x38, 0x44),
-        ...range(0x6f, 0x75),
-        0x79,
-        ...range(0x7b, 0x81),
-        0x8c,
-        0x8d,
-        0x8f,
-        ...range(0xa3, 0xa5),
-        0xc2,
-        0xc6,
-        0xd0,
-        0xdd,
-    ]);
-    // Eight-byte operands: `ldc.i8` and `ldc.r8`.
-    set(OPERAND_SIZE, 8, [0x21, 0x23]);
-    OPERAND_SIZE[0x45] = -1; // switch, whose operand length depends on its case count
-    // The `0xfe`-prefixed opcodes: `ldftn`/`ldvirtftn`/`initobj`/`constrained.`/`sizeof` take a
-    // token, the long argument and local forms a 16-bit index, and `unaligned.`/`no.` one byte.
-    set(OPERAND_SIZE_FE, 4, [0x06, 0x07, 0x15, 0x16, 0x1c]);
-    set(OPERAND_SIZE_FE, 2, [...range(0x09, 0x0e)]);
-    set(OPERAND_SIZE_FE, 1, [0x12, 0x19]);
-}
-
-/** Opcodes whose 32-bit operand is a metadata token, kept as a number for the caller to decode. */
-const TOKEN_OPCODES = new Set([0x28, 0x6f, 0x73, 0x74, 0x75, 0x7b, 0x7c, 0x7d, 0x7e, 0x7f, 0x80, 0x81, 0x8c, 0x8d]);
-
-/** `ldstr`, whose token names a `#US` literal rather than a table row. */
-const OPCODE_LDSTR = 0x72;
-/** `ldc.i4`, `ldc.i4.s`, `ldc.r4`, `ldc.r8`, the constant loads a field initializer compiles to. */
-const OPCODE_LDC_I4 = 0x20;
-const OPCODE_LDC_I4_S = 0x1f;
-const OPCODE_LDC_R4 = 0x22;
-const OPCODE_LDC_R8 = 0x23;
-const OPCODE_LDC_I8 = 0x21;
-
 /**
  * Walk an IL stream into instructions, decoding only the operands the extraction reads and skipping
  * the rest at their declared width.
@@ -1064,11 +1069,6 @@ const decodeInstructions = (image: MetadataImage, buffer: Buffer, start: number,
     }
     return out;
 };
-
-/** The short branches, `br.s` through `blt.un.s` and `leave.s`, whose operand is a signed byte. */
-const SHORT_BRANCH_OPCODES = new Set([...Array.from({ length: 13 }, (_unused, index) => 0x2b + index), 0xde]);
-/** The long branches, `br` through `blt.un` and `leave`, whose operand is a signed 32-bit offset. */
-const LONG_BRANCH_OPCODES = new Set([...Array.from({ length: 13 }, (_unused, index) => 0x38 + index), 0xdd]);
 
 /** The opcodes the extraction matches on, exported so callers do not repeat the numbers. */
 export const OPCODES = {

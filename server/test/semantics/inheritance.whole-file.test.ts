@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { CancellationToken } from 'vscode-languageserver';
-import { FullNavigationStrategy } from '../../src/features/navigation/full.navigation-strategy';
+import { navigate } from '../../src/semantics/navigate-reference';
 import { ValidationForValue } from '../../src/features/diagnostics/validator.value';
 import { AbstractNode, isGroupNode, isListNode, ValueNode } from '../../src/core/ast/ast';
 import { parseFilePath, findNodeByIdentifier } from '../../src/utils/ast.utils';
@@ -13,8 +13,6 @@ import { initWorkspace, valueOf, workspaceFile, WORKSPACE_DATA_DIR } from '../wo
 // tolerance (`X : <file>/X` where X is absent) only accepted group/list bases, flagging the vanilla
 // terran.rules `Fire : <../base_ship.rules>/Fire`. Both are covered here.
 const token = CancellationToken.None;
-const nav = new FullNavigationStrategy();
-
 const inhOf = (n: AbstractNode) => (n as unknown as { inheritance: ValueNode[] }).inheritance[0];
 
 describe('whole-file inheritance', () => {
@@ -32,7 +30,7 @@ describe('whole-file inheritance', () => {
         const usesRoot = comp.elements.find(
             (e) => e.type === 'Assignment' && (e as unknown as { left: { name: string } }).left.name === 'UsesRoot'
         )! as unknown as { right: AbstractNode };
-        const result = await nav.navigate('&WFRootLeaf', usesRoot.right, consumer.uri, token);
+        const result = await navigate('&WFRootLeaf', usesRoot.right, consumer.uri, token);
         expect(valueOf(result)).toBe(42);
     });
 

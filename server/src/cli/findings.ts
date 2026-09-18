@@ -1,4 +1,4 @@
-import { atLeastAsSevere, LintSeverity, ruleIdFor, UNTAGGED_RULE_ID } from './rule-ids';
+import { atLeastAsSevere, LintSeverity, ruleIdFor, UNTAGGED_RULE_ID } from '../features/diagnostics/rule-ids';
 import { reportPath, uriToFsPath } from './uri';
 
 /** One diagnostic as it arrives over the wire, in the shape the LSP defines. */

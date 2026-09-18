@@ -4,7 +4,7 @@ import { homedir } from 'os';
 import { join } from 'path';
 import { CancellationToken } from 'vscode-languageserver';
 import { importGameLog } from '../../../src/features/game-log/import-game-log.command';
-import { filePathToUri } from '../../../src/features/navigation/navigation-strategy';
+import { filePathToUri } from '../../../src/document/reference-path';
 
 const token = CancellationToken.None;
 const SAVE_ROOT = join(homedir(), 'Saved Games', 'Cosmoteer', '76561198104661155');

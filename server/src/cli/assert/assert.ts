@@ -5,7 +5,7 @@ import { reportPath } from '../uri';
 import { ActionRecord, collectManifestActions, countActionEntries, findActionFragments } from './actions';
 import { DocumentCache, offsetOf, ParsedFile, pathKey } from './documents';
 import { judgeAction, JudgeContext } from './judge';
-import { chooseManifest, ManifestCandidate, metadataFailures, readCandidates } from './manifest';
+import { chooseManifest, ManifestCandidate, ManifestChoice, metadataFailures, readCandidates } from './manifest';
 import {
     ActionVerdict,
     AssertCounts,
@@ -65,54 +65,59 @@ export const buildAssertReport = async (input: AssertInput): Promise<AssertRepor
     };
 };
 
+/** What judging one mod folder is built from, shared by every phase of it. */
+interface ModScope {
+    /** The mod folder, absolute. */
+    folder: string;
+    /** The shared reader for every file the phases open. */
+    cache: DocumentCache;
+    /** What the judge needs to know about the run, including the report paths. */
+    context: JudgeContext;
+    findingsByFile: Map<string, LintFinding[]>;
+    parseErrorsByFile: Map<string, LintFinding[]>;
+    /** Everything the check could not see, added to by every phase in the order they run. */
+    disclosures: Disclosure[];
+}
+
 /**
- * Judge one mod folder.
+ * What stops the game seeing a mod here at all, before any manifest is read.
  *
- * @param folder the mod folder, absolute.
- * @param input the run's inputs.
- * @param checked the files the scan published a result for, as comparable paths.
- * @returns the verdict on the mod.
+ * @param choice which manifest the game reads.
+ * @returns the failure, or nothing when the game has a manifest to read.
  */
-const assertMod = async (folder: string, input: AssertInput, checked: Set<string>): Promise<ModAssertion> => {
-    const cache = new DocumentCache();
-    const relative = (file: string): string => reportPath([folder], file);
-    const context: JudgeContext = {
-        modRoot: folder,
-        dataRoot: input.gameData.dataRoot,
-        checked: (file) => checked.has(pathKey(file)),
-        relative,
-    };
-    const findingsByFile = groupFindings(input.findings, MOD_ACTION_RULE_ID);
-    const parseErrorsByFile = groupFindings(input.findings, PARSE_ERROR_RULE_ID);
-
-    const { rulesFiles, manifests: manifestFiles } = await walkModFiles(folder);
-    const candidates = await readCandidates(manifestFiles, cache);
-    const choice = chooseManifest(candidates);
-
-    const failures: ManifestFailure[] = [];
-    const disclosures: Disclosure[] = [];
-    const assertions: ManifestAssertion[] = [];
-    const included = new Set<string>();
-
-    if (choice.selected.length === 0) {
-        failures.push({
+const missingManifestFailures = (choice: ManifestChoice): ManifestFailure[] => {
+    if (choice.selected.length > 0) return [];
+    return [
+        {
             subject: 'manifest',
             path: '.',
             line: 1,
             column: 1,
             detail:
-                candidates.length === 0
+                choice.candidates.length === 0
                     ? 'There is no mod.rules or mod_*.rules under this folder, so the game does not see a mod here at all.'
                     : 'None of the manifests under this folder can be the one the game reads, so the game skips this mod in silence.',
-        });
-    }
+        },
+    ];
+};
+
+/**
+ * Say what the choice of manifest leaves open: a folder that looks like several mods, a choice the
+ * running game version makes, and every manifest the game never reads.
+ *
+ * @param scope what judging this mod is built from.
+ * @param choice which manifest the game reads.
+ * @param manifestFiles every manifest found under the folder, absolute.
+ */
+const discloseManifestChoice = (scope: ModScope, choice: ManifestChoice, manifestFiles: readonly string[]): void => {
+    const { relative } = scope.context;
     // The game globs a mod folder for manifests all the way down, so several of them under one
     // folder is a mod that ships variants. A folder holding a manifest in each of several
     // subfolders is far more likely to be somebody's whole mods folder, and answering that as one
     // mod would be confidently wrong.
-    const collected = collectionSubfolders(folder, manifestFiles);
+    const collected = collectionSubfolders(scope.folder, manifestFiles);
     if (collected.length > 1) {
-        disclosures.push({
+        scope.disclosures.push({
             reason: 'manifest-choice',
             path: '.',
             detail:
@@ -123,7 +128,7 @@ const assertMod = async (folder: string, input: AssertInput, checked: Set<string
     if (choice.undecided) {
         const names = choice.selected.map((candidate) => relative(candidate.file)).join(', ');
         const fallback = choice.selected.find((candidate) => candidate.useThisFileIfNoVersionMatch);
-        disclosures.push({
+        scope.disclosures.push({
             reason: 'manifest-choice',
             path: relative(choice.selected[0].file),
             detail:
@@ -133,21 +138,110 @@ const assertMod = async (folder: string, input: AssertInput, checked: Set<string
         });
     }
     for (const { candidate, reason } of choice.rejected) {
-        disclosures.push({
+        scope.disclosures.push({
             reason: 'manifest-choice',
             path: relative(candidate.file),
             detail: `The game never reads this manifest, because ${reason}. Its actions are not checked.`,
         });
     }
+};
 
+/**
+ * Name every file holding an `Actions` list that no manifest of this mod was seen to pull in.
+ * Counting its entries as the mod's would blame a mod for a leftover the game never reads, and
+ * passing over the file in silence would hide a list that really is included through a path this
+ * check could not follow. So the file is named once, with how much is in it, and none of it is
+ * judged.
+ *
+ * @param scope what judging this mod is built from.
+ * @param rulesFiles every `.rules` file under the mod folder, absolute.
+ * @param manifestFiles every manifest found under the folder, absolute.
+ * @param included the files the manifests were seen to pull in, as comparable paths.
+ * @returns the unwired files, with how many entries each of them holds.
+ */
+const discloseOrphanActions = async (
+    scope: ModScope,
+    rulesFiles: string[],
+    manifestFiles: string[],
+    included: Set<string>
+): Promise<{ path: string; actions: number }[]> => {
+    const orphans: { path: string; actions: number }[] = [];
+    const fragments = await findActionFragments(rulesFiles, manifestFiles, scope.cache);
+    for (const fragment of fragments) {
+        if (included.has(pathKey(fragment))) continue;
+        const parsed = await scope.cache.get(fragment);
+        const entries = parsed ? countActionEntries(parsed) : 0;
+        const path = scope.context.relative(fragment);
+        orphans.push({ path, actions: entries });
+        scope.disclosures.push({
+            reason: 'unfollowed-include',
+            path,
+            detail: `This file holds an Actions list of ${entries} entries and no manifest of this mod was seen to include it. The game runs none of it unless something pulls it in through a path this check could not follow, so none of it was judged.`,
+        });
+    }
+    return orphans;
+};
+
+/**
+ * Name every file the reader could not open, so nothing it holds is counted as checked.
+ *
+ * @param scope what judging this mod is built from.
+ * @returns the files, each with why it could not be read.
+ */
+const discloseUnreadableFiles = (scope: ModScope): { path: string; reason: string }[] => {
+    const unreadable = scope.cache
+        .unreadable()
+        .map((entry) => ({ path: scope.context.relative(entry.file), reason: entry.reason }));
+    for (const entry of unreadable) {
+        scope.disclosures.push({
+            reason: 'file-not-checked',
+            path: entry.path,
+            detail: `This file could not be read here (${entry.reason}), so anything it holds was not judged.`,
+        });
+    }
+    return unreadable;
+};
+
+/**
+ * Judge one mod folder.
+ *
+ * @param folder the mod folder, absolute.
+ * @param input the run's inputs.
+ * @param checked the files the scan published a result for, as comparable paths.
+ * @returns the verdict on the mod.
+ */
+const assertMod = async (folder: string, input: AssertInput, checked: Set<string>): Promise<ModAssertion> => {
+    const cache = new DocumentCache();
+    const scope: ModScope = {
+        folder,
+        cache,
+        context: {
+            modRoot: folder,
+            dataRoot: input.gameData.dataRoot,
+            checked: (file) => checked.has(pathKey(file)),
+            relative: (file) => reportPath([folder], file),
+        },
+        findingsByFile: groupFindings(input.findings, MOD_ACTION_RULE_ID),
+        parseErrorsByFile: groupFindings(input.findings, PARSE_ERROR_RULE_ID),
+        disclosures: [],
+    };
+
+    const { rulesFiles, manifests: manifestFiles } = await walkModFiles(folder);
+    const choice = chooseManifest(await readCandidates(manifestFiles, cache));
+
+    const failures = missingManifestFailures(choice);
+    discloseManifestChoice(scope, choice, manifestFiles);
+
+    const assertions: ManifestAssertion[] = [];
+    const included = new Set<string>();
     for (const candidate of choice.selected) {
         const judged = await assertManifest(candidate, {
             folder,
             cache,
-            context,
-            findingsByFile,
-            parseErrorsByFile,
-            disclosures,
+            context: scope.context,
+            findingsByFile: scope.findingsByFile,
+            parseErrorsByFile: scope.parseErrorsByFile,
+            disclosures: scope.disclosures,
             selectionNote: choice.undecided
                 ? 'one of several manifests, chosen by the running game version'
                 : undefined,
@@ -156,32 +250,8 @@ const assertMod = async (folder: string, input: AssertInput, checked: Set<string
         for (const file of judged.includedFiles) included.add(pathKey(file));
     }
 
-    // A file holding an `Actions` list that no manifest was seen to pull in. Counting its entries as
-    // the mod's would blame a mod for a leftover the game never reads, and passing over the file in
-    // silence would hide a list that really is included through a path this check could not follow.
-    // So the file is named once, with how much is in it, and none of it is judged.
-    const orphanActionFiles: { path: string; actions: number }[] = [];
-    const fragments = await findActionFragments(rulesFiles, manifestFiles, cache);
-    for (const fragment of fragments) {
-        if (included.has(pathKey(fragment))) continue;
-        const parsed = await cache.get(fragment);
-        const entries = parsed ? countActionEntries(parsed) : 0;
-        orphanActionFiles.push({ path: relative(fragment), actions: entries });
-        disclosures.push({
-            reason: 'unfollowed-include',
-            path: relative(fragment),
-            detail: `This file holds an Actions list of ${entries} entries and no manifest of this mod was seen to include it. The game runs none of it unless something pulls it in through a path this check could not follow, so none of it was judged.`,
-        });
-    }
-
-    const unreadableFiles = cache.unreadable().map((entry) => ({ path: relative(entry.file), reason: entry.reason }));
-    for (const entry of unreadableFiles) {
-        disclosures.push({
-            reason: 'file-not-checked',
-            path: entry.path,
-            detail: `This file could not be read here (${entry.reason}), so anything it holds was not judged.`,
-        });
-    }
+    const orphanActionFiles = await discloseOrphanActions(scope, rulesFiles, manifestFiles, included);
+    const unreadableFiles = discloseUnreadableFiles(scope);
 
     const counts = countActions(assertions.flatMap((assertion) => assertion.actions));
     const manifestFailures = assertions.reduce((total, assertion) => total + assertion.failures.length, 0);
@@ -195,10 +265,10 @@ const assertMod = async (folder: string, input: AssertInput, checked: Set<string
         failures,
         orphanActionFiles,
         unreadableFiles,
-        disclosures,
+        disclosures: scope.disclosures,
         counts,
         loadBlocking,
-        verdict: loadBlocking > 0 ? 'does-not-load' : disclosures.length === 0 ? 'loads' : 'unknown',
+        verdict: loadBlocking > 0 ? 'does-not-load' : scope.disclosures.length === 0 ? 'loads' : 'unknown',
     };
 };
 

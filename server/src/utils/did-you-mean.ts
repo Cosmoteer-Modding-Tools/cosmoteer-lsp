@@ -21,6 +21,20 @@ let scratchA = new Int32Array(64);
 let scratchB = new Int32Array(64);
 
 /**
+ * The most edits a suggestion may be away from what was written, however long the name is. A
+ * mistyped name is off by a letter or two, and a long id or localization key given a free hand by
+ * the length rule below used to pull in whole different names: a pool of ids is full of names that
+ * share a prefix and mean something else, and one of them is always within a third of the target.
+ */
+const MAX_ACCEPTED_DISTANCE = 3;
+
+/** A run of digits, the part of a name that numbers a variant rather than spelling it. */
+const DIGIT_RUN = /\d+/g;
+
+/** Whether a name carries a number at all, which is what makes the variant rule apply to it. */
+const HAS_DIGIT = /\d/;
+
+/**
  * Levenshtein edit distance between two strings (insert/delete/substitute = 1). With a `limit`,
  * only the diagonal band that can still produce a distance within it is computed, and the
  * computation stops as soon as the distance provably exceeds it and returns `limit + 1`.
@@ -102,20 +116,6 @@ export const buildMatchPool = (candidates: Iterable<string>): MatchPool => {
 
 const isMatchPool = (candidates: Iterable<string> | MatchPool): candidates is MatchPool =>
     'originals' in candidates && 'lowered' in candidates;
-
-/**
- * The most edits a suggestion may be away from what was written, however long the name is. A
- * mistyped name is off by a letter or two, and a long id or localization key given a free hand by
- * the length rule below used to pull in whole different names: a pool of ids is full of names that
- * share a prefix and mean something else, and one of them is always within a third of the target.
- */
-const MAX_ACCEPTED_DISTANCE = 3;
-
-/** A run of digits, the part of a name that numbers a variant rather than spelling it. */
-const DIGIT_RUN = /\d+/g;
-
-/** Whether a name carries a number at all, which is what makes the variant rule apply to it. */
-const HAS_DIGIT = /\d/;
 
 /**
  * Whether two names differ only in the numbers they carry, which makes them siblings rather than

@@ -14,11 +14,11 @@ import { findMemberThroughInheritance } from '../../semantics/inheritance-resolv
 import { EffectiveMember, effectiveMember, resolveReference } from '../../semantics/effective-member';
 import { componentsOfPart as allComponents } from '../../semantics/part-components';
 import { resolveAssetPath } from '../navigation/asset-resolver';
-import { FullNavigationStrategy } from '../navigation/full.navigation-strategy';
-import { referenceNodesOf } from '../navigation/reference-index';
+import { navigate } from '../../semantics/navigate-reference';
+import { referenceNodesOf } from '../navigation/reference-nodes';
 import { FileWithPath, isFile } from '../../workspace/cosmoteer-workspace.service';
-import { normalizeUri } from '../navigation/reference-location';
-import { filePathToUri } from '../navigation/navigation-strategy';
+import { normalizeUri } from '../../document/reference-location';
+import { filePathToUri } from '../../document/reference-path';
 import {
     AstProvenance,
     CellDirectionLayerData,
@@ -56,7 +56,7 @@ import {
     readRectEvaluated,
     readVector,
     readVectorEvaluated,
-} from './vector-forms';
+} from '../../semantics/vector-forms';
 import { fieldOf } from '../../document/schema/schema';
 import { ADJACENCY_FLAGS_ENUM, CELL_SET_FIELDS, MAP_FIELDS, PART_RULES_CLASS, RECT_FIELDS } from './part-fields';
 
@@ -69,6 +69,80 @@ import { ADJACENCY_FLAGS_ENUM, CELL_SET_FIELDS, MAP_FIELDS, PART_RULES_CLASS, RE
 
 const CREW_RULES_CLASS = 'Cosmoteer.Ships.Parts.Crew.PartCrewRules';
 const GRAPHICS_RULES_CLASS = 'Cosmoteer.Ships.Parts.Graphics.PartGraphicsRules';
+const CHAINABLE_CLASS = 'Cosmoteer.Ships.Parts.ChainablePartComponentRules';
+const NETWORK_PORT_CLASS = 'Cosmoteer.Ships.Networks.BasePartNetworkPortRules';
+const POLYGON_COLLIDER_CLASS = 'Cosmoteer.Ships.Parts.Colliders.PolygonColliderRules';
+const CIRCLE_COLLIDER_CLASS = 'Cosmoteer.Ships.Parts.Colliders.CircleColliderRules';
+const RAILGUN_CLASS = 'Cosmoteer.Ships.Parts.Weapons.RailgunProjectileRules';
+const TILE_LINE_CLASS = 'Cosmoteer.Ships.Parts.Logic.PartTileLineScoreValueRules';
+const RESOURCE_SPRITES_CLASS = 'Cosmoteer.Ships.Parts.Graphics.PartResourceSpritesRules';
+const ORTHOGONAL_ROTATION_ENUM = 'Cosmoteer.OrthogonalRotation';
+
+/**
+ * The graphics component's sprite slots composited under the grid, in draw order. Each slot is a
+ * `DamageLevelSprites` group whose `DamageLevels` list holds one `AtlasSprite` per damage state
+ * (index 0 = undamaged). The roof starts hidden so the interior shows.
+ */
+const SPRITE_MEMBERS: ReadonlyArray<{ id: string; member: string; defaultVisible: boolean }> = [
+    { id: 'floor', member: 'Floor', defaultVisible: true },
+    { id: 'walls', member: 'Walls', defaultVisible: true },
+    { id: 'roof', member: 'Roof', defaultVisible: false },
+];
+
+/** The single-point component fields, one `point` layer each where the component's class has them. */
+const COMPONENT_POINT_FIELDS: ReadonlyArray<{ readonly field: string; readonly group: string }> = [
+    { field: 'PickUpLocation', group: 'Resources' },
+    { field: 'DeliveryLocation', group: 'Resources' },
+    { field: 'ExternalPickUpLocation', group: 'Resources' },
+    { field: 'ExternalDeliveryLocation', group: 'Resources' },
+    { field: 'SupplyToggleButtonOffset', group: 'Resources' },
+    { field: 'ConsumptionToggleButtonOffset', group: 'Resources' },
+    { field: 'EnterExitPoint', group: 'Crew' },
+    { field: 'StartLocation', group: 'Components' },
+    { field: 'EndLocation', group: 'Components' },
+];
+
+/**
+ * The single-cell component fields. `PartLocation` is an empty-alias `ProxyRules` member written
+ * flat on the proxy component, and the schema inlines its fields onto the proxy classes, so the
+ * plain class/member check finds it there.
+ */
+const COMPONENT_CELL_FIELDS: ReadonlyArray<{ readonly field: string; readonly group: string }> = [
+    { field: 'PartLocation', group: 'Logic' },
+    { field: 'AdjacentCell', group: 'Logic' },
+    { field: 'NewPartLocation', group: 'Logic' },
+    { field: 'CellOffset', group: 'Graphics' },
+];
+
+/** The single-rect component fields. */
+const COMPONENT_RECT_FIELDS: ReadonlyArray<{
+    readonly field: string;
+    readonly group: string;
+    readonly fractional: boolean;
+}> = [
+    { field: 'BuffArea', group: 'Regions', fractional: false },
+    { field: 'GridRect', group: 'Resources', fractional: false },
+    { field: 'IdleRect', group: 'Crew', fractional: true },
+    { field: 'UITileRect', group: 'Resources', fractional: true },
+    { field: 'ClampLocationToRect', group: 'Components', fractional: true },
+];
+
+/** The graphics slots whose `DamageLevelSprites.Offset` gets a point layer when the slot exists. */
+const GRAPHICS_OFFSET_SLOTS: readonly string[] = [
+    'Floor',
+    'Walls',
+    'WallsStencil',
+    'Roof',
+    'OperationalDoodad',
+    'NonOperationalDoodad',
+    'ToggleOnDoodad',
+    'ToggleOffDoodad',
+    'OperationalLighting',
+    'OperationalRoofDoodad',
+    'NonOperationalRoofDoodad',
+    'OperationalRoofLighting',
+    'BlueprintSprite',
+];
 
 /**
  * The other files this view is read from: every file a reference or a base written inside the part
@@ -86,9 +160,9 @@ const filesRead = async (part: GroupNode, ownUri: string, token: CancellationTok
     const uris = new Set<string>();
     for (const reference of referenceNodesOf(part)) {
         const from = getStartOfAstNode(reference).uri;
-        const target = await new FullNavigationStrategy()
-            .navigate(String(reference.valueType.value ?? ''), reference, from, token)
-            .catch(() => null);
+        const target = await navigate(String(reference.valueType.value ?? ''), reference, from, token).catch(
+            () => null
+        );
         if (!target) continue;
         const path = isFile(target as FileWithPath)
             ? (target as FileWithPath).path
@@ -368,17 +442,6 @@ const rotationIntList = async (
 };
 
 /**
- * The graphics component's sprite slots composited under the grid, in draw order. Each slot is a
- * `DamageLevelSprites` group whose `DamageLevels` list holds one `AtlasSprite` per damage state
- * (index 0 = undamaged). The roof starts hidden so the interior shows.
- */
-const SPRITE_MEMBERS: ReadonlyArray<{ id: string; member: string; defaultVisible: boolean }> = [
-    { id: 'floor', member: 'Floor', defaultVisible: true },
-    { id: 'walls', member: 'Walls', defaultVisible: true },
-    { id: 'roof', member: 'Roof', defaultVisible: false },
-];
-
-/**
  * The undamaged `AtlasSprite` group of a `DamageLevelSprites` slot: `DamageLevels[0]`, tolerating
  * a slot written directly as a sprite group (a `File` without the damage list).
  * @param slot the slot's value node.
@@ -443,70 +506,6 @@ const collectSprites = async (part: GroupNode, token: CancellationToken): Promis
     }
     return sprites;
 };
-
-const CHAINABLE_CLASS = 'Cosmoteer.Ships.Parts.ChainablePartComponentRules';
-const NETWORK_PORT_CLASS = 'Cosmoteer.Ships.Networks.BasePartNetworkPortRules';
-const POLYGON_COLLIDER_CLASS = 'Cosmoteer.Ships.Parts.Colliders.PolygonColliderRules';
-const CIRCLE_COLLIDER_CLASS = 'Cosmoteer.Ships.Parts.Colliders.CircleColliderRules';
-const RAILGUN_CLASS = 'Cosmoteer.Ships.Parts.Weapons.RailgunProjectileRules';
-const TILE_LINE_CLASS = 'Cosmoteer.Ships.Parts.Logic.PartTileLineScoreValueRules';
-const RESOURCE_SPRITES_CLASS = 'Cosmoteer.Ships.Parts.Graphics.PartResourceSpritesRules';
-const ORTHOGONAL_ROTATION_ENUM = 'Cosmoteer.OrthogonalRotation';
-
-/** The single-point component fields, one `point` layer each where the component's class has them. */
-const COMPONENT_POINT_FIELDS: ReadonlyArray<{ readonly field: string; readonly group: string }> = [
-    { field: 'PickUpLocation', group: 'Resources' },
-    { field: 'DeliveryLocation', group: 'Resources' },
-    { field: 'ExternalPickUpLocation', group: 'Resources' },
-    { field: 'ExternalDeliveryLocation', group: 'Resources' },
-    { field: 'SupplyToggleButtonOffset', group: 'Resources' },
-    { field: 'ConsumptionToggleButtonOffset', group: 'Resources' },
-    { field: 'EnterExitPoint', group: 'Crew' },
-    { field: 'StartLocation', group: 'Components' },
-    { field: 'EndLocation', group: 'Components' },
-];
-
-/**
- * The single-cell component fields. `PartLocation` is an empty-alias `ProxyRules` member written
- * flat on the proxy component, and the schema inlines its fields onto the proxy classes, so the
- * plain class/member check finds it there.
- */
-const COMPONENT_CELL_FIELDS: ReadonlyArray<{ readonly field: string; readonly group: string }> = [
-    { field: 'PartLocation', group: 'Logic' },
-    { field: 'AdjacentCell', group: 'Logic' },
-    { field: 'NewPartLocation', group: 'Logic' },
-    { field: 'CellOffset', group: 'Graphics' },
-];
-
-/** The single-rect component fields. */
-const COMPONENT_RECT_FIELDS: ReadonlyArray<{
-    readonly field: string;
-    readonly group: string;
-    readonly fractional: boolean;
-}> = [
-    { field: 'BuffArea', group: 'Regions', fractional: false },
-    { field: 'GridRect', group: 'Resources', fractional: false },
-    { field: 'IdleRect', group: 'Crew', fractional: true },
-    { field: 'UITileRect', group: 'Resources', fractional: true },
-    { field: 'ClampLocationToRect', group: 'Components', fractional: true },
-];
-
-/** The graphics slots whose `DamageLevelSprites.Offset` gets a point layer when the slot exists. */
-const GRAPHICS_OFFSET_SLOTS: readonly string[] = [
-    'Floor',
-    'Walls',
-    'WallsStencil',
-    'Roof',
-    'OperationalDoodad',
-    'NonOperationalDoodad',
-    'ToggleOnDoodad',
-    'ToggleOffDoodad',
-    'OperationalLighting',
-    'OperationalRoofDoodad',
-    'NonOperationalRoofDoodad',
-    'OperationalRoofLighting',
-    'BlueprintSprite',
-];
 
 /** Whether a component carries a field, by schema class or by a locally written member. */
 const hasField = (group: GroupNode, cls: string | undefined, field: string): boolean =>
@@ -615,6 +614,263 @@ const componentPointsLayer = async (part: GroupNode, token: CancellationToken): 
     };
 };
 
+/** One component of the part, with everything the layers built from it are named and pathed by. */
+interface ComponentScope {
+    /** The component's own group. */
+    readonly group: GroupNode;
+    /** The component's schema class, absent where the type is not one the schema knows. */
+    readonly cls: string | undefined;
+    /** The component's name, as the part writes it. */
+    readonly name: string;
+    /** The payload path of the component, which every layer of it hangs under. */
+    readonly path: string[];
+}
+
+/**
+ * The layer label of one of a component's fields, which names the component alongside the field so
+ * two components offering the same field stay apart in the layer list.
+ * @param scope the component.
+ * @param field the field name.
+ * @returns the label.
+ */
+const componentLabel = (scope: ComponentScope, field: string): string => `${field} (${scope.name})`;
+
+/**
+ * The single-point and single-cell field layers of one component.
+ * @param scope the component.
+ * @param token cancels inheritance resolution.
+ * @returns the layers in a stable order.
+ */
+const componentPointLayers = async (scope: ComponentScope, token: CancellationToken): Promise<GridLayerData[]> => {
+    const { group, cls, path } = scope;
+    const layers: GridLayerData[] = [];
+    for (const spec of COMPONENT_POINT_FIELDS) {
+        if (!hasField(group, cls, spec.field)) continue;
+        const member = await effectiveMember(group, spec.field, token);
+        const point = member ? await readVectorEvaluated(member.node, token).catch(() => null) : null;
+        layers.push({
+            kind: 'point',
+            ...layerBaseOf(path, spec.field, componentLabel(scope, spec.field), spec.group, member),
+            point,
+        } as PointLayerData);
+    }
+
+    for (const spec of COMPONENT_CELL_FIELDS) {
+        if (!hasField(group, cls, spec.field)) continue;
+        const member = await effectiveMember(group, spec.field, token);
+        const cell = member ? await readVectorEvaluated(member.node, token).catch(() => null) : null;
+        layers.push({
+            kind: 'cell',
+            ...layerBaseOf(path, spec.field, componentLabel(scope, spec.field), spec.group, member),
+            cell: cell ? { x: cell.x, y: cell.y } : null,
+        } as CellLayerData);
+    }
+    return layers;
+};
+
+/**
+ * The single-rect field layers of one component, each followed by the disabled cells of a resource
+ * grid where the component has them.
+ * @param scope the component.
+ * @param token cancels inheritance resolution.
+ * @returns the layers in a stable order.
+ */
+const componentRectLayers = async (scope: ComponentScope, token: CancellationToken): Promise<GridLayerData[]> => {
+    const { group, cls, path } = scope;
+    const layers: GridLayerData[] = [];
+    for (const spec of COMPONENT_RECT_FIELDS) {
+        if (!hasField(group, cls, spec.field)) continue;
+        const member = await effectiveMember(group, spec.field, token);
+        const plain = member ? readRect(member.node) : null;
+        const rect = plain ?? (member ? await readRectEvaluated(member.node, token).catch(() => null) : null);
+        layers.push({
+            kind: 'rect',
+            ...layerBaseOf(path, spec.field, componentLabel(scope, spec.field), spec.group, member),
+            fractional: spec.fractional,
+            rect: rect ? { x: rect.x, y: rect.y, width: rect.width, height: rect.height } : null,
+            isRef: !plain && !!rect,
+        } as RectLayerData);
+        // Resource grid disable cells are 0-based within GridRect, rendered at that offset.
+        if (spec.field === 'GridRect' && hasField(group, cls, 'DisableCells')) {
+            const disable = await effectiveMember(group, 'DisableCells', token);
+            const cells: Array<{ cell: { x: number; y: number }; origin: AstProvenance }> = [];
+            if (disable && (isListNode(disable.node) || isGroupNode(disable.node))) {
+                for (const element of disable.node.elements) {
+                    const vector = readVector(element);
+                    if (vector) {
+                        cells.push({
+                            cell: { x: vector.x, y: vector.y },
+                            origin: provenanceOf(vector.node, disable.inherited),
+                        });
+                    }
+                }
+            }
+            layers.push({
+                kind: 'cellSet',
+                ...layerBaseOf(path, 'DisableCells', componentLabel(scope, 'DisableCells'), spec.group, disable),
+                domain: 'any',
+                baseCell: rect ? { x: rect.x, y: rect.y } : { x: 0, y: 0 },
+                cells,
+            } as CellSetLayerData);
+        }
+    }
+    return layers;
+};
+
+/**
+ * The layers of one component that carry a facing: a network port's cell and direction, and a tile
+ * line's ray.
+ * @param scope the component.
+ * @param token cancels inheritance resolution.
+ * @returns the layers in a stable order.
+ */
+const componentDirectionLayers = async (scope: ComponentScope, token: CancellationToken): Promise<GridLayerData[]> => {
+    const { group, cls, path } = scope;
+    const layers: GridLayerData[] = [];
+    if (inAncestry(cls, NETWORK_PORT_CLASS) || (childNamed(group, 'Direction') && childNamed(group, 'Location'))) {
+        const member = await effectiveMember(group, 'Location', token);
+        const cell = member ? await readVectorEvaluated(member.node, token).catch(() => null) : null;
+        const direction = await effectiveMember(group, 'Direction', token);
+        layers.push({
+            kind: 'cellDirection',
+            ...layerBaseOf(path, 'Location', componentLabel(scope, 'Port'), 'Networks', member),
+            cell: cell ? { x: cell.x, y: cell.y } : null,
+            direction: direction ? enumNameOf(direction.node) : null,
+            directions: enumDef(ORTHOGONAL_ROTATION_ENUM)?.members ?? ['Right', 'Down', 'Left', 'Up'],
+        } as CellDirectionLayerData);
+    }
+
+    if (inAncestry(cls, TILE_LINE_CLASS) || isGroupNode(childNamed(group, 'Line'))) {
+        const member = await effectiveMember(group, 'Line', token);
+        const line = member && isGroupNode(member.node) ? member.node : null;
+        const cell = line ? await readVectorEvaluated(childNamed(line, 'Location'), token).catch(() => null) : null;
+        layers.push({
+            kind: 'cellRay',
+            ...layerBaseOf(path, 'Line', componentLabel(scope, 'Line'), 'Regions', member),
+            cell: cell ? { x: cell.x, y: cell.y } : null,
+            direction: line ? enumNameOf(childNamed(line, 'Direction')) : null,
+            maxTiles: line ? numberOf(childNamed(line, 'MaxTiles')) : null,
+            directions: enumDef(ORTHOGONAL_ROTATION_ENUM)?.members ?? ['Right', 'Down', 'Left', 'Up'],
+        } as CellRayLayerData);
+    }
+    return layers;
+};
+
+/**
+ * The area layers of one component: the buff circle, and the edge-distance region a status-value
+ * regulator absorbs over.
+ * @param scope the component.
+ * @param token cancels inheritance resolution.
+ * @returns the layers in a stable order.
+ */
+const componentRegionLayers = async (scope: ComponentScope, token: CancellationToken): Promise<GridLayerData[]> => {
+    const { group, cls, path } = scope;
+    const layers: GridLayerData[] = [];
+    if (hasField(group, cls, 'BuffCenter') || hasField(group, cls, 'BuffRadius')) {
+        const center = await effectiveMember(group, 'BuffCenter', token);
+        const radius = await effectiveMember(group, 'BuffRadius', token);
+        layers.push({
+            kind: 'circle',
+            ...layerBaseOf(path, 'BuffCenter', componentLabel(scope, 'BuffCircle'), 'Regions', center),
+            center: center ? await readVectorEvaluated(center.node, token).catch(() => null) : null,
+            radius: radius ? numberOf(radius.node) : null,
+            radiusField: 'BuffRadius',
+            centerEditable: true,
+        } as CircleLayerData);
+    }
+
+    // A status-value regulator's edge-distance region (the heat exchanger's absorption area)
+    // draws as a halo grown outward from the part rect by `Distance` cells. Only the EdgeDistance
+    // shape maps to this layer, other region shapes are left for the text editor.
+    const regionMember = await effectiveMember(group, 'Region', token);
+    const regionGroup = regionMember && isGroupNode(regionMember.node) ? regionMember.node : null;
+    if (regionGroup && enumNameOf(childNamed(regionGroup, 'Type')) === 'EdgeDistance') {
+        const distanceNode = childNamed(regionGroup, 'Distance');
+        layers.push({
+            kind: 'edgeRegion',
+            ...layerBaseOf(path, 'Region', componentLabel(scope, 'Region'), 'Regions', regionMember),
+            distance: distanceNode ? numberOf(distanceNode) : null,
+            distanceField: 'Distance',
+        } as EdgeRegionLayerData);
+    }
+    return layers;
+};
+
+/**
+ * The outline layers of one component: a polygon collider's vertices, a circle collider's radius,
+ * and a railgun's segment ends.
+ * @param scope the component.
+ * @param token cancels inheritance resolution.
+ * @returns the layers in a stable order.
+ */
+const componentColliderLayers = async (scope: ComponentScope, token: CancellationToken): Promise<GridLayerData[]> => {
+    const { group, cls, name, path } = scope;
+    const layers: GridLayerData[] = [];
+    if (inAncestry(cls, POLYGON_COLLIDER_CLASS) || isListNode(childNamed(group, 'Vertices'))) {
+        const member = await effectiveMember(group, 'Vertices', token);
+        layers.push(await polygonLayerOf(path, 'Vertices', componentLabel(scope, 'Vertices'), member, token));
+    }
+
+    // A circle collider draws as a radius circle around the component's own location, which is
+    // moved through the gizmo, so only the radius is editable here.
+    if (inAncestry(cls, CIRCLE_COLLIDER_CLASS)) {
+        const radius = await effectiveMember(group, 'Radius', token);
+        const location = childNamed(group, 'Location');
+        layers.push({
+            kind: 'circle',
+            ...layerBaseOf(path, 'Radius', componentLabel(scope, 'CircleCollider'), 'Colliders', radius),
+            center: location ? await readVectorEvaluated(location, token).catch(() => null) : null,
+            radius: radius ? numberOf(radius.node) : null,
+            radiusField: 'Radius',
+            centerEditable: false,
+        } as CircleLayerData);
+    }
+
+    if (inAncestry(cls, RAILGUN_CLASS)) {
+        layers.push(
+            await scalarPairPointLayer(group, path, 'RailgunStart', 'XStartOffset', 'YStartOffset', name, token),
+            await scalarPairPointLayer(group, path, 'RailgunEnd', 'XEndOffset', 'YEndOffset', name, token)
+        );
+    }
+    return layers;
+};
+
+/**
+ * The resource-level sprite offsets of one component, as one point-list layer of fixed length.
+ * @param scope the component.
+ * @param token cancels inheritance resolution.
+ * @returns the layer, or nothing where the component draws no resource levels.
+ */
+const componentSpriteLayers = async (scope: ComponentScope, token: CancellationToken): Promise<GridLayerData[]> => {
+    const { group, cls, path } = scope;
+    if (!inAncestry(cls, RESOURCE_SPRITES_CLASS) && !isListNode(childNamed(group, 'ResourceLevels'))) return [];
+    const member = await effectiveMember(group, 'ResourceLevels', token);
+    const points: Array<{ point: GridPoint; origin: AstProvenance }> = [];
+    if (member && (isListNode(member.node) || isGroupNode(member.node))) {
+        for (const element of member.node.elements) {
+            if (!isGroupNode(element)) continue;
+            const offset = readVector(childNamed(element, 'Offset'));
+            if (offset) {
+                points.push({
+                    point: { x: offset.x, y: offset.y },
+                    origin: provenanceOf(offset.node, member.inherited),
+                });
+            }
+        }
+    }
+    if (!points.length) return [];
+    const label = componentLabel(scope, 'ResourceLevels offsets');
+    return [
+        {
+            kind: 'pointList',
+            ...layerBaseOf(path, 'ResourceLevels:Offset', label, 'Graphics', member),
+            entryMember: 'Offset',
+            fixedCount: true,
+            points,
+        } as PointListLayerData,
+    ];
+};
+
 /**
  * Builds the per-component field layers of the sweep round: single points, cells, rects, network
  * ports, tile-line rays, buff circles, polygon colliders, railgun segments, and resource-level
@@ -626,174 +882,16 @@ const componentPointsLayer = async (part: GroupNode, token: CancellationToken): 
 const componentFieldLayers = async (part: GroupNode, token: CancellationToken): Promise<GridLayerData[]> => {
     const layers: GridLayerData[] = [];
     for (const { name, group, cls } of await allComponents(part, token)) {
-        const path = ['Components', name];
-        const label = (field: string): string => `${field} (${name})`;
-
-        for (const spec of COMPONENT_POINT_FIELDS) {
-            if (!hasField(group, cls, spec.field)) continue;
-            const member = await effectiveMember(group, spec.field, token);
-            const point = member ? await readVectorEvaluated(member.node, token).catch(() => null) : null;
-            layers.push({
-                kind: 'point',
-                ...layerBaseOf(path, spec.field, label(spec.field), spec.group, member),
-                point,
-            } as PointLayerData);
-        }
-
-        for (const spec of COMPONENT_CELL_FIELDS) {
-            if (!hasField(group, cls, spec.field)) continue;
-            const member = await effectiveMember(group, spec.field, token);
-            const cell = member ? await readVectorEvaluated(member.node, token).catch(() => null) : null;
-            layers.push({
-                kind: 'cell',
-                ...layerBaseOf(path, spec.field, label(spec.field), spec.group, member),
-                cell: cell ? { x: cell.x, y: cell.y } : null,
-            } as CellLayerData);
-        }
-
-        for (const spec of COMPONENT_RECT_FIELDS) {
-            if (!hasField(group, cls, spec.field)) continue;
-            const member = await effectiveMember(group, spec.field, token);
-            const plain = member ? readRect(member.node) : null;
-            const rect = plain ?? (member ? await readRectEvaluated(member.node, token).catch(() => null) : null);
-            layers.push({
-                kind: 'rect',
-                ...layerBaseOf(path, spec.field, label(spec.field), spec.group, member),
-                fractional: spec.fractional,
-                rect: rect ? { x: rect.x, y: rect.y, width: rect.width, height: rect.height } : null,
-                isRef: !plain && !!rect,
-            } as RectLayerData);
-            // Resource grid disable cells are 0-based within GridRect, rendered at that offset.
-            if (spec.field === 'GridRect' && hasField(group, cls, 'DisableCells')) {
-                const disable = await effectiveMember(group, 'DisableCells', token);
-                const cells: Array<{ cell: { x: number; y: number }; origin: AstProvenance }> = [];
-                if (disable && (isListNode(disable.node) || isGroupNode(disable.node))) {
-                    for (const element of disable.node.elements) {
-                        const vector = readVector(element);
-                        if (vector) {
-                            cells.push({
-                                cell: { x: vector.x, y: vector.y },
-                                origin: provenanceOf(vector.node, disable.inherited),
-                            });
-                        }
-                    }
-                }
-                layers.push({
-                    kind: 'cellSet',
-                    ...layerBaseOf(path, 'DisableCells', label('DisableCells'), spec.group, disable),
-                    domain: 'any',
-                    baseCell: rect ? { x: rect.x, y: rect.y } : { x: 0, y: 0 },
-                    cells,
-                } as CellSetLayerData);
-            }
-        }
-
-        if (inAncestry(cls, NETWORK_PORT_CLASS) || (childNamed(group, 'Direction') && childNamed(group, 'Location'))) {
-            const member = await effectiveMember(group, 'Location', token);
-            const cell = member ? await readVectorEvaluated(member.node, token).catch(() => null) : null;
-            const direction = await effectiveMember(group, 'Direction', token);
-            layers.push({
-                kind: 'cellDirection',
-                ...layerBaseOf(path, 'Location', label('Port'), 'Networks', member),
-                cell: cell ? { x: cell.x, y: cell.y } : null,
-                direction: direction ? enumNameOf(direction.node) : null,
-                directions: enumDef(ORTHOGONAL_ROTATION_ENUM)?.members ?? ['Right', 'Down', 'Left', 'Up'],
-            } as CellDirectionLayerData);
-        }
-
-        if (inAncestry(cls, TILE_LINE_CLASS) || isGroupNode(childNamed(group, 'Line'))) {
-            const member = await effectiveMember(group, 'Line', token);
-            const line = member && isGroupNode(member.node) ? member.node : null;
-            const cell = line ? await readVectorEvaluated(childNamed(line, 'Location'), token).catch(() => null) : null;
-            layers.push({
-                kind: 'cellRay',
-                ...layerBaseOf(path, 'Line', label('Line'), 'Regions', member),
-                cell: cell ? { x: cell.x, y: cell.y } : null,
-                direction: line ? enumNameOf(childNamed(line, 'Direction')) : null,
-                maxTiles: line ? numberOf(childNamed(line, 'MaxTiles')) : null,
-                directions: enumDef(ORTHOGONAL_ROTATION_ENUM)?.members ?? ['Right', 'Down', 'Left', 'Up'],
-            } as CellRayLayerData);
-        }
-
-        if (hasField(group, cls, 'BuffCenter') || hasField(group, cls, 'BuffRadius')) {
-            const center = await effectiveMember(group, 'BuffCenter', token);
-            const radius = await effectiveMember(group, 'BuffRadius', token);
-            layers.push({
-                kind: 'circle',
-                ...layerBaseOf(path, 'BuffCenter', label('BuffCircle'), 'Regions', center),
-                center: center ? await readVectorEvaluated(center.node, token).catch(() => null) : null,
-                radius: radius ? numberOf(radius.node) : null,
-                radiusField: 'BuffRadius',
-                centerEditable: true,
-            } as CircleLayerData);
-        }
-
-        // A status-value regulator's edge-distance region (the heat exchanger's absorption area)
-        // draws as a halo grown outward from the part rect by `Distance` cells. Only the EdgeDistance
-        // shape maps to this layer, other region shapes are left for the text editor.
-        const regionMember = await effectiveMember(group, 'Region', token);
-        const regionGroup = regionMember && isGroupNode(regionMember.node) ? regionMember.node : null;
-        if (regionGroup && enumNameOf(childNamed(regionGroup, 'Type')) === 'EdgeDistance') {
-            const distanceNode = childNamed(regionGroup, 'Distance');
-            layers.push({
-                kind: 'edgeRegion',
-                ...layerBaseOf(path, 'Region', label('Region'), 'Regions', regionMember),
-                distance: distanceNode ? numberOf(distanceNode) : null,
-                distanceField: 'Distance',
-            } as EdgeRegionLayerData);
-        }
-
-        if (inAncestry(cls, POLYGON_COLLIDER_CLASS) || isListNode(childNamed(group, 'Vertices'))) {
-            const member = await effectiveMember(group, 'Vertices', token);
-            layers.push(await polygonLayerOf(path, 'Vertices', label('Vertices'), member, token));
-        }
-
-        // A circle collider draws as a radius circle around the component's own location, which is
-        // moved through the gizmo, so only the radius is editable here.
-        if (inAncestry(cls, CIRCLE_COLLIDER_CLASS)) {
-            const radius = await effectiveMember(group, 'Radius', token);
-            const location = childNamed(group, 'Location');
-            layers.push({
-                kind: 'circle',
-                ...layerBaseOf(path, 'Radius', label('CircleCollider'), 'Colliders', radius),
-                center: location ? await readVectorEvaluated(location, token).catch(() => null) : null,
-                radius: radius ? numberOf(radius.node) : null,
-                radiusField: 'Radius',
-                centerEditable: false,
-            } as CircleLayerData);
-        }
-
-        if (inAncestry(cls, RAILGUN_CLASS)) {
-            layers.push(
-                await scalarPairPointLayer(group, path, 'RailgunStart', 'XStartOffset', 'YStartOffset', name, token),
-                await scalarPairPointLayer(group, path, 'RailgunEnd', 'XEndOffset', 'YEndOffset', name, token)
-            );
-        }
-
-        if (inAncestry(cls, RESOURCE_SPRITES_CLASS) || isListNode(childNamed(group, 'ResourceLevels'))) {
-            const member = await effectiveMember(group, 'ResourceLevels', token);
-            const points: Array<{ point: GridPoint; origin: AstProvenance }> = [];
-            if (member && (isListNode(member.node) || isGroupNode(member.node))) {
-                for (const element of member.node.elements) {
-                    if (!isGroupNode(element)) continue;
-                    const offset = readVector(childNamed(element, 'Offset'));
-                    if (offset) {
-                        points.push({
-                            point: { x: offset.x, y: offset.y },
-                            origin: provenanceOf(offset.node, member.inherited),
-                        });
-                    }
-                }
-            }
-            if (points.length) {
-                layers.push({
-                    kind: 'pointList',
-                    ...layerBaseOf(path, 'ResourceLevels:Offset', label('ResourceLevels offsets'), 'Graphics', member),
-                    entryMember: 'Offset',
-                    fixedCount: true,
-                    points,
-                } as PointListLayerData);
-            }
+        const scope: ComponentScope = { group, cls, name, path: ['Components', name] };
+        for (const build of [
+            componentPointLayers,
+            componentRectLayers,
+            componentDirectionLayers,
+            componentRegionLayers,
+            componentColliderLayers,
+            componentSpriteLayers,
+        ]) {
+            for (const layer of await build(scope, token)) layers.push(layer);
         }
     }
     return layers;

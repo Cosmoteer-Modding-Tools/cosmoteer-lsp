@@ -2,12 +2,12 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { CancellationToken, Connection, Position, WorkDoneProgressReporter } from 'vscode-languageserver';
-import { HoverService } from '../../../src/features/hover/hover.service';
+import { getHover } from '../../../src/features/hover/hover.service';
 import { AbstractNodeDocument, isGroupNode } from '../../../src/core/ast/ast';
 import { parseFilePath } from '../../../src/utils/ast.utils';
 import { globalSettings } from '../../../src/settings';
 import { CosmoteerWorkspaceService } from '../../../src/workspace/cosmoteer-workspace.service';
-import { MentionIndex } from '../../../src/features/navigation/mention.index';
+import { MentionIndex } from '../../../src/workspace/mention.index';
 import { walkAst } from '../../helpers';
 
 // The modifier lens against the game's own files, where the shapes it renders actually occur:
@@ -45,7 +45,7 @@ describe.skipIf(!HAVE_DATA)('modifier lens over vanilla Data', () => {
         await MentionIndex.instance.ensureBuilt([DATA_DIR], token);
 
         const document = await parseFilePath(join(DATA_DIR, 'ships/terran/cannon_med/cannon_med.rules'));
-        const result = await HoverService.instance.getHover(document, groupPosition(document, 'Burst'), token, [DATA_DIR]);
+        const result = await getHover(document, groupPosition(document, 'Burst'), token, [DATA_DIR]);
         hover = (result?.contents as { value: string } | undefined)?.value ?? '';
     }, 300_000);
 

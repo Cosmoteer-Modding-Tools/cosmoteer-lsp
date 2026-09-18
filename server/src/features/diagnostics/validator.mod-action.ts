@@ -18,7 +18,7 @@ import { isStringsFile } from '../../mod/strings-folder';
 import { flattenGroup } from '../../semantics/effective-group';
 import { FileTree, FileWithPath, isFile } from '../../workspace/cosmoteer-workspace.service';
 import { foldPathCase } from '../../workspace/fs-cache';
-import { uriToFsPath } from '../navigation/workspace-files';
+import { uriToFsPath } from '../../workspace/workspace-files';
 import { getStartOfAstNode, namedMembersOf, parseFilePath } from '../../utils/ast.utils';
 import { ValidationError } from './validator';
 import * as l10n from '@vscode/l10n';
@@ -430,6 +430,146 @@ const overridesReplacingGroups = async (
     return errors;
 };
 
+/** One verb's field schema, which is what every per-action check is held against. */
+type VerbFieldSchema = (typeof VERB_SCHEMA)[keyof typeof VERB_SCHEMA];
+
+/**
+ * Judges one action's own fields: the ones its verb requires, the `Index` an `AddBase` writes, and
+ * the AST shape its source value takes.
+ *
+ * @param errors the findings, in the order the pass produced them.
+ * @param action the parsed action.
+ * @param schema the verb's field schema.
+ */
+const checkActionFields = (errors: ValidationError[], action: Action, schema: VerbFieldSchema): void => {
+    for (const required of schema.required) {
+        if (!action.presentFields.has(required.toLowerCase())) {
+            errors.push({
+                message: l10n.t('Mod action is missing a required field'),
+                node: action.verbNode ?? action.group,
+                additionalInfo: l10n.t('The "{0}" action requires the field "{1}"', action.type, required),
+            });
+        }
+    }
+
+    // An `AddBase` that names an `Index` inserts mid-list instead of appending, which re-slots
+    // every base behind it. The editor does not follow that, so it says so rather than leaving
+    // the `^/N` references into this target unexplainedly unknown.
+    if (action.type === 'AddBase' && action.presentFields.has('index')) {
+        errors.push({
+            message: l10n.t('This AddBase inserts at an index, which the editor does not follow'),
+            node: action.verbNode ?? action.group,
+            severity: 'information',
+            additionalInfo: l10n.t(
+                'The game inserts the base at that position and moves every base behind it one slot on. References that step into this target with "^/N" are resolved against the written inheritance only, so one of them may be reported as unknown even though the game resolves it.'
+            ),
+        });
+    }
+
+    // The source value must take the AST shape the verb allows (e.g. Overrides needs a `{}`,
+    // AddMany needs a `[]`). A missing source is already reported by the required-field check.
+    if (!schema.sourceShape) return;
+    for (const source of action.sources) {
+        if (sourceMatchesShape(source, schema.sourceShape)) continue;
+        errors.push({
+            message: l10n.t('Mod action source has the wrong shape'),
+            node: source,
+            additionalInfo: l10n.t(
+                'The "{0}" action requires its "{1}" to be {2}',
+                action.type,
+                schema.sources[0],
+                shapeDescription(schema.sourceShape)
+            ),
+        });
+    }
+};
+
+/**
+ * Judges one action target that did resolve: the file it landed in, the `Name` an `Add` into a
+ * container needs, the shape the verb requires of it, and what the body writes into it.
+ *
+ * @param errors the findings, in the order the pass produced them.
+ * @param action the parsed action.
+ * @param schema the verb's field schema.
+ * @param target the written target value.
+ * @param resolved what the target resolved to.
+ * @param text the manifest's text, which the rewrites read the written form from.
+ * @param cancellationToken cancels the cross-file reads.
+ */
+const checkResolvedTarget = async (
+    errors: ValidationError[],
+    action: Action,
+    schema: VerbFieldSchema,
+    target: ValueNode,
+    resolved: ResolvedTarget,
+    text: string | undefined,
+    cancellationToken: CancellationToken
+): Promise<void> => {
+    // Language string files can't be touched by actions at all, takes precedence over the
+    // shape/Name checks below. The shared predicate also knows the base game's own language
+    // files, which no manifest declares a `StringsFolder` for.
+    if (await isStringsFile(targetFilePath(resolved), cancellationToken)) {
+        errors.push({
+            message: l10n.t('Mod action cannot target a language string file'),
+            node: target,
+            additionalInfo: l10n.t(
+                'Files under the "StringsFolder" (such as "en.rules") are not modifiable by actions; provide your own per-language string file instead'
+            ),
+        });
+        return;
+    }
+
+    const wholeFile = targetsWholeFile(resolved);
+
+    if (action.type === 'Add') {
+        // `Name` is mandatory when adding into a container (a whole `.rules` file, not
+        // descending into it, or a `{}` group). Otherwise the added entry has no key.
+        if ((wholeFile || isGroupNode(resolved as AbstractNode)) && !action.nameNode) {
+            errors.push({
+                message: l10n.t('Add action is missing the Name field'),
+                node: action.verbNode ?? action.group,
+                additionalInfo: l10n.t(
+                    'Adding to a whole ".rules" file or a group "{ }" requires a "Name" for the new entry'
+                ),
+            });
+        }
+    }
+    if (wholeFile && !schema.allowsWholeFileTarget) {
+        // Most verbs operate on a node inside a file; a whole `.rules` file cannot itself
+        // be replaced or removed. Overrides is the exception (its top level is a group).
+        errors.push({
+            message: l10n.t('Mod action cannot target a whole .rules file'),
+            node: target,
+            additionalInfo: l10n.t(
+                'The "{0}" action must target a node inside a ".rules" file, not the file itself',
+                action.type
+            ),
+        });
+    } else if (!wholeFile && schema.targetShape && !targetMatchesShape(resolved as AbstractNode, schema.targetShape)) {
+        // The resolved node must be the right container (e.g. AddMany needs a `[]`,
+        // AddBase a `[]`/`{}`). You can't add list items to a scalar.
+        errors.push({
+            message: l10n.t('Mod action target has the wrong shape'),
+            node: target,
+            additionalInfo: l10n.t(
+                'The "{0}" action must target {1}',
+                action.type,
+                targetShapeDescription(schema.targetShape)
+            ),
+        });
+    }
+
+    // An entry that is a whole list, which the game appends as one entry it cannot read.
+    if ((action.type === 'Add' || action.type === 'AddMany') && !wholeFile && isListNode(resolved as AbstractNode)) {
+        errors.push(...(await listAppendedAsEntry(action, resolved as ListNode, cancellationToken)));
+    }
+
+    // A body group that stands in for a whole group of the target, dropping the rest of it.
+    if (action.type === 'Overrides') {
+        errors.push(...(await overridesReplacingGroups(action, resolved, text, cancellationToken)));
+    }
+};
+
 /**
  * Validate a mod.rules manifest's actions: the verb must be known, required fields
  * must be present, and each target must resolve in the effective game tree (vanilla
@@ -463,48 +603,7 @@ export const validateModActions = async (
         }
 
         const schema = VERB_SCHEMA[action.type];
-        for (const required of schema.required) {
-            if (!action.presentFields.has(required.toLowerCase())) {
-                errors.push({
-                    message: l10n.t('Mod action is missing a required field'),
-                    node: action.verbNode ?? action.group,
-                    additionalInfo: l10n.t('The "{0}" action requires the field "{1}"', action.type, required),
-                });
-            }
-        }
-
-        // An `AddBase` that names an `Index` inserts mid-list instead of appending, which re-slots
-        // every base behind it. The editor does not follow that, so it says so rather than leaving
-        // the `^/N` references into this target unexplainedly unknown.
-        if (action.type === 'AddBase' && action.presentFields.has('index')) {
-            errors.push({
-                message: l10n.t('This AddBase inserts at an index, which the editor does not follow'),
-                node: action.verbNode ?? action.group,
-                severity: 'information',
-                additionalInfo: l10n.t(
-                    'The game inserts the base at that position and moves every base behind it one slot on. References that step into this target with "^/N" are resolved against the written inheritance only, so one of them may be reported as unknown even though the game resolves it.'
-                ),
-            });
-        }
-
-        // The source value must take the AST shape the verb allows (e.g. Overrides needs a `{}`,
-        // AddMany needs a `[]`). A missing source is already reported by the required-field check.
-        if (schema.sourceShape) {
-            for (const source of action.sources) {
-                if (!sourceMatchesShape(source, schema.sourceShape)) {
-                    errors.push({
-                        message: l10n.t('Mod action source has the wrong shape'),
-                        node: source,
-                        additionalInfo: l10n.t(
-                            'The "{0}" action requires its "{1}" to be {2}',
-                            action.type,
-                            schema.sources[0],
-                            shapeDescription(schema.sourceShape)
-                        ),
-                    });
-                }
-            }
-        }
+        checkActionFields(errors, action, schema);
 
         // A flag that tolerates a missing target only excuses the target being missing. When it is
         // there, the game applies the action to it and every check below still decides whether it
@@ -530,77 +629,7 @@ export const validateModActions = async (
                 continue;
             }
 
-            // Language string files can't be touched by actions at all, takes precedence over the
-            // shape/Name checks below. The shared predicate also knows the base game's own language
-            // files, which no manifest declares a `StringsFolder` for.
-            if (await isStringsFile(targetFilePath(resolved), cancellationToken)) {
-                errors.push({
-                    message: l10n.t('Mod action cannot target a language string file'),
-                    node: target,
-                    additionalInfo: l10n.t(
-                        'Files under the "StringsFolder" (such as "en.rules") are not modifiable by actions; provide your own per-language string file instead'
-                    ),
-                });
-                continue;
-            }
-
-            const wholeFile = targetsWholeFile(resolved);
-
-            if (action.type === 'Add') {
-                // `Name` is mandatory when adding into a container (a whole `.rules` file, not
-                // descending into it, or a `{}` group). Otherwise the added entry has no key.
-                if ((wholeFile || isGroupNode(resolved as AbstractNode)) && !action.nameNode) {
-                    errors.push({
-                        message: l10n.t('Add action is missing the Name field'),
-                        node: action.verbNode ?? action.group,
-                        additionalInfo: l10n.t(
-                            'Adding to a whole ".rules" file or a group "{ }" requires a "Name" for the new entry'
-                        ),
-                    });
-                }
-            }
-            if (wholeFile && !schema.allowsWholeFileTarget) {
-                // Most verbs operate on a node inside a file; a whole `.rules` file cannot itself
-                // be replaced or removed. Overrides is the exception (its top level is a group).
-                errors.push({
-                    message: l10n.t('Mod action cannot target a whole .rules file'),
-                    node: target,
-                    additionalInfo: l10n.t(
-                        'The "{0}" action must target a node inside a ".rules" file, not the file itself',
-                        action.type
-                    ),
-                });
-            } else if (
-                !wholeFile &&
-                schema.targetShape &&
-                !targetMatchesShape(resolved as AbstractNode, schema.targetShape)
-            ) {
-                // The resolved node must be the right container (e.g. AddMany needs a `[]`,
-                // AddBase a `[]`/`{}`). You can't add list items to a scalar.
-                errors.push({
-                    message: l10n.t('Mod action target has the wrong shape'),
-                    node: target,
-                    additionalInfo: l10n.t(
-                        'The "{0}" action must target {1}',
-                        action.type,
-                        targetShapeDescription(schema.targetShape)
-                    ),
-                });
-            }
-
-            // An entry that is a whole list, which the game appends as one entry it cannot read.
-            if (
-                (action.type === 'Add' || action.type === 'AddMany') &&
-                !wholeFile &&
-                isListNode(resolved as AbstractNode)
-            ) {
-                errors.push(...(await listAppendedAsEntry(action, resolved as ListNode, cancellationToken)));
-            }
-
-            // A body group that stands in for a whole group of the target, dropping the rest of it.
-            if (action.type === 'Overrides') {
-                errors.push(...(await overridesReplacingGroups(action, resolved, text, cancellationToken)));
-            }
+            await checkResolvedTarget(errors, action, schema, target, resolved, text, cancellationToken);
         }
     }
 

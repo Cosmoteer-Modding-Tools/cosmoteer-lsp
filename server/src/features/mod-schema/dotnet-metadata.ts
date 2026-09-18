@@ -107,9 +107,6 @@ const CODED_INDEX_TABLES: Record<CodedIndexName, number[]> = {
     TypeOrMethodDef: [0x02, 0x06],
 };
 
-/** Bits a coded index spends on its tag, which is the width needed to number its table list. */
-const tagBits = (name: CodedIndexName): number => Math.ceil(Math.log2(CODED_INDEX_TABLES[name].length));
-
 /**
  * Column layout of every metadata table, indexed by table id. Tables this reader never queries are
  * still declared, because table rows are stored back to back in table-id order, so finding one
@@ -162,6 +159,9 @@ TABLE_COLUMNS[0x2a] = ['u2', 'u2', { coded: 'TypeOrMethodDef' }, 'str'];
 TABLE_COLUMNS[0x2b] = [{ coded: 'MethodDefOrRef' }, 'blob'];
 TABLE_COLUMNS[0x2c] = [{ table: 0x2a }, { coded: 'TypeDefOrRef' }];
 
+/** Bits a coded index spends on its tag, which is the width needed to number its table list. */
+const tagBits = (name: CodedIndexName): number => Math.ceil(Math.log2(CODED_INDEX_TABLES[name].length));
+
 /** One PE section, enough to translate a relative virtual address into a file offset. */
 interface Section {
     virtualAddress: number;
@@ -170,14 +170,25 @@ interface Section {
     rawSize: number;
 }
 
+/** Where the PE headers put the section table, and where they say the CLI header lives. */
+interface PeHeader {
+    /** File offset of the first section header. */
+    sectionTable: number;
+    /** How many section headers follow it. */
+    sectionCount: number;
+    /** Relative virtual address of the CLI header, from data directory 14. */
+    cliRva: number;
+}
+
 /**
- * Parse the PE and CLI metadata headers of a .NET assembly into an image the accessors below read.
+ * Read the DOS stub, the PE signature and the optional header, far enough to place the section
+ * table and to pick the CLI header out of the data directories.
  *
  * @param buffer the whole assembly file.
- * @returns the parsed image, or undefined when the file is not a managed PE this reader understands
- *          (an unmanaged DLL, a corrupt file, or a metadata version it cannot parse).
+ * @returns the section table's place and the CLI header's address, or undefined when the file is
+ *          not a PE carrying a CLI header.
  */
-export const readMetadataImage = (buffer: Buffer): MetadataImage | undefined => {
+const readPeHeader = (buffer: Buffer): PeHeader | undefined => {
     if (buffer.length < 0x40 || buffer.readUInt16LE(0) !== 0x5a4d) return undefined;
     const peOffset = buffer.readUInt32LE(0x3c);
     if (peOffset + 24 > buffer.length || buffer.readUInt32LE(peOffset) !== 0x00004550) return undefined;
@@ -194,11 +205,20 @@ export const readMetadataImage = (buffer: Buffer): MetadataImage | undefined => 
     if (cliDirectory + 8 > buffer.length) return undefined;
     const cliRva = buffer.readUInt32LE(cliDirectory);
     if (cliRva === 0) return undefined;
+    return { sectionTable: optional + optionalHeaderSize, sectionCount, cliRva };
+};
 
+/**
+ * Read the section headers that follow the optional header.
+ *
+ * @param buffer the whole assembly file.
+ * @param header the section table's place, as {@link readPeHeader} found it.
+ * @returns the sections in table order, or undefined when one runs past the end of the file.
+ */
+const readSections = (buffer: Buffer, header: PeHeader): Section[] | undefined => {
     const sections: Section[] = [];
-    const sectionTable = optional + optionalHeaderSize;
-    for (let i = 0; i < sectionCount; i++) {
-        const at = sectionTable + i * 40;
+    for (let i = 0; i < header.sectionCount; i++) {
+        const at = header.sectionTable + i * 40;
         if (at + 40 > buffer.length) return undefined;
         sections.push({
             virtualSize: buffer.readUInt32LE(at + 8),
@@ -207,7 +227,20 @@ export const readMetadataImage = (buffer: Buffer): MetadataImage | undefined => 
             rawAddress: buffer.readUInt32LE(at + 20),
         });
     }
-    const rvaToOffset = (rva: number): number | undefined => {
+    return sections;
+};
+
+/**
+ * Build the address translation every later read goes through.
+ *
+ * @param buffer the whole assembly file.
+ * @param sections the parsed section headers.
+ * @returns a function mapping a relative virtual address to a file offset, or undefined when the
+ *          address falls outside every section.
+ */
+const sectionAddressMap =
+    (buffer: Buffer, sections: Section[]) =>
+    (rva: number): number | undefined => {
         for (const section of sections) {
             // A section's virtual size can exceed its raw size (bss-style padding), so the raw span
             // is the bound that matters for reading bytes back out of the file.
@@ -222,12 +255,18 @@ export const readMetadataImage = (buffer: Buffer): MetadataImage | undefined => 
         return undefined;
     };
 
-    const cliOffset = rvaToOffset(cliRva);
-    if (cliOffset === undefined || cliOffset + 16 > buffer.length) return undefined;
-    const metadataOffset = rvaToOffset(buffer.readUInt32LE(cliOffset + 8));
-    if (metadataOffset === undefined || metadataOffset + 20 > buffer.length) return undefined;
-    if (buffer.readUInt32LE(metadataOffset) !== 0x424a5342) return undefined;
-
+/**
+ * Read the stream headers of the metadata root, which name the table stream and the heaps.
+ *
+ * @param buffer the whole assembly file.
+ * @param metadataOffset the file offset of the metadata root signature.
+ * @returns each stream name mapped to its file offset and size, or undefined when a header runs
+ *          past the end of the file.
+ */
+const readStreamHeaders = (
+    buffer: Buffer,
+    metadataOffset: number
+): Map<string, { offset: number; size: number }> | undefined => {
     const versionLength = buffer.readUInt32LE(metadataOffset + 12);
     let cursor = metadataOffset + 16 + versionLength;
     cursor += 2; // flags
@@ -247,13 +286,29 @@ export const readMetadataImage = (buffer: Buffer): MetadataImage | undefined => 
         cursor = cursor + ((4 - (cursor % 4)) % 4);
         streams.set(name, { offset: metadataOffset + offset, size });
     }
-    const tableStream = streams.get('#~') ?? streams.get('#-');
-    if (!tableStream) return undefined;
-    const strings = streams.get('#Strings');
-    const blobs = streams.get('#Blob');
-    const userStrings = streams.get('#US');
+    return streams;
+};
 
-    let at = tableStream.offset;
+/** The header of the table stream: heap index widths, row counts, and where the rows begin. */
+interface TableStreamHeader {
+    /** Flags saying which heap indexes are four bytes wide rather than two. */
+    heapSizes: number;
+    /** Row counts per table id, 0 for an absent table. */
+    rowCounts: number[];
+    /** File offset just past the header, where the first present table's rows start. */
+    rowsOffset: number;
+}
+
+/**
+ * Read the fixed part of the table stream header and the row count that follows it for every
+ * present table.
+ *
+ * @param buffer the whole assembly file.
+ * @param streamOffset the file offset of the table stream.
+ * @returns the heap index widths, the row counts, and the offset the row data starts at.
+ */
+const readTableStreamHeader = (buffer: Buffer, streamOffset: number): TableStreamHeader => {
+    let at = streamOffset;
     at += 4; // reserved
     at += 2; // major and minor version
     const heapSizes = buffer[at];
@@ -271,7 +326,28 @@ export const readMetadataImage = (buffer: Buffer): MetadataImage | undefined => 
         rowCounts[table] = buffer.readUInt32LE(at);
         at += 4;
     }
+    return { heapSizes, rowCounts, rowsOffset: at };
+};
 
+/** The byte widths of one row and of its columns, indexed by table id. */
+interface TableLayout {
+    /** Byte width of one row per table id. */
+    rowSizes: number[];
+    /** Byte width of each column per table id, in declaration order. */
+    columnSizes: number[][];
+    /** Offset of each column within a row per table id. */
+    columnOffsets: number[][];
+}
+
+/**
+ * Size every table's row. A heap, table or coded index column is two or four bytes wide depending
+ * on this image's heap flags and row counts, so the layout cannot be stated ahead of time.
+ *
+ * @param heapSizes the heap index width flags from the table stream header.
+ * @param rowCounts the row count per table id.
+ * @returns the row and column widths, and each column's offset inside a row.
+ */
+const layOutTables = (heapSizes: number, rowCounts: number[]): TableLayout => {
     const stringIndexSize = heapSizes & 0x01 ? 4 : 2;
     const guidIndexSize = heapSizes & 0x02 ? 4 : 2;
     const blobIndexSize = heapSizes & 0x04 ? 4 : 2;
@@ -297,7 +373,6 @@ export const readMetadataImage = (buffer: Buffer): MetadataImage | undefined => 
     const rowSizes: number[] = new Array(64).fill(0);
     const columnSizes: number[][] = new Array(64).fill(null).map(() => []);
     const columnOffsets: number[][] = new Array(64).fill(null).map(() => []);
-    const tableOffsets: number[] = new Array(64).fill(0);
     for (let table = 0; table < 64; table++) {
         const columns = TABLE_COLUMNS[table];
         if (!columns) continue;
@@ -310,6 +385,28 @@ export const readMetadataImage = (buffer: Buffer): MetadataImage | undefined => 
         }
         rowSizes[table] = rowSize;
     }
+    return { rowSizes, columnSizes, columnOffsets };
+};
+
+/**
+ * Walk the table rows in table-id order, which is how they are stored, to find where each table
+ * starts.
+ *
+ * @param buffer the whole assembly file.
+ * @param rowsOffset the file offset the first present table's rows start at.
+ * @param rowCounts the row count per table id.
+ * @param rowSizes the row width per table id.
+ * @returns the first-row offset per table id, or undefined when a present table has no declared
+ *          layout or the rows run past the end of the file.
+ */
+const locateTableRows = (
+    buffer: Buffer,
+    rowsOffset: number,
+    rowCounts: number[],
+    rowSizes: number[]
+): number[] | undefined => {
+    const tableOffsets: number[] = new Array(64).fill(0);
+    let at = rowsOffset;
     for (let table = 0; table < 64; table++) {
         if (rowCounts[table] === 0) continue;
         // A present table with no declared layout makes every later table's offset unknowable, so
@@ -318,7 +415,41 @@ export const readMetadataImage = (buffer: Buffer): MetadataImage | undefined => 
         tableOffsets[table] = at;
         at += rowSizes[table] * rowCounts[table];
     }
-    if (at > buffer.length) return undefined;
+    return at > buffer.length ? undefined : tableOffsets;
+};
+
+/**
+ * Parse the PE and CLI metadata headers of a .NET assembly into an image the accessors below read.
+ *
+ * @param buffer the whole assembly file.
+ * @returns the parsed image, or undefined when the file is not a managed PE this reader understands
+ *          (an unmanaged DLL, a corrupt file, or a metadata version it cannot parse).
+ */
+export const readMetadataImage = (buffer: Buffer): MetadataImage | undefined => {
+    const header = readPeHeader(buffer);
+    if (!header) return undefined;
+    const sections = readSections(buffer, header);
+    if (!sections) return undefined;
+    const rvaToOffset = sectionAddressMap(buffer, sections);
+
+    const cliOffset = rvaToOffset(header.cliRva);
+    if (cliOffset === undefined || cliOffset + 16 > buffer.length) return undefined;
+    const metadataOffset = rvaToOffset(buffer.readUInt32LE(cliOffset + 8));
+    if (metadataOffset === undefined || metadataOffset + 20 > buffer.length) return undefined;
+    if (buffer.readUInt32LE(metadataOffset) !== 0x424a5342) return undefined;
+
+    const streams = readStreamHeaders(buffer, metadataOffset);
+    if (!streams) return undefined;
+    const tableStream = streams.get('#~') ?? streams.get('#-');
+    if (!tableStream) return undefined;
+    const strings = streams.get('#Strings');
+    const blobs = streams.get('#Blob');
+    const userStrings = streams.get('#US');
+
+    const { heapSizes, rowCounts, rowsOffset } = readTableStreamHeader(buffer, tableStream.offset);
+    const { rowSizes, columnSizes, columnOffsets } = layOutTables(heapSizes, rowCounts);
+    const tableOffsets = locateTableRows(buffer, rowsOffset, rowCounts, rowSizes);
+    if (!tableOffsets) return undefined;
 
     return {
         buffer,

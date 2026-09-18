@@ -4,7 +4,7 @@ import { CancellationToken } from 'vscode-languageserver';
 import { AbstractNodeDocument, ValueNode, isValueNode } from '../../../src/core/ast/ast';
 import { traceReference } from '../../../src/features/navigation/explain-reference/reference-trace';
 import { ValidationForValue } from '../../../src/features/diagnostics/validator.value';
-import { TemplateBaseIndex } from '../../../src/features/diagnostics/template-base.index';
+import { TemplateBaseIndex } from '../../../src/workspace/template-base.index';
 import { parseFilePath } from '../../../src/utils/ast.utils';
 import { globalSettings } from '../../../src/settings';
 import { clearModRootCache } from '../../../src/mod/mod-root';

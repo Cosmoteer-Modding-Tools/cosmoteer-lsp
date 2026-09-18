@@ -1,4 +1,4 @@
-import { filePathToDirectoryPath } from '../features/navigation/navigation-strategy';
+import { filePathToDirectoryPath } from '../document/reference-path';
 import { isManifestBasename } from '../document/document-kind';
 import { safeReaddir } from '../utils/fs.utils';
 

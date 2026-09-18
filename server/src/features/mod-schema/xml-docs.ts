@@ -21,7 +21,7 @@
  * directly rather than through an XML parser dependency the server does not otherwise have.
  */
 import { readFile } from 'fs/promises';
-import { ModSchemaExtension } from './extract';
+import { ModSchemaExtension } from '../../document/schema/schema.types';
 
 /** XML doc-ID (`F:Namespace.Type.Member`) to the readable text of its `<summary>`. */
 export type XmlDocs = ReadonlyMap<string, string>;

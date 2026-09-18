@@ -6,8 +6,8 @@ import { findShaderDeclaration, ReadOverride } from './shader-index';
 import { HLSL_INTRINSICS, TEXTURE_METHODS, ENGINE_UNIFORMS, describeHlslType } from './shader-intrinsics';
 import { ENGINE_MACROS } from './shader-completion';
 import { HLSL_TYPES } from '../semantic/shader-semantic-tokens';
-import { filePathToUri } from '../navigation/navigation-strategy';
-import { uriToFsPath } from '../navigation/workspace-files';
+import { filePathToUri } from '../../document/reference-path';
+import { uriToFsPath } from '../../workspace/workspace-files';
 
 /**
  * Editor features for an open `.shader` file itself (as opposed to the shader constants a `.rules`

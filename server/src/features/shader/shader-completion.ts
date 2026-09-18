@@ -5,44 +5,6 @@ import { ENGINE_UNIFORMS, HLSL_INTRINSICS, TEXTURE_METHODS } from './shader-intr
 import { HLSL_KEYWORDS, HLSL_TYPES } from '../semantic/shader-semantic-tokens';
 import { functionScopeAt, parseShader } from './shader-parser';
 
-/**
- * Completion for an open `.shader` file. Two modes:
- *
- *  - After a `.` (member access, `color.` / `input.` / `_noiseTex.`) it is context-aware: it offers the
- *    swizzles of a vector, the members of a struct, or the sampling methods of a texture, resolved from
- *    the base expression's type, nothing else, so the list is exactly what can follow the dot.
- *  - Otherwise it offers the HLSL builtins (types, keywords, intrinsic functions) plus the symbols the
- *    file and its includes declare (their `_`-uniforms, functions, and struct types).
- *
- * The client filters the returned set against the word being typed, so the whole set for the mode is
- * returned every time.
- *
- * @param text the full source of the file being edited.
- * @param offset the cursor byte offset, used to detect a member-access context in `text`.
- * @param includeText the concatenated text of the file's `#include` chain, so symbols declared in a
- * base shader (uniforms, structs, functions) resolve too. Empty when the file has no includes.
- * @returns the completion items for the context.
- */
-export const shaderCompletions = (text: string, offset: number, includeText = ''): CompletionItem[] => {
-    // File-scope symbols (uniforms, functions, structs) can come from an include, so look them up over
-    // the widened scope. Member-access detection and local declarations stay on the edited file, where
-    // the cursor offset and the enclosing function's locals actually live.
-    const scope = includeText ? `${text}\n${includeText}` : text;
-    // A preprocessor line gets directive/macro completion instead of HLSL symbols.
-    const directive = directiveContext(text, offset);
-    if (directive === 'directive') return DIRECTIVE_ITEMS;
-    if (directive === 'macro' || directive === 'define' || directive === 'condition') {
-        return macroCompletions(scope, directive);
-    }
-    if (directive === 'other') return [];
-    const member = memberAccess(text, offset);
-    if (member !== null) return memberCompletions(scope, text, member);
-    // After a type at the start of a declaration (`float x`, `in float2 uv`) the identifier being typed
-    // is a new variable name the user is inventing, so offering existing names would be noise.
-    if (isDeclarationNameContext(text, offset, scope)) return [];
-    return globalCompletions(scope, localSymbols(scope, text, offset));
-};
-
 /** The preprocessor directives the game's shader loader understands, with what each does. */
 const DIRECTIVES: ReadonlyArray<readonly [string, string]> = [
     ['include', 'Inline another shader file: `#include "../base.shader"` or `#include "./Data/base.shader"`.'],
@@ -99,6 +61,44 @@ export const ENGINE_MACROS: ReadonlyArray<readonly [string, string]> = (() => {
     }
     return macros;
 })();
+
+/**
+ * Completion for an open `.shader` file. Two modes:
+ *
+ *  - After a `.` (member access, `color.` / `input.` / `_noiseTex.`) it is context-aware: it offers the
+ *    swizzles of a vector, the members of a struct, or the sampling methods of a texture, resolved from
+ *    the base expression's type, nothing else, so the list is exactly what can follow the dot.
+ *  - Otherwise it offers the HLSL builtins (types, keywords, intrinsic functions) plus the symbols the
+ *    file and its includes declare (their `_`-uniforms, functions, and struct types).
+ *
+ * The client filters the returned set against the word being typed, so the whole set for the mode is
+ * returned every time.
+ *
+ * @param text the full source of the file being edited.
+ * @param offset the cursor byte offset, used to detect a member-access context in `text`.
+ * @param includeText the concatenated text of the file's `#include` chain, so symbols declared in a
+ * base shader (uniforms, structs, functions) resolve too. Empty when the file has no includes.
+ * @returns the completion items for the context.
+ */
+export const shaderCompletions = (text: string, offset: number, includeText = ''): CompletionItem[] => {
+    // File-scope symbols (uniforms, functions, structs) can come from an include, so look them up over
+    // the widened scope. Member-access detection and local declarations stay on the edited file, where
+    // the cursor offset and the enclosing function's locals actually live.
+    const scope = includeText ? `${text}\n${includeText}` : text;
+    // A preprocessor line gets directive/macro completion instead of HLSL symbols.
+    const directive = directiveContext(text, offset);
+    if (directive === 'directive') return DIRECTIVE_ITEMS;
+    if (directive === 'macro' || directive === 'define' || directive === 'condition') {
+        return macroCompletions(scope, directive);
+    }
+    if (directive === 'other') return [];
+    const member = memberAccess(text, offset);
+    if (member !== null) return memberCompletions(scope, text, member);
+    // After a type at the start of a declaration (`float x`, `in float2 uv`) the identifier being typed
+    // is a new variable name the user is inventing, so offering existing names would be noise.
+    if (isDeclarationNameContext(text, offset, scope)) return [];
+    return globalCompletions(scope, localSymbols(scope, text, offset));
+};
 
 /** The directive completion context at the cursor, or null when the line is not a preprocessor line. */
 const directiveContext = (

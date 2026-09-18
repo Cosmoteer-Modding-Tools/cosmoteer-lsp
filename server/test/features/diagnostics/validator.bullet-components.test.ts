@@ -72,7 +72,19 @@ describe('bullet component sets the game cannot build', () => {
     });
 
     it('says nothing about a group of components that is not a bullet set', async () => {
-        const part = ['Part', '{', '\tComponents', '\t{', '\t\tX', '\t\t{', '\t\t\tType = Sprite', '\t\t}', '\t}', '}', ''].join('\n');
+        const part = [
+            'Part',
+            '{',
+            '\tComponents',
+            '\t{',
+            '\t\tX',
+            '\t\t{',
+            '\t\t\tType = Sprite',
+            '\t\t}',
+            '\t}',
+            '}',
+            '',
+        ].join('\n');
         expect(await findings(part)).toEqual([]);
     });
 });

@@ -1,5 +1,11 @@
 import { commands, ExtensionContext, l10n, Position, Range, SnippetString, Uri, window, workspace } from 'vscode';
 import { ExecuteCommandRequest, LanguageClient } from 'vscode-languageclient/node';
+import {
+    CreateComponentArgs,
+    CreateComponentFailure,
+    CreateComponentResult,
+} from '../../../shared/create-component.types';
+import { InsertSnippetArgs } from '../../../shared/snippet-action.types';
 
 /**
  * The code actions whose edit ends with the caret on a tab stop, which a workspace edit cannot do, so
@@ -14,33 +20,23 @@ import { ExecuteCommandRequest, LanguageClient } from 'vscode-languageclient/nod
  */
 export const CREATE_COMPONENT_LOCAL_COMMAND = 'cosmoteer.createComponentFromAction';
 
-/** Mirror of the server's create-component arguments (see server features/refactor/create-component). */
-interface CreateComponentArgs {
-    uri: string;
-    offset: number;
-    name: string;
-    type?: string;
-}
-
-/** Mirror of what the server answers with on either round. */
-interface CreateComponentResult {
-    choices?: Array<{ type: string; detail: string }>;
-    insert?: {
-        uri: string;
-        range: { start: { line: number; character: number }; end: { line: number; character: number } };
-        snippet: string;
-    };
-    failure?: string;
-}
+/**
+ * The command the server's snippet-bearing code actions carry. The server does not claim it, and it
+ * cannot: a `WorkspaceEdit` has no way to carry a tab stop, so the text is written here, where the
+ * editor can leave the caret where the author has to type next.
+ */
+export const INSERT_SNIPPET_LOCAL_COMMAND = 'cosmoteer.insertSnippetFromAction';
 
 /**
- * What to say when no component can be declared.
+ * What to say when no component can be declared, one message per reason the server reports.
  *
- * @param failure the reason the server gave, absent when it answered with nothing at all.
+ * @param failure the reason the server gave.
  * @returns the message to show.
  */
-function createComponentFailureMessage(failure: string | undefined): string {
+function createComponentFailureMessage(failure: CreateComponentFailure): string {
     switch (failure) {
+        case 'stale':
+            return l10n.t('The reference has moved since the offer was made, so nothing was declared.');
         case 'noOwner':
             return l10n.t('This file declares no part or bullet to add a component to.');
         case 'notEditable':
@@ -49,23 +45,19 @@ function createComponentFailureMessage(failure: string | undefined): string {
             return l10n.t('A component of that name is already declared here.');
         case 'unknownType':
             return l10n.t('That kind of component cannot be declared here.');
-        default:
-            return l10n.t('The component could not be created.');
     }
 }
 
 /**
- * The command the server's snippet-bearing code actions carry. The server does not claim it, and it
- * cannot: a `WorkspaceEdit` has no way to carry a tab stop, so the text is written here, where the
- * editor can leave the caret where the author has to type next.
+ * What to say about a round the server answered with nothing usable, which is either a named reason
+ * or no answer at all.
+ *
+ * @param result what the server answered with, null when it answered with nothing.
+ * @returns the message to show.
  */
-export const INSERT_SNIPPET_LOCAL_COMMAND = 'cosmoteer.insertSnippetFromAction';
-
-/** Mirror of the server's snippet arguments (see server features/refactor/snippet-action.ts). */
-interface InsertSnippetArgs {
-    uri: string;
-    range: { start: { line: number; character: number }; end: { line: number; character: number } };
-    snippet: string;
+function createComponentProblemMessage(result: CreateComponentResult | null): string {
+    if (result && 'failure' in result) return createComponentFailureMessage(result.failure);
+    return l10n.t('The component could not be created.');
 }
 
 /**
@@ -101,8 +93,8 @@ export function registerSnippetActions(context: ExtensionContext, client: Langua
                     arguments: [{ ...args, type }],
                 })) as CreateComponentResult | null;
             const offered = await run();
-            if (!offered || offered.failure || !offered.choices?.length) {
-                window.showWarningMessage(createComponentFailureMessage(offered?.failure));
+            if (!offered || !('choices' in offered) || offered.choices.length === 0) {
+                window.showWarningMessage(createComponentProblemMessage(offered));
                 return;
             }
             const picked = await window.showQuickPick(
@@ -115,8 +107,8 @@ export function registerSnippetActions(context: ExtensionContext, client: Langua
             );
             if (!picked) return;
             const written = await run(picked.label);
-            if (!written?.insert) {
-                window.showWarningMessage(createComponentFailureMessage(written?.failure));
+            if (!written || !('insert' in written)) {
+                window.showWarningMessage(createComponentProblemMessage(written));
                 return;
             }
             await insertSnippetAt(written.insert);

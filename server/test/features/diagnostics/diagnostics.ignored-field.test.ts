@@ -100,7 +100,10 @@ describe('ignored-field diagnostics', () => {
         // BeamEffectRules, which owns none of its weapon fields. Without a container slot vouching
         // for the registry the resolution is untrusted, so the foreign members signal a wrong-class
         // resolution rather than dead fields and nothing is flagged.
-        const doc = parse('Fragment\n{\n\tType = Beam\n\tRange = 300\n\tDuration = 5\n\tHitInterval = .1\n}\n', 'file:///mod/shots/fragment.rules');
+        const doc = parse(
+            'Fragment\n{\n\tType = Beam\n\tRange = 300\n\tDuration = 5\n\tHitInterval = .1\n}\n',
+            'file:///mod/shots/fragment.rules'
+        );
         expect(await validateIgnoredFields(doc, token)).toHaveLength(0);
     });
 
@@ -109,7 +112,8 @@ describe('ignored-field diagnostics', () => {
         // five copied fields (none of them ever read by the game) outnumber the four real ones. The
         // BeamMediaEffects slot delegates to the media-effect registry and Type = Beam picks
         // BeamEffectRules from it, so the dead majority must be flagged, not distrusted.
-        const doc = parse(`Part
+        const doc = parse(
+            `Part
 {
     Components
     {
@@ -134,7 +138,9 @@ describe('ignored-field diagnostics', () => {
         }
     }
 }
-`, 'file:///data/parts/t.rules');
+`,
+            'file:///data/parts/t.rules'
+        );
         const errors = await validateIgnoredFields(doc, token);
         const flagged = errors.map((e) => e.message.match(/'(\w+)'/)?.[1]).sort();
         expect(flagged).toEqual([

@@ -13,12 +13,10 @@ import {
 import { lexer } from '../core/lexer/lexer';
 import { parser } from '../core/parser/parser';
 import { getStartOfAstNode } from '../utils/ast.utils';
-import { FullNavigationStrategy } from '../features/navigation/full.navigation-strategy';
+import { navigate } from './navigate-reference';
 import { FileWithPath, isFile } from '../workspace/cosmoteer-workspace.service';
 import { CONSTANTS, mathFunction } from './math-function-registry';
 import { decimalDiv, decimalMinus, decimalMultiply, decimalPlus } from './decimal-arithmetic';
-
-const navigation = new FullNavigationStrategy();
 
 /**
  * One `&reference` the evaluation replaced with a number. This is the substitution step the game's
@@ -93,9 +91,38 @@ interface EvalContext {
     argumentDepth?: number;
 }
 
+// The sigil and suffix patterns of the unquoted-value path, hoisted out of the body below, which
+// runs for every unquoted value node of a parse. A regex literal inside it allocates a fresh RegExp
+// per call. A shared instance carries no state here: only `WHITESPACE_RUN` is global, and it is used
+// through `String.prototype.replace`, which resets `lastIndex` itself.
+const REFERENCE_SIGIL = /^[&<>/.~^]/;
+const WHITESPACE_RUN = /\s+/g;
+const PERCENT_LITERAL = /^-?\d*\.?\d+%$/;
+const DEGREES_LITERAL = /^-?\d*\.?\d+d$/;
+const RADIANS_LITERAL = /^-?\d*\.?\d+r$/;
+
+// Number literals with the game's unit suffixes, and the operator spellings that can appear between
+// them, for the unspaced-token path below. Whitespace is stripped before matching, and parentheses
+// are absent by construction: the lexer keeps them as their own nodes.
+const ARITHMETIC_NUMBER = /^\d*\.?\d+(?:[%dr])?/;
+const ARITHMETIC_OPERATOR = /^(?:\^\^|\^|#|\*|\/|\+|-)/;
+
+// A quoted value is only re-read as an expression when it carries an expression's punctuation. A
+// quoted word or sentence stays a string, so localization text never picks up a number.
+const EXPRESSION_PUNCTUATION = /[&(]|\d\s*[-+*/^#]/;
+
+// Parses of quoted expressions, keyed by the text inside the quotes. The same `"round((&A), 2)"` is
+// re-evaluated on every hint pass over a file, and the parse is pure, so one entry serves them all.
+const quotedExpressionCache = new Map<string, AbstractNode | null>();
+const MAX_QUOTED_EXPRESSION_CACHE = 500;
+
+// mXparser's BinaryRelations.DEFAULT_COMPARISON_EPSILON, also used by BooleanAlgebra to decide
+// truthiness (epsilon comparison is on by default and the game never turns it off).
+const COMPARISON_EPSILON = 1e-14;
+
 /**
  * Compute the concrete numeric value a node resolves to, following references (through
- * inheritance, via the shared {@link FullNavigationStrategy}), arithmetic with `* /` before
+ * inheritance, via the shared {@link navigate}), arithmetic with `* /` before
  * `+ -`, and the evaluatable functions of the math-function registry. Returns `null` for
  * anything not purely numeric
  * (strings, percentages/units, unknown functions, unresolved refs, cycles) so callers can
@@ -175,9 +202,9 @@ export const resolveValueReference = async (
     token: CancellationToken
 ): Promise<AbstractNode | null> => {
     if (!isValueNode(node) || node.valueType.type !== 'Reference') return null;
-    const target = await navigation
-        .navigate(String(node.valueType.value), node, getStartOfAstNode(node).uri, token)
-        .catch(() => null);
+    const target = await navigate(String(node.valueType.value), node, getStartOfAstNode(node).uri, token).catch(
+        () => null
+    );
     return !target || isFile(target as FileWithPath) ? null : (target as AbstractNode);
 };
 
@@ -197,12 +224,12 @@ export const resolveReferencedBaseValue = async (
     token: CancellationToken
 ): Promise<AbstractNode | null> => {
     if (node.valueType.type !== 'Reference') return null;
-    const target = await navigation
-        .navigate(String(node.valueType.value), node, getStartOfAstNode(node).uri, token)
-        .catch(() => null);
+    const target = await navigate(String(node.valueType.value), node, getStartOfAstNode(node).uri, token).catch(
+        () => null
+    );
     if (!target || isFile(target as FileWithPath) || !isGroupNode(target as AbstractNode)) return null;
     const group = target as AbstractNode;
-    const member = await navigation.navigate('BaseValue', group, getStartOfAstNode(group).uri, token).catch(() => null);
+    const member = await navigate('BaseValue', group, getStartOfAstNode(group).uri, token).catch(() => null);
     if (!member || isFile(member as FileWithPath)) return null;
     return member as AbstractNode;
 };
@@ -214,22 +241,6 @@ const evaluate = async (node: AbstractNode, context: EvalContext): Promise<numbe
     if (isFunctionCallNode(node)) return evaluateFunction(node, context);
     return null;
 };
-
-// The sigil and suffix patterns of the unquoted-value path, hoisted out of the body below, which
-// runs for every unquoted value node of a parse. A regex literal inside it allocates a fresh RegExp
-// per call. A shared instance carries no state here: only `WHITESPACE_RUN` is global, and it is used
-// through `String.prototype.replace`, which resets `lastIndex` itself.
-const REFERENCE_SIGIL = /^[&<>/.~^]/;
-const WHITESPACE_RUN = /\s+/g;
-const PERCENT_LITERAL = /^-?\d*\.?\d+%$/;
-const DEGREES_LITERAL = /^-?\d*\.?\d+d$/;
-const RADIANS_LITERAL = /^-?\d*\.?\d+r$/;
-
-// Number literals with the game's unit suffixes, and the operator spellings that can appear between
-// them, for the unspaced-token path below. Whitespace is stripped before matching, and parentheses
-// are absent by construction: the lexer keeps them as their own nodes.
-const ARITHMETIC_NUMBER = /^\d*\.?\d+(?:[%dr])?/;
-const ARITHMETIC_OPERATOR = /^(?:\^\^|\^|#|\*|\/|\+|-)/;
 
 /**
  * The value of a numeric literal, converting the game's suffixes the way `ExpressionEvaluator`
@@ -286,15 +297,6 @@ const evaluateArithmeticText = (text: string, zero?: ZeroDivisionSink): number |
     // not an expression at all.
     return expectOperand || items.length < 3 ? null : foldItems(items, true, zero);
 };
-
-// A quoted value is only re-read as an expression when it carries an expression's punctuation. A
-// quoted word or sentence stays a string, so localization text never picks up a number.
-const EXPRESSION_PUNCTUATION = /[&(]|\d\s*[-+*/^#]/;
-
-// Parses of quoted expressions, keyed by the text inside the quotes. The same `"round((&A), 2)"` is
-// re-evaluated on every hint pass over a file, and the parse is pure, so one entry serves them all.
-const quotedExpressionCache = new Map<string, AbstractNode | null>();
-const MAX_QUOTED_EXPRESSION_CACHE = 500;
 
 /**
  * Evaluate the expression inside a quoted value.
@@ -378,9 +380,12 @@ const evaluateValue = async (node: ValueNode, context: EvalContext): Promise<num
     if (sink) sink.depth++;
     if (context.zero) context.zero.depth++;
     try {
-        const target = await navigation
-            .navigate(String(node.valueType.value), node, getStartOfAstNode(node).uri, context.token)
-            .catch(() => null);
+        const target = await navigate(
+            String(node.valueType.value),
+            node,
+            getStartOfAstNode(node).uri,
+            context.token
+        ).catch(() => null);
         // Same verdict as before the trace existed: an unresolved path and a whole-file target both
         // leave nothing numeric to evaluate, so the value is null.
         const resolved = !target || isFile(target as FileWithPath) ? null : (target as AbstractNode);
@@ -620,10 +625,6 @@ const foldItems = (items: (number | { op: string })[], settle = true, zero?: Zer
     const settled = settle ? almostIntRound(items[0]) : items[0];
     return isFinite(settled) ? settled : null;
 };
-
-// mXparser's BinaryRelations.DEFAULT_COMPARISON_EPSILON, also used by BooleanAlgebra to decide
-// truthiness (epsilon comparison is on by default and the game never turns it off).
-const COMPARISON_EPSILON = 1e-14;
 
 const ulpFloat = new Float64Array(1);
 const ulpBits = new BigUint64Array(ulpFloat.buffer);

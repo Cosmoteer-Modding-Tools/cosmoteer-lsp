@@ -110,6 +110,14 @@ class PartTableEditResult(
     var note: String? = null,
 )
 
+/** Result of the `cosmoteer/partTableWorkbook` request (mirror of the server's PartTableWorkbookResult). */
+class PartTableWorkbookResult(
+    /** The name the save dialog opens on. */
+    var fileName: String = "",
+    /** The workbook's bytes, base64 encoded. */
+    var base64: String = "",
+)
+
 /** Parameters of the `cosmoteer/schemaSearchDetail` request. */
 class SchemaSearchDetailParams(var id: String = "")
 
@@ -297,4 +305,13 @@ interface CosmoteerLanguageServerAPI : LanguageServer {
      */
     @JsonRequest("cosmoteer/partTableEdit")
     fun partTableEdit(params: PartTableEditParams): CompletableFuture<PartTableEditResult?>
+
+    /**
+     * Builds the workbook of what the part table is showing, for the reader to take away.
+     *
+     * @param params the rows, columns and formulas the page sends, passed through as JSON.
+     * @returns the workbook and the name to save it under, or null when it could not be built.
+     */
+    @JsonRequest("cosmoteer/partTableWorkbook")
+    fun partTableWorkbook(params: JsonObject): CompletableFuture<PartTableWorkbookResult?>
 }

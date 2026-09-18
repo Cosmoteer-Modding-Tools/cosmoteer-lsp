@@ -43,6 +43,28 @@ export interface WizardFormSpec {
 type FormMessage = { type: 'submit'; answer: unknown } | { type: 'pick'; what: string } | { type: 'cancel' };
 
 /**
+ * The opening of the page script for a form that asks for an id and a display name: `byId` for the
+ * fields, and the name following the id as it is typed until the author writes one of their own.
+ * The fields it reads are the `id` and `name` inputs every such form declares.
+ */
+export const ID_SUGGESTS_NAME_SCRIPT = `    var byId = function (id) { return document.getElementById(id); };
+    var nameTouched = false;
+    byId('id').addEventListener('input', function () {
+        if (nameTouched) return;
+        byId('name').value = byId('id').value.trim().split('_').filter(Boolean).map(function (w) { return w.charAt(0).toUpperCase() + w.slice(1); }).join(' ');
+    });
+    byId('name').addEventListener('input', function () { nameTouched = byId('name').value.trim().length > 0; });`;
+
+/**
+ * The name a form calls the mod it writes into by, which is the name of its folder.
+ *
+ * @param modRoot the mod's path, in either separator.
+ * @returns the last segment of the path, or the path itself when it has none.
+ */
+export const modFolderName = (modRoot: string): string =>
+    modRoot.replace(/\\/g, '/').split('/').filter(Boolean).pop() ?? modRoot;
+
+/**
  * Escapes text for an HTML attribute or text node.
  *
  * @param text the text.

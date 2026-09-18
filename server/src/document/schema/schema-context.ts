@@ -18,8 +18,9 @@ import {
     isGroupNode,
     isListNode,
     isValueNode,
+    childNodesOf,
 } from '../../core/ast/ast';
-import { childNodesOf, namedMembersOf } from '../../utils/ast.utils';
+import { namedMembersOf } from '../../utils/ast.utils';
 import {
     classAncestry,
     classByDiscriminator,
@@ -36,7 +37,7 @@ import { SchemaField, SchemaRegistry, ValueType } from './schema.types';
 import { documentRootClass } from './document-root';
 import { aliasedMemberType, aliasedRootClass, inheritanceBaseCandidates } from './alias-root';
 import { SHADER_GROUP_CLASS, TEXTURE_GROUP_CLASS } from './schema-overlay';
-import { stepIntoNode } from '../../semantics/reference-resolver';
+import { stepIntoNode } from '../reference-resolver';
 import { perfCount } from '../../utils/perf-counters';
 
 /**
@@ -63,6 +64,13 @@ const ROOT_GROUP_BY_PATH: ReadonlyArray<{ readonly test: RegExp; readonly cls: s
 
 /** Minimum fraction of a root group's named members the candidate class must own to anchor it. */
 const MIN_GROUP_ROOT_COVERAGE = 0.5;
+
+/** The value-type kinds that carry an `element` type, which is what makes a slot list-shaped. */
+const ELEMENT_KINDS = new Set(['list', 'range', 'interpolated']);
+
+/** Memo entries above this parent-chain depth are skipped so a depth-limited (truncated) walk
+ *  can never persist its partial answer for a shallower caller. */
+const MEMO_DEPTH_LIMIT = 24;
 
 /**
  * The names a group's assignments and identified `{}`/`[]` members declare, in written order. A bare
@@ -95,8 +103,6 @@ const groupFitsClass = (group: GroupNode, cls: string): boolean => {
     return known / names.length >= MIN_GROUP_ROOT_COVERAGE;
 };
 
-const ELEMENT_KINDS = new Set(['list', 'range', 'interpolated']);
-
 // Slot and class resolution walk the parent chain per node and re-derive the same ancestors for
 // every sibling, on every request. Both are memoized per AST node here. A node's resolution can
 // also depend on cross-file rooting state (alias roots, reverse includes), which changes without
@@ -109,10 +115,6 @@ export const invalidateSchemaContextCache = (): void => {
     contextEpoch++;
     perfCount('schemaEpochBump');
 };
-
-/** Memo entries above this parent-chain depth are skipped so a depth-limited (truncated) walk
- *  can never persist its partial answer for a shallower caller. */
-const MEMO_DEPTH_LIMIT = 24;
 
 const slotTypeCache: WeakMap<AbstractNode, { epoch: number; value: ValueType | undefined }> = new WeakMap();
 const groupClassCache: WeakMap<GroupNode, { epoch: number; value: string | undefined }> = new WeakMap();
@@ -622,14 +624,6 @@ export const resolveGroupClass = (group: GroupNode, depth = 0): string | undefin
 };
 
 /**
- * The slot-driven part of {@link resolveGroupClass}, taking the group's already-resolved slot type so
- * a caller that needs the slot for its own purposes does not trigger a second recursive resolution.
- *
- * @param group the group whose class is wanted.
- * @param expected the group's slot type, as {@link expectedValueType} returns it.
- * @returns the class FullName, or undefined when the group cannot be anchored.
- */
-/**
  * Break a colliding `Type=` inside an untyped `Components` container by field fit. `ArcShield` names
  * both a part component and a media effect, and a `Components` group written at a fragment file's root
  * has no slot and no differently-typed sibling to infer from, so the first registry declaring the name
@@ -667,6 +661,14 @@ const componentFragmentClass = (group: GroupNode): string | undefined => {
 const usesRangeKeys = (group: GroupNode): boolean =>
     namedMembersOf(group).some(([name]) => /^(value|min|max)$/i.test(name));
 
+/**
+ * The slot-driven part of {@link resolveGroupClass}, taking the group's already-resolved slot type so
+ * a caller that needs the slot for its own purposes does not trigger a second recursive resolution.
+ *
+ * @param group the group whose class is wanted.
+ * @param expected the group's slot type, as {@link expectedValueType} returns it.
+ * @returns the class FullName, or undefined when the group cannot be anchored.
+ */
 const classFromSlot = (group: GroupNode, expected: ValueType | undefined): string | undefined => {
     if (expected?.kind === 'group') {
         // A wrapper class delegating its value form to a registry (`[Serialize(Alias="")]` on a

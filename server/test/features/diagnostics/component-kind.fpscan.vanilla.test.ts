@@ -8,13 +8,12 @@ import { parser } from '../../../src/core/parser/parser';
 import { globalSettings } from '../../../src/settings';
 import { CosmoteerWorkspaceService } from '../../../src/workspace/cosmoteer-workspace.service';
 import { aliasRootIndex } from '../../../src/document/schema/alias-root';
-import { ReverseIncludeIndex } from '../../../src/features/navigation/reverse-include.index';
-import { ParserResultRegistrar } from '../../../src/registrar/parser-result-registrar';
+import { ReverseIncludeIndex } from '../../../src/mod/reverse-include.index';
+import { ParserResultRegistrar } from '../../../src/document/parser-result-registrar';
 import { collectPartComponentIds } from '../../../src/features/diagnostics/validator.schema-sibling';
 import { resolveGroupClass } from '../../../src/document/schema/schema-context';
 import { componentSatisfiesKind, fieldOf } from '../../../src/document/schema/schema';
-import { AbstractNode, isAssignmentNode, isGroupNode, isValueNode } from '../../../src/core/ast/ast';
-import { childNodesOf } from '../../../src/utils/ast.utils';
+import { AbstractNode, childNodesOf, isAssignmentNode, isGroupNode, isValueNode } from '../../../src/core/ast/ast';
 
 // The slot-kind check is judged by two numbers, and one of them is not "zero findings". A check that
 // abstains everywhere reports zero too, so this counts what it actually judged on the game's own
@@ -43,7 +42,11 @@ const parseFile = (abs: string) => parser(lexer(readFileSync(abs, 'utf8')), path
 describe.skipIf(!HAVE_DATA)('component slot kinds over vanilla Data', () => {
     beforeAll(async () => {
         globalSettings.cosmoteerPath = DATA_DIR;
-        const noop: WorkDoneProgressReporter = { begin: () => undefined, report: () => undefined, done: () => undefined };
+        const noop: WorkDoneProgressReporter = {
+            begin: () => undefined,
+            report: () => undefined,
+            done: () => undefined,
+        };
         const service = CosmoteerWorkspaceService.instance;
         service.setConnection({
             languages: { diagnostics: { refresh: () => undefined } },
@@ -99,7 +102,8 @@ describe.skipIf(!HAVE_DATA)('component slot kinds over vanilla Data', () => {
                             if (!slot) continue;
                             const written = String(element.right.valueType.value);
                             const declaration = ids.declarations.get(written.toLowerCase());
-                            const declared = declaration && isGroupNode(declaration) ? resolveGroupClass(declaration) : undefined;
+                            const declared =
+                                declaration && isGroupNode(declaration) ? resolveGroupClass(declaration) : undefined;
                             const verdict = declared ? componentSatisfiesKind(declared, slot.kind) : undefined;
                             if (verdict === undefined) abstained++;
                             else if (verdict) judged++;

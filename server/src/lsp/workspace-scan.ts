@@ -2,10 +2,11 @@ import { CancellationToken, CancellationTokenSource, Diagnostic } from 'vscode-l
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { readFile, stat } from 'fs/promises';
 import { pathToFileURL } from 'url';
-import { collectRulesFiles, uriToFsPath } from '../features/navigation/workspace-files';
-import { MentionIndex } from '../features/navigation/mention.index';
-import { filePathToUri } from '../features/navigation/navigation-strategy';
-import { normalizeUri } from '../features/navigation/reference-location';
+import { uriToFsPath } from '../workspace/workspace-files';
+import { collectRulesFiles } from '../workspace/rules-file-walk';
+import { MentionIndex } from '../workspace/mention.index';
+import { filePathToUri } from '../document/reference-path';
+import { normalizeUri } from '../document/reference-location';
 import { reachabilityKey } from '../mod/mod-reachability';
 import { CosmoteerWorkspaceService } from '../workspace/cosmoteer-workspace.service';
 import { beginFsTrustWindow, endFsTrustWindow, foldPathCase } from '../workspace/fs-cache';
@@ -17,7 +18,7 @@ import {
     ScanCacheEntry,
     tryLoadScanCache,
 } from '../workspace/index-cache';
-import { startScanCpuProfile, stopScanCpuProfile } from '../utils/cpu-profile';
+import { startScanCpuProfile, stopScanCpuProfile } from './cpu-profile';
 import { perfCount, perfSampleMemory } from '../utils/perf-counters';
 import { globalSettings } from '../settings';
 import { traceFailure } from '../utils/cancellation';
@@ -36,6 +37,7 @@ import {
 import { workspaceFolderUris } from './workspace-folders';
 import { modPlans } from '../features/refactor/shared-base/mod-scan';
 import { modRootsUnder } from '../features/refactor/register-part/ship-registry';
+import { COSMOTEER_METHOD } from '../../../shared/lsp-methods';
 
 // ── Whole-workspace diagnostics ─────────────────────────────────────────────────────────────
 // On by default. Besides the file open in the editor (see `documents.onDidChangeContent`), the
@@ -55,6 +57,21 @@ export const WORKSPACE_DIAGNOSTIC_CONCURRENCY = 6;
 const workspaceDiagnosticUris = new Set<string>();
 /** Cancels an in-flight whole-workspace pass when settings or folders change again. */
 let workspaceValidationSource: CancellationTokenSource | undefined;
+
+/** Upper bound of cached scan results, above one full pass over the largest known mods. */
+const SCAN_RESULT_CAP = 16384;
+
+/** How long after a pass the collection runs, long enough for the last publishes to be written and
+ *  short enough that the process is not left holding the pass's garbage while the user reads the
+ *  problems it produced. */
+const SCAN_MEMORY_RELEASE_DELAY_MS = 2_000;
+
+/**
+ * How many files a pass has to cover before the client is told about it. Below this a whole-mod
+ * scan is over before the user notices and costs nothing worth a notification. The point of the
+ * notice is the project where it is a real amount of work.
+ */
+const WORKSPACE_VALIDATION_NOTICE_MIN_FILES = 250;
 
 /**
  * Retracts the whole-workspace diagnostics published for one file. A retraction has to be sent to
@@ -83,9 +100,6 @@ interface ScanResultEntry {
 
 /** Per-file scan results, keyed by case-folded fs path. */
 const scanResultCache = new Map<string, ScanResultEntry>();
-/** Upper bound of cached scan results, above one full pass over the largest known mods. */
-const SCAN_RESULT_CAP = 16384;
-
 /** Whether the persisted scan cache was already offered to this session (it seeds at most once). */
 let persistedScanAttempted = false;
 /** How many files any scan pass validated fresh (not served from a cache), for the save gate. */
@@ -375,11 +389,6 @@ async function warmSharedBaseFacts(folderUris: string[], token: CancellationToke
     }
 }
 
-/** How long after a pass the collection runs, long enough for the last publishes to be written and
- *  short enough that the process is not left holding the pass's garbage while the user reads the
- *  problems it produced. */
-const SCAN_MEMORY_RELEASE_DELAY_MS = 2_000;
-
 /** The pending collection, so a run of passes (a settings flip, a folder change) schedules one. */
 let scanMemoryReleaseTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -409,13 +418,6 @@ const releaseScanMemory = (): void => {
     }, SCAN_MEMORY_RELEASE_DELAY_MS).unref();
 };
 
-/**
- * How many files a pass has to cover before the client is told about it. Below this a whole-mod
- * scan is over before the user notices and costs nothing worth a notification. The point of the
- * notice is the project where it is a real amount of work.
- */
-const WORKSPACE_VALIDATION_NOTICE_MIN_FILES = 250;
-
 /** Only the first qualifying pass of a session announces itself. */
 let workspaceValidationAnnounced = false;
 
@@ -436,7 +438,7 @@ function announceWorkspaceValidation(files: number, fresh: number, elapsedMs: nu
     if (files < WORKSPACE_VALIDATION_NOTICE_MIN_FILES || fresh === 0) return;
     workspaceValidationAnnounced = true;
     void connection
-        .sendNotification('cosmoteer/workspaceValidated', {
+        .sendNotification(COSMOTEER_METHOD.workspaceValidated, {
             files,
             fresh,
             elapsedMs,

@@ -1,10 +1,17 @@
 import { dirname, relative, resolve } from 'path';
 import { CancellationToken, TextEdit, WorkspaceEdit } from 'vscode-languageserver';
-import { AbstractNode, AbstractNodeDocument, isGroupNode, isListNode, isValueNode } from '../../core/ast/ast';
-import { childNodesOf, parseFilePath } from '../../utils/ast.utils';
-import { ParserResultRegistrar } from '../../registrar/parser-result-registrar';
-import { filePathToUri } from '../navigation/navigation-strategy';
-import { documentsMentioning, uriToFsPath } from '../navigation/workspace-files';
+import {
+    AbstractNode,
+    AbstractNodeDocument,
+    isGroupNode,
+    isListNode,
+    isValueNode,
+    childNodesOf,
+} from '../../core/ast/ast';
+import { parseFilePath } from '../../utils/ast.utils';
+import { ParserResultRegistrar } from '../../document/parser-result-registrar';
+import { filePathToUri } from '../../document/reference-path';
+import { documentsMentioning, uriToFsPath } from '../../workspace/workspace-files';
 
 /**
  * Keeping the references to a `.rules` file working when the file is moved or renamed.

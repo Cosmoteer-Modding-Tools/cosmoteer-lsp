@@ -13,6 +13,7 @@ import {
 import { LanguageClient } from 'vscode-languageclient/node';
 import { createCosmoteerPanel, disposeAll, stringsScript, webviewShell } from '../webview-util';
 import { diagramViewStrings } from '../webview-strings';
+import { DiagramPanelMessage } from './diagram-panel.types';
 
 /** The payload shape the server's diagram requests return. */
 interface DiagramData {
@@ -147,7 +148,7 @@ export class DiagramPanel {
      *
      * @param message the message the page posted.
      */
-    private async onMessage(message: { type: string; uri?: string; range?: unknown }): Promise<void> {
+    private async onMessage(message: DiagramPanelMessage): Promise<void> {
         if (message.type === 'ready') {
             this.ready = true;
             if (this.queued) {
@@ -193,7 +194,7 @@ export class DiagramPanel {
 <ul id="notes" hidden></ul>
 </div>
 ${stringsScript(nonce, diagramViewStrings())}
-<script nonce="${nonce}" src="${asset('diagram-view.js')}"></script>
+<script nonce="${nonce}" src="${asset('dist', 'diagram-view.js')}"></script>
 </body>
 </html>`;
     }

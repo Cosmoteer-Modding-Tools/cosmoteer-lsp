@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { CancellationToken, TextEdit } from 'vscode-languageserver';
-import { RenameService } from '../../../src/features/navigation/rename.service';
+import { prepareRename, rename } from '../../../src/features/navigation/rename.service';
 import { AbstractNodeDocument, isAssignmentNode, isGroupNode, isValueNode } from '../../../src/core/ast/ast';
 import { parseFilePath } from '../../../src/utils/ast.utils';
 import { walkAst } from '../../helpers';
@@ -8,7 +8,6 @@ import { initWorkspace, WORKSPACE_DATA_DIR, workspaceFile } from '../../workspac
 
 // End-to-end rename over the fixture workspace: the declaration plus every reference
 // SEGMENT (endpoint and mid-path) that resolves to the target is rewritten.
-const service = RenameService.instance;
 const token = CancellationToken.None;
 const FOLDERS = [WORKSPACE_DATA_DIR];
 
@@ -27,7 +26,7 @@ const groupIdentifier = (doc: AbstractNodeDocument, name: string) => {
 /** The text a TextEdit produces and the line it targets, for compact assertions. */
 const editText = (edit: TextEdit) => edit.newText;
 
-describe('RenameService', () => {
+describe('rename', () => {
     let bDoc: AbstractNodeDocument;
     let aDoc: AbstractNodeDocument;
 
@@ -39,14 +38,14 @@ describe('RenameService', () => {
 
     it('prepareRename returns the identifier range and current name on a definition', async () => {
         const inner = assignmentKey(bDoc, 'InnerValue');
-        const prep = await service.prepareRename(bDoc, positionOf(inner.position));
+        const prep = await prepareRename(bDoc, positionOf(inner.position));
         expect(prep?.placeholder).toBe('InnerValue');
         expect(prep?.range.start.character).toBe(inner.position.characterStart);
     });
 
     it('renames a definition and its cross-file reference segment', async () => {
         const inner = assignmentKey(bDoc, 'InnerValue');
-        const edit = await service.rename(bDoc, positionOf(inner.position), 'RenamedInner', FOLDERS, token);
+        const edit = await rename(bDoc, positionOf(inner.position), 'RenamedInner', FOLDERS, token);
         expect(edit).not.toBeNull();
 
         const files = Object.keys(edit!.changes!);
@@ -61,7 +60,7 @@ describe('RenameService', () => {
 
     it('rewrites BOTH the endpoint and the mid-path occurrences when renaming group B', async () => {
         // a.rules references B as `…/B` (endpoint) AND `…/B/InnerValue`, `…/B/ToC`, … (mid-path).
-        const edit = await service.rename(bDoc, positionOf(groupIdentifier(bDoc, 'B').position), 'Bee', FOLDERS, token);
+        const edit = await rename(bDoc, positionOf(groupIdentifier(bDoc, 'B').position), 'Bee', FOLDERS, token);
         expect(edit).not.toBeNull();
 
         const aFile = Object.keys(edit!.changes!).find((f) => f.endsWith('a.rules'))!;
@@ -79,7 +78,7 @@ describe('RenameService', () => {
         )!;
         // Cursor on the trailing `InnerValue` segment of the reference.
         const innerStart = toB.position.characterStart + '&<./Data/b.rules>/B/'.length;
-        const edit = await service.rename(aDoc, { line: toB.position.line, character: innerStart }, 'FromRef', FOLDERS, token);
+        const edit = await rename(aDoc, { line: toB.position.line, character: innerStart }, 'FromRef', FOLDERS, token);
 
         expect(edit).not.toBeNull();
         const bFile = Object.keys(edit!.changes!).find((f) => f.endsWith('b.rules'))!;
@@ -88,13 +87,13 @@ describe('RenameService', () => {
 
     it('rejects an invalid new name', async () => {
         const inner = assignmentKey(bDoc, 'InnerValue');
-        const edit = await service.rename(bDoc, positionOf(inner.position), 'bad name/slash', FOLDERS, token);
+        const edit = await rename(bDoc, positionOf(inner.position), 'bad name/slash', FOLDERS, token);
         expect(edit).toBeNull();
     });
 
     it('rejects a bare index as a new name, which would move an element instead of naming one', async () => {
         const inner = assignmentKey(bDoc, 'InnerValue');
-        expect(await service.rename(bDoc, positionOf(inner.position), '0', FOLDERS, token)).toBeNull();
+        expect(await rename(bDoc, positionOf(inner.position), '0', FOLDERS, token)).toBeNull();
     });
 
     // The caret on `B` in `&<./Data/b.rules>/B/Nested/Deep/Leaf` names B, not the Leaf the path ends
@@ -108,9 +107,9 @@ describe('RenameService', () => {
             character: toNested.position.characterStart + '&<./Data/b.rules>/'.length,
         };
 
-        expect((await service.prepareRename(aDoc, position))?.placeholder).toBe('B');
+        expect((await prepareRename(aDoc, position))?.placeholder).toBe('B');
 
-        const edit = await service.rename(aDoc, position, 'Bee', FOLDERS, token);
+        const edit = await rename(aDoc, position, 'Bee', FOLDERS, token);
         expect(edit).not.toBeNull();
         const edits = Object.values(edit!.changes!).flat();
         expect(edits.length).toBeGreaterThan(0);
@@ -124,9 +123,9 @@ describe('RenameService', () => {
         const aliasDoc = await parseFilePath(workspaceFile('repeated-refs.rules'));
         const alias = assignmentKey(aliasDoc, 'AliasedFile');
 
-        expect((await service.prepareRename(aliasDoc, positionOf(alias.position)))?.placeholder).toBe('AliasedFile');
+        expect((await prepareRename(aliasDoc, positionOf(alias.position)))?.placeholder).toBe('AliasedFile');
 
-        const edit = await service.rename(aliasDoc, positionOf(alias.position), 'Renamed', FOLDERS, token);
+        const edit = await rename(aliasDoc, positionOf(alias.position), 'Renamed', FOLDERS, token);
         expect(edit).not.toBeNull();
         const aliasFile = Object.keys(edit!.changes!).find((f) => f.endsWith('repeated-refs.rules'))!;
         // The declaration plus the `&AliasedFile/B/InnerValue` use.

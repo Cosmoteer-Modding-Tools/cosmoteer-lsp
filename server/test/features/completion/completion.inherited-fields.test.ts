@@ -3,7 +3,7 @@ import { CancellationToken } from 'vscode-languageserver';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
 import { AbstractNode, AbstractNodeDocument, GroupNode, isGroupNode, isListNode } from '../../../src/core/ast/ast';
-import { Completion, CompletionSuggestion } from '../../../src/features/completion/autocompletion.service';
+import { Completion, CompletionSuggestion } from '../../../src/features/completion/autocompletion.service.types';
 import { schemaFieldNameCompletions } from '../../../src/features/completion/autocompletion.schema-fields';
 import {
     NO_INHERITED_MEMBERS,

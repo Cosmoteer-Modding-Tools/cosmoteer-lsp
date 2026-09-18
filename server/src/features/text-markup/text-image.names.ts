@@ -8,7 +8,7 @@ import { modOverrideMemberNamesForFile } from '../../mod/mod-context';
 import { namedMembersOf } from '../../utils/ast.utils';
 import { cachedParseFilePath } from '../../workspace/fs-cache';
 import { SchemaIdIndex } from '../completion/schema-id.index';
-import { uriToFsPath } from '../navigation/workspace-files';
+import { uriToFsPath } from '../../workspace/workspace-files';
 
 /**
  * The image names a `<img name='…'/>` in a drawn string can carry.

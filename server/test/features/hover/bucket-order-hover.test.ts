@@ -7,7 +7,7 @@ import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
 import { SchemaIdIndex } from '../../../src/features/completion/schema-id.index';
 import { bucketOrderHover } from '../../../src/features/hover/bucket-order-hover';
-import { filePathToUri } from '../../../src/features/navigation/navigation-strategy';
+import { filePathToUri } from '../../../src/document/reference-path';
 import { findNodeAtPosition } from '../../../src/utils/ast.utils';
 import { FIXTURES_DIR } from '../../helpers';
 import { initWorkspace } from '../../workspace-helper';

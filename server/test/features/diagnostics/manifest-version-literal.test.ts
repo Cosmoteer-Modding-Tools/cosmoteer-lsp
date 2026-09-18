@@ -6,13 +6,14 @@ import { tmpdir } from 'os';
 import { pathToFileURL } from 'url';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
-import { gameAssemblyPathFor, readGameVersionInfo } from '../../../src/features/game-version';
 import {
-    clearGameVersionsCache,
+    clearGameVersionInfoCache,
     currentGameVersionsLiteral,
+    gameAssemblyPathFor,
     gameVersionsInsertLiteral,
-    validateManifestVersion,
-} from '../../../src/features/diagnostics/validator.manifest-version';
+    readGameVersionInfo,
+} from '../../../src/features/game-version';
+import { validateManifestVersion } from '../../../src/features/diagnostics/validator.manifest-version';
 import { CosmoteerWorkspaceService } from '../../../src/workspace/cosmoteer-workspace.service';
 
 // The version the quick fix inserts comes from the installed game, so these cases build a throwaway
@@ -68,13 +69,13 @@ describe('the game version the manifest quick fix inserts', () => {
     it('reads a shipped manifest through the tree, not as text', async () => {
         // A text match takes the commented line, and one confined to a single line misses the live
         // list altogether.
-        clearGameVersionsCache();
-        expect(await currentGameVersionsLiteral()).toBe('["9.9.9"]');
+        clearGameVersionInfoCache();
+        expect(await currentGameVersionsLiteral(DATA_ROOT)).toBe('["9.9.9"]');
     });
 
     it('falls back to the shipped manifests when there is no assembly to read', async () => {
-        clearGameVersionsCache();
-        expect(await gameVersionsInsertLiteral()).toBe('["9.9.9"]');
+        clearGameVersionInfoCache();
+        expect(await gameVersionsInsertLiteral(DATA_ROOT)).toBe('["9.9.9"]');
     });
 
     it.runIf(HAVE_GAME)('prefers the version the installed build states in its own assembly', async () => {
@@ -82,8 +83,8 @@ describe('the game version the manifest quick fix inserts', () => {
         // rather than what its shipped mods were last edited to name.
         mkdirSync(join(INSTALL, 'Bin'), { recursive: true });
         copyFileSync(REAL_ASSEMBLY, join(INSTALL, 'Bin', 'Cosmoteer.dll'));
-        clearGameVersionsCache();
-        expect(await gameVersionsInsertLiteral()).toBe(`["${installed}"]`);
+        clearGameVersionInfoCache();
+        expect(await gameVersionsInsertLiteral(DATA_ROOT)).toBe(`["${installed}"]`);
     });
 
     it.runIf(HAVE_GAME)('puts that version into the quick fix the diagnostic carries', async () => {
@@ -93,7 +94,7 @@ describe('the game version the manifest quick fix inserts', () => {
         writeFileSync(join(modDir, 'mod.rules'), 'ID = test.mod\nName = "New"\nCompatibleGameVersions = ["9.9.9"]\n');
         writeFileSync(join(modDir, 'mod_old.rules'), dead);
         const uri = pathToFileURL(join(modDir, 'mod_old.rules')).href;
-        clearGameVersionsCache();
+        clearGameVersionInfoCache();
         const errors = await validateManifestVersion(parser(lexer(dead), uri).value, CancellationToken.None);
         expect(errors).toHaveLength(1);
         const rewrite = (errors[0].data as { rewrite: { edits: { newText: string }[] } }).rewrite;

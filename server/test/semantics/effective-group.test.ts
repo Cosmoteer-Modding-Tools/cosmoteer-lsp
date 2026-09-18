@@ -13,11 +13,11 @@ import { EffectiveListEntry } from '../../src/semantics/effective-group.types';
 import {
     registerMemberEnumerationSource,
     registerMemberExtensionSource,
-} from '../../src/semantics/reference-resolver';
+} from '../../src/document/reference-resolver';
 import { walkAst } from '../helpers';
 import { initWorkspace, workspaceFile } from '../workspace-helper';
 import { readFileSync } from 'fs';
-import { filePathToUri } from '../../src/features/navigation/navigation-strategy';
+import { filePathToUri } from '../../src/document/reference-path';
 
 const token = CancellationToken.None;
 

@@ -4,10 +4,10 @@ import { dirname } from 'path';
 import { CancellationToken, TextEdit } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { parseText } from '../../../utils/ast.utils';
-import { unifiedDiff } from '../../../utils/unified-diff';
+import { unifiedDiff } from '../unified-diff';
 import { workspaceRelativePath } from '../../../utils/relative-path';
 import { foldPathCase } from '../../../workspace/fs-cache';
-import { normalizeUri } from '../../navigation/reference-location';
+import { normalizeUri } from '../../../document/reference-location';
 import { documentFor, openBuffers } from '../command-host';
 import { baseTargetFrom, BaseTarget } from './base-index';
 import { buildBaseFileText, buildBaseInsertText, relativeRulesReference } from './base-file.emitter';
@@ -23,16 +23,17 @@ import {
 import { judgeExistingBase } from './existing-base';
 import { fileFactsForPath, modFacts, modPlans, rulesFilesUnder } from './mod-scan';
 import { editableModRootOf } from './shared-base.analysis-entry';
-import { ExtractionPlan, Participant, SerializedPlan, serializePlan } from './plan.types';
+import { ExtractionPlan, Participant, serializePlan } from './plan.types';
+import { SharedBaseHost } from './shared-base.types';
 import {
     ExtractSharedBaseArgs,
+    SerializedPlan,
     SharedBaseApplyResult,
     SharedBaseFailure,
-    SharedBaseHost,
     SharedBasePreviewFile,
     SharedBasePreviewResult,
     SharedBaseScanResult,
-} from './shared-base.types';
+} from '../../../../../shared/shared-base.types';
 
 /**
  * The `workspace/executeCommand` id of the shared-base extraction. Both clients invoke it: without a

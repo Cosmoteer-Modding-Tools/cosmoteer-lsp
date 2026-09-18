@@ -63,11 +63,11 @@ export interface ModReachability {
     deadEdges: Map<string, string[]>;
 }
 
-/** The canonical set-membership key for a file path on a case-insensitive filesystem. */
-export const reachabilityKey = (path: string): string => path.replace(/\\/g, '/').toLowerCase();
-
 /** Every `<…>` occurrence in a file's text, inner text only. */
 const FILE_REF_RE = /<([^<>\r\n"]+)>/g;
+
+/** The canonical set-membership key for a file path on a case-insensitive filesystem. */
+export const reachabilityKey = (path: string): string => path.replace(/\\/g, '/').toLowerCase();
 
 /**
  * Blanks out `//` line comments and `/*` block comments with spaces, mirroring the lexer's
@@ -168,15 +168,207 @@ const collectSourceRefs = (node: AbstractNode, out: string[]): void => {
     }
 };
 
+/** The state one reachability walk threads through its steps. */
+interface ReachabilityWalk {
+    /** The mod root, forward-slash normalized and without a trailing separator. */
+    root: string;
+    /** Every `.rules` file under the mod, keyed per {@link reachabilityKey}. */
+    knownFiles: Set<string>;
+    /** The keys of the files reached so far. */
+    reachable: Set<string>;
+    /** The reached files whose own refs have still to be expanded. */
+    queue: string[];
+    /**
+     * Refs a file writes only inside a comment, keyed by the target they name, so an unreachable
+     * file can be annotated with the file whose commented-out line disables it.
+     */
+    commentedReferencers: Map<string, string[]>;
+}
+
+/**
+ * Marks a file reached and queues its own refs for expansion, ignoring a file already reached.
+ *
+ * @param walk the walk's state.
+ * @param path the absolute path to reach, or undefined when a ref named nothing inside the mod.
+ * @returns nothing.
+ */
+const enqueue = (walk: ReachabilityWalk, path: string | undefined): void => {
+    if (!path) return;
+    const key = reachabilityKey(path);
+    if (walk.reachable.has(key)) return;
+    walk.reachable.add(key);
+    walk.queue.push(path);
+};
+
+/**
+ * Remembers every ref a file writes only inside a comment, which is content the closure must not
+ * follow but a dead file still wants named as the line that would revive it.
+ *
+ * @param walk the walk's state.
+ * @param text the file's raw text.
+ * @param fromFile the absolute path of the file the refs are written in.
+ * @param fromDir the directory the refs resolve against first.
+ * @returns nothing.
+ */
+const recordCommented = (walk: ReachabilityWalk, text: string, fromFile: string, fromDir: string): void => {
+    const live = new Set<string>();
+    for (const match of stripComments(text).matchAll(FILE_REF_RE)) live.add(match[1]);
+    for (const match of text.matchAll(FILE_REF_RE)) {
+        if (live.has(match[1])) continue;
+        const target = resolveRef(match[1], fromDir, walk.root, walk.knownFiles);
+        if (!target) continue;
+        const targetKey = reachabilityKey(target);
+        const referencers =
+            walk.commentedReferencers.get(targetKey) ?? walk.commentedReferencers.set(targetKey, []).get(targetKey)!;
+        if (!referencers.includes(fromFile)) referencers.push(fromFile);
+    }
+};
+
+/**
+ * Seeds the closure from one manifest: the manifest itself, every file its parsed action sources
+ * reference, every file its `Actions` list inherits from, and every `.rules` under its
+ * `StringsFolder`. Action targets contribute nothing, since they name vanilla locations that would
+ * otherwise collide with same-named mod files.
+ *
+ * @param walk the walk's state.
+ * @param manifest the absolute path of the manifest.
+ * @returns nothing.
+ */
+const seedFromManifest = async (walk: ReachabilityWalk, manifest: string): Promise<void> => {
+    walk.reachable.add(reachabilityKey(manifest));
+    const manifestDir = dirname(manifest);
+    // A whole action commented out is the most common way a mod ships content the game never
+    // loads, and the manifest is not walked with the rest, so its own comments are read here.
+    recordCommented(walk, await readFile(manifest, 'utf8').catch(() => ''), manifest, manifestDir);
+    const document = await parseFilePath(manifest).catch(() => null);
+    if (!document) return;
+    for (const action of parseModActions(document)) {
+        const refs: string[] = [];
+        for (const source of action.sources) collectSourceRefs(source, refs);
+        for (const ref of refs) enqueue(walk, resolveRef(ref, manifestDir, walk.root, walk.knownFiles));
+    }
+    // A manifest may build its `Actions` by concatenating other files' action lists via virtual
+    // inheritance (`Actions: &<launcher.rules>/Actions, …`). Those `<file>` refs live in the
+    // list's inheritance, not its body, so parseModActions never sees them, yet the game loads
+    // each referenced file to merge its actions in. Seed them here. Their own `<…>` refs (the
+    // parts/resources the actions add) then expand with the rest of the closure.
+    for (const base of findActionsList(document)?.inheritance ?? []) {
+        if (!isValueNode(base) || base.valueType.type !== 'Reference') continue;
+        const alias = parseAlias(String(base.valueType.value));
+        if (alias)
+            enqueue(
+                walk,
+                resolveRef(alias.fileRef.replace(/^</, '').replace(/>$/, ''), manifestDir, walk.root, walk.knownFiles)
+            );
+    }
+    // Language files under the StringsFolder are loaded by the game directly. The game's node
+    // lookup is case-insensitive, so `Stringsfolder` (seen in a published mod) counts too.
+    for (const element of document.elements) {
+        if (!isAssignmentNode(element) || element.left.name.toLowerCase() !== 'stringsfolder') continue;
+        const value = element.right;
+        if (!value || !isValueNode(value)) continue;
+        const stringsDir = resolve(manifestDir, String(value.valueType.value).replace(/"/g, ''));
+        if (!existsSync(stringsDir)) continue;
+        for (const file of rulesFilesUnder(stringsDir)) walk.reachable.add(reachabilityKey(file));
+    }
+};
+
+/**
+ * Expands the closure in waves: every queued file is read concurrently, then the refs the wave
+ * surfaced fill the queue for the next one. IO parallelism dominates the cost. Only refs surviving
+ * the comment strip expand, since a commented-out include is disabled content the game never
+ * follows, and those stripped-away refs are remembered per target instead.
+ *
+ * @param walk the walk's state.
+ * @param token cancels the walk between waves.
+ * @returns nothing.
+ */
+const expandClosure = async (walk: ReachabilityWalk, token: CancellationToken): Promise<void> => {
+    while (walk.queue.length > 0) {
+        if (token.isCancellationRequested) break;
+        const wave = walk.queue.splice(0);
+        const texts = await Promise.all(wave.map((file) => readFile(file, 'utf8').catch(() => '')));
+        for (const [index, text] of texts.entries()) {
+            const fromDir = dirname(wave[index]);
+            for (const match of stripComments(text).matchAll(FILE_REF_RE)) {
+                enqueue(walk, resolveRef(match[1], fromDir, walk.root, walk.knownFiles));
+            }
+            recordCommented(walk, text, wave[index], fromDir);
+        }
+    }
+};
+
+/**
+ * Builds the graph over the files the closure never reached, which tells "referenced by nothing"
+ * apart from "referenced only by other dead files". Only the unreachable files are scanned, since a
+ * reachable referencer would have pulled the file in.
+ *
+ * @param walk the walk's state, read for the refs recorded from comments.
+ * @param unreachable the absolute paths the closure never reached.
+ * @param token skips the file reads when cancellation is already requested.
+ * @returns the backward edges per target and the live forward edges per source.
+ */
+const deadContentGraph = async (
+    walk: ReachabilityWalk,
+    unreachable: string[],
+    token: CancellationToken
+): Promise<{ deadReferencers: Map<string, string[]>; deadEdges: Map<string, string[]> }> => {
+    const unreachableKeys = new Set(unreachable.map((file) => reachabilityKey(file)));
+    const deadReferencers = new Map<string, string[]>();
+    const deadEdges = new Map<string, string[]>();
+    const deadTexts = token.isCancellationRequested
+        ? []
+        : await Promise.all(unreachable.map((file) => readFile(file, 'utf8').catch(() => '')));
+    for (const [index, text] of deadTexts.entries()) {
+        const file = unreachable[index];
+        const fromDir = dirname(file);
+        const fileKey = reachabilityKey(file);
+        const deadTargetOf = (ref: string): string | undefined => {
+            const target = resolveRef(ref, fromDir, walk.root, walk.knownFiles);
+            if (!target) return undefined;
+            const targetKey = reachabilityKey(target);
+            return unreachableKeys.has(targetKey) && targetKey !== fileKey ? targetKey : undefined;
+        };
+        let raw = 0;
+        for (const match of text.matchAll(FILE_REF_RE)) {
+            const targetKey = deadTargetOf(match[1]);
+            if (!targetKey) continue;
+            raw++;
+            const referencers = deadReferencers.get(targetKey) ?? deadReferencers.set(targetKey, []).get(targetKey)!;
+            if (!referencers.includes(file)) referencers.push(file);
+        }
+        // The forward edges are the ones a revival count rides on, and a commented-out reference
+        // revives nothing, so they are read again from stripped text. Most dead files reference no
+        // other dead file at all, and the second pass is worth paying only for the ones that do.
+        if (raw === 0) continue;
+        const live = new Set<string>();
+        for (const match of stripComments(text).matchAll(FILE_REF_RE)) {
+            const targetKey = deadTargetOf(match[1]);
+            if (targetKey) live.add(targetKey);
+        }
+        if (live.size > 0) deadEdges.set(fileKey, [...live]);
+    }
+    // A commented-out reference from a reachable file is the most actionable annotation of all,
+    // being the exact line whose uncommenting revives the file, so it goes first. Targets a live
+    // reference reached anyway need no annotation.
+    for (const [targetKey, referencers] of walk.commentedReferencers) {
+        if (!unreachableKeys.has(targetKey)) continue;
+        const existing = deadReferencers.get(targetKey) ?? [];
+        const fresh = referencers.filter((file) => !existing.includes(file));
+        deadReferencers.set(targetKey, [...fresh, ...existing]);
+    }
+    return { deadReferencers, deadEdges };
+};
+
 /**
  * Computes the reachable-file closure of the mod at `modRoot`.
  *
  * Seeds are the manifests themselves, every file an action source references (through the parsed
  * actions, so vanilla-naming action targets contribute nothing) and every `.rules` under the
  * manifest's `StringsFolder`. Expansion then follows every non-commented `<…>` ref of each
- * reached file. A mod's
- * root `cosmoteer.rules` is NOT a seed: the game applies actions to its own `Data/cosmoteer.rules`
- * and never opens the mod's copy, so that file is reachable only when reached content references it.
+ * reached file. A mod's root `cosmoteer.rules` is not a seed: the game applies actions to its own
+ * `Data/cosmoteer.rules` and never opens the mod's copy, so that file is reachable only when
+ * reached content references it.
  *
  * @param modRoot the directory holding the mod's manifest(s).
  * @param token cancels the walk between files.
@@ -196,146 +388,30 @@ export const computeModReachability = async (
     if (!rootEntries.some((entry) => isManifestBasename(entry))) return undefined;
 
     const allRulesFiles = rulesFilesUnder(root);
-    const knownFiles = new Set(allRulesFiles.map((file) => reachabilityKey(file)));
     // The game finds manifests recursively and picks one by game-version priority, so nested
-    // manifests (merged sub-mods) seed too. Which one wins depends on the running game version;
+    // manifests (merged sub-mods) seed too. Which one wins depends on the running game version, and
     // seeding all of them keeps the union over-approximate in the safe direction.
     const manifests = allRulesFiles.filter((file) => isManifestBasename(basename(file)));
-
-    const queue: string[] = [];
-    const reachable = new Set<string>();
-    const enqueue = (path: string | undefined): void => {
-        if (!path) return;
-        const key = reachabilityKey(path);
-        if (reachable.has(key)) return;
-        reachable.add(key);
-        queue.push(path);
+    const walk: ReachabilityWalk = {
+        root,
+        knownFiles: new Set(allRulesFiles.map((file) => reachabilityKey(file))),
+        reachable: new Set<string>(),
+        queue: [],
+        commentedReferencers: new Map<string, string[]>(),
     };
 
-    // Refs a file writes only inside a comment, remembered per target so an unreachable file can be
-    // annotated with the file whose commented-out line disables it.
-    const commentedReferencers = new Map<string, string[]>();
-    const recordCommented = (text: string, fromFile: string, fromDir: string): void => {
-        const live = new Set<string>();
-        for (const match of stripComments(text).matchAll(FILE_REF_RE)) live.add(match[1]);
-        for (const match of text.matchAll(FILE_REF_RE)) {
-            if (live.has(match[1])) continue;
-            const target = resolveRef(match[1], fromDir, root, knownFiles);
-            if (!target) continue;
-            const targetKey = reachabilityKey(target);
-            const referencers =
-                commentedReferencers.get(targetKey) ?? commentedReferencers.set(targetKey, []).get(targetKey)!;
-            if (!referencers.includes(fromFile)) referencers.push(fromFile);
-        }
-    };
-
-    for (const manifest of manifests) {
-        reachable.add(reachabilityKey(manifest));
-        const manifestDir = dirname(manifest);
-        // A whole action commented out is the most common way a mod ships content the game never
-        // loads, and the manifest is not walked with the rest, so its own comments are read here.
-        recordCommented(await readFile(manifest, 'utf8').catch(() => ''), manifest, manifestDir);
-        const document = await parseFilePath(manifest).catch(() => null);
-        if (!document) continue;
-        for (const action of parseModActions(document)) {
-            const refs: string[] = [];
-            for (const source of action.sources) collectSourceRefs(source, refs);
-            for (const ref of refs) enqueue(resolveRef(ref, manifestDir, root, knownFiles));
-        }
-        // A manifest may build its `Actions` by concatenating other files' action lists via virtual
-        // inheritance (`Actions: &<launcher.rules>/Actions, …`). Those `<file>` refs live in the
-        // list's inheritance, not its body, so parseModActions never sees them, yet the game loads
-        // each referenced file to merge its actions in. Seed them here. Their own `<…>` refs (the
-        // parts/resources the actions add) then expand in the wave below.
-        for (const base of findActionsList(document)?.inheritance ?? []) {
-            if (!isValueNode(base) || base.valueType.type !== 'Reference') continue;
-            const alias = parseAlias(String(base.valueType.value));
-            if (alias)
-                enqueue(resolveRef(alias.fileRef.replace(/^</, '').replace(/>$/, ''), manifestDir, root, knownFiles));
-        }
-        // Language files under the StringsFolder are loaded by the game directly. The game's node
-        // lookup is case-insensitive, so `Stringsfolder` (seen in a published mod) counts too.
-        for (const element of document.elements) {
-            if (!isAssignmentNode(element) || element.left.name.toLowerCase() !== 'stringsfolder') continue;
-            const value = element.right;
-            if (!value || !isValueNode(value)) continue;
-            const stringsDir = resolve(manifestDir, String(value.valueType.value).replace(/"/g, ''));
-            if (!existsSync(stringsDir)) continue;
-            for (const file of rulesFilesUnder(stringsDir)) reachable.add(reachabilityKey(file));
-        }
-    }
-    // A root cosmoteer.rules is deliberately NOT seeded. It is a common convenience-globals
+    for (const manifest of manifests) await seedFromManifest(walk, manifest);
+    // A root cosmoteer.rules is deliberately not seeded. It is a common convenience-globals
     // convention, but the game only ever opens its own Data/cosmoteer.rules and applies the
     // manifest actions to that file, so the mod's local copy is loaded exactly when something
     // reachable actually references it and not otherwise.
     // The editor still parses it for navigation (mod-context overlays its globals), which is
     // independent of this closure.
+    await expandClosure(walk, token);
 
-    // Expand the closure in waves: read every queued file concurrently, then resolve the refs the
-    // wave surfaced, which fills the queue for the next wave. IO parallelism dominates the cost.
-    // Only refs surviving the comment strip expand, since a commented-out include is disabled
-    // content the game never follows. Those stripped-away refs are still remembered per target,
-    // so an unreachable file can be annotated with the reachable file whose comment disables it.
-    while (queue.length > 0) {
-        if (token.isCancellationRequested) break;
-        const wave = queue.splice(0);
-        const texts = await Promise.all(wave.map((file) => readFile(file, 'utf8').catch(() => '')));
-        for (const [index, text] of texts.entries()) {
-            const fromDir = dirname(wave[index]);
-            for (const match of stripComments(text).matchAll(FILE_REF_RE)) {
-                enqueue(resolveRef(match[1], fromDir, root, knownFiles));
-            }
-            recordCommented(text, wave[index], fromDir);
-        }
-    }
-
+    const reachable = walk.reachable;
     const unreachable = allRulesFiles.filter((file) => !reachable.has(reachabilityKey(file)));
-
-    // Distinguish "referenced by nothing" from "referenced only by other dead files". Only the
-    // unreachable files need scanning: a reachable referencer would have pulled the file in.
-    const unreachableKeys = new Set(unreachable.map((file) => reachabilityKey(file)));
-    const deadReferencers = new Map<string, string[]>();
-    const deadEdges = new Map<string, string[]>();
-    const deadTexts = token.isCancellationRequested
-        ? []
-        : await Promise.all(unreachable.map((file) => readFile(file, 'utf8').catch(() => '')));
-    for (const [index, text] of deadTexts.entries()) {
-        const file = unreachable[index];
-        const fromDir = dirname(file);
-        const fileKey = reachabilityKey(file);
-        let raw = 0;
-        for (const match of text.matchAll(FILE_REF_RE)) {
-            const target = resolveRef(match[1], fromDir, root, knownFiles);
-            if (!target) continue;
-            const targetKey = reachabilityKey(target);
-            if (!unreachableKeys.has(targetKey) || targetKey === fileKey) continue;
-            raw++;
-            const referencers = deadReferencers.get(targetKey) ?? deadReferencers.set(targetKey, []).get(targetKey)!;
-            if (!referencers.includes(file)) referencers.push(file);
-        }
-        // The forward edges are the ones a revival count rides on, and a commented-out reference
-        // revives nothing, so they are read again from stripped text. Most dead files reference no
-        // other dead file at all, and the second pass is worth paying only for the ones that do.
-        if (raw === 0) continue;
-        const live = new Set<string>();
-        for (const match of stripComments(text).matchAll(FILE_REF_RE)) {
-            const target = resolveRef(match[1], fromDir, root, knownFiles);
-            if (!target) continue;
-            const targetKey = reachabilityKey(target);
-            if (!unreachableKeys.has(targetKey) || targetKey === fileKey) continue;
-            live.add(targetKey);
-        }
-        if (live.size > 0) deadEdges.set(fileKey, [...live]);
-    }
-    // A commented-out reference from a reachable file is the most actionable annotation of all,
-    // being the exact line whose uncommenting revives the file, so it goes first. Targets a live
-    // reference reached anyway need no annotation.
-    for (const [targetKey, referencers] of commentedReferencers) {
-        if (!unreachableKeys.has(targetKey)) continue;
-        const existing = deadReferencers.get(targetKey) ?? [];
-        const fresh = referencers.filter((file) => !existing.includes(file));
-        deadReferencers.set(targetKey, [...fresh, ...existing]);
-    }
+    const { deadReferencers, deadEdges } = await deadContentGraph(walk, unreachable, token);
 
     return { modRoot: root, manifests, allRulesFiles, reachable, unreachable, deadReferencers, deadEdges };
 };

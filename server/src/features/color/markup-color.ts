@@ -1,7 +1,7 @@
 import { Color, ColorInformation, ColorPresentation, Range, TextEdit } from 'vscode-languageserver';
 import { AbstractNodeDocument, isValueNode, ValueNode } from '../../core/ast/ast';
 import { keyDeclarationsOf } from '../completion/localization-key.index';
-import { normalizeUri } from '../navigation/reference-location';
+import { normalizeUri } from '../../document/reference-location';
 import { colorOfTag, markupPositionOf, markupTextOf, NAMED_COLORS, scanMarkup } from '../text-markup/text-markup';
 import { MarkupColor, MarkupSpan, MarkupTag } from '../text-markup/text-markup.types';
 

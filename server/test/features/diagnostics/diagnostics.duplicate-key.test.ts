@@ -18,7 +18,10 @@ const firstGroup = (doc: AbstractNodeDocument): GroupNode => {
 
 describe('duplicate field diagnostics', () => {
     it('flags a field assigned twice in the same group', async () => {
-        const error = await ValidationForGroupDuplicates.callback(firstGroup(parse('G\n{\n\tX = 1\n\tX = 2\n}\n')), token);
+        const error = await ValidationForGroupDuplicates.callback(
+            firstGroup(parse('G\n{\n\tX = 1\n\tX = 2\n}\n')),
+            token
+        );
         expect(error?.message).toBe('Duplicate field "X"');
         expect(error?.additionalInfo).toContain('the whole file fails to load');
     });
@@ -37,11 +40,16 @@ describe('duplicate field diagnostics', () => {
     });
 
     it('does not flag distinct field names', async () => {
-        expect(await ValidationForGroupDuplicates.callback(firstGroup(parse('G\n{\n\tX = 1\n\tY = 2\n}\n')), token)).toBeUndefined();
+        expect(
+            await ValidationForGroupDuplicates.callback(firstGroup(parse('G\n{\n\tX = 1\n\tY = 2\n}\n')), token)
+        ).toBeUndefined();
     });
 
     it('flags two names that differ only in case, which the game reads as one member', async () => {
-        const error = await ValidationForGroupDuplicates.callback(firstGroup(parse('G\n{\n\tFoo = 1\n\tfoo = 2\n}\n')), token);
+        const error = await ValidationForGroupDuplicates.callback(
+            firstGroup(parse('G\n{\n\tFoo = 1\n\tfoo = 2\n}\n')),
+            token
+        );
         expect(error?.message).toBe('Duplicate field "foo"');
     });
 

@@ -175,7 +175,9 @@ describe('a second reference hung on a field by a comma', () => {
     const findings = (src: string) => validateUnbracketedValueList(lexer(src));
 
     it('flags a comma separated reference pair (cosmoteer.rules)', () => {
-        const result = findings('SW_PARTICLES = &<SW_effects/mod-particles.rules>, &<common_effects/mod-particles.rules>\n');
+        const result = findings(
+            'SW_PARTICLES = &<SW_effects/mod-particles.rules>, &<common_effects/mod-particles.rules>\n'
+        );
         expect(result).toHaveLength(1);
         expect(result[0].message).toBe('The game cannot read a standalone reference here');
     });

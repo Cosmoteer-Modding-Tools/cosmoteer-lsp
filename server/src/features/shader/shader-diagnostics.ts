@@ -138,23 +138,7 @@ export const validateShaderDocument = async (
         return Range.create(Position.create(from.line, from.char), Position.create(from.line, from.char + length));
     };
 
-    // Unresolvable includes, judged only when the include can actually be resolved (a root-anchored
-    // include with no game path is left alone). Reported per directive in this file, with its range.
-    const includeScan = /#\s*include\s+"([^"]+)"/g;
-    for (let m = includeScan.exec(text); m !== null; m = includeScan.exec(text)) {
-        const includePath = m[1];
-        if (ROOTED_RE.test(includePath) && !dataDir) continue; // cannot resolve without the game path
-        const target = resolveInclude(entryPath, includePath, dataDir);
-        const readable = readOverride?.(target) !== undefined || existsSync(target);
-        if (readable) continue;
-        const quoteStart = m.index + m[0].indexOf('"') + 1;
-        diagnostics.push({
-            message: l10n.t("Cannot resolve include '{0}'.", includePath),
-            range: rangeAt(quoteStart, includePath.length),
-            severity: DiagnosticSeverity.Warning,
-            source: 'cosmoteer-shader',
-        });
-    }
+    reportUnresolvedIncludes(text, entryPath, dataDir, rangeAt, diagnostics, readOverride);
 
     const chain = await readIncludeChain(text, entryPath, dataDir, readOverride).catch(() => ({
         text: '',
@@ -194,6 +178,68 @@ export const validateShaderDocument = async (
         ...PREPROCESSOR_CALLS,
     ]);
 
+    checkTokenUses(text, knownUniforms, knownFunctions, signatures, rangeAt, diagnostics);
+    validateDeclarations(text, signatures, rangeAt, diagnostics);
+    return diagnostics;
+};
+
+/**
+ * Reports every `#include` in the file whose target cannot be read. An include is judged only when it
+ * can actually be resolved, so a root-anchored (`./Data/…`) path with no known game directory is left
+ * alone rather than guessed at.
+ *
+ * @param text the source of the shader being edited.
+ * @param entryPath the absolute path of that shader.
+ * @param dataDir the game `Data` directory (empty when unknown).
+ * @param rangeAt builds a document range from an offset and length.
+ * @param diagnostics the list to append to.
+ * @param readOverride prefers an open buffer's text over disk for an included file.
+ */
+const reportUnresolvedIncludes = (
+    text: string,
+    entryPath: string,
+    dataDir: string,
+    rangeAt: (offset: number, length: number) => Range,
+    diagnostics: Diagnostic[],
+    readOverride?: ReadOverride
+): void => {
+    const includeScan = /#\s*include\s+"([^"]+)"/g;
+    for (let m = includeScan.exec(text); m !== null; m = includeScan.exec(text)) {
+        const includePath = m[1];
+        if (ROOTED_RE.test(includePath) && !dataDir) continue; // cannot resolve without the game path
+        const target = resolveInclude(entryPath, includePath, dataDir);
+        const readable = readOverride?.(target) !== undefined || existsSync(target);
+        if (readable) continue;
+        const quoteStart = m.index + m[0].indexOf('"') + 1;
+        diagnostics.push({
+            message: l10n.t("Cannot resolve include '{0}'.", includePath),
+            range: rangeAt(quoteStart, includePath.length),
+            severity: DiagnosticSeverity.Warning,
+            source: 'cosmoteer-shader',
+        });
+    }
+};
+
+/**
+ * Scans the current file token by token and judges each name against the symbol set the whole include
+ * chain declares: a `_`-prefixed read nothing declares, a call to a function nothing defines, and a
+ * call whose argument count does not fit the one signature that name has.
+ *
+ * @param text the current file source.
+ * @param knownUniforms every `_`-name in scope, declared or engine-bound.
+ * @param knownFunctions every callable name in scope, including types, keywords and macros.
+ * @param signatures the file-and-include function signatures, keyed by name.
+ * @param rangeAt builds a document range from an offset and length.
+ * @param diagnostics the list to append to.
+ */
+const checkTokenUses = (
+    text: string,
+    knownUniforms: ReadonlySet<string>,
+    knownFunctions: ReadonlySet<string>,
+    signatures: ReadonlyMap<string, ShaderFunctionSignature>,
+    rangeAt: (offset: number, length: number) => Range,
+    diagnostics: Diagnostic[]
+): void => {
     for (let m = TOKENS.exec(text); m !== null; m = TOKENS.exec(text)) {
         const token = m[0];
         const first = token[0];
@@ -260,9 +306,6 @@ export const validateShaderDocument = async (
             }
         }
     }
-
-    validateDeclarations(text, signatures, rangeAt, diagnostics);
-    return diagnostics;
 };
 
 /**

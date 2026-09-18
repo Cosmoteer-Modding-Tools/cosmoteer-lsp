@@ -4,7 +4,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { CancellationToken } from 'vscode-languageserver';
 import { parseText } from '../../../src/utils/ast.utils';
-import { filePathToUri } from '../../../src/features/navigation/navigation-strategy';
+import { filePathToUri } from '../../../src/document/reference-path';
 import { globalSettings } from '../../../src/settings';
 import { documentRootClass } from '../../../src/document/schema/document-root';
 import { schema } from '../../../src/document/schema/schema';
