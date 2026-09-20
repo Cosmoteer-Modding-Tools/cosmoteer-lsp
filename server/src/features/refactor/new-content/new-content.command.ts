@@ -4,15 +4,15 @@ import { dirname, join, relative } from 'path';
 import { CancellationToken, TextEdit } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { AbstractNodeDocument } from '../../../core/ast/ast';
-import { identityOfMod, ModIdentity } from '../../../mod/mod-dependencies';
+import { identityOfMod, ModIdentity } from '../../mod-report/mod-dependencies';
 import { findModRoot } from '../../../mod/mod-root';
 import { parseText } from '../../../utils/ast.utils';
 import { isUnder } from '../../../utils/relative-path';
 import { CosmoteerWorkspaceData } from '../../../workspace/cosmoteer-workspace.service';
 import { insertEditForFile, modStringsFiles } from '../../diagnostics/localization-key-insert';
-import { filePathToUri } from '../../navigation/navigation-strategy';
-import { normalizeUri } from '../../navigation/reference-location';
-import { uriToFsPath } from '../../navigation/workspace-files';
+import { filePathToUri } from '../../../document/reference-path';
+import { normalizeUri } from '../../../document/reference-location';
+import { uriToFsPath } from '../../../workspace/workspace-files';
 import { actionEntryText } from '../../ships/builtin-ships.emitter';
 import { LineEnding } from '../../ships/builtin-ships.types';
 import { documentFor, lineEndingOf, openBuffers } from '../command-host';
@@ -64,7 +64,7 @@ import {
     NewContentShip,
     RegistrationFailure,
     RegistrationRoute,
-} from './new-content.types';
+} from '../../../../../shared/new-content.types';
 
 /**
  * The `workspace/executeCommand` id that creates a new content file. Both clients invoke it twice:

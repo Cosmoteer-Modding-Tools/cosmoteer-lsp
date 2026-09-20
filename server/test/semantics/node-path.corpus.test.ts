@@ -3,9 +3,9 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
 import { AbstractNode, AbstractNodeDocument, isAssignmentNode } from '../../src/core/ast/ast';
 import { memberPathOf, NodePathRefusal } from '../../src/semantics/node-path';
-import { stepIntoNode } from '../../src/semantics/reference-resolver';
+import { stepIntoNode } from '../../src/document/reference-resolver';
 import { parseText } from '../../src/utils/ast.utils';
-import { filePathToUri } from '../../src/features/navigation/navigation-strategy';
+import { filePathToUri } from '../../src/document/reference-path';
 
 // The generator behind the override and clone refactorings emits a member path for a node the caret
 // sits on, and a mod then ships that path as an action target. A path that lands on the wrong node

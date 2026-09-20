@@ -27,7 +27,10 @@ describe('did-you-mean diagnostics', () => {
 
     describe('references', () => {
         const validate = (src: string, reference: string) =>
-            ValidationForValue.callback(findReferenceNode(parser(lexer(src), 'file:///refs.rules').value, reference), token);
+            ValidationForValue.callback(
+                findReferenceNode(parser(lexer(src), 'file:///refs.rules').value, reference),
+                token
+            );
 
         it('suggests the closest in-scope name for a typo and offers a quick fix', async () => {
             const error = await validate('Root = 1\nProhibitedBy = 5\nBad = &PrhibitedBy\n', '&PrhibitedBy');

@@ -8,8 +8,8 @@ import {
     isListNode,
     isValueNode,
     ValueNode,
+    descendants,
 } from '../../core/ast/ast';
-import { childNodesOf } from '../../utils/ast.utils';
 import { listElementType } from '../../document/schema/schema-context';
 import { ValidationError } from './validator';
 
@@ -44,11 +44,11 @@ const codeOf = (node: AbstractNode | undefined): { node: ValueNode; code: string
  * @returns a generator of the codes found under it.
  */
 function* situationCodesIn(node: AbstractNode): Generator<{ node: ValueNode; code: string }> {
-    if (isAssignmentNode(node) && node.left.name.toLowerCase() === SITUATION_CODE) {
-        const written = codeOf(node.right ?? undefined);
+    for (const candidate of descendants(node)) {
+        if (!isAssignmentNode(candidate) || candidate.left.name.toLowerCase() !== SITUATION_CODE) continue;
+        const written = codeOf(candidate.right ?? undefined);
         if (written) yield written;
     }
-    for (const child of childNodesOf(node)) yield* situationCodesIn(child);
 }
 
 /**
@@ -59,20 +59,19 @@ function* situationCodesIn(node: AbstractNode): Generator<{ node: ValueNode; cod
  * @returns a generator of the codes found in such a list.
  */
 function* eightNeighbourCodesIn(node: AbstractNode): Generator<{ node: ValueNode; code: string }> {
-    if (isListNode(node)) {
-        const element = listElementType(node);
-        if (element?.kind === 'group' && element.ref === AMBIGUOUS_BLEND_SPRITE) {
-            for (const entry of node.elements) {
-                if (!isGroupNode(entry)) continue;
-                for (const member of entry.elements) {
-                    if (!isAssignmentNode(member) || member.left.name.toLowerCase() !== SITUATION_CODE) continue;
-                    const written = codeOf(member.right ?? undefined);
-                    if (written) yield written;
-                }
+    for (const candidate of descendants(node)) {
+        if (!isListNode(candidate)) continue;
+        const element = listElementType(candidate);
+        if (element?.kind !== 'group' || element.ref !== AMBIGUOUS_BLEND_SPRITE) continue;
+        for (const entry of candidate.elements) {
+            if (!isGroupNode(entry)) continue;
+            for (const member of entry.elements) {
+                if (!isAssignmentNode(member) || member.left.name.toLowerCase() !== SITUATION_CODE) continue;
+                const written = codeOf(member.right ?? undefined);
+                if (written) yield written;
             }
         }
     }
-    for (const child of childNodesOf(node)) yield* eightNeighbourCodesIn(child);
 }
 
 /**

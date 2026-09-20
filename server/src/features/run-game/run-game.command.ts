@@ -1,11 +1,12 @@
 import { copyFile, lstat, readlink, realpath, rename, stat, symlink, writeFile } from 'fs/promises';
 import { basename, dirname, join, resolve } from 'path';
+import { RunGameArgs, RunGameRefusal, RunGameResult } from '../../../../shared/run-game.types';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
 import { foldPathCase } from '../../workspace/fs-cache';
 import { localModDirs, workshopContentDir } from '../../workspace/workshop-dir';
 import { readFile } from 'fs/promises';
 import { declaredCompatibleVersions, modVersionVerdict, readGameVersionInfo } from '../game-version';
-import { manifestPathsIn, readManifest } from '../../mod/mod-dependencies';
+import { manifestPathsIn, readManifest } from '../mod-report/mod-dependencies';
 import { enableModInSettings, enabledModFolders } from './game-settings-file';
 import { findSteamExecutable, gameLiveness, launchGame } from './game-process';
 import { loadedModKeyOf, sameLoadedMod } from './mod-identity';
@@ -29,61 +30,12 @@ import { loadedModKeyOf, sameLoadedMod } from './mod-identity';
 /** The command the clients invoke. */
 export const RUN_IN_COSMOTEER_COMMAND = 'cosmoteer.runInCosmoteer';
 
-/** Why the command did nothing. Each one is reported to the user as its own sentence. */
-type RunGameRefusal =
-    | 'unsupported-platform'
-    | 'no-install'
-    | 'no-executable'
-    | 'no-mod'
-    | 'no-user-data'
-    | 'no-settings-file'
-    | 'game-running'
-    | 'duplicate-mod-enabled'
-    | 'link-name-taken'
-    | 'link-failed'
-    | 'settings-unparseable'
-    | 'settings-no-game-settings'
-    | 'settings-no-enabled-mods'
-    | 'settings-not-equivalent'
-    | 'settings-bad-entry'
-    | 'settings-write-failed';
-
-/** What the command did, or the single reason it refused to do it. */
-export type RunGameResult =
-    | {
-          readonly kind: 'started';
-          /** The mod folder as the game sees it, which is the link when one was made. */
-          readonly modFolder: string;
-          /** Whether a link had to be created, so the client can say where it went. */
-          readonly linked: boolean;
-          /** Whether the settings file had to be changed, or the mod was already enabled. */
-          readonly enabled: boolean;
-          /** Where the settings file was backed up, when it was written. */
-          readonly backup?: string;
-          /**
-           * False when the mod's manifest names no game version this build accepts, the installed
-           * one or one of the older ones it still takes. The game turns such a mod straight back
-           * off while loading, so it never appears and nothing says why.
-           */
-          readonly compatible: boolean;
-      }
-    | { readonly kind: 'choose-user-data'; readonly candidates: readonly string[] }
-    | { readonly kind: 'refused'; readonly reason: RunGameRefusal; readonly detail?: string };
-
 /** What the command needs from the server, kept behind an interface so it can be driven in tests. */
 export interface RunGameHost {
     /** The mod root of the file the command was invoked on. */
     modRoot(): string | null;
     /** Reports a launch failure that happens after the command has already answered. */
     reportError(message: string): void;
-}
-
-/** Arguments the clients pass. */
-export interface RunGameArgs {
-    /** The document the command was invoked from, used to find the mod. */
-    readonly uri?: string;
-    /** The user data folder to use, when the client has already asked which one. */
-    readonly userDataFolder?: string;
 }
 
 /** Whether `child` is the same folder as `parent` or sits under it, case-folded like the game's compare. */

@@ -1,6 +1,5 @@
 import { existsSync, readdirSync } from 'fs';
 import { mkdir, writeFile } from 'fs/promises';
-import { relative } from 'path';
 import { CancellationToken } from 'vscode-languageserver';
 import {
     AbstractNode,
@@ -11,14 +10,13 @@ import {
     isListNode,
     isValueNode,
 } from '../../core/ast/ast';
-import { identityOfMod, ModIdentity } from '../../mod/mod-dependencies';
+import { identityOfMod, ModIdentity } from '../mod-report/mod-dependencies';
 import { namedMembersOf } from '../../utils/ast.utils';
-import { filePathToUri } from '../navigation/navigation-strategy';
-import { lineEndingOf } from '../refactor/command-host';
+import { filePathToUri } from '../../document/reference-path';
 import { authorPrefixOf } from '../refactor/new-content/content-id';
 import { LocalizationEntry } from '../refactor/new-content/content-templates';
 import { writeLocalizationKeys } from '../refactor/new-content/new-content.command';
-import { gameRootListTarget, manifestForRegistration } from '../refactor/new-content/registration.emitter';
+import { gameRootListTarget } from '../refactor/new-content/registration.emitter';
 import { addManyActionText } from '../refactor/register-part/manifest-action.emitter';
 import { shipPartsIn } from '../refactor/register-part/ship-registry';
 import { relativeRulesReference } from '../refactor/shared-base/base-file.emitter';
@@ -26,8 +24,18 @@ import { dirOf, locationOf, readRulesFile, resolveBasePath } from '../refactor/s
 import { memberOf as memberOfContainer } from '../refactor/new-content/registry-ids';
 import { factionSegment, keyLabelOf } from './builtin-ships.emitter';
 import { LineEnding } from './builtin-ships.types';
-import { alreadyWired, appendManifestActions, modRootFor, openManifest } from './mod-wiring';
 import {
+    BARE_RULES_ID,
+    alreadyWired,
+    appendManifestActions,
+    installReference,
+    modRootFor,
+    openManifest,
+    registrationLineEnding,
+    resolveGameRoot,
+} from './mod-wiring';
+import {
+    ASTEROID_SIZES,
     AsteroidLook,
     AsteroidRarity,
     AsteroidResource,
@@ -38,6 +46,7 @@ import {
     NewAsteroidTypeHost,
     NewAsteroidTypeResult,
     NewAsteroidTypeScanResult,
+    RARITIES,
 } from './new-asteroid-type.types';
 
 /**
@@ -94,9 +103,6 @@ const PARTS_LIST = 'Parts';
 /** The folder a type's own files go under. */
 const ASTEROIDS_FOLDER = 'asteroids';
 
-/** An id as the game accepts a bare word. */
-const BARE_ID = /^[A-Za-z][A-Za-z0-9_]*$/;
-
 /** The schema classes the host's id index is asked about. */
 const DOODAD_CLASS = 'Cosmoteer.Simulation.Doodads.DoodadRules';
 const PART_CLASS = 'Cosmoteer.Ships.Parts.PartRules';
@@ -105,8 +111,7 @@ const RESOURCE_CLASS = 'Cosmoteer.Resources.ResourceRules';
 /** The deposit sizes, as the game names them in ids and keys. */
 const DEPOSIT_SIZES = [1, 2, 3] as const;
 
-/** The asteroid sizes in the game's order, with the rock counts each recipe grows. */
-export const ASTEROID_SIZES = ['s', 'm', 'l', 'xl', 'xxl'] as const;
+/** The rock counts each recipe grows, one pair per asteroid size. */
 const PART_COUNTS: Readonly<Record<AsteroidSize, readonly [number, number]>> = {
     s: [100, 200],
     m: [200, 400],
@@ -119,8 +124,7 @@ const PART_COUNTS: Readonly<Record<AsteroidSize, readonly [number, number]>> = {
 const RARE_SIZES: readonly AsteroidSize[] = ['l', 'xl', 'xxl'];
 const RARE_LADDER: Readonly<Partial<Record<AsteroidSize, string>>> = { l: '', xl: '/2', xxl: '/4' };
 
-/** The rarities, each with the file and the list its entries go into. */
-export const RARITIES = ['common', 'rare', 'sun'] as const;
+/** The file and the list each rarity's entries go into. */
 const RARITY_LISTS: Readonly<Record<AsteroidRarity, { file: string; list: string }>> = {
     common: { file: ASTEROID_SPAWNER_FILE, list: 'CommonAsteroidTypes' },
     rare: { file: ASTEROID_SPAWNER_FILE, list: 'RareAsteroidTypes' },
@@ -140,6 +144,15 @@ const MAX_PER_DEPOSIT = 10;
 
 /** The health a hard tile carries, twice the base's. */
 const HARD_HEALTH = 20000;
+
+/** The `<…>` span of a reference, whatever member path follows it. */
+const REFERENCE_FILE = /^\s*&?\s*<([^<>]+)>/;
+
+/** The game's toolbar groups, whose names are the ids a part's `EditorGroup` has to name. */
+const EDITOR_GROUPS_FILE = 'gui/game/designer/editor_groups.rules';
+
+/** The group the game files its plain rock tiles under, the one every install has. */
+const DEFAULT_EDITOR_GROUP = 'Rock';
 
 /** A scan result carrying nothing but the reason there is nothing to report. */
 const scanFailed = (failure: NewAsteroidTypeFailure): NewAsteroidTypeScanResult => ({
@@ -167,9 +180,6 @@ const applyFailed = (id: string, failure: NewAsteroidTypeFailure): NewAsteroidTy
     changedFiles: [],
     failure,
 });
-
-/** The `<…>` span of a reference, whatever member path follows it. */
-const REFERENCE_FILE = /^\s*&?\s*<([^<>]+)>/;
 
 /**
  * A named member of a document or group, matched the way the game matches member names.
@@ -292,7 +302,7 @@ const resourcesOf = async (
         const read = file ? await readRulesFile(file) : undefined;
         if (!file || !read) continue;
         const id = textOf(memberOf(read.document, 'ID'));
-        if (!id || !BARE_ID.test(id) || seen.has(id.toLowerCase())) continue;
+        if (!id || !BARE_RULES_ID.test(id) || seen.has(id.toLowerCase())) continue;
         seen.add(id.toLowerCase());
         const nameKey = textOf(memberOf(read.document, 'NameKey'));
         const name =
@@ -311,7 +321,7 @@ const resourcesOf = async (
         .existingIds?.(RESOURCE_CLASS, cancellationToken)
         .catch((): ReadonlySet<string> => new Set());
     for (const id of declared ?? []) {
-        if (!BARE_ID.test(id) || seen.has(id.toLowerCase())) continue;
+        if (!BARE_RULES_ID.test(id) || seen.has(id.toLowerCase())) continue;
         seen.add(id.toLowerCase());
         resources.push({ id, hasDensity: false });
     }
@@ -331,7 +341,7 @@ const looksOf = (dataRoot: string): AsteroidLook[] => {
         names = readdirSync(`${dataRoot}/${ASTEROID_FOLDER}`, { withFileTypes: true })
             .filter((entry) => entry.isDirectory() && entry.name.toLowerCase().startsWith(DEPOSIT_FOLDER_PREFIX))
             .map((entry) => entry.name.slice(DEPOSIT_FOLDER_PREFIX.length))
-            .filter((key) => BARE_ID.test(key));
+            .filter((key) => BARE_RULES_ID.test(key));
     } catch {
         return [];
     }
@@ -534,12 +544,6 @@ const depositTexturesOf = async (
     return { icon, levels, blueprints, ...(editorGroup ? { editorGroup } : {}) };
 };
 
-/** The game's toolbar groups, whose names are the ids a part's `EditorGroup` has to name. */
-const EDITOR_GROUPS_FILE = 'gui/game/designer/editor_groups.rules';
-
-/** The group the game files its plain rock tiles under, the one every install has. */
-const DEFAULT_EDITOR_GROUP = 'Rock';
-
 /**
  * The toolbar group a resource's deposits sit in: the game's own group named after the resource
  * (`Iron`, `Gold`), when the game has one. A group the game does not know is not a display detail:
@@ -570,17 +574,6 @@ const rebasedTexture = (look: string, name: string): string =>
     name.startsWith('./Data/')
         ? name
         : `./Data/${ASTEROID_FOLDER}/${DEPOSIT_FOLDER_PREFIX}${look}/${name.replace(/^\.\//, '')}`;
-
-/**
- * The reference a mod file names one of the game's own files by: `<./Data/…>` resolves against the
- * install wherever the mod sits, which a path relative to the mod would not.
- *
- * @param dataRoot the game's `Data` directory.
- * @param file a file under it.
- * @returns the reference, without the reading sigil.
- */
-const installReference = (dataRoot: string, file: string): string =>
-    `<./Data/${relative(dataRoot, file).replace(/\\/g, '/')}>`;
 
 /** What every file of the type is written from. */
 interface TypePlan {
@@ -1026,42 +1019,53 @@ const sizesOf = (value: unknown, rarity: AsteroidRarity): AsteroidSize[] => {
     return rarity === 'common' ? [...ASTEROID_SIZES] : [...RARE_SIZES];
 };
 
+/** The type the apply round writes, with the game tree its plan was read against. */
+interface PreparedType {
+    readonly plan: TypePlan;
+    readonly files: TypeFiles;
+    /** The game's `Data` directory, with its separators folded and no trailing slash. */
+    readonly dataRoot: string;
+    readonly rootPath: string;
+    readonly rootDocument: AbstractNodeDocument;
+}
+
 /**
- * Create the type and wire it in.
+ * The type the client asked for, once the game tree, the mod's author prefix, the ids in use and
+ * the folder the files would go in have all been checked.
  *
+ * @param id the id the client sent, trimmed.
  * @param args the client's arguments.
  * @param modRoot the mod being written to.
  * @param host the server facilities.
  * @param cancellationToken cancels the reads.
- * @returns what was created.
+ * @returns the plan and the game tree it was read against, or the reason there is none.
  */
-const applyRound = async (
+const prepareType = async (
+    id: string,
     args: NewAsteroidTypeArgs,
     modRoot: string,
     host: NewAsteroidTypeHost,
     cancellationToken: CancellationToken
-): Promise<NewAsteroidTypeApplyResult> => {
-    const id = (args.id ?? '').trim();
-    if (!BARE_ID.test(id)) return applyFailed(id, 'invalidId');
-    const dataRoot = host.dataRoot()?.replace(/\\/g, '/').replace(/\/+$/, '');
-    const root = await host.gameRoot().catch(() => undefined);
-    const rootDocument = (root?.content as { parsedDocument?: AbstractNodeDocument } | undefined)?.parsedDocument;
-    if (!dataRoot || !root?.path || !rootDocument) return applyFailed(id, 'noGameRoot');
+): Promise<PreparedType | { readonly failure: NewAsteroidTypeFailure }> => {
+    const game = await resolveGameRoot(host);
+    const dataRoot = game?.dataRoot.replace(/\\/g, '/').replace(/\/+$/, '');
+    if (!game || !dataRoot) return { failure: 'noGameRoot' };
+    const { rootPath, rootDocument } = game;
     const looks = looksOf(dataRoot);
-    if (looks.length === 0 || !existsSync(`${dataRoot}/${DEPOSIT_BASE_FILE}`)) return applyFailed(id, 'noGameRoot');
-    const resources = await resourcesOf(rootDocument, root.path, host, cancellationToken);
-    if (resources.length === 0) return applyFailed(id, 'noGameRoot');
+    if (looks.length === 0 || !existsSync(`${dataRoot}/${DEPOSIT_BASE_FILE}`)) return { failure: 'noGameRoot' };
+    const resources = await resourcesOf(rootDocument, rootPath, host, cancellationToken);
+    if (resources.length === 0) return { failure: 'noGameRoot' };
 
     // The game throws on a doodad or part id without a dot, so a manifest with no author prefix has
     // nothing usable to build ids from.
     const identity = await identityOfMod(modRoot).catch((): ModIdentity => ({ root: modRoot }));
     const prefix = authorPrefixOf(identity.manifestId);
-    if (!prefix) return applyFailed(id, 'noAuthorPrefix');
+    if (!prefix) return { failure: 'noAuthorPrefix' };
 
     const segment = factionSegment(id);
     const ids = typeIdsOf(prefix, segment);
-    const taken = await takenIdsOf(rootDocument, root.path, dataRoot, host, cancellationToken);
-    if (allTypeIds(ids).some((candidate) => taken.has(candidate))) return applyFailed(id, 'idTaken');
+    const taken = await takenIdsOf(rootDocument, rootPath, dataRoot, host, cancellationToken);
+    if (allTypeIds(ids).some((candidate) => taken.has(candidate))) return { failure: 'idTaken' };
 
     const wantedResource = (args.resource ?? '').trim().toLowerCase();
     const resource = resources.find((candidate) => candidate.id.toLowerCase() === wantedResource) ?? resources[0];
@@ -1111,12 +1115,20 @@ const applyRound = async (
         hardDescriptionKey: `Parts/${keyLabelOf(id)}DepositHardDesc`,
     };
     const files = typeFilesOf(modRoot, plan);
-    if (existsSync(files.folder)) return applyFailed(id, 'pathTaken');
+    if (existsSync(files.folder)) return { failure: 'pathTaken' };
+    return { plan, files, dataRoot, rootPath, rootDocument };
+};
 
-    const choice = manifestForRegistration(modRoot);
-    const lineEnding: LineEnding =
-        choice.kind === 'manifest' ? lineEndingOf((await readRulesFile(choice.fsPath))?.text ?? '') : '\n';
-
+/**
+ * Writes a type's own files: the tiles, the parts list, the conversions, the palette doodads and
+ * the recipes, each refused when it is already on disk.
+ *
+ * @param prepared the type and the game tree it was read against.
+ * @param lineEnding the ending the new files are written with.
+ * @returns the files written, or undefined when a write failed.
+ */
+const writeTypeFiles = async (prepared: PreparedType, lineEnding: LineEnding): Promise<string[] | undefined> => {
+    const { plan, files, dataRoot } = prepared;
     const created: string[] = [];
     try {
         await mkdir(files.folder, { recursive: true });
@@ -1133,8 +1145,129 @@ const applyRound = async (
         for (const doodad of files.doodads) await write(doodad.path, doodadFileText(plan, doodad.size, lineEnding));
         await write(files.types, typesFileText(plan, lineEnding));
     } catch {
-        return applyFailed(id, 'writeFailed');
+        return undefined;
     }
+    return created;
+};
+
+/**
+ * The actions a manifest has to carry for a type to be seen: its tiles in the asteroid class, its
+ * conversions, its palette doodads and its recipes in the rarity's own list.
+ *
+ * @param prepared the type and the game tree it was read against.
+ * @param manifestDir the directory the manifest sits in, which its references are relative to.
+ * @returns one wiring per key, each with the target it needs or undefined when the game names none.
+ */
+const typeWirings = (prepared: PreparedType, manifestDir: string): Wiring[] => {
+    const { plan, files, dataRoot, rootPath, rootDocument } = prepared;
+    const reference = (file: string, member?: string): string =>
+        `&${relativeRulesReference(manifestDir, file, member)}`;
+    const rarityList = RARITY_LISTS[plan.rarity];
+    return [
+        {
+            key: 'parts',
+            target: existsSync(`${dataRoot}/${ASTEROID_CLASS_FILE}`) ? ASTEROID_PARTS_TARGET : undefined,
+            sources: [{ file: files.parts, reference: reference(files.parts, PARTS_LIST) }],
+            wholeList: true,
+        },
+        {
+            key: 'conversions',
+            target: plan.hard && existsSync(`${dataRoot}/${CONVERSIONS_FILE}`) ? CONVERSIONS_TARGET : undefined,
+            sources: [{ file: files.conversions, reference: reference(files.conversions, CONVERSIONS_LIST) }],
+            wholeList: true,
+        },
+        {
+            key: 'doodads',
+            target: gameRootListTarget(rootDocument, rootPath, dataRoot, DOODADS_MEMBER),
+            sources: files.doodads.map((doodad) => ({ file: doodad.path, reference: reference(doodad.path) })),
+            wholeList: false,
+        },
+        {
+            key: 'types',
+            target:
+                spawnedSizesOf(plan).length > 0 && existsSync(`${dataRoot}/${rarityList.file}`)
+                    ? `<${rarityList.file}>/${rarityList.list}`
+                    : undefined,
+            sources: [{ file: files.types, reference: reference(files.types, TYPES_LIST) }],
+            wholeList: true,
+        },
+    ];
+};
+
+/**
+ * Appends the manifest actions that wire a type in, skipping the targets the manifest already
+ * carries and the keys the type has nothing to write for.
+ *
+ * @param manifestFsPath the manifest the actions are appended to.
+ * @param modRoot the mod the manifest belongs to.
+ * @param prepared the type and the game tree it was read against.
+ * @param wiring the per-key outcomes, updated in place.
+ * @param host the server facilities.
+ * @returns true when the manifest was changed.
+ */
+const wireTypeIntoManifest = async (
+    manifestFsPath: string,
+    modRoot: string,
+    prepared: PreparedType,
+    wiring: NewAsteroidTypeApplyResult['wiring'],
+    host: NewAsteroidTypeHost
+): Promise<boolean> => {
+    const manifest = await openManifest(manifestFsPath, host);
+    const { insert, lineEnding } = manifest;
+    const actions: string[] = [];
+    for (const item of typeWirings(prepared, dirOf(manifestFsPath))) {
+        if (!item.target || wiring[item.key] === 'skipped') continue;
+        const missing: string[] = [];
+        for (const source of item.sources) {
+            if (!(await alreadyWired(modRoot, item.target, source.file))) missing.push(source.reference);
+        }
+        if (missing.length === 0) {
+            wiring[item.key] = 'alreadyThere';
+            continue;
+        }
+        if (insert.kind === 'unusable') {
+            wiring[item.key] = 'manifestUnusable';
+            continue;
+        }
+        actions.push(
+            item.wholeList
+                ? addManyActionText(item.target, missing[0], insert.indent, lineEnding, true)
+                : addManyListActionText(item.target, missing, insert.indent, lineEnding)
+        );
+        wiring[item.key] = 'written';
+    }
+    if (actions.length === 0) return false;
+    if (await appendManifestActions(manifest, actions, host)) return true;
+    for (const key of Object.keys(wiring) as (keyof typeof wiring)[]) {
+        if (wiring[key] === 'written') wiring[key] = 'editRejected';
+    }
+    return false;
+};
+
+/**
+ * Create the type and wire it in.
+ *
+ * @param args the client's arguments.
+ * @param modRoot the mod being written to.
+ * @param host the server facilities.
+ * @param cancellationToken cancels the reads.
+ * @returns what was created.
+ */
+const applyRound = async (
+    args: NewAsteroidTypeArgs,
+    modRoot: string,
+    host: NewAsteroidTypeHost,
+    cancellationToken: CancellationToken
+): Promise<NewAsteroidTypeApplyResult> => {
+    const id = (args.id ?? '').trim();
+    if (!BARE_RULES_ID.test(id)) return applyFailed(id, 'invalidId');
+    const prepared = await prepareType(id, args, modRoot, host, cancellationToken);
+    if ('failure' in prepared) return applyFailed(id, prepared.failure);
+    const { plan, files } = prepared;
+
+    const { choice, lineEnding } = await registrationLineEnding(modRoot);
+    const created = await writeTypeFiles(prepared, lineEnding);
+    if (!created) return applyFailed(id, 'writeFailed');
     host.filesChanged(created);
 
     const entries = localizationEntriesOf(plan);
@@ -1165,72 +1298,7 @@ const applyRound = async (
         manifests = choice.manifests;
     } else if (choice.kind === 'manifest') {
         manifestPath = choice.fsPath;
-        const manifestDir = dirOf(choice.fsPath);
-        const reference = (file: string, member?: string): string =>
-            `&${relativeRulesReference(manifestDir, file, member)}`;
-        const rarityList = RARITY_LISTS[plan.rarity];
-        const wirings: Wiring[] = [
-            {
-                key: 'parts',
-                target: existsSync(`${dataRoot}/${ASTEROID_CLASS_FILE}`) ? ASTEROID_PARTS_TARGET : undefined,
-                sources: [{ file: files.parts, reference: reference(files.parts, PARTS_LIST) }],
-                wholeList: true,
-            },
-            {
-                key: 'conversions',
-                target: plan.hard && existsSync(`${dataRoot}/${CONVERSIONS_FILE}`) ? CONVERSIONS_TARGET : undefined,
-                sources: [{ file: files.conversions, reference: reference(files.conversions, CONVERSIONS_LIST) }],
-                wholeList: true,
-            },
-            {
-                key: 'doodads',
-                target: gameRootListTarget(rootDocument, root.path, dataRoot, DOODADS_MEMBER),
-                sources: files.doodads.map((doodad) => ({ file: doodad.path, reference: reference(doodad.path) })),
-                wholeList: false,
-            },
-            {
-                key: 'types',
-                target:
-                    spawnedSizesOf(plan).length > 0 && existsSync(`${dataRoot}/${rarityList.file}`)
-                        ? `<${rarityList.file}>/${rarityList.list}`
-                        : undefined,
-                sources: [{ file: files.types, reference: reference(files.types, TYPES_LIST) }],
-                wholeList: true,
-            },
-        ];
-        const manifest = await openManifest(choice.fsPath, host);
-        const { insert, lineEnding } = manifest;
-        const actions: string[] = [];
-        for (const item of wirings) {
-            if (!item.target || wiring[item.key] === 'skipped') continue;
-            const missing: string[] = [];
-            for (const source of item.sources) {
-                if (!(await alreadyWired(modRoot, item.target, source.file))) missing.push(source.reference);
-            }
-            if (missing.length === 0) {
-                wiring[item.key] = 'alreadyThere';
-                continue;
-            }
-            if (insert.kind === 'unusable') {
-                wiring[item.key] = 'manifestUnusable';
-                continue;
-            }
-            actions.push(
-                item.wholeList
-                    ? addManyActionText(item.target, missing[0], insert.indent, lineEnding, true)
-                    : addManyListActionText(item.target, missing, insert.indent, lineEnding)
-            );
-            wiring[item.key] = 'written';
-        }
-        if (actions.length > 0) {
-            if (await appendManifestActions(manifest, actions, host)) {
-                changed.push(choice.fsPath);
-            } else {
-                for (const key of Object.keys(wiring) as (keyof typeof wiring)[]) {
-                    if (wiring[key] === 'written') wiring[key] = 'editRejected';
-                }
-            }
-        }
+        if (await wireTypeIntoManifest(choice.fsPath, modRoot, prepared, wiring, host)) changed.push(choice.fsPath);
     }
 
     return {

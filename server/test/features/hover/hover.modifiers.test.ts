@@ -1,6 +1,6 @@
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { CancellationToken, Position } from 'vscode-languageserver';
-import { HoverService } from '../../../src/features/hover/hover.service';
+import { getHover } from '../../../src/features/hover/hover.service';
 import { AbstractNodeDocument, isGroupNode } from '../../../src/core/ast/ast';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
@@ -24,7 +24,7 @@ const groupPosition = (doc: AbstractNodeDocument, name: string): Position => {
 /** Hovers the named group of an inline source, parsed under a throwaway uri. */
 const hoverGroup = async (source: string, name: string): Promise<string> => {
     const doc = parser(lexer(source), 'file:///inline.rules').value;
-    const hover = await HoverService.instance.getHover(doc, groupPosition(doc, name), token);
+    const hover = await getHover(doc, groupPosition(doc, name), token);
     if (!hover) return '';
     return (hover.contents as { value: string }).value;
 };
@@ -212,7 +212,7 @@ describe('hover modifier trace', () => {
         for (const node of walkAst(doc)) {
             if (!isGroupNode(node) || node.identifier?.name !== 'ThrusterForce') continue;
             const p = node.identifier.position;
-            const hover = await HoverService.instance.getHover(doc, Position.create(p.line, p.characterStart + 1), token);
+            const hover = await getHover(doc, Position.create(p.line, p.characterStart + 1), token);
             hovered = (hover?.contents as { value: string } | undefined)?.value ?? '';
         }
         expect(hovered).toContain('2 modifiers');

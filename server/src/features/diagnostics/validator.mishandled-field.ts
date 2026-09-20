@@ -1,7 +1,13 @@
 import * as l10n from '@vscode/l10n';
 import { CancellationToken } from 'vscode-languageserver';
-import { AbstractNode, AbstractNodeDocument, isAssignmentNode, isGroupNode, isValueNode } from '../../core/ast/ast';
-import { childNodesOf } from '../../utils/ast.utils';
+import {
+    AbstractNode,
+    AbstractNodeDocument,
+    isAssignmentNode,
+    isGroupNode,
+    isValueNode,
+    descendants,
+} from '../../core/ast/ast';
 import { resolveGroupClass } from '../../document/schema/schema-context';
 import { MishandledEffect, MishandledFieldRule, MISHANDLED_FIELD_RULES } from '../../document/schema/mishandled-fields';
 import { ValidationError, ValidationErrorData } from './validator';
@@ -93,35 +99,31 @@ export const validateMishandledFields = async (
     cancellationToken: CancellationToken
 ): Promise<ValidationError[]> => {
     const errors: ValidationError[] = [];
-    const visit = (node: AbstractNode): void => {
-        if (cancellationToken.isCancellationRequested) return;
-        if (isGroupNode(node)) {
-            const cls = resolveGroupClass(node);
-            if (cls) {
-                for (const element of node.elements) {
-                    if (!isAssignmentNode(element)) continue;
-                    const value = element.right;
-                    if (!value) continue;
-                    const name = element.left.name.toLowerCase();
-                    for (const rule of MISHANDLED_FIELD_RULES) {
-                        if (rule.owner !== cls || rule.field.toLowerCase() !== name) continue;
-                        if (!conditionHolds(rule, value)) continue;
-                        const start = element.left.position.start;
-                        const end = value.position.end;
-                        errors.push({
-                            message: messageFor(rule.effect, element.left.name),
-                            node: element.left,
-                            range: { start, end },
-                            severity: rule.severity,
-                            ...(rule.severity === 'hint' ? { unnecessary: true } : {}),
-                            ...fixFor(rule, value),
-                        });
-                    }
-                }
+    for (const node of descendants(document)) {
+        if (cancellationToken.isCancellationRequested) break;
+        if (!isGroupNode(node)) continue;
+        const cls = resolveGroupClass(node);
+        if (!cls) continue;
+        for (const element of node.elements) {
+            if (!isAssignmentNode(element)) continue;
+            const value = element.right;
+            if (!value) continue;
+            const name = element.left.name.toLowerCase();
+            for (const rule of MISHANDLED_FIELD_RULES) {
+                if (rule.owner !== cls || rule.field.toLowerCase() !== name) continue;
+                if (!conditionHolds(rule, value)) continue;
+                const start = element.left.position.start;
+                const end = value.position.end;
+                errors.push({
+                    message: messageFor(rule.effect, element.left.name),
+                    node: element.left,
+                    range: { start, end },
+                    severity: rule.severity,
+                    ...(rule.severity === 'hint' ? { unnecessary: true } : {}),
+                    ...fixFor(rule, value),
+                });
             }
         }
-        for (const child of childNodesOf(node)) visit(child);
-    };
-    visit(document);
+    }
     return errors;
 };

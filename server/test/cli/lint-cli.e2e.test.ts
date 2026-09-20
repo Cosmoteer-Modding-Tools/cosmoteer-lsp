@@ -3,7 +3,7 @@ import { spawnSync } from 'child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join, resolve } from 'path';
-import { RULES } from '../../src/cli/rule-ids';
+import { RULES } from '../../src/features/diagnostics/rule-ids';
 
 // End-to-end tests for the lint command line, driving the built bundle the way a build does. They
 // need both bundles, so build them first with `node esbuild.mjs`.
@@ -142,6 +142,7 @@ describe.skipIf(!existsSync(CLI_BUNDLE) || !existsSync(SERVER_BUNDLE))('the lint
             'validateCrossFileReferences',
             'validateUndeclaredDependencies',
             'validateLocalizationKeys',
+            'validateResourcePickups',
             'validateRenderLayers',
             'validateUnusedParticleChannels',
             'validateMarkerVocabulary',

@@ -5,14 +5,14 @@ import { CancellationToken, TextEdit } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { AbstractNodeDocument, isGroupNode, isListNode } from '../../core/ast/ast';
 import { ActionSource } from '../../mod/action';
-import { identityOfMod, ModIdentity } from '../../mod/mod-dependencies';
+import { identityOfMod, ModIdentity } from '../mod-report/mod-dependencies';
 import { findModRoot } from '../../mod/mod-root';
 import { namedMembersOf, parseText } from '../../utils/ast.utils';
 import { isUnder } from '../../utils/relative-path';
 import { foldPathCase } from '../../workspace/fs-cache';
-import { filePathToUri } from '../navigation/navigation-strategy';
-import { normalizeUri } from '../navigation/reference-location';
-import { uriToFsPath } from '../navigation/workspace-files';
+import { filePathToUri } from '../../document/reference-path';
+import { normalizeUri } from '../../document/reference-location';
+import { uriToFsPath } from '../../workspace/workspace-files';
 import { PartStatsIndex } from '../part-table/part-table.types';
 import { documentFor, lineEndingOf, openBuffers } from '../refactor/command-host';
 import { addManyActionText, manifestActionInsert } from '../refactor/register-part/manifest-action.emitter';
@@ -72,6 +72,7 @@ import { assessBlueprint, blueprintName, SHIP_ROLES, tierForRole } from './ship-
 import { ShipAssessment, ShipRole } from './ship-assessment.types';
 import { readShipBlueprint } from './ship-blueprint';
 import { ShipLayerContext } from './ship-layer.index';
+import { resolveGameRoot } from './mod-wiring';
 
 /**
  * The `workspace/executeCommand` id that puts saved ships into a faction's spawn pool. Both clients
@@ -138,6 +139,12 @@ export interface RegisterShipHost extends RegisterPartHost {
      */
     localizedName?(key: string, cancellationToken: CancellationToken): Promise<string | undefined>;
 }
+
+/** The roles whose entries carry a stasis icon, the picture the map shows while the ship is out of sight. */
+const ICON_ROLES: ReadonlySet<ShipRole> = new Set(['trade_station', 'military_station']);
+
+/** The career mode's list of the ships a player may begin with. */
+const STARTER_SHIPS_MEMBER = 'StarterShips';
 
 /** A scan result carrying nothing but the reason there is nothing to report. */
 const scanFailed = (failure: RegisterShipFailure): RegisterShipScanResult => ({
@@ -586,9 +593,6 @@ interface Registration {
     readonly name: string;
 }
 
-/** The roles whose entries carry a stasis icon, the picture the map shows while the ship is out of sight. */
-const ICON_ROLES: ReadonlySet<ShipRole> = new Set(['trade_station', 'military_station']);
-
 /**
  * Draws the station's stasis icon the way the game's own icon generator does, from the footprints
  * of its parts, and writes it beside the ship file unless one is already there.
@@ -819,11 +823,10 @@ const ensureManifest = async (
     host: RegisterShipHost,
     workset: Workset
 ): Promise<{ manifest: string; failure?: ManifestFailure; manifests?: string[] }> => {
-    const dataRoot = host.dataRoot();
-    const root = await host.gameRoot().catch(() => undefined);
-    const rootDocument = (root?.content as { parsedDocument?: AbstractNodeDocument } | undefined)?.parsedDocument;
-    if (!dataRoot || !root?.path || !rootDocument) return { manifest: '', failure: 'noGameRoot' };
-    const shipsTarget = gameRootListTarget(rootDocument, root.path, dataRoot, BUILTIN_SHIPS_MEMBER);
+    const game = await resolveGameRoot(host);
+    if (!game) return { manifest: '', failure: 'noGameRoot' };
+    const { dataRoot, rootPath, rootDocument } = game;
+    const shipsTarget = gameRootListTarget(rootDocument, rootPath, dataRoot, BUILTIN_SHIPS_MEMBER);
     if (!shipsTarget) return { manifest: '', failure: 'noGameRoot' };
 
     const choice = manifestForRegistration(modRoot);
@@ -841,7 +844,7 @@ const ensureManifest = async (
     let tradeEntry: string[] | undefined;
     if (needsTradeRoutes) {
         const routesFile = rolePathsOf(faction, factionId, 'trade').tradeShips;
-        const careerTarget = careerTradeShipsTarget(rootDocument, root.path, dataRoot);
+        const careerTarget = careerTradeShipsTarget(rootDocument, rootPath, dataRoot);
         if (routesFile && careerTarget) {
             const already = await manifestActionMatches(
                 modRoot,
@@ -867,7 +870,7 @@ const ensureManifest = async (
     }
     // A starter ship is offered by the career mode's own list, one inline entry per ship naming the
     // file from the manifest and the key its description is read under.
-    const starterTarget = starters.length > 0 ? careerStarterShipsTarget(rootDocument, root.path, dataRoot) : undefined;
+    const starterTarget = starters.length > 0 ? careerStarterShipsTarget(rootDocument, rootPath, dataRoot) : undefined;
     const starterEntries: string[] = [];
     if (starterTarget) {
         for (const starter of starters) {
@@ -933,9 +936,6 @@ const careerTradeShipsTarget = (
     const withoutMember = file.replace(/>.*$/, '>');
     return `${withoutMember}/${TRADE_SHIPS_MEMBER}`;
 };
-
-/** The career mode's list of the ships a player may begin with. */
-const STARTER_SHIPS_MEMBER = 'StarterShips';
 
 /** A starter ship the manifest offers to the career mode. */
 interface StarterShip {

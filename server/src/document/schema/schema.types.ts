@@ -215,3 +215,47 @@ export interface SchemaBundle {
     componentAncestry?: Record<string, number[]>;
     unresolved: { types: Record<string, number>; generics: Record<string, number> };
 }
+
+/**
+ * What a mod's assemblies add to the shipped schema. Declared beside the bundle it extends rather
+ * than beside the extractor that fills it, because the schema itself holds one of these once a mod
+ * is read and must not reach into the feature that produced it.
+ */
+export interface ModSchemaExtension {
+    /** New types, keyed by C# FullName, in the same shape as the shipped bundle's types. */
+    types: Record<string, SchemaTypeDef>;
+    /** New enums the mod's fields reference, keyed by C# FullName. */
+    enums: Record<string, SchemaEnum>;
+    /** Registries the mod itself declares with `[SerialBaseType]`. */
+    registries: Record<string, SchemaRegistry>;
+    /** Discriminators the mod adds to an existing registry: registry FullName to `Type=` to class. */
+    registryMembers: Record<string, Record<string, string>>;
+    /**
+     * The assembly each type was read from, by type FullName. Lets the decompiler hover link open a
+     * mod class from the mod's own `.dll` instead of the game's.
+     */
+    assemblyOf: Record<string, string>;
+    /**
+     * The C# member each serialized field came from, by type FullName then field name. The schema
+     * records the OT name (an alias when the member declares one), but a doc comment is keyed by
+     * the member, so the two have to be matched up (see `xml-docs.ts`).
+     */
+    memberNames: Record<string, Record<string, string>>;
+    /**
+     * Where each contributing assembly is published, keyed by assembly path. Filled in after
+     * extraction (see `mod-schema.ts`), so a hover on a mod class can point at the mod's own page
+     * instead of the game's wiki. Absent for an assembly outside the workshop tree.
+     */
+    modLinks: Record<string, { url: string; name?: string }>;
+    /**
+     * The runtime kinds the mod's component slots require beyond the game's own, continuing the
+     * bundle's `componentKinds` list: the first entry here has the index the game's list ends at.
+     * Absent when the mod requires only kinds the game already names.
+     */
+    componentKinds?: string[];
+    /**
+     * Which kinds each of the mod's component rules classes satisfies, as indices into the game's
+     * list continued by {@link componentKinds}. A class with no entry builds no physical component.
+     */
+    componentCapabilities?: Record<string, number[]>;
+}

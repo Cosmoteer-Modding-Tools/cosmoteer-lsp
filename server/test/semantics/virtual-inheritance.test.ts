@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { CancellationToken } from 'vscode-languageserver';
-import { stepIntoNode } from '../../src/semantics/reference-resolver';
-import { FullNavigationStrategy } from '../../src/features/navigation/full.navigation-strategy';
+import { stepIntoNode } from '../../src/document/reference-resolver';
+import { navigate as navigateReference } from '../../src/semantics/navigate-reference';
 import { ValidationForValue } from '../../src/features/diagnostics/validator.value';
 import { AbstractNode, isListNode, isGroupNode, isValueNode, ValueNode } from '../../src/core/ast/ast';
 import { parseFixture, walkAst } from '../helpers';
@@ -11,7 +11,6 @@ import { parseFixture, walkAst } from '../helpers';
 // no-inheritor behavior), so `&:/v_A` resolves the declaring group's own (default) member, and a
 // member that exists only in an inheritor is skipped by validation rather than flagged.
 const token = CancellationToken.None;
-const navigation = new FullNavigationStrategy();
 const doc = parseFixture('virtual-inheritance.rules');
 
 const referenceContaining = (needle: string): ValueNode => {
@@ -24,7 +23,7 @@ const referenceContaining = (needle: string): ValueNode => {
 };
 
 const navigate = (node: ValueNode): Promise<AbstractNode | null | unknown> =>
-    navigation.navigate(String(node.valueType.value), node, doc.uri, token);
+    navigateReference(String(node.valueType.value), node, doc.uri, token);
 
 describe('stepIntoNode `:` segment', () => {
     const parent = doc.elements.find((e) => isGroupNode(e) && e.identifier?.name === 'Parent')!;

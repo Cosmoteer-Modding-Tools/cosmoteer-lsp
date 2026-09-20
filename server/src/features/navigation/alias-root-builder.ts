@@ -3,16 +3,14 @@ import { AbstractNodeDocument, isDocumentNode } from '../../core/ast/ast';
 import { aliasRootIndex } from '../../document/schema/alias-root';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
 import { saveAliasRootCache, tryLoadAliasRootCache } from '../../workspace/index-cache';
-import { FullNavigationStrategy } from './full.navigation-strategy';
-
-const navigation = new FullNavigationStrategy();
+import { navigate } from '../../semantics/navigate-reference';
 
 /** The in-flight build, shared so concurrent callers walk the alias graph once instead of racing. */
 let buildInFlight: Promise<void> | undefined;
 
 /**
  * Build the alias-root index (once, then cached) by walking `cosmoteer.rules`'s `&<file>` aliases.
- * The file resolver is the shared {@link FullNavigationStrategy}. Navigating a bare `<file>` ref
+ * The file resolver is the shared {@link navigate}. Navigating a bare `<file>` ref
  * returns that file's parsed document. Safe to call before any schema-resolving feature. It no-ops
  * once built, shares an already-running build, and silently does nothing when there is no game root
  * (e.g. an unconfigured workspace).
@@ -47,9 +45,7 @@ export const ensureAliasRootIndex = async (
         // tree this follows many fragment files, so it can take a moment on the first schema-resolving call.
         await CosmoteerWorkspaceService.instance.withIndexingProgress('Indexing game data', () =>
             aliasRootIndex.build(rootDoc, async (fileRef, fromUri) => {
-                const target = await navigation
-                    .navigate(fileRef, rootDoc, fromUri, CancellationToken.None)
-                    .catch(() => null);
+                const target = await navigate(fileRef, rootDoc, fromUri, CancellationToken.None).catch(() => null);
                 return target && isDocumentNode(target as AbstractNodeDocument)
                     ? (target as AbstractNodeDocument)
                     : undefined;

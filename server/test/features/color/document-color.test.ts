@@ -61,6 +61,27 @@ describe('document colors', () => {
         expect(edit.newText).toBe('{\n\t\tRf = 0\n\t\tGf = 0.2\n\t\tBf = 1\n\t\tAf = 1');
     });
 
+    it('rewrites a channel written in parentheses whole, leaving no unbalanced bracket', async () => {
+        // The parser leaves a leading `(` outside a value while keeping the trailing `)` inside it, and
+        // the swatch range covers both. Splicing over the node's own span alone wrote `Rf = (0.25` over
+        // `Rf = (0.5)` and broke the file the author picked a colour in.
+        const src = 'C\n{\n\tRf = (0.5)\n\tGf = 1\n\tBf = 0\n}';
+        const doc = parse(src);
+        const info = (await documentColors(doc))[0];
+        const edit = (await colorPresentations(doc, src, info.range, { red: 0.25, green: 1, blue: 0, alpha: 1 }))[0]
+            .textEdit!;
+        expect(edit.newText).toBe('C\n{\n\tRf = 0.25\n\tGf = 1\n\tBf = 0');
+    });
+
+    it('writes an untouched parenthesised channel back exactly as the author wrote it', async () => {
+        const src = 'C\n{\n\tRf = (0.5)\n\tGf = 1\n\tBf = 0\n}';
+        const doc = parse(src);
+        const info = (await documentColors(doc))[0];
+        const edit = (await colorPresentations(doc, src, info.range, { red: 0.5, green: 0, blue: 0, alpha: 1 }))[0]
+            .textEdit!;
+        expect(edit.newText).toBe('C\n{\n\tRf = (0.5)\n\tGf = 0\n\tBf = 0');
+    });
+
     it('feeding the applied edit range back still resolves the same color (repeat-change fix)', async () => {
         // Simulates VS Code's second change: it passes back the previous edit's range, which shares the
         // color range's start. The provider must still find the group and produce an edit.

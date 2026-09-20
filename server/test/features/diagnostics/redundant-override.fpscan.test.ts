@@ -8,12 +8,12 @@ import { parser } from '../../../src/core/parser/parser';
 import { globalSettings } from '../../../src/settings';
 import { CosmoteerWorkspaceService } from '../../../src/workspace/cosmoteer-workspace.service';
 import { aliasRootIndex } from '../../../src/document/schema/alias-root';
-import { ParserResultRegistrar } from '../../../src/registrar/parser-result-registrar';
+import { ParserResultRegistrar } from '../../../src/document/parser-result-registrar';
 import { validateRedundantOverrides } from '../../../src/features/diagnostics/validator.redundant-override';
 import { AbstractNode, isGroupNode, isListNode, isValueNode } from '../../../src/core/ast/ast';
-import { FullNavigationStrategy } from '../../../src/features/navigation/full.navigation-strategy';
+import { navigate } from '../../../src/semantics/navigate-reference';
 import { getStartOfAstNode } from '../../../src/utils/ast.utils';
-import { stepIntoNode } from '../../../src/semantics/reference-resolver';
+import { stepIntoNode } from '../../../src/document/reference-resolver';
 import { containerAtOffset } from '../../../src/features/refactor/shared-base/shared-base.analysis-entry';
 
 // Triage scan of the redundant-override hint over a whole tree, one file at a time in production
@@ -75,7 +75,11 @@ describe.skipIf(!HAVE)('the redundant-override hint over a whole tree', () => {
             return undefined;
         };
         globalSettings.cosmoteerPath = DATA_DIR;
-        const noop: WorkDoneProgressReporter = { begin: () => undefined, report: () => undefined, done: () => undefined };
+        const noop: WorkDoneProgressReporter = {
+            begin: () => undefined,
+            report: () => undefined,
+            done: () => undefined,
+        };
         const service = CosmoteerWorkspaceService.instance;
         service.setConnection({
             languages: { diagnostics: { refresh: () => undefined } },
@@ -86,7 +90,6 @@ describe.skipIf(!HAVE)('the redundant-override hint over a whole tree', () => {
         await aliasRootIndex.build(parseReal(join(DATA_DIR, 'cosmoteer.rules')), resolveRef);
 
         const files = rulesFilesUnder(SCAN_DIR);
-        const navigation = new FullNavigationStrategy();
         const findings: string[] = [];
         const unproven: string[] = [];
         let scanned = 0;
@@ -106,7 +109,7 @@ describe.skipIf(!HAVE)('the redundant-override hint over a whole tree', () => {
                     const span = error.range as { start: number; end: number } | undefined;
                     const line = span ? text.slice(0, span.start).split('\n').length : 0;
                     findings.push(`${relative}:${line} :: ${error.message}`);
-                    const proof = span ? await provesRemovable(navigation, fsPath, text, error.node, span) : 'no span';
+                    const proof = span ? await provesRemovable(fsPath, text, error.node, span) : 'no span';
                     if (proof) unproven.push(`${relative}:${line} :: ${proof} :: ${error.message}`);
                 }
                 scanned++;
@@ -145,7 +148,6 @@ const MAX_PROOF_DEPTH = 12;
  * the game tree alone does not have. What the hint claims is that a base declares the name, so that
  * is what is proven.
  *
- * @param navigation the cross-file lookup to prove it with.
  * @param fsPath the file the field is written in.
  * @param text that file's source.
  * @param anchor the diagnostic's node, the container's own identifier.
@@ -153,7 +155,6 @@ const MAX_PROOF_DEPTH = 12;
  * @returns undefined when a base provably declares the field, or why that could not be shown.
  */
 const provesRemovable = async (
-    navigation: FullNavigationStrategy,
     fsPath: string,
     text: string,
     anchor: AbstractNode,
@@ -170,10 +171,10 @@ const provesRemovable = async (
         const bases = (isGroupNode(node) || isListNode(node) ? (node.inheritance ?? []) : []).filter(isValueNode);
         for (const base of bases) {
             const reference = String(base.valueType.value);
-            const owner = getStartOfAstNode(node).uri.replace(/^file:\/\/\/?/, '').replace(/\\/g, '/');
-            const resolved = (await navigation.navigate(reference, node, owner, token).catch(() => null)) as
-                | AbstractNode
-                | null;
+            const owner = getStartOfAstNode(node)
+                .uri.replace(/^file:\/\/\/?/, '')
+                .replace(/\\/g, '/');
+            const resolved = (await navigate(reference, node, owner, token).catch(() => null)) as AbstractNode | null;
             if (!resolved || seen.has(resolved)) continue;
             seen.add(resolved);
             if (stepIntoNode(resolved, name)) return true;

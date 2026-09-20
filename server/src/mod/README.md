@@ -43,6 +43,9 @@ completion).
 - `action-rooting.index.ts`: `ActionRootingIndex` types action-wired fragments and inline action
   values from the action's target slot (feeds the alias-root fallback chain and the schema layer's
   node-slot fallback).
+- `reverse-include.index.ts`: `ReverseIncludeIndex` roots a fragment file from the `&<includes>`
+  field that pulls it in. It sits here because rooting a fragment falls back to the mod's effective
+  tree, so it reads the manifest's actions and `mod-context.ts`.
 - `mod-root.ts`: `findModRoot(uri)` (walk up to the manifest).
 - `mod-context.ts`: `ModContext` + `resolveWithModContext` (vanilla + mod additions).
 - `mod-rules.registrar.ts`: stores per-manifest actions, populated in `server.ts`.

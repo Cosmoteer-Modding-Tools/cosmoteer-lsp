@@ -23,16 +23,16 @@ import {
 } from '../src/features/diagnostics/validator.comment';
 import { BlockCommentSpan } from '../src/core/lexer/lexer';
 import { validateSchema } from '../src/features/diagnostics/validator.schema';
-import { ReverseIncludeIndex } from '../src/features/navigation/reverse-include.index';
+import { ReverseIncludeIndex } from '../src/mod/reverse-include.index';
 import { aliasRootIndex } from '../src/document/schema/alias-root';
 import { globalSettings } from '../src/settings';
 import { CosmoteerWorkspaceService } from '../src/workspace/cosmoteer-workspace.service';
 import { isModRules } from '../src/document/document-kind';
 import { ModRulesRegistrar } from '../src/mod/mod-rules.registrar';
-import { ParserResultRegistrar } from '../src/registrar/parser-result-registrar';
+import { ParserResultRegistrar } from '../src/document/parser-result-registrar';
 import { validateModActions } from '../src/features/diagnostics/validator.mod-action';
 import { validateRequiredFields } from '../src/features/diagnostics/validator.required-fields';
-import { TemplateBaseIndex } from '../src/features/diagnostics/template-base.index';
+import { TemplateBaseIndex } from '../src/workspace/template-base.index';
 import { buildActionRootingForScan, resetActionRootingForScan } from './scan-rooting-helper';
 
 // Manual full-pipeline scan of a local mod for false-positive triage, self-skipped unless both

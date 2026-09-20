@@ -2,6 +2,7 @@ import { Position, Uri, l10n } from 'vscode';
 import { LanguageClient } from 'vscode-languageclient/node';
 import { showCaretReport } from '../caret-report';
 import { VirtualContentProvider } from '../virtual-content-provider';
+import { COSMOTEER_METHOD } from '../../../shared/lsp-methods';
 
 /** The virtual-document scheme the rendered comparison markdown is served under. */
 export const BASE_DIFF_SCHEME = 'cosmoteer-base-diff';
@@ -37,7 +38,7 @@ export const showBaseDiff = (
         client,
         provider,
         {
-            method: 'cosmoteer/baseDiff',
+            method: COSMOTEER_METHOD.baseDiff,
             scheme: BASE_DIFF_SCHEME,
             documentName: 'What This Group Changes.md',
             missing: l10n.t('No comparison available: this group does not derive from a file the game ships.'),

@@ -8,8 +8,8 @@ import {
     isGroupNode,
     isListNode,
     isValueNode,
+    descendants,
 } from '../../core/ast/ast';
-import { childNodesOf } from '../../utils/ast.utils';
 import { isModRules } from '../../document/document-kind';
 import { aliasRootIndex } from '../../document/schema/alias-root';
 import { MARKER_CLASSES } from '../../document/schema/category-usage';
@@ -21,7 +21,7 @@ import { ModReachability, reachabilityKey, reachabilityMemo, relativeToMod } fro
 import { findModRoot } from '../../mod/mod-root';
 import { isStringsFile } from '../../mod/strings-folder';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
-import { documentsMentioning, uriToFsPath } from '../navigation/workspace-files';
+import { documentsMentioning, uriToFsPath } from '../../workspace/workspace-files';
 import { ValidationError } from './validator';
 import * as l10n from '@vscode/l10n';
 
@@ -70,6 +70,8 @@ function* partDeclarationOf(document: AbstractNodeDocument): Generator<ModIdDecl
     }
 }
 
+const PEER_VERDICTS_CAP = 512;
+
 /**
  * The collection a list joins when its own name does not say so, read from the slot a manifest
  * action wires it into. A fragment names its list whatever it likes (`ManyToAdd = &<x>/MyFactions`),
@@ -98,31 +100,30 @@ const registeredListEntity = (list: AbstractNode): Array<{ elementClass: string;
  * those collections legitimately carry the same ids, so such a name cannot decide a collision.
  */
 function* listDeclarationsIn(node: AbstractNode): Generator<ModIdDeclaration> {
-    if (isListNode(node) && node.identifier) {
-        const candidates = ENTITY_FIELDS.get(node.identifier.name.toLowerCase()) ?? registeredListEntity(node);
-        if (candidates?.length === 1) {
-            const { elementClass, identityKey } = candidates[0];
-            for (const element of node.elements) {
-                if (!isGroupNode(element)) continue;
-                for (const member of element.elements) {
-                    if (
-                        !isAssignmentNode(member) ||
-                        member.left.name.toLowerCase() !== identityKey.toLowerCase() ||
-                        !isValueNode(member.right) ||
-                        member.right.valueType.type !== 'String'
-                    ) {
-                        continue;
-                    }
-                    const id = String(member.right.valueType.value);
-                    if (id.trim() !== '') {
-                        yield { cls: elementClass, id, node: member.right, member: node.identifier.name };
-                    }
+    for (const candidate of descendants(node)) {
+        if (!isListNode(candidate) || !candidate.identifier) continue;
+        const candidates =
+            ENTITY_FIELDS.get(candidate.identifier.name.toLowerCase()) ?? registeredListEntity(candidate);
+        if (candidates?.length !== 1) continue;
+        const { elementClass, identityKey } = candidates[0];
+        for (const element of candidate.elements) {
+            if (!isGroupNode(element)) continue;
+            for (const member of element.elements) {
+                if (
+                    !isAssignmentNode(member) ||
+                    member.left.name.toLowerCase() !== identityKey.toLowerCase() ||
+                    !isValueNode(member.right) ||
+                    member.right.valueType.type !== 'String'
+                ) {
+                    continue;
+                }
+                const id = String(member.right.valueType.value);
+                if (id.trim() !== '') {
+                    yield { cls: elementClass, id, node: member.right, member: candidate.identifier.name };
                 }
             }
         }
     }
-    const children = childNodesOf(node);
-    for (const child of children) yield* listDeclarationsIn(child);
 }
 
 /**
@@ -196,7 +197,6 @@ const reachabilityClosures = reachabilityMemo();
 
 /** Verdicts of the peer scan, keyed per mod root, class and id. */
 const peerVerdicts = new Map<string, string[]>();
-const PEER_VERDICTS_CAP = 512;
 
 /**
  * Drops the memoized closures and peer verdicts after a workspace change, so a file the user just

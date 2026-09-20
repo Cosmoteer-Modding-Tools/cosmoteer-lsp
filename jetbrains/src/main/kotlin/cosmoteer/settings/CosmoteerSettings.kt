@@ -44,6 +44,10 @@ class CosmoteerSettings : PersistentStateComponent<CosmoteerSettings.SettingsSta
         var validateRedundantOverrides: Boolean = true
         var validateModManifest: Boolean = true
         var validatePartGeometry: Boolean = true
+        var validateGalaxyGenerators: Boolean = true
+        var validateStorageCycles: Boolean = true
+        var validateNumericDomains: Boolean = true
+        var validateResourcePickups: Boolean = true
         var validateDuplicateIds: Boolean = true
         var validateUndeclaredDependencies: Boolean = true
         var validateUnreceivableBuffs: Boolean = true
@@ -133,6 +137,10 @@ class CosmoteerSettings : PersistentStateComponent<CosmoteerSettings.SettingsSta
             "validateRedundantOverrides" to state.validateRedundantOverrides,
             "validateModManifest" to state.validateModManifest,
             "validatePartGeometry" to state.validatePartGeometry,
+            "validateGalaxyGenerators" to state.validateGalaxyGenerators,
+            "validateStorageCycles" to state.validateStorageCycles,
+            "validateNumericDomains" to state.validateNumericDomains,
+            "validateResourcePickups" to state.validateResourcePickups,
             "validateDuplicateIds" to state.validateDuplicateIds,
             "validateUndeclaredDependencies" to state.validateUndeclaredDependencies,
             "validateUnreceivableBuffs" to state.validateUnreceivableBuffs,

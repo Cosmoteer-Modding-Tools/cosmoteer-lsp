@@ -110,6 +110,12 @@ interface ShipLayerData {
 
 let cached: { key: string; data: Promise<ShipLayerData> } | undefined;
 
+/** How many hops out from a registered part the walk follows a file reference. */
+const MAX_REACH_DEPTH = 4;
+
+/** Every rules file a document's text names, the base it derives from included. */
+const FILE_REFERENCES = /<([^<>\n]+\.(?:rules|txt))>/gi;
+
 /**
  * Drops the built index, so the next question rebuilds it from disk. Called when a manifest or a
  * ship file changes: everything else the index reads is a part file, which cannot change a ship's
@@ -306,9 +312,6 @@ interface ShipReach {
     byFile: Map<string, ShipLayerScope[]>;
 }
 
-/** How many hops out from a registered part the walk follows a file reference. */
-const MAX_REACH_DEPTH = 4;
-
 /**
  * One spelling of a file path, so a path written with backslashes and one written with forward
  * slashes key the same entry. The same canonicalization {@link shipEntryKey} does, without a group.
@@ -317,9 +320,6 @@ const MAX_REACH_DEPTH = 4;
  * @returns the key.
  */
 const filePathKey = (fsPath: string): string => foldPathCase(resolve(fsPath).replace(/\\/g, '/'));
-
-/** Every rules file a document's text names, the base it derives from included. */
-const FILE_REFERENCES = /<([^<>\n]+\.(?:rules|txt))>/gi;
 
 /**
  * The reach of every ship: the parts it registers, the ids those parts declare, and the files those

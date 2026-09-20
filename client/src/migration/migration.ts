@@ -1,6 +1,7 @@
 import { commands, ExtensionContext, l10n, Uri, window, workspace } from 'vscode';
 import { ExecuteCommandRequest, LanguageClient } from 'vscode-languageclient/node';
 import { DiffPreviewFile, DiffPreviewProvider, showDiffPreview, showPatchPreview } from '../preview/diff-preview';
+import { MigrateSymbolArgs, MigrationSummary } from '../../../shared/migration.types';
 
 /**
  * Bringing a mod up to the current game version: the whole workspace from the palette, or one
@@ -13,30 +14,6 @@ import { DiffPreviewFile, DiffPreviewProvider, showDiffPreview, showPatchPreview
  * claim it, so the editor runs this instead and the rewrite is shown as a diff before it happens.
  */
 export const MIGRATE_SYMBOL_LOCAL_COMMAND = 'cosmoteer.migrateSymbolFromAction';
-
-/** Mirror of the server's bulk-migration arguments (see server features/migration/migrate-symbol.ts). */
-interface MigrateSymbolArgs {
-    symbol: string;
-    uri: string;
-    dryRun?: boolean;
-}
-
-/** Mirror of the server's migration summary (see server features/migration/migrate-workspace.ts). */
-interface MigrationSummary {
-    files: number;
-    fixes: number;
-    byVersion: Record<string, number>;
-    manual: Array<{ uri: string; line: number; message: string }>;
-    deadFieldsRemoved: number;
-    unparsable: number;
-    /** Present only for a dry run, which changes nothing and answers with what it would have done. */
-    preview?: {
-        diff: string;
-        changed: Array<{ fsPath: string; after: string }>;
-        omitted: number;
-        diffTruncated: boolean;
-    };
-}
 
 /**
  * Show what a migration would do without doing it: the editor's own side-by-side diff over the files

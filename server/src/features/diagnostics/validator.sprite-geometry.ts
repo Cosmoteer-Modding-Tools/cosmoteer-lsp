@@ -11,9 +11,9 @@ import {
 import { isModRules } from '../../document/document-kind';
 import { listElementType } from '../../document/schema/schema-context';
 import { effectiveMember } from '../../semantics/effective-member';
-import { pngDimensions } from '../../utils/png-dimensions';
+import { pngDimensions } from '../../workspace/png-dimensions';
 import { isAssetValue, resolveAssetPath } from '../navigation/asset-resolver';
-import { childNamed, numberOf, readVector, readVectorEvaluated } from '../part-editor/vector-forms';
+import { childNamed, numberOf, readVector, readVectorEvaluated } from '../../semantics/vector-forms';
 import { ValidationError } from './validator';
 import * as l10n from '@vscode/l10n';
 

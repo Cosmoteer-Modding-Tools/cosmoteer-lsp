@@ -3,8 +3,8 @@ import { AbstractNode, AbstractNodeDocument, GroupNode, ListNode, isGroupNode, i
 import { findEnclosingGroup } from '../../document/schema/schema-context';
 import { namedMembersOf } from '../../utils/ast.utils';
 import { AddBaseIndex } from '../../mod/add-base.index';
-import { Completion } from './autocompletion.service';
-import { ReferenceAutoCompletionStrategy } from './strategy/reference.autocompletion-strategy';
+import { Completion } from './autocompletion.service.types';
+import { completeRawPath } from './autocompletion.reference-path';
 
 /**
  * An inheritance-target header line up to the cursor: `<indent><Name> : <typed>`. The `:` (not `=`)
@@ -20,8 +20,6 @@ const PATH_PREFIXES = ['/', '..', '~', '<', '<./Data/', '&<'];
 /** The characters that close a reference-path segment, so the completion of a half-typed segment
  *  replaces that segment and nothing of the path before it. */
 const SEGMENT_BOUNDARIES = '&<>/';
-
-const referenceStrategy = new ReferenceAutoCompletionStrategy();
 
 /** The name being declared and the base path typed after the `:`, when the line is a header. */
 interface InheritanceHeader {
@@ -99,9 +97,7 @@ export const inheritanceTargetCompletionsAt = async (
     // against the container the inheriting member lives in, the same scope the game reads the base
     // in. Everything else is still a bare name, where the siblings and the prefixes are the answer.
     if (isPath(header.typed)) {
-        const options = await referenceStrategy
-            .completeRawPath(header.typed, container, cancellationToken)
-            .catch(() => []);
+        const options = await completeRawPath(header.typed, container, cancellationToken).catch(() => []);
         return options.map((option) =>
             typeof option === 'string'
                 ? { label: option, kind: CompletionItemKind.Reference, range }

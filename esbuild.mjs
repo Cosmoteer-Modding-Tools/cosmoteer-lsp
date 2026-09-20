@@ -5,8 +5,58 @@ import { computeCacheBuildId } from './esbuild.cache-id.mjs';
 const production = process.argv.includes('--production');
 const watch = process.argv.includes('--watch');
 const test = process.argv.includes('--test');
+// Builds the webview pages alone, which is what the tests that load a page ask for when the bundle
+// they drive is older than its sources. The extension and the server bundle take seconds; the four
+// pages take a fraction of one.
+const mediaOnly = process.argv.includes('--media');
+
+/**
+ * The webview pages: one bundled browser script per page, written to the name its panel and the
+ * JetBrains host load. Each page is a folder of ES modules under media/src, and the bundle is a
+ * single IIFE because the JetBrains plugin inlines exactly one file into the page it shows, so a
+ * tree of separately served modules would leave Rider with a blank panel.
+ */
+async function buildMedia() {
+    const ctx = await context({
+        entryPoints: {
+            'part-grid-editor': 'media/src/part-grid/main.js',
+            'part-table': 'media/src/part-table/main.js',
+            'shader-preview': 'media/src/shader-preview/main.js',
+            'diagram-view': 'media/src/diagram/main.js',
+        },
+        bundle: true,
+        format: 'iife',
+        platform: 'browser',
+        target: ['es2022'],
+        // A page that exports helpers (the grid editor's geometry, the diagram's layout, the
+        // table's header shortening) hands them to the Node unit tests through this name: the IIFE
+        // evaluates to the entry's exports, and the footer passes them on where a CommonJS `module`
+        // exists, which is true under `require` and false in a webview. Naming `module` in the page
+        // itself is not an option, since esbuild reads that as the file being CommonJS and gives it
+        // a `module` of its own.
+        globalName: 'cosmoteerWebviewPage',
+        footer: { js: "if (typeof module !== 'undefined') module.exports = cosmoteerWebviewPage;" },
+        minify: production,
+        // No source map: the JetBrains host inlines the script into its page, where a map file it
+        // cannot serve would only be a dead reference.
+        sourcemap: false,
+        outdir: 'media/dist',
+        logLevel: 'silent',
+        plugins: [esbuildProblemMatcherPlugin],
+    });
+    if (watch) {
+        await ctx.watch();
+    } else {
+        await ctx.rebuild();
+        await ctx.dispose();
+    }
+}
 
 async function main() {
+    if (mediaOnly) {
+        await buildMedia();
+        return;
+    }
     if (!test) {
         // Scoped cache invalidation id, baked into the bundle via `define`: the on-disk caches gate
         // on it, and it only changes when cache-relevant source (or a dependency) changes (see
@@ -66,6 +116,7 @@ async function main() {
             await ctx.rebuild();
             await ctx.dispose();
         }
+        await buildMedia();
     } else {
         console.log('Compiling tests...');
         const testCtx = await context({

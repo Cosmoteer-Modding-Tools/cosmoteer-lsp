@@ -9,9 +9,10 @@ import {
     isListNode,
     isValueNode,
     ValueNode,
+    childNodesOf,
 } from '../../core/ast/ast';
 import { isModRules } from '../../document/document-kind';
-import { childNodesOf, namedMembersOf, getStartOfAstNode } from '../../utils/ast.utils';
+import { namedMembersOf, getStartOfAstNode } from '../../utils/ast.utils';
 import {
     groupDiscriminator,
     registryForGroup,
@@ -21,8 +22,8 @@ import {
 } from '../../document/schema/schema-context';
 import { discriminatorIsAmbiguous, fieldsOf, requiredFieldsOf, typeDef } from '../../document/schema/schema';
 import { SchemaField } from '../../document/schema/schema.types';
-import { DefinitionService } from '../navigation/definition.service';
-import { definitionLocationOf, locationKey } from '../navigation/reference-location';
+import { resolveReferenceTarget } from '../navigation/reference-target';
+import { definitionLocationOf, locationKey } from '../../document/reference-location';
 import { findInheritorsOf } from '../../semantics/inheritor-resolver';
 import { FileWithPath, isFile } from '../../workspace/cosmoteer-workspace.service';
 import { ValidationError } from './validator';
@@ -141,9 +142,7 @@ export const validateRequiredFields = async (
         if (!name) return false;
         const key = locationKey(definitionLocationOf(group));
         for (const reference of localBaseReferences.get(name.toLowerCase()) ?? []) {
-            const target = await DefinitionService.instance
-                .resolveReferenceTarget(document, reference, cancellationToken)
-                .catch(() => null);
+            const target = await resolveReferenceTarget(document, reference, cancellationToken).catch(() => null);
             if (!target || isFile(target as FileWithPath)) continue;
             if (locationKey(definitionLocationOf(target as AbstractNode)) === key) return true;
         }
@@ -259,9 +258,7 @@ const gatherInheritedNames = async (
             fullyResolved = false;
             continue;
         }
-        const target = await DefinitionService.instance
-            .resolveReferenceTarget(document, reference, cancellationToken)
-            .catch(() => null);
+        const target = await resolveReferenceTarget(document, reference, cancellationToken).catch(() => null);
         if (!target || isFile(target as FileWithPath)) {
             fullyResolved = false;
             continue;

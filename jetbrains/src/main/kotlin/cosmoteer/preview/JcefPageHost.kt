@@ -153,7 +153,10 @@ class JcefPageHost(
      */
     private fun pageHtml(query: JBCefJSQuery): String {
         val css = Files.readString(PluginPaths.media("$media.css"))
-        val script = Files.readString(PluginPaths.media("$media.js"))
+        // The page is one bundled script under media/dist, built from the modules under media/src.
+        // Inlining it is what this host does, so the build has to keep producing exactly one file
+        // per page.
+        val script = Files.readString(PluginPaths.media("dist/$media.js"))
         val bridge = query.inject("JSON.stringify(m)")
         return """<!DOCTYPE html>
 <html lang="en">

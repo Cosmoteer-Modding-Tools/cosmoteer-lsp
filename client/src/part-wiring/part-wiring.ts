@@ -2,6 +2,7 @@ import { CancellationToken, CodeLens, CodeLensProvider, Position, Range, TextDoc
 import { LanguageClient } from 'vscode-languageclient/node';
 import { showCaretReport } from '../caret-report';
 import { VirtualContentProvider } from '../virtual-content-provider';
+import { COSMOTEER_METHOD } from '../../../shared/lsp-methods';
 
 /** The virtual-document scheme the rendered wiring markdown is served under. */
 export const PART_WIRING_SCHEME = 'cosmoteer-part-wiring';
@@ -72,7 +73,7 @@ export const showPartWiring = (
         client,
         provider,
         {
-            method: 'cosmoteer/partWiring',
+            method: COSMOTEER_METHOD.partWiring,
             scheme: PART_WIRING_SCHEME,
             documentName: 'Part Wiring.md',
             missing: l10n.t('No part wiring available: the cursor is not inside a part.'),

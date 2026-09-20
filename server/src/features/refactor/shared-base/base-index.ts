@@ -13,7 +13,7 @@ import { indentOfLineAt } from '../../../utils/text.utils';
 import { CosmoteerWorkspaceService } from '../../../workspace/cosmoteer-workspace.service';
 import { foldPathCase, onFsInvalidation } from '../../../workspace/fs-cache';
 import { topLevelMembersOf } from './member-record';
-import { BaseLocation } from './plan.types';
+import { BaseLocation } from '../../../../../shared/shared-base.types';
 
 /** An existing base file a plan can move fields into, resolved against what it says right now. */
 export interface BaseTarget extends BaseLocation {
@@ -26,6 +26,9 @@ export interface BaseTarget extends BaseLocation {
     /** The member keys the container already declares, none of which a plan may move onto it. */
     declaredKeys: Set<string>;
 }
+
+/** How many files the reader keeps, comfortably more base files than a mod has. */
+const MAX_FILE_ENTRIES = 512;
 
 /**
  * A `<./Data/…>` path is read from the game's own data root rather than from the declaring file, so
@@ -80,9 +83,6 @@ const fileCache = new Map<string, { size: number; mtimeMs: number; text: string;
 
 /** Resolved targets, memoized alongside the files they were read out of. */
 const targetCache = new Map<string, BaseTarget | undefined>();
-
-/** How many files the reader keeps, comfortably more base files than a mod has. */
-const MAX_FILE_ENTRIES = 512;
 
 onFsInvalidation(() => {
     fileCache.clear();

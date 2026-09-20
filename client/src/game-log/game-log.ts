@@ -19,7 +19,14 @@ import { anchorUri } from '../wizards/wizard-client';
  * shown in the Problems panel under a collection of its own.
  */
 
-/** Mirror of the server's game-log import result (see server features/game-log/import-game-log.command.ts). */
+/**
+ * The part of the server's game-log import result this side reads (see server
+ * features/game-log/import-game-log.command.ts). Deliberately not shared: the server types each
+ * finding as a protocol `Diagnostic`, and the editor's own `Diagnostic` is a different class that has
+ * to be built by hand anyway, so all this side ever reads off one is its range, its severity and its
+ * message. Sharing the server's type would pull the protocol's packages into the files both sides
+ * read for no gain here.
+ */
 interface ImportGameLogResult {
     kind: 'imported' | 'loaded-clean' | 'no-mod' | 'no-logs' | 'nothing-for-this-mod';
     log?: { path: string; time: string; gameVersion?: string };

@@ -3,7 +3,7 @@ import { CancellationToken } from 'vscode-languageserver';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
 import { inheritanceTargetCompletionsAt } from '../../../src/features/completion/autocompletion.inheritance-target';
-import { Completion } from '../../../src/features/completion/autocompletion.service';
+import { Completion } from '../../../src/features/completion/autocompletion.service.types';
 
 const labels = (cs: Completion[] | undefined): string[] =>
     (cs ?? []).map((c) => (typeof c === 'string' ? c : c.label));

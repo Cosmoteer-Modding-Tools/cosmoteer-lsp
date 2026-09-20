@@ -2,7 +2,7 @@ import { dirname, resolve } from 'path';
 import { CancellationToken } from 'vscode-languageserver';
 import { foldPathCase } from '../../workspace/fs-cache';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
-import { collectRulesFiles, readFilesAhead } from './workspace-files';
+import { collectRulesFiles, readFilesAhead } from '../../workspace/rules-file-walk';
 
 /**
  * Every `<…>` path a rules text writes whose file part is a `.txt`. Matched on the raw text rather

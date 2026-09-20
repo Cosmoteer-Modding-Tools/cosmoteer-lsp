@@ -213,7 +213,7 @@ describe('schema sibling-reference existence validation', () => {
 // its node name inside `Components`). They are barred from the global id validator because they are
 // owner-local (one bullet's `DamagePool` must not vouch for another's), so this part-local check is
 // the only thing standing between a modder and a silently dead reference.
-describe('bullet component references (owner-local, like a part\'s)', () => {
+describe("bullet component references (owner-local, like a part's)", () => {
     // Bullets are whole-file roots under /shots/, with `Components` at the top level.
     const bullet = (factorWith: string) => `ID = "cosmoteer.test_bullet"
 Components

@@ -4,13 +4,13 @@ import { classFitsDocument, documentRootClass } from '../../document/schema/docu
 import { typeDef } from '../../document/schema/schema';
 import { BUILTIN_IDS, entityDeclarationsOf, isIdDeclarationField } from '../../document/schema/entity-schema';
 import { MARKER_CLASSES, markerUsagesOf } from '../../document/schema/category-usage';
-import { normalizeUri } from '../navigation/reference-location';
-import { ReverseIncludeIndex } from '../navigation/reverse-include.index';
-import { WatchedDocumentIndex } from '../navigation/watched-document-index';
+import { normalizeUri } from '../../document/reference-location';
+import { ReverseIncludeIndex } from '../../mod/reverse-include.index';
+import { WatchedDocumentIndex } from '../../workspace/watched-document-index';
 import { schemaReferenceFieldOf, isSameOrSubclass } from '../navigation/schema-id-reference.navigation';
 import { aliasRootIndex } from '../../document/schema/alias-root';
 import { ActionRootingIndex } from '../../mod/action-rooting.index';
-import { Completion } from './autocompletion.service';
+import { Completion } from './autocompletion.service.types';
 
 /**
  * The fields that borrow an id type in the C# without the engine ever resolving their value to an

@@ -5,7 +5,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { CancellationToken, Connection, TextEdit, WorkDoneProgressReporter } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { isListNode, isValueNode } from '../../../../src/core/ast/ast';
-import { filePathToUri } from '../../../../src/features/navigation/navigation-strategy';
+import { filePathToUri } from '../../../../src/document/reference-path';
 import { clearBaseFileCache } from '../../../../src/features/refactor/shared-base/base-index';
 import {
     newContent,
@@ -20,7 +20,7 @@ import {
     NewContentApplyResult,
     NewContentArgs,
     NewContentScanResult,
-} from '../../../../src/features/refactor/new-content/new-content.types';
+} from '../../../../../shared/new-content.types';
 import { parseModActions } from '../../../../src/mod/action-parser';
 import { clearModRootCache } from '../../../../src/mod/mod-root';
 import { globalSettings } from '../../../../src/settings';

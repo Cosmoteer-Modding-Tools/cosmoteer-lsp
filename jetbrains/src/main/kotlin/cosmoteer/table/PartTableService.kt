@@ -3,14 +3,18 @@ package cosmoteer.table
 import com.google.gson.Gson
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
+import com.intellij.ide.actions.RevealFileAction
+import com.intellij.notification.NotificationGroupManager
+import com.intellij.notification.NotificationType
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.ide.util.PropertiesComponent
+import com.intellij.openapi.fileChooser.FileChooserFactory
+import com.intellij.openapi.fileChooser.FileSaverDescriptor
 import com.intellij.openapi.fileEditor.OpenFileDescriptor
-import com.intellij.openapi.ide.CopyPasteManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.openapi.vfs.VirtualFile
@@ -21,17 +25,19 @@ import cosmoteer.lsp.PartTableEditResult
 import cosmoteer.lsp.PartTableFilter
 import cosmoteer.lsp.PartTableFormulaParams
 import cosmoteer.lsp.PartTableParams
+import cosmoteer.lsp.PartTableWorkbookResult
 import cosmoteer.lsp.requestFromServer
 import cosmoteer.preview.JcefPageHost
 import cosmoteer.preview.JcefSupport
 import org.eclipse.lsp4j.TextDocumentIdentifier
-import java.awt.datatransfer.StringSelection
+import java.nio.file.Path
+import java.util.Base64
 import java.util.concurrent.CompletableFuture
 import javax.swing.JComponent
 
 /**
  * Owns the part comparison table: a JCEF browser running the same page the VS Code extension ships
- * (`media/part-table.js`). The service asks the language server for the table, pushes it into the
+ * (`media/dist/part-table.js`). The service asks the language server for the table, pushes it into the
  * page as a `message` event, and answers the page's column picks, formula columns, typed values,
  * jumps and export the same way the VS Code panel does.
  */
@@ -161,6 +167,78 @@ class PartTableService(private val project: Project) : Disposable {
                 logger<PartTableService>().warn("Part table formula failed", error)
                 null
             }
+    }
+
+    /**
+     * Builds the workbook for what the table is showing and saves it where the reader asks for it.
+     *
+     * @param model the rows, columns and formulas the page sends.
+     */
+    private fun exportWorkbook(model: JsonObject) {
+        requestFromServer(project) { server -> server.partTableWorkbook(model) }
+            .thenAccept { built ->
+                if (built != null) saveWorkbook(built)
+                else notifyExport("The workbook could not be built.", NotificationType.WARNING)
+            }
+            .exceptionally { error ->
+                logger<PartTableService>().warn("Part table export failed", error)
+                notifyExport("The workbook could not be built.", NotificationType.WARNING)
+                null
+            }
+    }
+
+    /**
+     * Asks where the workbook goes, on the event thread the file dialog needs, and writes it there
+     * off that thread. A table of the whole game is several megabytes, so the decode and the write
+     * would hold the UI for as long as they take.
+     *
+     * @param built the workbook and the name to open the dialog on.
+     */
+    private fun saveWorkbook(built: PartTableWorkbookResult) {
+        ApplicationManager.getApplication().invokeLater {
+            if (project.isDisposed) return@invokeLater
+            val descriptor = FileSaverDescriptor("Export the Part Table", "Save the table as an Excel workbook", "xlsx")
+            val base = project.basePath?.let { VfsUtil.findFile(Path.of(it), true) }
+            val target = FileChooserFactory.getInstance()
+                .createSaveFileDialog(descriptor, project)
+                .save(base, built.fileName)
+                ?: return@invokeLater
+            val file = target.file
+            ApplicationManager.getApplication().executeOnPooledThread {
+                val failure = try {
+                    file.writeBytes(Base64.getDecoder().decode(built.base64))
+                    null
+                } catch (exception: Exception) {
+                    exception
+                }
+                ApplicationManager.getApplication().invokeLater {
+                    if (project.isDisposed) return@invokeLater
+                    if (failure != null) {
+                        logger<PartTableService>().warn("Part table export could not be written", failure)
+                        notifyExport("The workbook could not be written.", NotificationType.WARNING)
+                        return@invokeLater
+                    }
+                    notifyExport("The part table was exported to ${file.name}.", NotificationType.INFORMATION)
+                    RevealFileAction.openFile(file)
+                }
+            }
+        }
+    }
+
+    /**
+     * Says how the export went.
+     *
+     * @param content what to tell the reader.
+     * @param type whether it went well.
+     */
+    private fun notifyExport(content: String, type: NotificationType) {
+        ApplicationManager.getApplication().invokeLater {
+            if (project.isDisposed) return@invokeLater
+            NotificationGroupManager.getInstance()
+                .getNotificationGroup("Cosmoteer Language Server")
+                .createNotification("Cosmoteer part table", content, type)
+                .notify(project)
+        }
     }
 
     /**
@@ -344,9 +422,9 @@ class PartTableService(private val project: Project) : Disposable {
                     ?: emptyList()
                 if (edits.isNotEmpty()) applyEdits(edits)
             }
-            "copyCsv" -> {
-                val text = message.get("text")?.asString ?: return
-                CopyPasteManager.getInstance().setContents(StringSelection(text))
+            "exportExcel" -> {
+                val model = message.get("model")?.takeIf { it.isJsonObject }?.asJsonObject ?: return
+                exportWorkbook(model)
             }
             "openLocation" -> {
                 val uri = message.get("uri")?.asString ?: return
@@ -395,7 +473,7 @@ class PartTableService(private val project: Project) : Disposable {
 <label class="check"><input id="percent" type="checkbox" disabled />Show as % of that part</label>
 <span id="legend" class="legend" hidden><span class="swatch below"></span>below <span class="swatch same"></span>same <span class="swatch above"></span>above</span>
 <label class="check"><input id="per-tile" type="checkbox" />Per tile</label>
-<button id="copy-csv" type="button" class="secondary">Copy as CSV</button>
+<button id="export-excel" type="button" class="secondary">Export to Excel…</button>
 <button id="refresh" type="button" class="secondary">Refresh</button>
 <button id="apply-edits" type="button" hidden></button><button id="discard-edits" type="button" class="secondary" hidden></button>
 <div id="status"></div>

@@ -8,7 +8,7 @@ import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
 import { GroupNode, ListNode, isGroupNode, isListNode } from '../../../src/core/ast/ast';
 import { memberTypeIn, resolveGroupClass } from '../../../src/document/schema/schema-context';
-import { ReverseIncludeIndex } from '../../../src/features/navigation/reverse-include.index';
+import { ReverseIncludeIndex } from '../../../src/mod/reverse-include.index';
 import { cachedParseFilePath } from '../../../src/workspace/fs-cache';
 
 // A mod's convenience container (`Add` of a named member to `cosmoteer.rules`, then `&/NAME/Member`

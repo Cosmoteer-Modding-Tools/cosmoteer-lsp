@@ -5,26 +5,25 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { AbstractNodeDocument } from '../../../core/ast/ast';
 import { hasId } from '../../../document/schema/entity-schema';
 import { parseText } from '../../../utils/ast.utils';
-import { unifiedDiff } from '../../../utils/unified-diff';
+import { unifiedDiff } from '../unified-diff';
 import { workspaceRelativePath } from '../../../utils/relative-path';
-import { filePathToUri } from '../../navigation/navigation-strategy';
-import { normalizeUri } from '../../navigation/reference-location';
-import { uriToFsPath } from '../../navigation/workspace-files';
+import { filePathToUri } from '../../../document/reference-path';
+import { normalizeUri } from '../../../document/reference-location';
+import { uriToFsPath } from '../../../workspace/workspace-files';
 import { openBuffers } from '../command-host';
 import { modRootsUnder } from '../register-part/ship-registry';
 import { editableModRootOf } from '../shared-base/shared-base.analysis-entry';
 import { buildClonePlan, idLeafOf } from './clone-plan';
 import { CloneTarget, dirOfPath, filesUnder, locateCloneTarget } from './clone-target';
+import { CloneHost, ClonePlan } from './clone.types';
 import {
     CloneApplyResult,
     CloneDeclarationArgs,
     CloneFailure,
-    CloneHost,
-    ClonePlan,
     ClonePreviewFile,
     ClonePreviewResult,
     CloneScanResult,
-} from './clone.types';
+} from '../../../../../shared/clone-declaration.types';
 
 /**
  * The `workspace/executeCommand` id of the clone. Both clients invoke it in three rounds: without an

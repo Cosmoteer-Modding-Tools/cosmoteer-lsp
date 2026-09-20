@@ -15,7 +15,7 @@ import {
 import { Action, ActionVerb } from '../../mod/action';
 import { findActionsList, parseActionList, parseModActions } from '../../mod/action-parser';
 import { normalizeTargetPath } from '../../mod/action-target-resolver';
-import { identityOfMod, manifestPathsIn, readManifest, scalarMember } from '../../mod/mod-dependencies';
+import { identityOfMod, manifestPathsIn, readManifest, scalarMember } from '../mod-report/mod-dependencies';
 import { findModRoot, sameModRoot } from '../../mod/mod-root';
 import { installedModRoots, workshopContentDir } from '../../workspace/workshop-dir';
 import { ValidationError } from './validator';
@@ -74,6 +74,9 @@ function* writtenMembersOf(node: AbstractNode, prefix: string, depth: number): G
     }
 }
 
+/** How many hops of included fragments an `Actions` list is followed through. */
+const MAX_FRAGMENT_DEPTH = 4;
+
 /**
  * What one action claims. A destructive verb claims the node it names. An override claims each
  * member it writes into the target, since that is the granularity the game merges at. An override
@@ -101,9 +104,6 @@ export const claimsOf = (action: Action): Claim[] => {
     }
     return claims;
 };
-
-/** How many hops of included fragments an `Actions` list is followed through. */
-const MAX_FRAGMENT_DEPTH = 4;
 
 /**
  * The list a `&<file>/Member/&` reference names, read from the file it points at. Only the shape a

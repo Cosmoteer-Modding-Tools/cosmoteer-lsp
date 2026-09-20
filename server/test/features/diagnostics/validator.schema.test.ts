@@ -8,7 +8,8 @@ import { fieldOf, schema } from '../../../src/document/schema/schema';
 const token = CancellationToken.None;
 const parse = (src: string, uri = 'file:///t.rules') => parser(lexer(src), uri).value;
 
-const wrap = (body: string) => `Part\n{\n\tComponents\n\t{\n\t\tX\n\t\t{\n\t\t\tType = MultiToggle\n${body}\n\t\t}\n\t}\n}`;
+const wrap = (body: string) =>
+    `Part\n{\n\tComponents\n\t{\n\t\tX\n\t\t{\n\t\t\tType = MultiToggle\n${body}\n\t\t}\n\t}\n}`;
 
 describe('validateSchema: invalid enum values', () => {
     it('flags an enum value that is not a member', async () => {
@@ -115,7 +116,9 @@ describe('validateSchema: positional elements of a group-typed field in list for
         const errors = await validateSchema(parse('Part\n{\n\tEditorParentParts = [ [other_part, 1.5] ]\n}'), token);
         expect(errors).toHaveLength(1);
         expect(errors[0].message).toContain('whole number');
-        expect(await validateSchema(parse('Part\n{\n\tEditorParentParts = [ [other_part, 1] ]\n}'), token)).toHaveLength(0);
+        expect(
+            await validateSchema(parse('Part\n{\n\tEditorParentParts = [ [other_part, 1] ]\n}'), token)
+        ).toHaveLength(0);
     });
 
     // An inheriting list appends its local elements after the inherited ones, so local index 0 is
@@ -294,7 +297,9 @@ describe('validateSchema: integer-only field resolving to a fraction', () => {
 
     it('accepts whole numbers, whole-valued expressions and the percent escape', async () => {
         expect(await validateSchema(parse(turret('\t\t\tBlueprintArcSpriteSegments = 4')), token)).toHaveLength(0);
-        expect(await validateSchema(parse(turret('\t\t\tBlueprintArcSpriteSegments = (8 / 2)')), token)).toHaveLength(0);
+        expect(await validateSchema(parse(turret('\t\t\tBlueprintArcSpriteSegments = (8 / 2)')), token)).toHaveLength(
+            0
+        );
         expect(await validateSchema(parse(turret('\t\t\tBlueprintArcSpriteSegments = 50%')), token)).toHaveLength(0);
     });
 
@@ -306,9 +311,9 @@ describe('validateSchema: integer-only field resolving to a fraction', () => {
 
     it('stays silent on a bare named constant in an int field (e.g. an enum-like int)', async () => {
         // `int`-kind primitives accept named values that resolve to nothing numeric, never flagged.
-        expect(
-            await validateSchema(parse(turret('\t\t\tDefaultDirectControlBinding = SomeName')), token)
-        ).toHaveLength(0);
+        expect(await validateSchema(parse(turret('\t\t\tDefaultDirectControlBinding = SomeName')), token)).toHaveLength(
+            0
+        );
     });
 });
 
@@ -381,7 +386,8 @@ describe('validateSchema: invalid Type= discriminators', () => {
 });
 
 describe('validateSchema: whole-file-root top-level Type=', () => {
-    const doodad = (type: string) => parse(`ID = test\nType = ${type}\nAllegiance = Neutral\n`, 'file:///c%3A/mod/doodads/x/test.rules');
+    const doodad = (type: string) =>
+        parse(`ID = test\nType = ${type}\nAllegiance = Neutral\n`, 'file:///c%3A/mod/doodads/x/test.rules');
 
     it('flags an invalid top-level Type in a doodad file, with a did-you-mean', async () => {
         const errors = await validateSchema(doodad('GeneratedShp'), token);
@@ -449,10 +455,7 @@ describe('validateSchema: extra positional elements in a group-typed list form',
     const airlock = (body: string) => comp('Airlock', body);
 
     it('flags every element past the class digit fields (Vector2 reads two)', async () => {
-        const errors = await validateSchema(
-            parse(airlock('\t\t\tEnterExitPoint [0, 1, 2, 3, 4, 5, 6, 7]')),
-            token
-        );
+        const errors = await validateSchema(parse(airlock('\t\t\tEnterExitPoint [0, 1, 2, 3, 4, 5, 6, 7]')), token);
         expect(errors).toHaveLength(6);
         expect(errors[0].message).toContain('Vector2');
         expect(errors[0].message).toContain('first 2');
@@ -550,9 +553,7 @@ describe('validateSchema: scalar written into a group-typed field', () => {
     });
 
     it('accepts the harvested scalar-form classes (Time reads plain seconds)', async () => {
-        expect(
-            await validateSchema(parse(airlock('\t\t\tNuggetEjectDoorOpenDuration = 0.5')), token)
-        ).toHaveLength(0);
+        expect(await validateSchema(parse(airlock('\t\t\tNuggetEjectDoorOpenDuration = 0.5')), token)).toHaveLength(0);
     });
 
     it('accepts a reference value on any group field', async () => {
@@ -577,7 +578,10 @@ describe('validateSchema: engine value forms extracted by schemagen', () => {
         // member is an effect array: the list spelling is read directly (its members are not the
         // class's fields), while a plain scalar still has nothing to bind to.
         const status = (body: string) =>
-            parse(`ID = cosmoteer.test\nLayer = Part\nStatusCombineMode = ApplyNewInstance\n${body}\n`, 'file:///c%3A/mod/statuses/test.rules');
+            parse(
+                `ID = cosmoteer.test\nLayer = Part\nStatusCombineMode = ApplyNewInstance\n${body}\n`,
+                'file:///c%3A/mod/statuses/test.rules'
+            );
         expect(await validateSchema(status('ApplicationEffects [ Foo = 1 ]'), token)).toHaveLength(0);
         const errors = await validateSchema(status('ApplicationEffects = 5'), token);
         expect(errors).toHaveLength(1);

@@ -1,7 +1,7 @@
 import { CancellationToken } from 'vscode-languageserver';
 import { AbstractNode, AbstractNodeDocument, GroupNode, isDocumentNode, isGroupNode } from '../core/ast/ast';
-import { FullNavigationStrategy } from '../features/navigation/full.navigation-strategy';
-import { childNamed } from '../features/part-editor/vector-forms';
+import { navigate } from './navigate-reference';
+import { childNamed } from './vector-forms';
 import { memberValueNamed } from '../utils/ast.utils';
 import { findMemberThroughInheritance, inheritanceBasesOf, ResolveReferenceFn } from './inheritance-resolver';
 
@@ -13,18 +13,9 @@ import { findMemberThroughInheritance, inheritanceBasesOf, ResolveReferenceFn } 
  * undefined for the whole walk on a caret base, which is the form most vanilla files are written in.
  */
 
-const navigation = new FullNavigationStrategy();
-
 /** Adapts the shared navigation strategy to the inheritance resolver's reference-resolution shape. */
 export const resolveReference: ResolveReferenceFn = (path, startNode, currentLocation, token, inheritanceVisited) =>
-    navigation.navigate(
-        path,
-        startNode,
-        currentLocation,
-        token,
-        new Set(),
-        inheritanceVisited
-    ) as ReturnType<ResolveReferenceFn>;
+    navigate(path, startNode, currentLocation, token, new Set(), inheritanceVisited) as ReturnType<ResolveReferenceFn>;
 
 /** A member read that remembers whether it was found locally or through inheritance. */
 export interface EffectiveMember {

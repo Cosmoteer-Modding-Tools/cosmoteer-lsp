@@ -53,6 +53,10 @@ showcase/**
 scripts/**
 # The plist grammar is staged into the JetBrains TextMate bundle; VS Code loads the .json grammars.
 syntaxes/rules.tmLanguage
+# The bundles under media/dist ship, the modules they are built from and what type-checks them do not.
+media/src/**
+media/tsconfig.json
+media/webview.d.ts
 images/README.md
 images/CLS_Transparent_full_iconx128.png
 

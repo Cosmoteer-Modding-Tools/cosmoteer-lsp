@@ -82,6 +82,185 @@ const BULLET_COMPONENT = 'Cosmoteer.Bullets.IBulletComponent';
 const BULLET_COMPONENT_BASE = 'Cosmoteer.Bullets.BulletComponent';
 const SERIALIZE = 'Halfling.Serialization.SerializeAttribute';
 
+/** The reads of a key from a path, which create a slot no C# member declares. */
+const READ_NAMES = new Set(['TryReadFromPath', 'ReadFromPath', 'ReadOptionalFromPath', 'ReadFromPathOrDefault']);
+
+/** The calls that hand their receiver or first argument straight back, so a tag rides through. */
+const PASSTHROUGH_NAMES = new Set([
+    'get_Item',
+    'get_Current',
+    'GetEnumerator',
+    'ToArray',
+    'ToList',
+    'ToImmutableArray',
+    'AsSpan',
+    'get_Span',
+    'First',
+    'Last',
+    'ElementAt',
+    'Single',
+    'get_Value',
+    'GetValueOrDefault',
+]);
+
+const OP = {
+    ldarg_0: 0x02,
+    ldarg_3: 0x05,
+    ldloc_0: 0x06,
+    ldloc_3: 0x09,
+    stloc_0: 0x0a,
+    stloc_3: 0x0d,
+    ldarg_s: 0x0e,
+    ldloc_s: 0x11,
+    ldloca_s: 0x12,
+    stloc_s: 0x13,
+    dup: 0x25,
+    ret: 0x2a,
+    br_s: 0x2b,
+    brfalse_s: 0x2c,
+    brtrue_s: 0x2d,
+    beq_s: 0x2e,
+    blt_un_s: 0x37,
+    br: 0x38,
+    brfalse: 0x39,
+    brtrue: 0x3a,
+    beq: 0x3b,
+    blt_un: 0x44,
+    switch: 0x45,
+    callvirt: 0x6f,
+    call: 0x28,
+    ldstr: 0x72,
+    newobj: 0x73,
+    castclass: 0x74,
+    isinst: 0x75,
+    throw: 0x7a,
+    ldfld: 0x7b,
+    ldflda: 0x7c,
+    stfld: 0x7d,
+    ldsfld: 0x7e,
+    ldsflda: 0x7f,
+    stsfld: 0x80,
+    ldelema: 0x8f,
+    ldelem_ref: 0x9a,
+    ldelem: 0xa3,
+    unbox_any: 0xa5,
+    endfinally: 0xdc,
+    leave: 0xdd,
+    leave_s: 0xde,
+    ldarg: 0xfe09,
+    ldloc: 0xfe0c,
+    ldloca: 0xfe0d,
+    stloc: 0xfe0e,
+    rethrow: 0xfe1a,
+} as const;
+
+/** How many values each opcode pops and pushes, read from the opcode's own stack behaviour. */
+const POPS = new Map<number, number>();
+const PUSHES = new Map<number, number>();
+{
+    const set = (table: Map<number, number>, count: number, codes: readonly number[]): void => {
+        for (const code of codes) table.set(code, count);
+    };
+    const range = (from: number, to: number): number[] =>
+        Array.from({ length: to - from + 1 }, (_unused, index) => from + index);
+    set(POPS, 1, [
+        ...range(0x0a, 0x0d),
+        0x10,
+        0x13,
+        0x25,
+        0x26,
+        0x2c,
+        0x2d,
+        0x39,
+        0x3a,
+        0x45,
+        ...range(0x46, 0x4e),
+        0x65,
+        0x66,
+        ...range(0x67, 0x6e),
+        0x71,
+        0x74,
+        0x75,
+        0x76,
+        0x79,
+        0x7a,
+        0x7b,
+        0x7c,
+        0x80,
+        ...range(0x82, 0x8e),
+        0xa5,
+        ...range(0xb3, 0xba),
+        0xc2,
+        0xc3,
+        0xc6,
+        ...range(0xd1, 0xd5),
+        0xe0,
+        0xfe07,
+        0xfe0b,
+        0xfe0e,
+        0xfe0f,
+        0xfe11,
+        0xfe15,
+        0xfe1d,
+    ]);
+    set(POPS, 2, [
+        ...range(0x2e, 0x37),
+        ...range(0x3b, 0x44),
+        ...range(0x4f, 0x56),
+        ...range(0x58, 0x64),
+        0x70,
+        0x7d,
+        0x81,
+        0x8f,
+        ...range(0x90, 0x9a),
+        0xa3,
+        ...range(0xd6, 0xdb),
+        0xdf,
+        ...range(0xfe01, 0xfe05),
+    ]);
+    set(POPS, 3, [...range(0x9b, 0xa2), 0xa4, 0xfe17, 0xfe18]);
+    set(PUSHES, 1, [
+        ...range(0x02, 0x09),
+        0x0e,
+        0x0f,
+        0x11,
+        0x12,
+        ...range(0x14, 0x23),
+        ...range(0x46, 0x4e),
+        ...range(0x58, 0x6e),
+        0x71,
+        0x72,
+        0x74,
+        0x75,
+        0x76,
+        0x79,
+        0x7b,
+        0x7c,
+        0x7e,
+        0x7f,
+        ...range(0x82, 0x9a),
+        0xa3,
+        0xa5,
+        ...range(0xb3, 0xba),
+        0xc2,
+        0xc3,
+        0xc6,
+        0xd0,
+        ...range(0xd1, 0xdb),
+        0xe0,
+        0xfe00,
+        ...range(0xfe01, 0xfe07),
+        0xfe09,
+        0xfe0a,
+        0xfe0c,
+        0xfe0d,
+        0xfe0f,
+        0xfe1c,
+        0xfe1d,
+    ]);
+    set(PUSHES, 2, [0x25]);
+}
+
 /** A slot member: the class that declares it, and what the OT calls it. */
 interface SlotMember {
     readonly declaring: string;
@@ -366,185 +545,6 @@ const slotParamType = (called: CallTarget, index: number): TypeSig | undefined =
 
 /** The methods whose generic argument names the kind a component slot must be. */
 const isComponentLookup = (name: string): boolean => name === 'GetComponent' || name === 'TryGetComponent';
-
-/** The reads of a key from a path, which create a slot no C# member declares. */
-const READ_NAMES = new Set(['TryReadFromPath', 'ReadFromPath', 'ReadOptionalFromPath', 'ReadFromPathOrDefault']);
-
-/** The calls that hand their receiver or first argument straight back, so a tag rides through. */
-const PASSTHROUGH_NAMES = new Set([
-    'get_Item',
-    'get_Current',
-    'GetEnumerator',
-    'ToArray',
-    'ToList',
-    'ToImmutableArray',
-    'AsSpan',
-    'get_Span',
-    'First',
-    'Last',
-    'ElementAt',
-    'Single',
-    'get_Value',
-    'GetValueOrDefault',
-]);
-
-const OP = {
-    ldarg_0: 0x02,
-    ldarg_3: 0x05,
-    ldloc_0: 0x06,
-    ldloc_3: 0x09,
-    stloc_0: 0x0a,
-    stloc_3: 0x0d,
-    ldarg_s: 0x0e,
-    ldloc_s: 0x11,
-    ldloca_s: 0x12,
-    stloc_s: 0x13,
-    dup: 0x25,
-    ret: 0x2a,
-    br_s: 0x2b,
-    brfalse_s: 0x2c,
-    brtrue_s: 0x2d,
-    beq_s: 0x2e,
-    blt_un_s: 0x37,
-    br: 0x38,
-    brfalse: 0x39,
-    brtrue: 0x3a,
-    beq: 0x3b,
-    blt_un: 0x44,
-    switch: 0x45,
-    callvirt: 0x6f,
-    call: 0x28,
-    ldstr: 0x72,
-    newobj: 0x73,
-    castclass: 0x74,
-    isinst: 0x75,
-    throw: 0x7a,
-    ldfld: 0x7b,
-    ldflda: 0x7c,
-    stfld: 0x7d,
-    ldsfld: 0x7e,
-    ldsflda: 0x7f,
-    stsfld: 0x80,
-    ldelema: 0x8f,
-    ldelem_ref: 0x9a,
-    ldelem: 0xa3,
-    unbox_any: 0xa5,
-    endfinally: 0xdc,
-    leave: 0xdd,
-    leave_s: 0xde,
-    ldarg: 0xfe09,
-    ldloc: 0xfe0c,
-    ldloca: 0xfe0d,
-    stloc: 0xfe0e,
-    rethrow: 0xfe1a,
-} as const;
-
-/** How many values each opcode pops and pushes, read from the opcode's own stack behaviour. */
-const POPS = new Map<number, number>();
-const PUSHES = new Map<number, number>();
-{
-    const set = (table: Map<number, number>, count: number, codes: readonly number[]): void => {
-        for (const code of codes) table.set(code, count);
-    };
-    const range = (from: number, to: number): number[] =>
-        Array.from({ length: to - from + 1 }, (_unused, index) => from + index);
-    set(POPS, 1, [
-        ...range(0x0a, 0x0d),
-        0x10,
-        0x13,
-        0x25,
-        0x26,
-        0x2c,
-        0x2d,
-        0x39,
-        0x3a,
-        0x45,
-        ...range(0x46, 0x4e),
-        0x65,
-        0x66,
-        ...range(0x67, 0x6e),
-        0x71,
-        0x74,
-        0x75,
-        0x76,
-        0x79,
-        0x7a,
-        0x7b,
-        0x7c,
-        0x80,
-        ...range(0x82, 0x8e),
-        0xa5,
-        ...range(0xb3, 0xba),
-        0xc2,
-        0xc3,
-        0xc6,
-        ...range(0xd1, 0xd5),
-        0xe0,
-        0xfe07,
-        0xfe0b,
-        0xfe0e,
-        0xfe0f,
-        0xfe11,
-        0xfe15,
-        0xfe1d,
-    ]);
-    set(POPS, 2, [
-        ...range(0x2e, 0x37),
-        ...range(0x3b, 0x44),
-        ...range(0x4f, 0x56),
-        ...range(0x58, 0x64),
-        0x70,
-        0x7d,
-        0x81,
-        0x8f,
-        ...range(0x90, 0x9a),
-        0xa3,
-        ...range(0xd6, 0xdb),
-        0xdf,
-        ...range(0xfe01, 0xfe05),
-    ]);
-    set(POPS, 3, [...range(0x9b, 0xa2), 0xa4, 0xfe17, 0xfe18]);
-    set(PUSHES, 1, [
-        ...range(0x02, 0x09),
-        0x0e,
-        0x0f,
-        0x11,
-        0x12,
-        ...range(0x14, 0x23),
-        ...range(0x46, 0x4e),
-        ...range(0x58, 0x6e),
-        0x71,
-        0x72,
-        0x74,
-        0x75,
-        0x76,
-        0x79,
-        0x7b,
-        0x7c,
-        0x7e,
-        0x7f,
-        ...range(0x82, 0x9a),
-        0xa3,
-        0xa5,
-        ...range(0xb3, 0xba),
-        0xc2,
-        0xc3,
-        0xc6,
-        0xd0,
-        ...range(0xd1, 0xdb),
-        0xe0,
-        0xfe00,
-        ...range(0xfe01, 0xfe07),
-        0xfe09,
-        0xfe0a,
-        0xfe0c,
-        0xfe0d,
-        0xfe0f,
-        0xfe1c,
-        0xfe1d,
-    ]);
-    set(PUSHES, 2, [0x25]);
-}
 
 /**
  * Reads the local index an instruction names, whether inline or in its opcode.
@@ -848,6 +848,34 @@ class ComponentSlotPass {
         incoming: Map<number, SlotState>,
         assembly: DotNetAssembly
     ): void {
+        if (this.stepLoadStore(type, method, instruction, state, assembly)) return;
+        if (this.stepValueFlow(type, instruction, state, assembly)) return;
+        if (ComponentSlotPass.stepControlFlow(instruction, state, incoming)) return;
+        // Everything left only moves the stack, so the opcode's own stack behaviour is enough.
+        const pops = POPS.get(instruction.opcode) ?? 0;
+        const pushes = PUSHES.get(instruction.opcode) ?? 0;
+        for (let index = 0; index < pops; index++) state.pop();
+        for (let index = 0; index < pushes; index++) state.push(NONE);
+    }
+
+    /**
+     * Steps a load or store of a literal, an argument, a field or a local, which is where a slot
+     * tag is created and where it is written back.
+     *
+     * @param type the declaring type.
+     * @param method the method being walked.
+     * @param instruction the instruction.
+     * @param state the state to advance.
+     * @param assembly the assembly the instruction's tokens resolve against.
+     * @returns true when the instruction was one of these, so no later step runs.
+     */
+    private stepLoadStore(
+        type: TypeInfo,
+        method: MethodInfo,
+        instruction: Instruction,
+        state: SlotState,
+        assembly: DotNetAssembly
+    ): boolean {
         const { opcode, operand } = instruction;
         if (opcode === OP.ldstr) {
             state.push({
@@ -855,7 +883,7 @@ class ComponentSlotPass {
                 localAddress: -1,
                 fromComponentLookup: false,
             });
-            return;
+            return true;
         }
         if ((opcode >= OP.ldarg_0 && opcode <= OP.ldarg_3) || opcode === OP.ldarg_s || opcode === OP.ldarg) {
             const argument = argIndexOf(instruction);
@@ -864,17 +892,17 @@ class ComponentSlotPass {
                 const parameter = method.parameters[position];
                 if (position >= 0 && parameter && componentIdShape(parameter.type) !== 0) {
                     state.push(valueOf(`${type.fullName}::#${position}`));
-                    return;
+                    return true;
                 }
             }
             state.push(NONE);
-            return;
+            return true;
         }
         if (opcode === OP.ldfld || opcode === OP.ldflda || opcode === OP.ldsfld || opcode === OP.ldsflda) {
             if (opcode === OP.ldfld || opcode === OP.ldflda) state.pop();
             const key = this.slotFieldKey(typeof operand === 'number' ? assembly.fieldOfToken(operand) : undefined);
             state.push(key && this.slotMembers.has(key) ? valueOf(key) : NONE);
-            return;
+            return true;
         }
         if (opcode === OP.stfld || opcode === OP.stsfld) {
             const value = state.pop();
@@ -883,26 +911,46 @@ class ComponentSlotPass {
             if (value.tags && key && this.slotMembers.has(key)) {
                 for (const tag of value.tags) this.recordAliasEdge(tag, key);
             }
-            return;
+            return true;
         }
         if ((opcode >= OP.ldloc_0 && opcode <= OP.ldloc_3) || opcode === OP.ldloc_s || opcode === OP.ldloc) {
             state.push(state.getLocal(localIndexOf(instruction)));
-            return;
+            return true;
         }
         if (opcode === OP.ldloca_s || opcode === OP.ldloca) {
             const index = localIndexOf(instruction);
             state.push({ tags: state.getLocal(index).tags, localAddress: index, fromComponentLookup: false });
-            return;
+            return true;
         }
         if ((opcode >= OP.stloc_0 && opcode <= OP.stloc_3) || opcode === OP.stloc_s || opcode === OP.stloc) {
             state.setLocal(localIndexOf(instruction), state.pop());
-            return;
+            return true;
         }
+        return false;
+    }
+
+    /**
+     * Steps an instruction that carries a value onward: a duplication, a cast, an element load or a
+     * call. The cast is where a component a bullet's dictionary handed back finally names its kind.
+     *
+     * @param type the declaring type.
+     * @param instruction the instruction.
+     * @param state the state to advance.
+     * @param assembly the assembly the instruction's tokens resolve against.
+     * @returns true when the instruction was one of these, so no later step runs.
+     */
+    private stepValueFlow(
+        type: TypeInfo,
+        instruction: Instruction,
+        state: SlotState,
+        assembly: DotNetAssembly
+    ): boolean {
+        const { opcode, operand } = instruction;
         if (opcode === OP.dup) {
             const value = state.pop();
             state.push(value);
             state.push(value);
-            return;
+            return true;
         }
         if (opcode === OP.castclass || opcode === OP.unbox_any || opcode === OP.isinst) {
             const value = state.pop();
@@ -923,48 +971,63 @@ class ComponentSlotPass {
                 for (const tag of value.tags) this.recordLookup(tag, { kind: fullNameOf(cast), throws });
             }
             state.push(NONE);
-            return;
+            return true;
         }
         if (opcode === OP.ldelem || opcode === OP.ldelem_ref || opcode === OP.ldelema) {
             state.pop();
             state.push(state.pop());
-            return;
+            return true;
         }
         if (opcode === OP.call || opcode === OP.callvirt || opcode === OP.newobj) {
             this.stepCall(type, instruction, state, assembly);
-            return;
+            return true;
         }
+        return false;
+    }
+
+    /**
+     * Steps an instruction that ends or splits the flow, handing the state to every branch target
+     * and clearing the stack where control does not fall through.
+     *
+     * @param instruction the instruction.
+     * @param state the state to advance.
+     * @param incoming the per-target incoming states, written by a branch.
+     * @returns true when the instruction was one of these, so no later step runs.
+     */
+    private static stepControlFlow(
+        instruction: Instruction,
+        state: SlotState,
+        incoming: Map<number, SlotState>
+    ): boolean {
+        const { opcode } = instruction;
         if (opcode === OP.ret || opcode === OP.throw || opcode === OP.rethrow || opcode === OP.endfinally) {
             state.stack.length = 0;
             state.unreachable = true;
-            return;
+            return true;
         }
         if (opcode === OP.br || opcode === OP.br_s || opcode === OP.leave || opcode === OP.leave_s) {
             ComponentSlotPass.recordBranch(instruction, state, incoming);
             state.stack.length = 0;
             state.unreachable = true;
-            return;
+            return true;
         }
         if (opcode === OP.brtrue || opcode === OP.brtrue_s || opcode === OP.brfalse || opcode === OP.brfalse_s) {
             state.pop();
             ComponentSlotPass.recordBranch(instruction, state, incoming);
-            return;
+            return true;
         }
         if (opcode === OP.switch) {
             state.pop();
             ComponentSlotPass.recordBranch(instruction, state, incoming);
-            return;
+            return true;
         }
         if ((opcode >= OP.beq && opcode <= OP.blt_un) || (opcode >= OP.beq_s && opcode <= OP.blt_un_s)) {
             state.pop();
             state.pop();
             ComponentSlotPass.recordBranch(instruction, state, incoming);
-            return;
+            return true;
         }
-        const pops = POPS.get(opcode) ?? 0;
-        const pushes = PUSHES.get(opcode) ?? 0;
-        for (let index = 0; index < pops; index++) state.pop();
-        for (let index = 0; index < pushes; index++) state.push(NONE);
+        return false;
     }
 
     /**

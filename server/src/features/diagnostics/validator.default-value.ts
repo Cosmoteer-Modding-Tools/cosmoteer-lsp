@@ -7,8 +7,8 @@ import {
     isGroupNode,
     isValueNode,
     ValueNode,
+    childNodesOf,
 } from '../../core/ast/ast';
-import { childNodesOf } from '../../utils/ast.utils';
 import { isModRules } from '../../document/document-kind';
 import { resolveGroupClass } from '../../document/schema/schema-context';
 import { fieldOf, schema } from '../../document/schema/schema';

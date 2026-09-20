@@ -84,7 +84,10 @@ describe('a component of the wrong kind for its slot', () => {
     });
 
     it('says nothing when the component names a class the schema does not know', async () => {
-        const unknown = part('OperationalToggle = mystery', ['\t\tmystery', '\t\t{', '\t\t\tType = NotAKind', '\t\t}'].join('\n'));
+        const unknown = part(
+            'OperationalToggle = mystery',
+            ['\t\tmystery', '\t\t{', '\t\t\tType = NotAKind', '\t\t}'].join('\n')
+        );
         expect(await findings(unknown)).toEqual([]);
     });
 });

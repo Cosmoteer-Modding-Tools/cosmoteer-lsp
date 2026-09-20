@@ -12,6 +12,7 @@ import { classAncestry } from '../../document/schema/schema';
 import { fieldSnippet } from '../completion/autocompletion.schema-fields';
 import { memberIndentAt, placeholderValue } from '../diagnostics/required-field-insert';
 import { memberSpanOf } from '../refactor/shared-base/member-record';
+import { closerOffset, memberIndentOf, openerOffset } from '../refactor/rules-edit';
 import { resolveSchemaSearchContext } from './schema-search';
 import { schemaSearchEntryById } from './schema-search.index';
 
@@ -48,9 +49,6 @@ interface Placement {
     leadingNewline: boolean;
 }
 
-/** The indent one level is written with in this file, read from whatever the file already uses. */
-const indentUnit = (text: string): string => (/^[ ]*\t/m.test(text) ? '\t' : '    ');
-
 /**
  * The end offset of the last member of a container that closes at or before the caret. This is what
  * makes the scaffold land where the user is looking: right under the member their caret is on or
@@ -80,21 +78,19 @@ const lastMemberEndBefore = (elements: readonly AbstractNode[], offset: number):
  * @returns the placement, or undefined when the group has no brace to write inside of.
  */
 const groupPlacement = (text: string, group: GroupNode, offset: number): Placement | undefined => {
-    const groupStart = group.position.start;
-    const groupEnd = group.position.end;
-    // An unclosed group ends at zero, and there is no closing brace to keep the scaffold in front of.
-    if (groupEnd <= groupStart || text[groupStart] !== '{') return undefined;
+    // The brackets are read through the shared writer, which finds the brace from the name when the
+    // parse did not record it there and answers -1 for a group the buffer no longer holds, rather
+    // than letting the scaffold land outside the group.
+    const open = openerOffset(text, group);
+    const close = closerOffset(text, group);
+    if (open < 0 || close < 0 || close < open) return undefined;
     const anchor = lastMemberEndBefore(group.elements, offset);
-    if (anchor !== undefined && anchor > groupStart && anchor < groupEnd) {
+    if (anchor !== undefined && anchor > open && anchor < close) {
         return { offset: anchor, indent: memberIndentAt(text, anchor), leadingNewline: true };
     }
-    // Before the first member (or in an empty group): open a line right under the brace, indented one
-    // level past whatever the line the brace sits on is indented with.
-    const firstMember = group.elements.map(memberSpanOf).find((span) => !!span);
-    const indent = firstMember
-        ? memberIndentAt(text, firstMember.start)
-        : memberIndentAt(text, groupStart) + indentUnit(text);
-    return { offset: groupStart + 1, indent, leadingNewline: true };
+    // Before the first member (or in an empty group): open a line right under the brace, indented the
+    // way the group's own members are indented.
+    return { offset: open + 1, indent: memberIndentOf(text, group), leadingNewline: true };
 };
 
 /**

@@ -3,7 +3,7 @@ import { CancellationToken } from 'vscode-languageserver';
 import { AbstractNodeDocument, GroupNode, isAssignmentNode } from '../../../src/core/ast/ast';
 import { findNodeByIdentifier, parseFilePath } from '../../../src/utils/ast.utils';
 import { resolveClassThroughInheritance } from '../../../src/features/completion/inheritance-resolution';
-import { HoverService } from '../../../src/features/hover/hover.service';
+import { getHover } from '../../../src/features/hover/hover.service';
 import { globalSettings } from '../../../src/settings';
 import { initWorkspace, WORKSPACE_DATA_DIR, workspaceFile } from '../../workspace-helper';
 
@@ -46,7 +46,7 @@ describe('resolveClassThroughInheritance: cross-file bases', () => {
             (e) => isAssignmentNode(e) && e.left.name === 'ShakeAmount'
         ) as { left: { position: { line: number; characterStart: number } } } | undefined;
         expect(assignment).toBeDefined();
-        const hover = await HoverService.instance.getHover(
+        const hover = await getHover(
             consumer,
             { line: assignment!.left.position.line, character: assignment!.left.position.characterStart + 1 },
             token

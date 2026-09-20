@@ -1,5 +1,6 @@
 import { commands, ExtensionContext, l10n, Uri, window, workspace } from 'vscode';
 import { ExecuteCommandRequest, LanguageClient } from 'vscode-languageclient/node';
+import { NewModApplyResult, NewModFailure, NewModScanResult } from '../../../shared/new-mod.types';
 
 /**
  * A whole new mod. The server writes the manifest and the language file, and this side asks where
@@ -12,34 +13,6 @@ import { ExecuteCommandRequest, LanguageClient } from 'vscode-languageclient/nod
  * the editor can ask.
  */
 export const NEW_MOD_LOCAL_COMMAND = 'cosmoteer.newMod.create';
-
-/** Mirror of one folder the server offers to create a mod in. */
-interface NewModDestination {
-    path: string;
-    loadedByGame: boolean;
-}
-
-/** Mirror of the server's new-mod scan round (see server features/refactor/new-mod). */
-interface NewModScanResult {
-    kind: 'scan';
-    destinations: NewModDestination[];
-    gameVersions: string;
-    knownAuthors: string[];
-}
-
-/** Mirror of the server's new-mod apply round. */
-interface NewModApplyResult {
-    kind: 'apply';
-    modRoot: string;
-    manifest: string;
-    id: string;
-    createdFiles: string[];
-    loadedByGame: boolean;
-    failure?: NewModFailure;
-}
-
-/** Mirror of why the server created no mod. */
-type NewModFailure = 'noDestination' | 'invalidName' | 'invalidAuthor' | 'pathTaken' | 'idTaken' | 'writeFailed';
 
 /**
  * Create a whole mod: ask where it goes, what it is called and who wrote it, let the server write

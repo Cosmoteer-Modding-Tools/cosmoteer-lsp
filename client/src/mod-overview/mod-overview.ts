@@ -12,6 +12,7 @@ import {
 } from 'vscode';
 import { LanguageClient } from 'vscode-languageclient/node';
 import { VirtualContentProvider } from '../virtual-content-provider';
+import { COSMOTEER_METHOD } from '../../../shared/lsp-methods';
 
 /** The virtual-document scheme the rendered overview markdown is served under. */
 export const MOD_OVERVIEW_SCHEME = 'cosmoteer-mod-overview';
@@ -72,7 +73,7 @@ export async function showModOverview(
 ): Promise<void> {
     const targetUri = uri ?? window.activeTextEditor?.document.uri;
     if (!targetUri) return;
-    const markdown = await client.sendRequest<string | null>('cosmoteer/modOverview', {
+    const markdown = await client.sendRequest<string | null>(COSMOTEER_METHOD.modOverview, {
         textDocument: { uri: targetUri.toString() },
     });
     if (!markdown) {

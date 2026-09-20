@@ -18,7 +18,7 @@ import {
 import { fieldOfValueNode } from '../../../src/features/completion/autocompletion.schema';
 import { isLocalizationKeyType } from '../../../src/document/schema/schema';
 import { LocalizationKeyIndex } from '../../../src/features/completion/localization-key.index';
-import { Completion } from '../../../src/features/completion/autocompletion.service';
+import { Completion } from '../../../src/features/completion/autocompletion.service.types';
 
 const token = CancellationToken.None;
 const parse = (src: string, uri: string) => parser(lexer(src), uri).value;

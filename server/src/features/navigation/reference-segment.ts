@@ -2,10 +2,10 @@ import { CancellationToken, Location, Position, Range } from 'vscode-languageser
 import { AbstractNode, AbstractNodeDocument, isDocumentNode, ValueNode } from '../../core/ast/ast';
 import { getStartOfAstNode } from '../../utils/ast.utils';
 import { FileWithPath, isFile } from '../../workspace/cosmoteer-workspace.service';
-import { DefinitionService } from './definition.service';
-import { FullNavigationStrategy } from './full.navigation-strategy';
-import { filePathToUri, segmentName, segmentSpans, SegmentSpan } from './navigation-strategy';
-import { definitionLocationOf, locationKey } from './reference-location';
+import { resolveReferenceTarget } from './reference-target';
+import { navigate } from '../../semantics/navigate-reference';
+import { filePathToUri, segmentName, segmentSpans, SegmentSpan } from '../../document/reference-path';
+import { definitionLocationOf, locationKey } from '../../document/reference-location';
 
 /**
  * Reading one segment of a reference path.
@@ -17,8 +17,6 @@ import { definitionLocationOf, locationKey } from './reference-location';
  * text and what it resolves to, or the highlight, the rename and the reference list disagree about
  * the same path.
  */
-const navigation = new FullNavigationStrategy();
-
 /** A segment that names something: a path sigil, a positional index and the `<file.rules>` part of
  *  a path are steps on the way rather than symbols. */
 export const MEMBER_SEGMENT_NAME = /^[A-Za-z_]\w*$/;
@@ -116,10 +114,10 @@ export const segmentTarget = async (
 ): Promise<AbstractNode | FileWithPath | null> => {
     const value = String(reference.valueType.value);
     const resolved = await (span.end === value.length
-        ? DefinitionService.instance.resolveReferenceTarget(document, reference, cancellationToken).catch(() => null)
-        : navigation
-              .navigate(value.substring(0, span.end), reference, getStartOfAstNode(reference).uri, cancellationToken)
-              .catch(() => null));
+        ? resolveReferenceTarget(document, reference, cancellationToken).catch(() => null)
+        : navigate(value.substring(0, span.end), reference, getStartOfAstNode(reference).uri, cancellationToken).catch(
+              () => null
+          ));
     return resolved ?? null;
 };
 

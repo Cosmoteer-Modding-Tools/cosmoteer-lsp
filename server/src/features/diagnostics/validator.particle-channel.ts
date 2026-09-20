@@ -15,11 +15,11 @@ import { resolveGroupClass } from '../../document/schema/schema-context';
 import { getParsedFileDocument } from '../../workspace/parsed-file-cache';
 import { FileTree, FileWithPath, isFile } from '../../workspace/cosmoteer-workspace.service';
 import { getStartOfAstNode, parseFilePath } from '../../utils/ast.utils';
-import { FullNavigationStrategy } from '../navigation/full.navigation-strategy';
+import { navigate } from '../../semantics/navigate-reference';
 import { ChannelOccurrence, particleChannelsOf } from '../navigation/particle-channel';
-import { ReverseIncludeIndex } from '../navigation/reverse-include.index';
-import { normalizeUri } from '../navigation/reference-location';
-import { inheritanceEntriesOf } from '../../semantics/reference-resolver';
+import { ReverseIncludeIndex } from '../../mod/reverse-include.index';
+import { normalizeUri } from '../../document/reference-location';
+import { inheritanceEntriesOf } from '../../document/reference-resolver';
 import { isStringsFile } from '../../mod/strings-folder';
 import { ValidationError } from './validator';
 
@@ -232,7 +232,6 @@ const relatedDocuments = async (
     document: AbstractNodeDocument,
     token: CancellationToken
 ): Promise<AbstractNodeDocument[] | null> => {
-    const navigation = new FullNavigationStrategy();
     const related: AbstractNodeDocument[] = [];
     const seen = new Set<string>([normalizeUri(document.uri)]);
 
@@ -280,9 +279,12 @@ const relatedDocuments = async (
         if (budget-- <= 0) return null;
         const current = pending.pop()!;
         for (const seam of seamsOf(current)) {
-            const resolved = await navigation
-                .navigate(String(seam.valueType.value), seam, getStartOfAstNode(seam).uri, token)
-                .catch(() => null);
+            const resolved = await navigate(
+                String(seam.valueType.value),
+                seam,
+                getStartOfAstNode(seam).uri,
+                token
+            ).catch(() => null);
             if (!resolved) return null;
             const target = isFile(resolved as FileTree)
                 ? await getParsedFileDocument(resolved as FileWithPath).catch(() => null)

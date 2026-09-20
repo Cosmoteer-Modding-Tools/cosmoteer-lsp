@@ -8,15 +8,14 @@ import {
     ListNode,
     ValueNode,
 } from '../../../src/core/ast/ast';
-import { AssetAutoCompletionStrategy } from '../../../src/features/completion/strategy/asset.autocompletion-strategy';
+import { completeAssetPath } from '../../../src/features/completion/autocompletion.asset-path';
 import { AutoCompletionAsset } from '../../../src/features/completion/autocompletion.asset';
-import { Completion } from '../../../src/features/completion/autocompletion.service';
+import { Completion } from '../../../src/features/completion/autocompletion.service.types';
 import { globalSettings } from '../../../src/settings';
 import { findNodeByIdentifier, parseFilePath } from '../../../src/utils/ast.utils';
 import { initWorkspace, WORKSPACE_DATA_DIR, workspaceFile } from '../../workspace-helper';
 
 const token = CancellationToken.None;
-const strategy = new AssetAutoCompletionStrategy();
 const ASSETS_URI = workspaceFile('effects', 'assets.rules').replace(/\\/g, '/');
 
 /** A synthetic asset value node anchored at the effects fixture file. */
@@ -34,35 +33,35 @@ const assetValue = (value: string, type: 'Sprite' | 'Sound' | 'String' = 'Sprite
 const labels = (completions: Completion[]): string[] =>
     completions.map((completion) => (typeof completion === 'string' ? completion : completion.label));
 
-describe('AssetAutoCompletionStrategy', () => {
+describe('completeAssetPath', () => {
     beforeAll(async () => {
         await initWorkspace();
         globalSettings.cosmoteerPath = WORKSPACE_DATA_DIR;
     });
 
     it('lists sibling sprite files in the current directory', async () => {
-        const result = await strategy.complete({ node: assetValue(''), cancellationToken: token });
+        const result = await completeAssetPath({ node: assetValue(''), cancellationToken: token });
         expect(labels(result)).toContain('spark.png');
     });
 
     it('offers the ./Data/ root prefix from an empty value', async () => {
-        const result = await strategy.complete({ node: assetValue(''), cancellationToken: token });
+        const result = await completeAssetPath({ node: assetValue(''), cancellationToken: token });
         expect(labels(result)).toContain('./Data/');
     });
 
     it('filters by the partially typed filename', async () => {
-        const result = await strategy.complete({ node: assetValue('spa'), cancellationToken: token });
+        const result = await completeAssetPath({ node: assetValue('spa'), cancellationToken: token });
         expect(labels(result)).toContain('spark.png');
     });
 
     it('drills into a sibling directory across a slash', async () => {
-        const result = await strategy.complete({ node: assetValue('../sounds/', 'Sound'), cancellationToken: token });
+        const result = await completeAssetPath({ node: assetValue('../sounds/', 'Sound'), cancellationToken: token });
         // fx/ is a sub-directory of ../sounds containing beep.wav
         expect(labels(result)).toContain('fx/');
     });
 
     it('resolves directories under the ./Data/ root', async () => {
-        const result = await strategy.complete({ node: assetValue('./Data/sounds/fx/', 'Sound'), cancellationToken: token });
+        const result = await completeAssetPath({ node: assetValue('./Data/sounds/fx/', 'Sound'), cancellationToken: token });
         expect(labels(result)).toContain('beep.wav');
     });
 
@@ -71,9 +70,9 @@ describe('AssetAutoCompletionStrategy', () => {
         // but a schema `assetType` (e.g. the field is a Sound) narrows the listing to that kind, so
         // the sibling sprite (`spark.png`) is NOT offered for a sound-typed field.
         const value = assetValue('', 'String');
-        const asSound = await strategy.complete({ node: value, cancellationToken: token, assetType: 'Sound' });
+        const asSound = await completeAssetPath({ node: value, cancellationToken: token, assetType: 'Sound' });
         expect(labels(asSound)).not.toContain('spark.png');
-        const asSprite = await strategy.complete({ node: value, cancellationToken: token, assetType: 'Sprite' });
+        const asSprite = await completeAssetPath({ node: value, cancellationToken: token, assetType: 'Sprite' });
         expect(labels(asSprite)).toContain('spark.png');
     });
 });

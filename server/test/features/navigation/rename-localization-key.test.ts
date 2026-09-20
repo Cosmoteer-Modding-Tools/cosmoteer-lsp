@@ -3,7 +3,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { CancellationToken, Position, TextEdit, WorkspaceEdit } from 'vscode-languageserver';
 import { AbstractNodeDocument } from '../../../src/core/ast/ast';
 import { keyDeclarationsOf } from '../../../src/features/completion/localization-key.index';
-import { RenameService } from '../../../src/features/navigation/rename.service';
+import { prepareRename, rename } from '../../../src/features/navigation/rename.service';
 import { stringValueNodesOf } from '../../../src/features/navigation/schema-reference.navigation';
 import { RenameRefusedError } from '../../../src/features/refactor/rename-localization-key';
 import { parseFilePath } from '../../../src/utils/ast.utils';
@@ -13,7 +13,6 @@ import { initWorkspace, WORKSPACE_DATA_DIR } from '../../workspace-helper';
 // Renaming a localization key has to move it everywhere at once: the declaration in every language
 // file the mod ships, and every field that points at it. The fixture mod carries one key per shape
 // the sweep has to get right, so a rename that quietly leaves half the mod behind fails here.
-const service = RenameService.instance;
 const token = CancellationToken.None;
 
 const MOD_DIR = join(FIXTURES_DIR, 'localization-rename-mod');
@@ -96,14 +95,14 @@ describe('localization key rename', () => {
 
     it('prepareRename offers the key name a strings file declares', async () => {
         const caret = declarationCaret(en, 'Parts/Foo');
-        const prepared = await service.prepareRename(en, caret, token);
+        const prepared = await prepareRename(en, caret, token);
         expect(prepared?.placeholder).toBe('Foo');
         expect(prepared?.range.start.character).toBe(caret.character);
         expect(prepared?.range.end.character).toBe(caret.character + 'Foo'.length);
     });
 
     it('renames the declaration in every language file and every field pointing at it', async () => {
-        const edit = await service.rename(en, declarationCaret(en, 'Parts/Foo'), 'Bar', FOLDERS, token);
+        const edit = await rename(en, declarationCaret(en, 'Parts/Foo'), 'Bar', FOLDERS, token);
         expect(touchedFiles(edit)).toEqual(['a.rules', 'b.rules', 'de.rules', 'en.rules']);
 
         expect(editsIn(edit, 'strings/en.rules').map((each) => each.newText)).toEqual(['Bar']);
@@ -126,7 +125,7 @@ describe('localization key rename', () => {
     it('rewrites a key spelled in a different case than its declaration', async () => {
         // The game resolves a key path one case-insensitive step at a time, and vanilla itself relies
         // on it, so a field written `parts/fooDesc` points at the declared `Parts/FooDesc`.
-        const edit = await service.rename(en, declarationCaret(en, 'Parts/FooDesc'), 'FooInfo', FOLDERS, token);
+        const edit = await rename(en, declarationCaret(en, 'Parts/FooDesc'), 'FooInfo', FOLDERS, token);
 
         const aEdits = editsIn(edit, 'parts/a.rules');
         expect(aEdits.length).toBe(1);
@@ -136,7 +135,7 @@ describe('localization key rename', () => {
     });
 
     it('leaves a value alone when its text does not line up with the source it was read from', async () => {
-        const edit = await service.rename(en, declarationCaret(en, 'Parts/FooDesc'), 'FooInfo', FOLDERS, token);
+        const edit = await rename(en, declarationCaret(en, 'Parts/FooDesc'), 'FooInfo', FOLDERS, token);
         const verbatim = [...stringValueNodesOf(partB)].find(
             (node) => String(node.valueType.value) === 'Parts/FooDesc' && node.position.end - node.position.start !== 15
         );
@@ -149,26 +148,26 @@ describe('localization key rename', () => {
     it('does not edit a language file that does not declare the key', async () => {
         // de.rules translates Parts/Foo but not Parts/FooDesc, which is what a half-translated mod
         // looks like. It contributes nothing rather than failing the rename.
-        const edit = await service.rename(en, declarationCaret(en, 'Parts/FooDesc'), 'FooInfo', FOLDERS, token);
+        const edit = await rename(en, declarationCaret(en, 'Parts/FooDesc'), 'FooInfo', FOLDERS, token);
         expect(editsIn(edit, 'strings/de.rules')).toEqual([]);
         expect(editsIn(edit, 'strings/en.rules').length).toBe(1);
     });
 
     it('renames a key from the field that points at it', async () => {
-        const edit = await service.rename(partA, usageCaret(partA, 'Parts/Foo', 'Parts/'.length), 'Bar', FOLDERS, token);
+        const edit = await rename(partA, usageCaret(partA, 'Parts/Foo', 'Parts/'.length), 'Bar', FOLDERS, token);
         expect(touchedFiles(edit)).toEqual(['a.rules', 'b.rules', 'de.rules', 'en.rules']);
         expect(editsIn(edit, 'strings/en.rules').map((each) => each.newText)).toEqual(['Bar']);
     });
 
     it('prepareRename on a written key offers the segment, not the field name', async () => {
-        const prepared = await service.prepareRename(partA, usageCaret(partA, 'Parts/Foo', 'Parts/'.length), token);
+        const prepared = await prepareRename(partA, usageCaret(partA, 'Parts/Foo', 'Parts/'.length), token);
         expect(prepared?.placeholder).toBe('Foo');
         // The old behaviour offered to rename the schema field `NameKey`, which is not the author's.
         expect(prepared?.range.start.character).toBe(usageCaret(partA, 'Parts/Foo', 'Parts/'.length).character);
     });
 
     it('renames a group by moving the whole branch under it', async () => {
-        const edit = await service.rename(en, declarationCaret(en, 'Parts'), 'Bits', FOLDERS, token);
+        const edit = await rename(en, declarationCaret(en, 'Parts'), 'Bits', FOLDERS, token);
         // Only the group's own name changes, in each language file that has the group.
         expect(editsIn(edit, 'strings/en.rules').map((each) => each.newText)).toEqual(['Bits']);
         expect(editsIn(edit, 'strings/de.rules').map((each) => each.newText)).toEqual(['Bits']);
@@ -182,7 +181,7 @@ describe('localization key rename', () => {
     });
 
     it('leaves a sibling group whose name merely starts the same alone', async () => {
-        const edit = await service.rename(en, declarationCaret(en, 'Parts'), 'Bits', FOLDERS, token);
+        const edit = await rename(en, declarationCaret(en, 'Parts'), 'Bits', FOLDERS, token);
         const other = usageCaret(partB, 'PartsExtra/Foo');
         expect(editsIn(edit, 'parts/b.rules').some((each) => each.range.start.line === other.line)).toBe(false);
         // PartsExtra is declared right after Parts in both language files and keeps its name.
@@ -192,8 +191,8 @@ describe('localization key rename', () => {
 
     it('refuses a string found by its position in a list', async () => {
         const caret = usageCaret(en, 'First');
-        expect(await refusal(() => service.prepareRename(en, caret, token))).toContain('position in the list');
-        expect(await refusal(() => service.rename(en, caret, 'Opening', FOLDERS, token))).toContain(
+        expect(await refusal(() => prepareRename(en, caret, token))).toContain('position in the list');
+        expect(await refusal(() => rename(en, caret, 'Opening', FOLDERS, token))).toContain(
             'position in the list'
         );
     });
@@ -202,27 +201,27 @@ describe('localization key rename', () => {
         // `Titles/0` is how the game names the first entry of a list of strings, exactly as vanilla
         // writes `FameTitles/0`. The trailing segment is a position, so it has no name to rewrite.
         const caret = usageCaret(partA, 'Titles/0', 'Titles/'.length);
-        expect(await refusal(() => service.prepareRename(partA, caret, token))).toContain('not a plain name');
+        expect(await refusal(() => prepareRename(partA, caret, token))).toContain('not a plain name');
     });
 
     it('refuses anywhere in a strings file that is not a key name', async () => {
         const language = { line: 2, character: 2 };
-        expect(await refusal(() => service.prepareRename(en, language, token))).toContain('caret on the name');
+        expect(await refusal(() => prepareRename(en, language, token))).toContain('caret on the name');
         const text = usageCaret(en, 'Foo part');
-        expect(await refusal(() => service.prepareRename(en, text, token))).toContain('caret on the name');
+        expect(await refusal(() => prepareRename(en, text, token))).toContain('caret on the name');
     });
 
     it('refuses a key the base game also declares', async () => {
         // The fixture game tree declares Greeting too, and that file is not the mod's to write.
         const caret = declarationCaret(en, 'Greeting');
-        const message = await refusal(() => service.rename(en, caret, 'Welcome', FOLDERS, token));
+        const message = await refusal(() => rename(en, caret, 'Welcome', FOLDERS, token));
         expect(message).toContain('Greeting');
         expect(message.toLowerCase()).toContain('data/strings/en.rules');
     });
 
     it('refuses a name another key already uses', async () => {
         const message = await refusal(() =>
-            service.rename(en, declarationCaret(en, 'Parts/Foo'), 'FooDesc', FOLDERS, token)
+            rename(en, declarationCaret(en, 'Parts/Foo'), 'FooDesc', FOLDERS, token)
         );
         expect(message).toContain('Parts/FooDesc');
     });
@@ -230,21 +229,21 @@ describe('localization key rename', () => {
     it('refuses a name the game would not read as one step of a key path', async () => {
         const caret = declarationCaret(en, 'Parts/Foo');
         for (const name of ['0Bad', 'Bad Name', '..', 'Parts/Foo']) {
-            expect(await refusal(() => service.rename(en, caret, name, FOLDERS, token))).toContain('has to start');
+            expect(await refusal(() => rename(en, caret, name, FOLDERS, token))).toContain('has to start');
         }
     });
 
     it('refuses a rename started outside any mod', async () => {
         const outside = await parseFilePath(join(WORKSPACE_DATA_DIR, 'strings', 'en.rules'));
         const caret = declarationCaret(outside, 'Greeting');
-        expect(await refusal(() => service.rename(outside, caret, 'Welcome', FOLDERS, token))).toContain(
+        expect(await refusal(() => rename(outside, caret, 'Welcome', FOLDERS, token))).toContain(
             'not inside a mod'
         );
     });
 
     it('leaves the other rename kinds alone', async () => {
         // A part id is not a localization key, so the id rename still answers for it.
-        const prepared = await service.prepareRename(partA, usageCaret(partA, 'Parts/Foo', -1), token);
+        const prepared = await prepareRename(partA, usageCaret(partA, 'Parts/Foo', -1), token);
         expect(prepared).not.toBeNull();
     });
 });

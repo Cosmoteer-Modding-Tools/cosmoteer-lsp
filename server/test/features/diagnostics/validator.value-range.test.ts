@@ -19,7 +19,21 @@ const findings = async (text: string): Promise<string[]> =>
  * @returns the part file text.
  */
 const partWith = (type: string, body: string[]): string =>
-    ['Part', '{', '\tID = test.range', '\tComponents', '\t{', '\t\tX', '\t\t{', `\t\t\tType = ${type}`, ...body.map((line) => '\t\t\t' + line), '\t\t}', '\t}', '}', ''].join('\n');
+    [
+        'Part',
+        '{',
+        '\tID = test.range',
+        '\tComponents',
+        '\t{',
+        '\t\tX',
+        '\t\t{',
+        `\t\t\tType = ${type}`,
+        ...body.map((line) => '\t\t\t' + line),
+        '\t\t}',
+        '\t}',
+        '}',
+        '',
+    ].join('\n');
 
 // Range ordering is not judged in general: most ranges are interpolation bounds and count down on
 // purpose. These are the ones whose consumer rolls or compares instead.

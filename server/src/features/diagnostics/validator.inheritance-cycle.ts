@@ -10,12 +10,10 @@ import {
     ListNode,
     ValueNode,
 } from '../../core/ast/ast';
-import { FullNavigationStrategy } from '../navigation/full.navigation-strategy';
+import { navigate } from '../../semantics/navigate-reference';
 import { getStartOfAstNode } from '../../utils/ast.utils';
 import { ValidationError } from './validator';
 import * as l10n from '@vscode/l10n';
-
-const navigation = new FullNavigationStrategy();
 
 /** Depth-first walk yielding every node, so we can seed the cycle search from each group/list. */
 function* walkTree(node: AbstractNode): Generator<AbstractNode> {
@@ -77,9 +75,12 @@ export const validateInheritanceCycles = async (
     const reported = new Set<string>();
 
     const resolve = async (ref: ValueNode): Promise<AbstractNode | null> => {
-        const target = await navigation
-            .navigate(String(ref.valueType.value), ref, getStartOfAstNode(ref).uri, cancellationToken)
-            .catch(() => null);
+        const target = await navigate(
+            String(ref.valueType.value),
+            ref,
+            getStartOfAstNode(ref).uri,
+            cancellationToken
+        ).catch(() => null);
         if (!target || (target as { type?: string }).type === 'File') return null;
         return target as AbstractNode;
     };

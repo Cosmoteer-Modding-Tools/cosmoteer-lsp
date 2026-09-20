@@ -11,7 +11,7 @@ import { validatePathValues } from '../../../../src/features/diagnostics/validat
 import { validateRequiredFields } from '../../../../src/features/diagnostics/validator.required-fields';
 import { validateSchema } from '../../../../src/features/diagnostics/validator.schema';
 import { canonicalWorkshopEscape } from '../../../../src/features/diagnostics/workshop-escape';
-import { filePathToUri } from '../../../../src/features/navigation/navigation-strategy';
+import { filePathToUri } from '../../../../src/document/reference-path';
 import {
     contentFilePathOf,
     contentFolderPathOf,
@@ -19,7 +19,7 @@ import {
     pointedAtByFor,
     usageFor,
 } from '../../../../src/features/refactor/new-content/content-templates';
-import { CONTENT_KINDS, ContentKind } from '../../../../src/features/refactor/new-content/new-content.types';
+import { CONTENT_KINDS, ContentKind } from '../../../../../shared/new-content.types';
 import { globalSettings } from '../../../../src/settings';
 import { namedMembersOf, parseText } from '../../../../src/utils/ast.utils';
 import { CosmoteerWorkspaceService } from '../../../../src/workspace/cosmoteer-workspace.service';

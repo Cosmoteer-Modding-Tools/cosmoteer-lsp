@@ -3,7 +3,7 @@ import { CancellationToken } from 'vscode-languageserver';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
 import { schemaFieldNameCompletions } from '../../../src/features/completion/autocompletion.schema-fields';
-import { Completion } from '../../../src/features/completion/autocompletion.service';
+import { Completion } from '../../../src/features/completion/autocompletion.service.types';
 
 // A map written in its entry-list form has class-less entry groups whose members are the map's
 // entry names: the engine defaults `Key`/`Value`, or the `[KeyValuePairNames]` spellings like the

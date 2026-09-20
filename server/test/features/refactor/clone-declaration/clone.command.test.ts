@@ -6,14 +6,14 @@ import { CancellationToken, TextEdit } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { LocalizationText } from '../../../../src/features/completion/localization-key.index';
 import { cloneDeclaration, proposeCloneId } from '../../../../src/features/refactor/clone-declaration/clone.command';
+import { CloneHost } from '../../../../src/features/refactor/clone-declaration/clone.types';
 import {
     CloneApplyResult,
     CloneDeclarationArgs,
-    CloneHost,
     ClonePreviewResult,
     CloneScanResult,
-} from '../../../../src/features/refactor/clone-declaration/clone.types';
-import { filePathToUri } from '../../../../src/features/navigation/navigation-strategy';
+} from '../../../../../shared/clone-declaration.types';
+import { filePathToUri } from '../../../../src/document/reference-path';
 import { clearModRootCache } from '../../../../src/mod/mod-root';
 import { globalSettings } from '../../../../src/settings';
 import { FIXTURES_DIR } from '../../../helpers';

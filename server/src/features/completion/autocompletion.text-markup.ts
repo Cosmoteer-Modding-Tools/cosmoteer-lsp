@@ -1,5 +1,5 @@
 import { CompletionItemKind, Position, Range } from 'vscode-languageserver';
-import { normalizeUri } from '../navigation/reference-location';
+import { normalizeUri } from '../../document/reference-location';
 import {
     allowedValuesOf,
     H_ALIGNMENTS,
@@ -10,7 +10,7 @@ import {
     V_ALIGNMENTS,
 } from '../text-markup/text-markup';
 import { AttributeSpec, TagSpec } from '../text-markup/text-markup.types';
-import { Completion } from './autocompletion.service';
+import { Completion } from './autocompletion.service.types';
 
 /**
  * Completion for the markup a language file's strings carry. The text the game draws is read as an

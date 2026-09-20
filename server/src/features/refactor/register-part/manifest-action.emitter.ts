@@ -37,6 +37,13 @@ export type ManifestInsert =
       };
 
 /**
+ * A written `Actions` member head, whatever follows it. The source is checked as well as the tree
+ * because the parser drops an `Actions : &<launcher.rules>/Actions` head that carries no body of its
+ * own, so the one shape this refusal exists for is the one the tree cannot show.
+ */
+const ACTIONS_HEAD = /^[ \t]*actions[ \t]*[:=]/im;
+
+/**
  * The game-root path of a ship's `Parts` list, the form an action target takes: read from the game's
  * own `Data` root rather than from the manifest, so it is expressed relative to that root.
  *
@@ -124,13 +131,6 @@ export const openerOffset = (text: string, list: ListNode): number => {
 /** The byte offset of a list's closing bracket, or -1 when the span is not as recorded. */
 export const closerOffset = (text: string, list: ListNode): number =>
     text[list.position.end - 1] === ']' ? list.position.end - 1 : -1;
-
-/**
- * A written `Actions` member head, whatever follows it. The source is checked as well as the tree
- * because the parser drops an `Actions : &<launcher.rules>/Actions` head that carries no body of its
- * own, so the one shape this refusal exists for is the one the tree cannot show.
- */
-const ACTIONS_HEAD = /^[ \t]*actions[ \t]*[:=]/im;
 
 /** Whether the manifest declares an `Actions` member at all, whatever shape it has. */
 const declaresActions = (text: string, document: AbstractNodeDocument): boolean =>

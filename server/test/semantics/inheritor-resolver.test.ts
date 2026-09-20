@@ -6,7 +6,7 @@ import { pathToFileURL } from 'url';
 import { CancellationToken } from 'vscode-languageserver';
 import { lexer } from '../../src/core/lexer/lexer';
 import { parser } from '../../src/core/parser/parser';
-import { TemplateBaseIndex } from '../../src/features/diagnostics/template-base.index';
+import { TemplateBaseIndex } from '../../src/workspace/template-base.index';
 import { findInheritorsOf, resolveVirtualInheritanceTargets } from '../../src/semantics/inheritor-resolver';
 import { splitVirtualColon } from '../../src/utils/reference.utils';
 import { AbstractNode, isGroupNode, isListNode, isValueNode } from '../../src/core/ast/ast';

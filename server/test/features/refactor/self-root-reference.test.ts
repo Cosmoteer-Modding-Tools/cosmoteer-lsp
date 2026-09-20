@@ -4,7 +4,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { CancellationToken } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { selfRootReferenceCodeAction } from '../../../src/features/refactor/self-root-reference';
-import { filePathToUri } from '../../../src/features/navigation/navigation-strategy';
+import { filePathToUri } from '../../../src/document/reference-path';
 import { parseText } from '../../../src/utils/ast.utils';
 import { FIXTURES_DIR } from '../../helpers';
 import { initWorkspace } from '../../workspace-helper';

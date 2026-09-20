@@ -3,7 +3,7 @@ import { isValueNode } from '../../../core/ast/ast';
 import { foldPathCase, onFsInvalidation } from '../../../workspace/fs-cache';
 import { groupAtPath, locationOf, readRulesFile } from './base-index';
 import { topLevelMembersOf } from './member-record';
-import { BaseLocation } from './plan.types';
+import { BaseLocation } from '../../../../../shared/shared-base.types';
 
 /** One member a base supplies to everything that inherits it. */
 export interface InheritedMember {

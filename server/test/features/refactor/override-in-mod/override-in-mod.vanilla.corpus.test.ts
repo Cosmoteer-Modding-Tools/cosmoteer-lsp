@@ -3,12 +3,10 @@ import { join } from 'path';
 import { describe, expect, it } from 'vitest';
 import { AbstractNode, AbstractNodeDocument } from '../../../../src/core/ast/ast';
 import { isTypableTargetPath } from '../../../../src/mod/action-rooting.index';
-import {
-    OverrideRefusal,
-    overrideMemberAt,
-} from '../../../../src/features/refactor/override-in-mod/override-member';
+import { overrideMemberAt } from '../../../../src/features/refactor/override-in-mod/override-member';
+import { OverrideRefusal } from '../../../../../shared/override-in-mod.types';
 import { memberSpanOf } from '../../../../src/features/refactor/shared-base/member-record';
-import { memberNameOf } from '../../../../src/semantics/reference-resolver';
+import { memberNameOf } from '../../../../src/document/reference-resolver';
 import { parseText } from '../../../../src/utils/ast.utils';
 
 // The generator run over the game's own data. What it writes goes into somebody's mod and is applied

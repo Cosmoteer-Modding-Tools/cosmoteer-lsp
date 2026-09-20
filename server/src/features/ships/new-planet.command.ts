@@ -4,24 +4,30 @@ import { relative } from 'path';
 import { CancellationToken } from 'vscode-languageserver';
 import { AbstractNode, AbstractNodeDocument, isGroupNode, isListNode, isValueNode } from '../../core/ast/ast';
 import { ActionSource } from '../../mod/action';
-import { identityOfMod, ModIdentity } from '../../mod/mod-dependencies';
+import { identityOfMod, ModIdentity } from '../mod-report/mod-dependencies';
 import { parseText } from '../../utils/ast.utils';
-import { filePathToUri } from '../navigation/navigation-strategy';
-import { lineEndingOf } from '../refactor/command-host';
+import { filePathToUri } from '../../document/reference-path';
 import { authorPrefixOf } from '../refactor/new-content/content-id';
 import { writeLocalizationKeys } from '../refactor/new-content/new-content.command';
-import {
-    gameRootListTarget,
-    manifestActionMatches,
-    manifestForRegistration,
-} from '../refactor/new-content/registration.emitter';
+import { gameRootListTarget, manifestActionMatches } from '../refactor/new-content/registration.emitter';
 import { addManyActionText } from '../refactor/register-part/manifest-action.emitter';
 import { relativeRulesReference } from '../refactor/shared-base/base-file.emitter';
 import { dirOf, readRulesFile, resolveBasePath } from '../refactor/shared-base/base-index';
 import { memberOf } from '../refactor/new-content/registry-ids';
 import { actionEntryText, factionSegment, keyLabelOf } from './builtin-ships.emitter';
 import { LineEnding } from './builtin-ships.types';
-import { alreadyWired, appendManifestActions, elementTextOf, modRootFor, openManifest, scalarOf } from './mod-wiring';
+import {
+    BARE_RULES_ID,
+    alreadyWired,
+    appendManifestActions,
+    elementTextOf,
+    installReference,
+    modRootFor,
+    openManifest,
+    scalarOf,
+    registrationLineEnding,
+    resolveGameRoot,
+} from './mod-wiring';
 import {
     NewPlanetApplyResult,
     NewPlanetArgs,
@@ -63,9 +69,6 @@ const DOODAD_CLASS = 'Cosmoteer.Simulation.Doodads.DoodadRules';
 /** The folder a planet's own file goes under, mirroring the game's own tree. */
 const PLANETS_FOLDER = 'doodads/planets';
 
-/** The bare word a planet id is built from: the doodad id is the author prefix, a dot and `planet_<word>`. */
-const PLANET_WORD = /^[A-Za-z][A-Za-z0-9_]*$/;
-
 /** The members of a doodad file the wizard reads or overrides. */
 const ID_MEMBER = 'ID';
 const TYPE_MEMBER = 'Type';
@@ -105,6 +108,13 @@ const PLACEMENT_LISTS: Record<Exclude<PlanetPlacement, 'none'>, string> = {
 
 /** Every placement, in the order a client offers them. */
 const PLACEMENTS: readonly PlanetPlacement[] = ['inner', 'outer', 'innerMoon', 'outerMoon', 'none'];
+
+/**
+ * The member the doodad is written under. A file whose root is the doodad itself would have to be
+ * a nameless group, which the game does not read, so the doodad is a named member the manifest
+ * reaches as `&<file>/Planet`, the way a nebula file carries its `Nebula`.
+ */
+const DOODAD_MEMBER = 'Planet';
 
 /** A scan result carrying nothing but the reason there is nothing to report. */
 const scanFailed = (failure: NewPlanetFailure): NewPlanetScanResult => ({
@@ -336,17 +346,6 @@ const takenIdsOf = async (
 };
 
 /**
- * The reference a mod file names one of the game's own files by: `<./Data/…>` resolves against the
- * install wherever the mod sits, which a path relative to the mod would not.
- *
- * @param dataRoot the game's `Data` directory.
- * @param file a file under it.
- * @returns the reference, without the reading sigil.
- */
-const installReference = (dataRoot: string, file: string): string =>
-    `<./Data/${relative(dataRoot, file).replace(/\\/g, '/')}>`;
-
-/**
  * The path a mod file names one of the game's own assets by, in the same `./Data/…` spelling.
  *
  * @param dataRoot the game's `Data` directory.
@@ -461,13 +460,6 @@ const derivedFormParses = (text: string): boolean => {
 };
 
 /**
- * The member the doodad is written under. A file whose root is the doodad itself would have to be
- * a nameless group, which the game does not read, so the doodad is a named member the manifest
- * reaches as `&<file>/Planet`, the way a nebula file carries its `Nebula`.
- */
-const DOODAD_MEMBER = 'Planet';
-
-/**
  * The doodad file in the explicit form, every field copied from the base, for a parser that cannot
  * read the derived form. The values are the base's as read, so the two forms load the same.
  *
@@ -557,6 +549,83 @@ const planetFilesOf = (modRoot: string, segment: string): PlanetFiles => {
 const placementOf = (value: unknown): PlanetPlacement =>
     PLACEMENTS.includes(value as PlanetPlacement) ? (value as PlanetPlacement) : 'inner';
 
+/** What the manifest actions for a new planet are written from. */
+interface PlanetWiringPlan {
+    readonly doodadId: string;
+    /** The doodad file written into the mod. */
+    readonly doodadFile: string;
+    /** The doodad registry the palette entry is added to. */
+    readonly registryTarget: string;
+    /** The game's `Data` directory, which the spawner file is looked for under. */
+    readonly dataRoot: string;
+    readonly placement: PlanetPlacement;
+    /** How often the sector generator picks this planet over the others in its list. */
+    readonly weight: number;
+}
+
+/**
+ * Appends the manifest actions that wire a planet in: the palette entry in the doodad registry and,
+ * unless the client asked for none, the entry that makes career sectors place it.
+ *
+ * @param manifestFsPath the manifest the actions are appended to.
+ * @param modRoot the mod the manifest belongs to.
+ * @param plan what the actions are written from.
+ * @param wiring the per-key outcomes, updated in place.
+ * @param host the server facilities.
+ * @returns true when the manifest was changed.
+ */
+const wirePlanetIntoManifest = async (
+    manifestFsPath: string,
+    modRoot: string,
+    plan: PlanetWiringPlan,
+    wiring: NewPlanetApplyResult['wiring'],
+    host: NewPlanetHost
+): Promise<boolean> => {
+    const manifest = await openManifest(manifestFsPath, host);
+    const { insert, lineEnding } = manifest;
+    const entries: string[] = [];
+    const written: (keyof typeof wiring)[] = [];
+
+    const reference = `&${relativeRulesReference(dirOf(manifestFsPath), plan.doodadFile, DOODAD_MEMBER)}`;
+    if (await alreadyWired(modRoot, plan.registryTarget, plan.doodadFile)) {
+        wiring.doodads = 'present';
+    } else if (insert.kind === 'unusable') {
+        wiring.doodads = 'manifestUnusable';
+    } else {
+        entries.push(addManyActionText(plan.registryTarget, reference, insert.indent, lineEnding));
+        wiring.doodads = 'written';
+        written.push('doodads');
+    }
+
+    const spawnerTarget =
+        plan.placement !== 'none' && existsSync(`${plan.dataRoot.replace(/\\/g, '/')}/${SPAWNER_FILE}`)
+            ? `<${SPAWNER_FILE}>/${PLACEMENT_LISTS[plan.placement]}`
+            : undefined;
+    if (spawnerTarget) {
+        if (await manifestActionMatches(modRoot, spawnerTarget, (source) => spawnerEntryNames(source, plan.doodadId))) {
+            wiring.spawner = 'present';
+        } else if (insert.kind === 'unusable') {
+            wiring.spawner = 'manifestUnusable';
+        } else {
+            const entry = `{ Type=${plan.doodadId}; ChanceWeight=${plan.weight}; }`;
+            entries.push(
+                actionEntryText(
+                    ['Action = AddMany', `AddTo = "${spawnerTarget}"`, 'ManyToAdd', '[', `\t${entry}`, ']'],
+                    insert.indent,
+                    lineEnding
+                )
+            );
+            wiring.spawner = 'written';
+            written.push('spawner');
+        }
+    }
+
+    if (entries.length === 0) return false;
+    if (await appendManifestActions(manifest, entries, host)) return true;
+    for (const key of written) wiring[key] = 'editRejected';
+    return false;
+};
+
 /**
  * Create the planet and wire it in.
  *
@@ -573,12 +642,11 @@ const applyRound = async (
     cancellationToken: CancellationToken
 ): Promise<NewPlanetApplyResult> => {
     const word = (args.id ?? '').trim();
-    if (!PLANET_WORD.test(word)) return applyFailed(word, 'invalidId');
-    const dataRoot = host.dataRoot();
-    const root = await host.gameRoot().catch(() => undefined);
-    const rootDocument = (root?.content as { parsedDocument?: AbstractNodeDocument } | undefined)?.parsedDocument;
-    if (!dataRoot || !root?.path || !rootDocument) return applyFailed(word, 'noGameRoot');
-    const registry = doodadRegistryOf(rootDocument, root.path, dataRoot);
+    if (!BARE_RULES_ID.test(word)) return applyFailed(word, 'invalidId');
+    const game = await resolveGameRoot(host);
+    if (!game) return applyFailed(word, 'noGameRoot');
+    const { dataRoot, rootPath, rootDocument } = game;
+    const registry = doodadRegistryOf(rootDocument, rootPath, dataRoot);
     const read = registry ? await registryRead(registry, host, cancellationToken) : undefined;
     if (!registry || !read || read.planets.length === 0) return applyFailed(word, 'noGameRoot');
 
@@ -611,9 +679,7 @@ const applyRound = async (
     const label = keyLabelOf(word);
     const descriptionKey = `${DOODADS_KEY_GROUP}/${label}`;
 
-    const choice = manifestForRegistration(modRoot);
-    const lineEnding: LineEnding =
-        choice.kind === 'manifest' ? lineEndingOf((await readRulesFile(choice.fsPath))?.text ?? '') : '\n';
+    const { choice, lineEnding } = await registrationLineEnding(modRoot);
 
     const derived = doodadFileText(doodadId, label, base, dataRoot, overrides, lineEnding);
     const text = derivedFormParses(derived)
@@ -651,50 +717,15 @@ const applyRound = async (
         manifests = choice.manifests;
     } else if (choice.kind === 'manifest') {
         manifestPath = choice.fsPath;
-        const manifestDir = dirOf(choice.fsPath);
-        const manifest = await openManifest(choice.fsPath, host);
-        const { insert, lineEnding } = manifest;
-        const entries: string[] = [];
-        const written: (keyof typeof wiring)[] = [];
-
-        const reference = `&${relativeRulesReference(manifestDir, files.doodad, DOODAD_MEMBER)}`;
-        if (await alreadyWired(modRoot, registry.target, files.doodad)) {
-            wiring.doodads = 'present';
-        } else if (insert.kind === 'unusable') {
-            wiring.doodads = 'manifestUnusable';
-        } else {
-            entries.push(addManyActionText(registry.target, reference, insert.indent, lineEnding));
-            wiring.doodads = 'written';
-            written.push('doodads');
-        }
-
-        const spawnerTarget =
-            placement !== 'none' && existsSync(`${dataRoot.replace(/\\/g, '/')}/${SPAWNER_FILE}`)
-                ? `<${SPAWNER_FILE}>/${PLACEMENT_LISTS[placement]}`
-                : undefined;
-        if (spawnerTarget) {
-            if (await manifestActionMatches(modRoot, spawnerTarget, (source) => spawnerEntryNames(source, doodadId))) {
-                wiring.spawner = 'present';
-            } else if (insert.kind === 'unusable') {
-                wiring.spawner = 'manifestUnusable';
-            } else {
-                const entry = `{ Type=${doodadId}; ChanceWeight=${weight}; }`;
-                entries.push(
-                    actionEntryText(
-                        ['Action = AddMany', `AddTo = "${spawnerTarget}"`, 'ManyToAdd', '[', `\t${entry}`, ']'],
-                        insert.indent,
-                        lineEnding
-                    )
-                );
-                wiring.spawner = 'written';
-                written.push('spawner');
-            }
-        }
-
-        if (entries.length > 0) {
-            if (await appendManifestActions(manifest, entries, host)) changed.push(choice.fsPath);
-            else for (const key of written) wiring[key] = 'editRejected';
-        }
+        const plan: PlanetWiringPlan = {
+            doodadId,
+            doodadFile: files.doodad,
+            registryTarget: registry.target,
+            dataRoot,
+            placement,
+            weight,
+        };
+        if (await wirePlanetIntoManifest(choice.fsPath, modRoot, plan, wiring, host)) changed.push(choice.fsPath);
     }
 
     return {
@@ -732,11 +763,10 @@ export const newPlanet = async (
     if (!scanning) return await applyRound(args, located.modRoot, host, cancellationToken);
 
     const identity = await identityOfMod(located.modRoot).catch((): ModIdentity => ({ root: located.modRoot }));
-    const dataRoot = host.dataRoot();
-    const root = await host.gameRoot().catch(() => undefined);
-    const rootDocument = (root?.content as { parsedDocument?: AbstractNodeDocument } | undefined)?.parsedDocument;
-    if (!dataRoot || !root?.path || !rootDocument) return scanFailed('noGameRoot');
-    const registry = doodadRegistryOf(rootDocument, root.path, dataRoot);
+    const game = await resolveGameRoot(host);
+    if (!game) return scanFailed('noGameRoot');
+    const { dataRoot, rootPath, rootDocument } = game;
+    const registry = doodadRegistryOf(rootDocument, rootPath, dataRoot);
     const read = registry ? await registryRead(registry, host, cancellationToken) : undefined;
     if (!read || read.planets.length === 0) return scanFailed('noGameRoot');
     const taken = await takenIdsOf(read.ids, host, cancellationToken);

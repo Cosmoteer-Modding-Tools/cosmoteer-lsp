@@ -8,14 +8,17 @@ import { lexer } from '../../../../src/core/lexer/lexer';
 import { parser } from '../../../../src/core/parser/parser';
 import { isValidModId } from '../../../../src/mod/mod-manifest';
 import { newMod } from '../../../../src/features/refactor/new-mod/new-mod.command';
-import { NewModApplyResult } from '../../../../src/features/refactor/new-mod/new-mod.types';
+import { NewModApplyResult } from '../../../../../shared/new-mod.types';
 import { validateModManifest } from '../../../../src/features/diagnostics/validator.mod-manifest';
-import { clearGameVersionsCache } from '../../../../src/features/diagnostics/validator.manifest-version';
+import { clearGameVersionInfoCache } from '../../../../src/features/game-version';
 import { globalSettings } from '../../../../src/settings';
 import { CosmoteerWorkspaceService } from '../../../../src/workspace/cosmoteer-workspace.service';
 import { validateModActions } from '../../../../src/features/diagnostics/validator.mod-action';
 import { parseModActions } from '../../../../src/mod/action-parser';
-import { validateMissingSeparators, validateUnbracketedValueList } from '../../../../src/features/diagnostics/validator.separator';
+import {
+    validateMissingSeparators,
+    validateUnbracketedValueList,
+} from '../../../../src/features/diagnostics/validator.separator';
 import {
     validateOrphanCommentTerminators,
     validateUnterminatedComments,
@@ -58,7 +61,7 @@ describe('newMod', () => {
         expect(manifest).toContain('Actions');
     });
 
-    it('takes a folder name of the author\'s own over the one the mod name gives', async () => {
+    it("takes a folder name of the author's own over the one the mod name gives", async () => {
         const result = await create('Heavy Cannons', 'Jane Doe', 'JD Cannons');
         expect(result.modRoot).toBe(join(root, 'jd_cannons'));
         expect(result.id).toBe('jane_doe.jd_cannons');
@@ -71,7 +74,7 @@ describe('newMod', () => {
         expect(parser(lexer(manifest), pathToFileURL(result.manifest).href).parserErrors).toEqual([]);
     });
 
-    it('refuses a folder that already exists rather than writing into somebody\'s mod', async () => {
+    it("refuses a folder that already exists rather than writing into somebody's mod", async () => {
         mkdirSync(join(root, 'heavy_cannons'));
         const result = await create('Heavy Cannons', 'Jane');
         expect(result.failure).toBe('pathTaken');
@@ -122,8 +125,12 @@ describe.skipIf(!existsSync(DATA_DIR))('against the installed game', () => {
     it('names the game versions the install is at', async () => {
         const previous = globalSettings.cosmoteerPath;
         globalSettings.cosmoteerPath = DATA_DIR;
-        clearGameVersionsCache();
-        const noop: WorkDoneProgressReporter = { begin: () => undefined, report: () => undefined, done: () => undefined };
+        clearGameVersionInfoCache();
+        const noop: WorkDoneProgressReporter = {
+            begin: () => undefined,
+            report: () => undefined,
+            done: () => undefined,
+        };
         const service = CosmoteerWorkspaceService.instance;
         service.setConnection({
             languages: { diagnostics: { refresh: () => undefined } },
@@ -135,7 +142,7 @@ describe.skipIf(!existsSync(DATA_DIR))('against the installed game', () => {
             expect(readFileSync(result.manifest, 'utf8')).toMatch(/CompatibleGameVersions = \["\d+\.\d+/);
         } finally {
             globalSettings.cosmoteerPath = previous;
-            clearGameVersionsCache();
+            clearGameVersionInfoCache();
         }
     }, 60_000);
 });

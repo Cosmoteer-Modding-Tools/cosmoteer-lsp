@@ -20,7 +20,7 @@
     // diagnostics match what running the tests does.
     "extends": "../tsconfig.json",
     "compilerOptions": {
-        "rootDir": "..",
+        "rootDir": "../..",
         "noEmit": true,
         "incremental": false,
         "tsBuildInfoFile": null,

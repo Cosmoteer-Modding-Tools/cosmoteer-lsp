@@ -3,7 +3,7 @@ import { join } from 'path';
 import { pathToFileURL } from 'url';
 import { CancellationToken } from 'vscode-languageserver';
 import { computeModReachability, reachabilityKey, relativeToMod } from '../../src/mod/mod-reachability';
-import { generateModOverview } from '../../src/mod/mod-overview';
+import { generateModOverview } from '../../src/features/mod-report/mod-overview';
 import { clearModRootCache } from '../../src/mod/mod-root';
 import { FIXTURES_DIR } from '../helpers';
 

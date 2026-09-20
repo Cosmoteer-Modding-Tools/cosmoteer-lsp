@@ -1,7 +1,14 @@
 import * as l10n from '@vscode/l10n';
 import { CancellationToken } from 'vscode-languageserver';
-import { AbstractNode, AbstractNodeDocument, GroupNode, isAssignmentNode, isGroupNode } from '../../core/ast/ast';
-import { childNodesOf, getStartOfAstNode } from '../../utils/ast.utils';
+import {
+    AbstractNode,
+    AbstractNodeDocument,
+    GroupNode,
+    isAssignmentNode,
+    isGroupNode,
+    descendants,
+} from '../../core/ast/ast';
+import { getStartOfAstNode } from '../../utils/ast.utils';
 import { resolveGroupClass } from '../../document/schema/schema-context';
 import { typeDef } from '../../document/schema/schema';
 import { flattenGroup } from '../../semantics/effective-group';
@@ -55,14 +62,15 @@ const isBulletComponent = (cls: string): boolean => typeDef(cls)?.registry === B
  * @returns a generator of the bullet component groups found under it.
  */
 function* bulletComponentGroupsIn(node: AbstractNode): Generator<GroupNode> {
-    const named = isAssignmentNode(node)
-        ? node.left.name.toLowerCase() === COMPONENTS && isGroupNode(node.right)
-            ? node.right
-            : undefined
-        : isGroupNode(node) && node.identifier?.name.toLowerCase() === COMPONENTS
-          ? node
-          : undefined;
-    if (named) {
+    for (const candidate of descendants(node)) {
+        const named = isAssignmentNode(candidate)
+            ? candidate.left.name.toLowerCase() === COMPONENTS && isGroupNode(candidate.right)
+                ? candidate.right
+                : undefined
+            : isGroupNode(candidate) && candidate.identifier?.name.toLowerCase() === COMPONENTS
+              ? candidate
+              : undefined;
+        if (!named) continue;
         for (const child of named.elements) {
             if (!isGroupNode(child)) continue;
             const cls = resolveGroupClass(child);
@@ -72,7 +80,6 @@ function* bulletComponentGroupsIn(node: AbstractNode): Generator<GroupNode> {
             }
         }
     }
-    for (const child of childNodesOf(node)) yield* bulletComponentGroupsIn(child);
 }
 
 /**

@@ -1,22 +1,28 @@
 import { constants, existsSync } from 'fs';
 import { copyFile, mkdir, writeFile } from 'fs/promises';
 import { CancellationToken } from 'vscode-languageserver';
-import { AbstractNodeDocument } from '../../core/ast/ast';
-import { identityOfMod, ModIdentity } from '../../mod/mod-dependencies';
+import { identityOfMod, ModIdentity } from '../mod-report/mod-dependencies';
 import { evaluateNumericValue } from '../../semantics/value-evaluator';
 import { namedMembersOf } from '../../utils/ast.utils';
-import { filePathToUri } from '../navigation/navigation-strategy';
-import { lineEndingOf } from '../refactor/command-host';
+import { filePathToUri } from '../../document/reference-path';
 import { authorPrefixOf } from '../refactor/new-content/content-id';
 import { writeLocalizationKeys } from '../refactor/new-content/new-content.command';
-import { gameRootListTarget, manifestForRegistration } from '../refactor/new-content/registration.emitter';
+import { gameRootListTarget } from '../refactor/new-content/registration.emitter';
 import { modRootsUnder } from '../refactor/register-part/ship-registry';
 import { relativeRulesReference } from '../refactor/shared-base/base-file.emitter';
 import { dirOf, readRulesFile } from '../refactor/shared-base/base-index';
 import { factionSegment, keyLabelOf } from './builtin-ships.emitter';
 import { LineEnding } from './builtin-ships.types';
 import { collectFactions } from './faction-registry';
-import { ManifestWiring, modRootFor, wireIntoManifest } from './mod-wiring';
+import {
+    BARE_RULES_ID,
+    ManifestWiring,
+    ResolvedGameRoot,
+    modRootFor,
+    registrationLineEnding,
+    resolveGameRoot,
+    wireIntoManifest,
+} from './mod-wiring';
 import {
     NewFactionApplyResult,
     NewFactionArgs,
@@ -86,6 +92,9 @@ const FIRST_FREE_BLOCK = 1000;
 /** The border colour a faction gets when the client names none, a purple no game faction uses. */
 const DEFAULT_BORDER_COLOR: readonly [number, number, number] = [143, 48, 220];
 
+/** The folder a faction's own files go under. */
+const FACTIONS_FOLDER = 'factions';
+
 /**
  * A colour the client sent, taken only when it is three whole channels of 0 to 255.
  *
@@ -100,9 +109,6 @@ const colorOf = (value: unknown): readonly [number, number, number] | undefined 
     if (channels.some((channel) => channel === undefined)) return undefined;
     return channels as unknown as readonly [number, number, number];
 };
-
-/** The folder a faction's own files go under. */
-const FACTIONS_FOLDER = 'factions';
 
 /** A scan result carrying nothing but the reason there is nothing to report. */
 const scanFailed = (failure: NewFactionFailure): NewFactionScanResult => ({
@@ -141,9 +147,6 @@ const applyFailed = (id: string, failure: NewFactionFailure): NewFactionApplyRes
     changedFiles: [],
     failure,
 });
-
-/** A faction id as the game accepts one: a bare word, since ships and sectors write it unquoted. */
-const FACTION_ID = /^[A-Za-z][A-Za-z0-9_]*$/;
 
 /**
  * The id's display form for a localization key, `my_faction` reading as `MyFaction` the way the
@@ -447,6 +450,153 @@ const copyAsset = async (source: string | undefined, target: string): Promise<bo
 /** One manifest action to write, keyed by the wiring it reports as. */
 type Wiring = ManifestWiring<keyof NewFactionApplyResult['wiring']>;
 
+/** What the faction's own files are written from, once the game tree has been read. */
+interface FactionPlan {
+    readonly id: string;
+    readonly label: string;
+    readonly nameKey: string;
+    readonly beaconType: string;
+    readonly color: readonly [number, number, number];
+    readonly indexes: { military: number; civilian: number };
+    readonly tiers: Awaited<ReturnType<typeof galaxyTiers>>;
+    /** The icon the author picked, absent when they picked none. */
+    readonly icon: string | undefined;
+    /** The beacon ship the author picked, absent when they picked none. */
+    readonly beaconShip: string | undefined;
+}
+
+/** The faction's own files, and which of the two assets the author supplied. */
+interface WrittenFaction {
+    readonly created: string[];
+    readonly iconFile: string | undefined;
+    readonly beaconShipFile: string | undefined;
+}
+
+/**
+ * Writes a faction's own files: the author's two assets first, so the rules files written next can
+ * name them, then the faction, its galaxy placement, its beacon and, when asked, its lore page.
+ *
+ * @param plan what the files are written from.
+ * @param files where they go.
+ * @param lore whether a lore page is written.
+ * @param lineEnding the ending the new files are written with.
+ * @returns the files written and the assets taken, or undefined when a write failed.
+ */
+const writeFactionFiles = async (
+    plan: FactionPlan,
+    files: FactionFiles,
+    lore: boolean,
+    lineEnding: LineEnding
+): Promise<WrittenFaction | undefined> => {
+    const created: string[] = [];
+    let iconFile: string | undefined;
+    let beaconShipFile: string | undefined;
+    try {
+        await mkdir(files.folder, { recursive: true });
+        if (await copyAsset(plan.icon, files.icon)) {
+            iconFile = files.icon;
+            created.push(files.icon);
+        }
+        if (await copyAsset(plan.beaconShip, files.beaconShip)) {
+            beaconShipFile = files.beaconShip;
+            created.push(files.beaconShip);
+        }
+        const iconName = iconFile ? files.icon.slice(files.folder.length + 1) : PLACEHOLDER_ICON;
+        const beaconShipName = beaconShipFile
+            ? files.beaconShip.slice(files.folder.length + 1)
+            : PLACEHOLDER_BEACON_SHIP;
+        await writeFile(
+            files.faction,
+            factionFileText(plan.id, plan.nameKey, plan.color, plan.indexes, iconName, lineEnding),
+            { encoding: 'utf-8', flag: 'wx' }
+        );
+        await writeFile(files.galaxy, galaxyFileText(plan.id, plan.beaconType, plan.tiers, lineEnding), {
+            encoding: 'utf-8',
+            flag: 'wx',
+        });
+        await writeFile(files.beacon, beaconFileText(plan.beaconType, beaconShipName, lineEnding), {
+            encoding: 'utf-8',
+            flag: 'wx',
+        });
+        created.push(files.faction, files.galaxy, files.beacon);
+        if (lore) {
+            await writeFile(files.lore, loreFileText(plan.id, plan.label, iconName, lineEnding), {
+                encoding: 'utf-8',
+                flag: 'wx',
+            });
+            created.push(files.lore);
+        }
+    } catch {
+        return undefined;
+    }
+    return { created, iconFile, beaconShipFile };
+};
+
+/**
+ * The actions a manifest has to carry for a faction to be played: its registry entry, its territory
+ * and tier ranges, its beacon doodad and spawner entry and, when there is one, its lore page.
+ *
+ * @param files the faction's own files.
+ * @param lore whether a lore page was written.
+ * @param game the game tree the targets are read against.
+ * @param manifestDir the directory the manifest sits in, which its references are relative to.
+ * @returns one wiring per key, each with the target it needs or undefined when the game names none.
+ */
+const factionWirings = (files: FactionFiles, lore: boolean, game: ResolvedGameRoot, manifestDir: string): Wiring[] => {
+    const { dataRoot, rootPath, rootDocument } = game;
+    const reference = (file: string, member?: string): string =>
+        `&${relativeRulesReference(manifestDir, file, member)}`;
+    const galaxyExists = existsSync(`${dataRoot.replace(/\\/g, '/')}/${BASE_GALAXY_FILE}`);
+    const spawnerExists = existsSync(`${dataRoot.replace(/\\/g, '/')}/${BEACON_SPAWNER_FILE}`);
+    const wirings: Wiring[] = [
+        {
+            key: 'registry',
+            target: gameRootListTarget(rootDocument, rootPath, dataRoot, FACTIONS_MEMBER),
+            reference: reference(files.faction, FACTIONS_MEMBER),
+            file: files.faction,
+            wholeList: true,
+        },
+        {
+            key: 'territory',
+            target: galaxyExists ? TERRITORY_TARGET : undefined,
+            reference: reference(files.galaxy, 'Territory'),
+            file: files.galaxy,
+            wholeList: true,
+        },
+        {
+            key: 'tiers',
+            target: galaxyExists ? TIERS_TARGET : undefined,
+            reference: reference(files.galaxy, 'Tiers'),
+            file: files.galaxy,
+            wholeList: true,
+        },
+        {
+            key: 'beacon',
+            target: gameRootListTarget(rootDocument, rootPath, dataRoot, DOODADS_MEMBER),
+            reference: reference(files.beacon),
+            file: files.beacon,
+            wholeList: false,
+        },
+        {
+            key: 'beaconSpawner',
+            target: spawnerExists ? BEACON_TYPES_TARGET : undefined,
+            reference: reference(files.galaxy, 'Beacons'),
+            file: files.galaxy,
+            wholeList: true,
+        },
+    ];
+    if (lore) {
+        wirings.push({
+            key: 'lore',
+            target: existsSync(`${dataRoot.replace(/\\/g, '/')}/${LORE_FILE}`) ? LORE_TARGET : undefined,
+            reference: reference(files.lore),
+            file: files.lore,
+            wholeList: false,
+        });
+    }
+    return wirings;
+};
+
 /**
  * Create the faction and wire it in.
  *
@@ -463,77 +613,42 @@ const applyRound = async (
     cancellationToken: CancellationToken
 ): Promise<NewFactionApplyResult> => {
     const id = (args.id ?? '').trim();
-    if (!FACTION_ID.test(id)) return applyFailed(id, 'invalidId');
+    if (!BARE_RULES_ID.test(id)) return applyFailed(id, 'invalidId');
     const facts = await known(modRoot, host, cancellationToken);
     if (facts.takenIds.has(id.toLowerCase())) return applyFailed(id, 'idTaken');
     const files = factionFilesOf(modRoot, id);
     if (existsSync(files.folder)) return applyFailed(id, 'pathTaken');
 
-    const dataRoot = host.dataRoot();
-    const root = await host.gameRoot().catch(() => undefined);
-    const rootDocument = (root?.content as { parsedDocument?: AbstractNodeDocument } | undefined)?.parsedDocument;
-    if (!dataRoot || !root?.path || !rootDocument) return applyFailed(id, 'noGameRoot');
+    const game = await resolveGameRoot(host);
+    if (!game) return applyFailed(id, 'noGameRoot');
 
     const identity = await identityOfMod(modRoot).catch((): ModIdentity => ({ root: modRoot }));
     const prefix = authorPrefixOf(identity.manifestId);
-    const beaconType = `${prefix ? `${prefix}.` : ''}ftl_beacon_${factionSegment(id)}`;
-    const nameKey = `${FACTIONS_MEMBER}/${keyLabelOf(id)}`;
-    const color = colorOf(args.color) ?? DEFAULT_BORDER_COLOR;
-    const indexes = { military: facts.suggestedPlayerIndex, civilian: facts.suggestedPlayerIndex + 1 };
-    const tiers = await galaxyTiers(dataRoot, cancellationToken);
-
-    const choice = manifestForRegistration(modRoot);
-    const lineEnding: LineEnding =
-        choice.kind === 'manifest' ? lineEndingOf((await readRulesFile(choice.fsPath))?.text ?? '') : '\n';
-
     const label = keyLabelOf(id);
+    const plan: FactionPlan = {
+        id,
+        label,
+        nameKey: `${FACTIONS_MEMBER}/${label}`,
+        beaconType: `${prefix ? `${prefix}.` : ''}ftl_beacon_${factionSegment(id)}`,
+        color: colorOf(args.color) ?? DEFAULT_BORDER_COLOR,
+        indexes: { military: facts.suggestedPlayerIndex, civilian: facts.suggestedPlayerIndex + 1 },
+        tiers: await galaxyTiers(game.dataRoot, cancellationToken),
+        icon: args.icon,
+        beaconShip: args.beaconShip,
+    };
+    const nameKey = plan.nameKey;
+
+    const { choice, lineEnding } = await registrationLineEnding(modRoot);
+
     const loreKeys = args.lore
         ? [
               `Lore/${label}/Title`,
               ...Array.from({ length: LORE_PARAGRAPHS }, (_, index) => `Lore/${label}/Lore${index + 1}`),
           ]
         : [];
-    const created: string[] = [];
-    let iconFile: string | undefined;
-    let beaconShipFile: string | undefined;
-    try {
-        await mkdir(files.folder, { recursive: true });
-        // The author's own assets go in first, so the files written next can name them.
-        if (await copyAsset(args.icon, files.icon)) {
-            iconFile = files.icon;
-            created.push(files.icon);
-        }
-        if (await copyAsset(args.beaconShip, files.beaconShip)) {
-            beaconShipFile = files.beaconShip;
-            created.push(files.beaconShip);
-        }
-        const iconName = iconFile ? files.icon.slice(files.folder.length + 1) : PLACEHOLDER_ICON;
-        const beaconShipName = beaconShipFile
-            ? files.beaconShip.slice(files.folder.length + 1)
-            : PLACEHOLDER_BEACON_SHIP;
-        await writeFile(files.faction, factionFileText(id, nameKey, color, indexes, iconName, lineEnding), {
-            encoding: 'utf-8',
-            flag: 'wx',
-        });
-        await writeFile(files.galaxy, galaxyFileText(id, beaconType, tiers, lineEnding), {
-            encoding: 'utf-8',
-            flag: 'wx',
-        });
-        await writeFile(files.beacon, beaconFileText(beaconType, beaconShipName, lineEnding), {
-            encoding: 'utf-8',
-            flag: 'wx',
-        });
-        created.push(files.faction, files.galaxy, files.beacon);
-        if (args.lore) {
-            await writeFile(files.lore, loreFileText(id, label, iconName, lineEnding), {
-                encoding: 'utf-8',
-                flag: 'wx',
-            });
-            created.push(files.lore);
-        }
-    } catch {
-        return applyFailed(id, 'writeFailed');
-    }
+    const written = await writeFactionFiles(plan, files, args.lore === true, lineEnding);
+    if (!written) return applyFailed(id, 'writeFailed');
+    const { created, iconFile, beaconShipFile } = written;
     host.filesChanged(created);
 
     // The story starts as its keys, each holding a line that says what goes there, so the page
@@ -570,58 +685,7 @@ const applyRound = async (
         manifests = choice.manifests;
     } else if (choice.kind === 'manifest') {
         manifestPath = choice.fsPath;
-        const manifestDir = dirOf(choice.fsPath);
-        const reference = (file: string, member?: string): string =>
-            `&${relativeRulesReference(manifestDir, file, member)}`;
-        const galaxyExists = existsSync(`${dataRoot.replace(/\\/g, '/')}/${BASE_GALAXY_FILE}`);
-        const spawnerExists = existsSync(`${dataRoot.replace(/\\/g, '/')}/${BEACON_SPAWNER_FILE}`);
-        const wirings: Wiring[] = [
-            {
-                key: 'registry',
-                target: gameRootListTarget(rootDocument, root.path, dataRoot, FACTIONS_MEMBER),
-                reference: reference(files.faction, FACTIONS_MEMBER),
-                file: files.faction,
-                wholeList: true,
-            },
-            {
-                key: 'territory',
-                target: galaxyExists ? TERRITORY_TARGET : undefined,
-                reference: reference(files.galaxy, 'Territory'),
-                file: files.galaxy,
-                wholeList: true,
-            },
-            {
-                key: 'tiers',
-                target: galaxyExists ? TIERS_TARGET : undefined,
-                reference: reference(files.galaxy, 'Tiers'),
-                file: files.galaxy,
-                wholeList: true,
-            },
-            {
-                key: 'beacon',
-                target: gameRootListTarget(rootDocument, root.path, dataRoot, DOODADS_MEMBER),
-                reference: reference(files.beacon),
-                file: files.beacon,
-                wholeList: false,
-            },
-            {
-                key: 'beaconSpawner',
-                target: spawnerExists ? BEACON_TYPES_TARGET : undefined,
-                reference: reference(files.galaxy, 'Beacons'),
-                file: files.galaxy,
-                wholeList: true,
-            },
-        ];
-        const loreExists = existsSync(`${dataRoot.replace(/\\/g, '/')}/${LORE_FILE}`);
-        if (args.lore) {
-            wirings.push({
-                key: 'lore',
-                target: loreExists ? LORE_TARGET : undefined,
-                reference: reference(files.lore),
-                file: files.lore,
-                wholeList: false,
-            });
-        }
+        const wirings = factionWirings(files, args.lore === true, game, dirOf(choice.fsPath));
         if (await wireIntoManifest(choice.fsPath, modRoot, wirings, wiring, host)) changed.push(choice.fsPath);
     }
 
@@ -644,8 +708,8 @@ const applyRound = async (
         beaconShipFile,
         loreFile: args.lore ? files.lore : undefined,
         loreKeys,
-        militaryPlayerIndex: indexes.military,
-        civilianPlayerIndex: indexes.civilian,
+        militaryPlayerIndex: plan.indexes.military,
+        civilianPlayerIndex: plan.indexes.civilian,
         createdFiles: created,
         changedFiles: changed,
     };

@@ -7,8 +7,8 @@ import { findMemberThroughInheritance, ResolveReferenceFn } from '../../../seman
 import { globalSettings } from '../../../settings';
 import { namedMembersOf, parseText } from '../../../utils/ast.utils';
 import { isUnder } from '../../../utils/relative-path';
-import { FullNavigationStrategy } from '../../navigation/full.navigation-strategy';
-import { uriToFsPath } from '../../navigation/workspace-files';
+import { navigate } from '../../../semantics/navigate-reference';
+import { uriToFsPath } from '../../../workspace/workspace-files';
 import { appendElementEdit, isError } from '../../part-editor/grid-edit.service';
 import { locatePartGroup } from '../../part-editor/part-grid-data.service';
 import { documentFor, lineEndingOf, openBuffers } from '../command-host';
@@ -30,11 +30,11 @@ import {
     RegisterPartApplyResult,
     RegisterPartArgs,
     RegisterPartFailure,
-    RegisterPartHost,
     RegisterPartScanResult,
     ShipBlocker,
     ShipCandidate,
-} from './register-part.types';
+} from '../../../../../shared/register-part.types';
+import { RegisterPartHost } from './register-part.types';
 
 /**
  * The `workspace/executeCommand` id that registers a part in a ship class. Both clients invoke it
@@ -58,18 +58,9 @@ export const REGISTER_PART_IN_SHIP_ACTION_COMMAND = 'cosmoteer.registerPartInShi
 /** How many ships a scan reports, so a workspace full of ship mods still answers with a readable list. */
 const MAX_REPORTED_SHIPS = 40;
 
-const navigation = new FullNavigationStrategy();
-
 /** Adapts the shared navigation strategy to the inheritance resolver's reference-resolution shape. */
 const resolveReference: ResolveReferenceFn = (path, startNode, currentLocation, token, inheritanceVisited) =>
-    navigation.navigate(
-        path,
-        startNode,
-        currentLocation,
-        token,
-        new Set(),
-        inheritanceVisited
-    ) as ReturnType<ResolveReferenceFn>;
+    navigate(path, startNode, currentLocation, token, new Set(), inheritanceVisited) as ReturnType<ResolveReferenceFn>;
 
 /** The part the offer was made on, resolved against what its file says right now. */
 interface ResolvedPart {

@@ -16,13 +16,14 @@ import { findEnclosingGroup, resolveGroupClass } from '../../document/schema/sch
 import { acceptsShaderConstants } from '../../document/schema/schema';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
 import { resolveAssetPath } from '../navigation/asset-resolver';
-import { filePathToUri } from '../navigation/navigation-strategy';
+import { filePathToUri } from '../../document/reference-path';
 import { normalizeDir } from '../navigation/asset-resolver';
 import { shaderConstants } from './shader-index';
+import { ShaderConstant } from './shader-parser.types';
 import { expandShaderSource, expandShaderSourceDetailed } from './shader-source';
 import { translateToGlsl, type GlslTranslation } from './hlsl-to-glsl';
 import { materialConstants, materialShaderNode } from './shader-reference';
-import { childNamed, numberOf } from '../part-editor/vector-forms';
+import { childNamed, numberOf } from '../../semantics/vector-forms';
 import {
     ShaderPreviewBlend,
     ShaderPreviewConstant,
@@ -74,20 +75,6 @@ export const DEFAULT_ENTRY_DEFINES: readonly string[] = [
 ];
 
 /**
- * The default-entry guards worth turning on for one shader. A file that already writes its own `vert`
- * (vanilla's beam bases do) would get a second, conflicting definition from the base library if the
- * vertex guards were switched on as well, so only the guards for a stage the file leaves undefined are
- * added.
- *
- * @param expanded the source expanded under the normal defines, which shows what it already defines.
- * @returns the guards to add on the retry.
- */
-export const defaultEntryDefinesFor = (expanded: string): string[] =>
-    /\bvert\s*\(/.test(expanded)
-        ? DEFAULT_ENTRY_DEFINES.filter((define) => !define.startsWith('USE_DEFAULT_VERT'))
-        : [...DEFAULT_ENTRY_DEFINES];
-
-/**
  * The engine's named blend modes from `Halfling.Graphics.TargetBlendMode`, in constructor order
  * `srcRgb, dstRgb, rgbOp, srcAlpha, dstAlpha, alphaOp`. `AlphaBlend` is the material default.
  * Note the alpha channel of the default accumulates coverage (`InverseDestAlpha, One`) rather than the
@@ -105,6 +92,26 @@ const BLEND_MODES: Readonly<Record<string, readonly [string, string, string, str
     Min: ['One', 'One', 'Min', 'One', 'One', 'Min'],
     Max: ['One', 'One', 'Max', 'One', 'One', 'Max'],
 };
+
+/** The engine's texture defaults when a rules texture sets no sampler fields. */
+const SAMPLER_DEFAULTS: ShaderPreviewSampler = { sampleMode: 'Point', uMode: 'Clamp', vMode: 'Clamp', mips: false };
+
+/** The lists a particle def declares its data operators in, in the order the game runs them. */
+const OPERATOR_LISTS = ['PreInitializers', 'Initializers', 'PostInitializers', 'Updaters'] as const;
+
+/**
+ * The default-entry guards worth turning on for one shader. A file that already writes its own `vert`
+ * (vanilla's beam bases do) would get a second, conflicting definition from the base library if the
+ * vertex guards were switched on as well, so only the guards for a stage the file leaves undefined are
+ * added.
+ *
+ * @param expanded the source expanded under the normal defines, which shows what it already defines.
+ * @returns the guards to add on the retry.
+ */
+export const defaultEntryDefinesFor = (expanded: string): string[] =>
+    /\bvert\s*\(/.test(expanded)
+        ? DEFAULT_ENTRY_DEFINES.filter((define) => !define.startsWith('USE_DEFAULT_VERT'))
+        : [...DEFAULT_ENTRY_DEFINES];
 
 /** Builds a {@link ShaderPreviewBlend} from a label and a factor sextuple. */
 const blendOf = (
@@ -229,9 +236,6 @@ const colorComponents = (node: AbstractNode): number[] | null => {
 /** True when the engine would classify a declared constant as a colour (a `float4` defaulting to 255). */
 const isColorConstant = (kind: string, defaultValue: string | undefined): boolean =>
     kind === 'vec4' && defaultValue?.trim() === '255';
-
-/** The engine's texture defaults when a rules texture sets no sampler fields. */
-const SAMPLER_DEFAULTS: ShaderPreviewSampler = { sampleMode: 'Point', uMode: 'Clamp', vMode: 'Clamp', mips: false };
 
 /**
  * The sampler state a texture group declares. `UVMode` sets both axes, `UMode`/`VMode` override one.
@@ -363,9 +367,6 @@ const xyOf = (node: AbstractNode | null): number[] | null => {
     }
     return null;
 };
-
-/** The lists a particle def declares its data operators in, in the order the game runs them. */
-const OPERATOR_LISTS = ['PreInitializers', 'Initializers', 'PostInitializers', 'Updaters'] as const;
 
 /**
  * The named child of a container that may be a group or the document root. Every vanilla `*_def.rules`
@@ -500,6 +501,143 @@ const assignmentRaw = (group: GroupNode, name: string, text: string): string | n
 };
 
 /**
+ * The payload for a material whose shader file does not resolve. It names the shader the material asked
+ * for and leaves everything the translation would have produced empty, so the webview can say why it is
+ * showing nothing.
+ *
+ * @param shaderNode the material's `Shader` value node.
+ * @returns the preview payload for an unresolvable shader.
+ */
+const missingShaderPreview = (shaderNode: ValueNode): ShaderPreviewData => ({
+    shaderName: String(shaderNode.valueType.value),
+    shaderUri: null,
+    sourceUris: [],
+    glsl: null,
+    vertexStage: null,
+    translationOk: false,
+    reason: 'shader file not found',
+    constants: [],
+    textures: [],
+    blend: blendOf('AlphaBlend', BLEND_MODES.AlphaBlend),
+    tint: null,
+    tintComponents: null,
+    isParticle: false,
+    isBeam: false,
+    particleColor: null,
+    spriteSheet: null,
+    particleLifetime: null,
+    baseSize: null,
+    size: null,
+});
+
+/**
+ * Merges the material's written values onto the constants the shader declares, keeping the shader's
+ * declaration order. A colour-typed constant is normalized the way the game's Color deserializer reads
+ * it, falling back to the plain numeric components when it is not written as a colour.
+ *
+ * @param declared the constants the shader declares.
+ * @param written the material's written values, keyed by constant name.
+ * @returns one preview constant per declared constant.
+ */
+const previewConstants = (
+    declared: readonly ShaderConstant[],
+    written: ReadonlyMap<string, { node: AbstractNode; text: string }>
+): ShaderPreviewConstant[] =>
+    declared.map((constant) => {
+        const value = written.get(constant.name);
+        const isColor = isColorConstant(constant.kind, constant.default);
+        const components = value
+            ? ((isColor ? colorComponents(value.node) : null) ?? valueComponents(value.node) ?? undefined)
+            : undefined;
+        return {
+            name: constant.name,
+            kind: constant.kind,
+            hlslType: constant.hlslType,
+            default: constant.default,
+            value: value?.text,
+            components,
+            isColor: isColor || undefined,
+        };
+    });
+
+/**
+ * Resolves every texture the material binds: the base `Texture` (assignment or group form) plus each
+ * written texture-kind constant, so noise, ramp, and dissolve textures render instead of a white dummy.
+ *
+ * @param group the material group.
+ * @param declared the constants the shader declares.
+ * @param written the material's written values, keyed by constant name.
+ * @param documentUri the document the material lives in, the base for relative paths.
+ * @param cancellationToken cancels the asset resolution.
+ * @returns the bound textures, in binding order.
+ */
+const previewTextures = async (
+    group: GroupNode,
+    declared: readonly ShaderConstant[],
+    written: ReadonlyMap<string, { node: AbstractNode; text: string }>,
+    documentUri: string,
+    cancellationToken: CancellationToken
+): Promise<ShaderPreviewTexture[]> => {
+    const textures: ShaderPreviewTexture[] = [];
+    const baseTexture = childNamed(group, 'Texture');
+    if (baseTexture) textures.push(await resolveTexture(baseTexture, '_texture', documentUri, cancellationToken));
+    for (const constant of declared) {
+        if (constant.kind !== 'texture' || constant.name === '_texture') continue;
+        const value = written.get(constant.name);
+        if (!value) continue;
+        textures.push(await resolveTexture(value.node, constant.name, documentUri, cancellationToken));
+    }
+    return textures;
+};
+
+/**
+ * Expands the referenced shader under the engine's preview defines and translates it to GLSL. An
+ * include-library shader keeps its entry points behind `USE_DEFAULT_…` guards, so a failure for a
+ * missing `pix` is retried with those guards defined and the retry is kept only when it succeeds.
+ *
+ * @param shaderPath the absolute path of the referenced shader.
+ * @param dataDir the game `Data` directory, for root-anchored includes.
+ * @param readOverride prefers an open buffer's text over disk when reading the include chain.
+ * @returns the expanded source, its translation, and the files the expansion read.
+ */
+const translateMaterialShader = async (
+    shaderPath: string,
+    dataDir: string,
+    readOverride?: (absPath: string) => string | undefined
+): Promise<{ expanded: string; translation: GlslTranslation; files: readonly string[] }> => {
+    const entry = await expandShaderSourceDetailed(
+        shaderPath,
+        [...PREVIEW_SHADER_DEFINES],
+        dataDir,
+        readOverride
+    ).catch(() => ({ text: '', unresolved: [] as readonly string[], files: [] as readonly string[] }));
+    let expanded = entry.text;
+    // An unresolved include leaves the expansion missing the structs and helpers the shader is written
+    // against, so whatever the translator then says about it is misleading. Report the include instead.
+    let translation: GlslTranslation = entry.unresolved.length
+        ? { ok: false, reason: `cannot resolve include '${entry.unresolved[0]}'` }
+        : expanded
+          ? translateToGlsl(expanded)
+          : { ok: false, reason: 'shader unreadable' };
+    if (!translation.ok && translation.reason === 'no recognizable pix entry point') {
+        const withDefaults = await expandShaderSource(
+            shaderPath,
+            [...PREVIEW_SHADER_DEFINES, ...defaultEntryDefinesFor(expanded)],
+            dataDir,
+            readOverride
+        ).catch(() => '');
+        if (withDefaults) {
+            const retried = translateToGlsl(withDefaults);
+            if (retried.ok) {
+                expanded = withDefaults;
+                translation = retried;
+            }
+        }
+    }
+    return { expanded, translation, files: entry.files };
+};
+
+/**
  * Builds the preview payload for the material at a cursor position, or null when the cursor is not in
  * a material that references a shader.
  *
@@ -526,29 +664,7 @@ export const buildShaderPreview = async (
 
     const dataDir = CosmoteerWorkspaceService.instance.CosmoteerWorkspacePath;
     const shaderPath = await resolveAssetPath(shaderNode, document.uri, cancellationToken).catch(() => null);
-    if (!shaderPath) {
-        return {
-            shaderName: String(shaderNode.valueType.value),
-            shaderUri: null,
-            sourceUris: [],
-            glsl: null,
-            vertexStage: null,
-            translationOk: false,
-            reason: 'shader file not found',
-            constants: [],
-            textures: [],
-            blend: blendOf('AlphaBlend', BLEND_MODES.AlphaBlend),
-            tint: null,
-            tintComponents: null,
-            isParticle: false,
-            isBeam: false,
-            particleColor: null,
-            spriteSheet: null,
-            particleLifetime: null,
-            baseSize: null,
-            size: null,
-        };
-    }
+    if (!shaderPath) return missingShaderPreview(shaderNode);
 
     const declared = await shaderConstants(shaderPath, dataDir, readOverride).catch(() => []);
     // Merge the material's written values onto the declared constants (assignment or group form),
@@ -557,66 +673,9 @@ export const buildShaderPreview = async (
     for (const constant of materialConstants(group)) {
         written.set(constant.name, { node: constant.value, text: rawText(constant.value, text) });
     }
-    const constants: ShaderPreviewConstant[] = declared.map((constant) => {
-        const value = written.get(constant.name);
-        const isColor = isColorConstant(constant.kind, constant.default);
-        const components = value
-            ? ((isColor ? colorComponents(value.node) : null) ?? valueComponents(value.node) ?? undefined)
-            : undefined;
-        return {
-            name: constant.name,
-            kind: constant.kind,
-            hlslType: constant.hlslType,
-            default: constant.default,
-            value: value?.text,
-            components,
-            isColor: isColor || undefined,
-        };
-    });
-
-    // Every texture the material binds: the base `Texture` (assignment or group form) plus each written
-    // texture-kind constant, so noise, ramp, and dissolve textures render instead of a white dummy.
-    const textures: ShaderPreviewTexture[] = [];
-    const baseTexture = childNamed(group, 'Texture');
-    if (baseTexture) textures.push(await resolveTexture(baseTexture, '_texture', document.uri, cancellationToken));
-    for (const constant of declared) {
-        if (constant.kind !== 'texture' || constant.name === '_texture') continue;
-        const value = written.get(constant.name);
-        if (!value) continue;
-        textures.push(await resolveTexture(value.node, constant.name, document.uri, cancellationToken));
-    }
-
-    const entry = await expandShaderSourceDetailed(
-        shaderPath,
-        [...PREVIEW_SHADER_DEFINES],
-        dataDir,
-        readOverride
-    ).catch(() => ({ text: '', unresolved: [] as readonly string[], files: [] as readonly string[] }));
-    let expanded = entry.text;
-    // An unresolved include leaves the expansion missing the structs and helpers the shader is written
-    // against, so whatever the translator then says about it is misleading. Report the include instead.
-    let translation: GlslTranslation = entry.unresolved.length
-        ? { ok: false, reason: `cannot resolve include '${entry.unresolved[0]}'` }
-        : expanded
-          ? translateToGlsl(expanded)
-          : { ok: false, reason: 'shader unreadable' };
-    // An include-library shader keeps its entry points behind USE_DEFAULT_… guards; retry with the
-    // guards defined so previewing such a file shows the default pipeline instead of failing.
-    if (!translation.ok && translation.reason === 'no recognizable pix entry point') {
-        const withDefaults = await expandShaderSource(
-            shaderPath,
-            [...PREVIEW_SHADER_DEFINES, ...defaultEntryDefinesFor(expanded)],
-            dataDir,
-            readOverride
-        ).catch(() => '');
-        if (withDefaults) {
-            const retried = translateToGlsl(withDefaults);
-            if (retried.ok) {
-                expanded = withDefaults;
-                translation = retried;
-            }
-        }
-    }
+    const constants = previewConstants(declared, written);
+    const textures = await previewTextures(group, declared, written, document.uri, cancellationToken);
+    const { expanded, translation, files } = await translateMaterialShader(shaderPath, dataDir, readOverride);
     // A particle shader's per-vertex colour is the particle system's animated colour channel, a beam
     // shader's vertex stage carries intensity and fade. Both drive how the preview feeds `vColor`.
     // The include filename resolves through the case-insensitive FS (any casing), while the
@@ -629,7 +688,7 @@ export const buildShaderPreview = async (
     return {
         shaderName: String(shaderNode.valueType.value),
         shaderUri: filePathToUri(shaderPath),
-        sourceUris: (entry.files.length ? entry.files : [shaderPath]).map(filePathToUri),
+        sourceUris: (files.length ? files : [shaderPath]).map(filePathToUri),
         glsl: translation.ok ? translation.glsl! : null,
         vertexStage: (translation.ok && translation.vertex) || null,
         translationOk: translation.ok,

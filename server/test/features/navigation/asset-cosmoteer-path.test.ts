@@ -1,13 +1,10 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { AssetNavigationStrategy } from '../../../src/features/navigation/asset.navigation-strategy';
-import { AbstractNode } from '../../../src/core/ast/ast';
+import { resolveAsset } from '../../../src/features/navigation/navigate-asset';
 import { globalSettings } from '../../../src/settings';
 import { WORKSPACE_DATA_DIR } from '../../workspace-helper';
 
 // `./Data/…` asset paths are absolute from the Cosmoteer install root. Mods write the
 // prefix in any case (`./data/…`, `./Data/…`); resolution must be case-insensitive.
-const assetNav = new AssetNavigationStrategy();
-const dummyNode = { type: 'Value' } as unknown as AbstractNode;
 const someFile = WORKSPACE_DATA_DIR + '/effects/x.rules';
 
 beforeAll(() => {
@@ -17,17 +14,17 @@ beforeAll(() => {
 
 describe('cosmoteer `./Data/...` asset paths (case-insensitive)', () => {
     it('resolves a lowercase `./data/...` asset path (the reported bug)', async () => {
-        const found = await assetNav.navigate('./data/sounds/fx/beep.wav', dummyNode, someFile);
-        expect(found).toBe(true);
+        const found = await resolveAsset('./data/sounds/fx/beep.wav', someFile);
+        expect(found).not.toBeNull();
     });
 
     it('still resolves the canonical `./Data/...` casing', async () => {
-        const found = await assetNav.navigate('./Data/sounds/fx/beep.wav', dummyNode, someFile);
-        expect(found).toBe(true);
+        const found = await resolveAsset('./Data/sounds/fx/beep.wav', someFile);
+        expect(found).not.toBeNull();
     });
 
     it('returns false for a `./data/...` asset that does not exist', async () => {
-        const found = await assetNav.navigate('./data/sounds/fx/missing.wav', dummyNode, someFile);
-        expect(found).toBe(false);
+        const found = await resolveAsset('./data/sounds/fx/missing.wav', someFile);
+        expect(found).toBeNull();
     });
 });

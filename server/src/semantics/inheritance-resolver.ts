@@ -3,10 +3,10 @@ import { AbstractNode, ListNode, isListNode, isGroupNode, GroupNode } from '../c
 import { getStartOfAstNode } from '../utils/ast.utils';
 import { FileWithPath, FileTree, isFile } from '../workspace/cosmoteer-workspace.service';
 import { getParsedFileDocument } from '../workspace/parsed-file-cache';
-import { stepIntoNode } from './reference-resolver';
+import { stepIntoNode } from '../document/reference-resolver';
 
 /**
- * A reference-resolution function (e.g. FullNavigationStrategy.navigate) used to
+ * A reference-resolution function (e.g. the navigation feature’s `navigate`) used to
  * resolve an inheritance reference to the node it points at.
  */
 export type ResolveReferenceFn = (

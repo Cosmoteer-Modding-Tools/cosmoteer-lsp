@@ -2,11 +2,10 @@ import { existsSync } from 'fs';
 import { mkdir, writeFile } from 'fs/promises';
 import { CancellationToken } from 'vscode-languageserver';
 import { AbstractNodeDocument, GroupNode, isGroupNode, isListNode, isValueNode } from '../../core/ast/ast';
-import { identityOfMod, ModIdentity } from '../../mod/mod-dependencies';
+import { identityOfMod, ModIdentity } from '../mod-report/mod-dependencies';
 import { isUnder } from '../../utils/relative-path';
-import { lineEndingOf } from '../refactor/command-host';
 import { rulesFilesUnder } from '../refactor/new-content/content-id';
-import { gameRootListTarget, manifestForRegistration } from '../refactor/new-content/registration.emitter';
+import { gameRootListTarget } from '../refactor/new-content/registration.emitter';
 import {
     memberOf,
     memberTextOf,
@@ -20,7 +19,7 @@ import { addManyActionText } from '../refactor/register-part/manifest-action.emi
 import { relativeRulesReference } from '../refactor/shared-base/base-file.emitter';
 import { dirOf, readRulesFile } from '../refactor/shared-base/base-index';
 import { LineEnding } from './builtin-ships.types';
-import { alreadyWired, appendManifestActions, modRootFor, openManifest } from './mod-wiring';
+import { alreadyWired, appendManifestActions, modRootFor, openManifest, registrationLineEnding } from './mod-wiring';
 import {
     NewTechApplyResult,
     NewTechArgs,
@@ -392,9 +391,7 @@ const applyRound = async (
         ),
     ];
 
-    const choice = manifestForRegistration(modRoot);
-    const lineEnding: LineEnding =
-        choice.kind === 'manifest' ? lineEndingOf((await readRulesFile(choice.fsPath))?.text ?? '') : '\n';
+    const { choice, lineEnding } = await registrationLineEnding(modRoot);
 
     const created: string[] = [];
     try {

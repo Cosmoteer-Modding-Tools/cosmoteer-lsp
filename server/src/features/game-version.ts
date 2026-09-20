@@ -1,9 +1,8 @@
-import { readFile, stat } from 'fs/promises';
+import { readFile, readdir, stat } from 'fs/promises';
 import { dirname, join } from 'path';
 import { AbstractNodeDocument } from '../core/ast/ast';
 import { OPCODES, isTokenOpcode, readAssembly } from './mod-schema/dotnet-assembly';
-import { listEntries, listMember } from '../mod/mod-dependencies';
-import { currentGameVersionsLiteral } from './diagnostics/validator.manifest-version';
+import { listEntries, listMember, readManifest } from './mod-report/mod-dependencies';
 
 /**
  * What the installed game says about versions, read out of the game's own assembly.
@@ -83,7 +82,7 @@ export const readGameVersionInfo = async (dataRoot: string | undefined): Promise
     const memoized = key ? infoMemo.get(key) : undefined;
     if (memoized) return memoized;
     const fromAssembly = stamp ? await readFromAssembly(assemblyPath) : undefined;
-    const info = fromAssembly ?? (await readFromStandardMods());
+    const info = fromAssembly ?? (await readFromStandardMods(dataRoot));
     if (key) infoMemo.set(key, info);
     return info;
 };
@@ -91,6 +90,7 @@ export const readGameVersionInfo = async (dataRoot: string | undefined): Promise
 /** Drop the memoized reads, which a test and a changed install path both need. */
 export const clearGameVersionInfoCache = (): void => {
     infoMemo.clear();
+    cachedVersionsLiteral = undefined;
 };
 
 /**
@@ -154,13 +154,74 @@ const tryReadAssembly = (assemblyPath: string, buffer: Buffer): ReturnType<typeo
  * nowhere but the assembly, so a report built on this fallback must not claim a mod is going to be
  * disabled.
  *
+ * @param dataRoot the game `Data` root.
  * @returns the facts, or the empty answer when the manifests are unreadable too.
  */
-const readFromStandardMods = async (): Promise<GameVersionInfo> => {
-    const literal = await currentGameVersionsLiteral().catch(() => undefined);
+const readFromStandardMods = async (dataRoot: string): Promise<GameVersionInfo> => {
+    const literal = await currentGameVersionsLiteral(dataRoot).catch(() => undefined);
     const installed = literal?.match(/"([^"]+)"/)?.[1] ?? literal?.match(/\[\s*([^\],\s]+)/)?.[1] ?? '';
     if (!installed) return NO_INFO;
     return { installed, accepted: [installed], source: 'manifest' };
+};
+
+/**
+ * The written form of a version list, in the quoted spelling the game's own manifests use.
+ *
+ * @param versions the versions to write.
+ * @returns the list literal, ready to be inserted into a manifest.
+ */
+const versionsLiteral = (versions: readonly string[]): string => `[${versions.map((one) => `"${one}"`).join(', ')}]`;
+
+/** The harvested Standard Mods literal, kept for the session. */
+let cachedVersionsLiteral: Promise<string | undefined> | undefined;
+
+/**
+ * The `CompatibleGameVersions` the installed game's own Standard Mods manifests declare, which the
+ * developers keep at the current game version (`["0.30.4c"]`). Harvested once per session.
+ *
+ * The manifests are read through the parser rather than by matching the raw text, because the format
+ * lets a list run over several lines and a text match confined to one line would miss it.
+ *
+ * This is the manifest source on its own, which stays separate because {@link readGameVersionInfo}
+ * falls back to it when the game assembly cannot be read. Anything that wants the best answer the
+ * install can give should call {@link gameVersionsInsertLiteral}.
+ *
+ * @param dataRoot the game `Data` root, or undefined when no install is configured.
+ * @returns the literal, or undefined when no install is configured or no shipped manifest declares
+ *          the field.
+ */
+export const currentGameVersionsLiteral = (dataRoot: string | undefined): Promise<string | undefined> => {
+    cachedVersionsLiteral ??= (async () => {
+        if (!dataRoot) return undefined;
+        const standardMods = join(dirname(dataRoot), 'Standard Mods');
+        const entries = await readdir(standardMods, { withFileTypes: true }).catch(() => []);
+        for (const entry of entries) {
+            if (!entry.isDirectory()) continue;
+            const manifest = await readManifest(join(standardMods, entry.name, 'mod.rules'));
+            const declared = manifest ? declaredCompatibleVersions(manifest) : undefined;
+            if (declared && declared.length > 0) return versionsLiteral(declared);
+        }
+        return undefined;
+    })();
+    return cachedVersionsLiteral;
+};
+
+/**
+ * The version list the quick fix inserts, taken from the best source the install offers.
+ *
+ * The installed build states its own version in its assembly, as the constant
+ * `Cosmoteer.Versions.GameVersion`, so that is the version a manifest should name and it is read
+ * first. The shipped Standard Mods manifests remain the fallback for an install whose assembly
+ * cannot be read, since the developers keep them at the current version.
+ *
+ * @param dataRoot the game `Data` root, or undefined when no install is configured.
+ * @returns the literal to insert, or undefined when neither source could be read, in which case the
+ *          diagnostic carries no fix.
+ */
+export const gameVersionsInsertLiteral = async (dataRoot: string | undefined): Promise<string | undefined> => {
+    const info = await readGameVersionInfo(dataRoot).catch(() => undefined);
+    if (info?.source === 'assembly' && info.installed) return versionsLiteral([info.installed]);
+    return currentGameVersionsLiteral(dataRoot).catch(() => undefined);
 };
 
 /**

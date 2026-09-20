@@ -2,6 +2,13 @@ import { commands, ExtensionContext, l10n, window, workspace } from 'vscode';
 import { ExecuteCommandRequest, LanguageClient } from 'vscode-languageclient/node';
 import { offerToOpen, warnOfUnsavedFiles } from '../command-util';
 import { ApplyCleanup, openDocumentPaths, saveAndTidy } from '../shared-base/apply-cleanup';
+import {
+    OverrideInModApplyResult,
+    OverrideInModArgs,
+    OverrideInModFailure,
+    OverrideInModScanResult,
+    OverrideModCandidate,
+} from '../../../shared/override-in-mod.types';
 
 /**
  * Overriding a value of the game's own files from a mod, through an action in its manifest. The
@@ -14,79 +21,6 @@ import { ApplyCleanup, openDocumentPaths, saveAndTidy } from '../shared-base/app
  * claim it, so the editor runs this instead and the author picks the mod first.
  */
 export const OVERRIDE_IN_MOD_LOCAL_COMMAND = 'cosmoteer.overrideInModFromAction';
-
-/**
- * Mirror of the server's override arguments (see server
- * features/refactor/override-in-mod/override-in-mod.command.ts).
- */
-interface OverrideInModArgs {
-    uri: string;
-    offset: number;
-    mod?: string;
-    shape?: 'inline' | 'file';
-}
-
-/** Mirror of one mod the override could be written into (same module). */
-interface OverrideModCandidate {
-    /** The identity the pick is sent back by. */
-    key: string;
-    name: string;
-    modRoot: string;
-    manifests: string[];
-    alreadyOverridden: boolean;
-    blocked?: 'ambiguousManifest' | 'notEditable';
-}
-
-/** Mirror of the server's candidate report (same module). */
-interface OverrideInModScanResult {
-    kind: 'scan';
-    memberName: string;
-    target: string;
-    body: string;
-    replacesContainer: boolean;
-    candidates: OverrideModCandidate[];
-    failure?: OverrideInModFailure;
-}
-
-/** Mirror of the server's answer once the action is written (same module). */
-interface OverrideInModApplyResult {
-    kind: 'apply';
-    modRoot: string;
-    manifestFsPath: string;
-    /** The fragment file that was created, empty for the inline shape. */
-    createdFsPath: string;
-    changedFiles: string[];
-    target: string;
-    memberName: string;
-    replacesContainer: boolean;
-    failure?: OverrideInModFailure;
-    /** The manifest names to choose between, only set for `ambiguousManifest`. */
-    manifests?: string[];
-}
-
-/** Why an override did nothing, as the server words it. */
-type OverrideInModFailure =
-    | 'stale'
-    | 'insideList'
-    | 'indexSegment'
-    | 'unnamedMember'
-    | 'shadowedName'
-    | 'emptyMember'
-    | 'inheritedMember'
-    | 'multiLineText'
-    | 'scopeRelativeValue'
-    | 'unrebasablePath'
-    | 'untypablePath'
-    | 'notVanilla'
-    | 'stringsFile'
-    | 'noGamePath'
-    | 'noModRoot'
-    | 'unknownMod'
-    | 'ambiguousManifest'
-    | 'notEditable'
-    | 'alreadyOverridden'
-    | 'editRejected'
-    | 'writeFailed';
 
 /**
  * Offer the mods the override can go into and let the user pick one.

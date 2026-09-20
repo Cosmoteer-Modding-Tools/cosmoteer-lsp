@@ -14,6 +14,33 @@ export interface PartComponent {
     readonly cls: string | undefined;
 }
 
+/** How deep a nest of components is followed, so a cycle through a base cannot spin. */
+const MAX_COMPONENT_NESTING = 8;
+
+/** The rules the engine inlines into every component that stands in for another one. */
+const PROXY_RULES = 'Cosmoteer.Ships.Parts.Logic.ProxyRules';
+
+/** The member naming the component a proxy stands in for, in a list entry and flat alike. */
+const PROXY_COMPONENT_MEMBER = 'ComponentID';
+
+/** The list of components a proxy may stand in for, one entry each. */
+const PROXY_LIST_MEMBER = 'ProxyableComponents';
+
+/**
+ * The members through which a component names a part other than the one it is written in:
+ * `PartLocation` picks the part at a cell, `PartCriteria` picks among the parts found there.
+ */
+const OTHER_PART_MEMBERS = ['PartLocation', 'PartCriteria'];
+
+/** The proxy that resolves its ids against whichever part this one is chained to. */
+const CHAINED_PROXY_TYPE = 'ChainableProxy';
+
+/**
+ * The group a component pools through buffs with. Its ids name components of the part at the other
+ * end of the buff, never of this one, so nothing may judge them against this part's components.
+ */
+export const BUFF_PROXY_CLASS = 'Cosmoteer.Ships.Parts.Logic.BuffMultiProxyRules';
+
 /**
  * Every named component of a part, whatever its class, merged across the `Components` group's own
  * inheritance chain so components a part gathers from other files are included.
@@ -32,9 +59,6 @@ export const componentsOfPart = async (part: GroupNode, token: CancellationToken
     await collectComponents(components.node, resolved, token, 0);
     return resolved;
 };
-
-/** How deep a nest of components is followed, so a cycle through a base cannot spin. */
-const MAX_COMPONENT_NESTING = 8;
 
 /**
  * The member of a component that holds components of its own kind, or undefined for one that holds
@@ -141,30 +165,6 @@ export const componentReferenceOf = async (
     if (target && isValueNode(target)) return { name: String(target.valueType.value), written };
     return { written };
 };
-
-/** The rules the engine inlines into every component that stands in for another one. */
-const PROXY_RULES = 'Cosmoteer.Ships.Parts.Logic.ProxyRules';
-
-/** The member naming the component a proxy stands in for, in a list entry and flat alike. */
-const PROXY_COMPONENT_MEMBER = 'ComponentID';
-
-/** The list of components a proxy may stand in for, one entry each. */
-const PROXY_LIST_MEMBER = 'ProxyableComponents';
-
-/**
- * The members through which a component names a part other than the one it is written in:
- * `PartLocation` picks the part at a cell, `PartCriteria` picks among the parts found there.
- */
-const OTHER_PART_MEMBERS = ['PartLocation', 'PartCriteria'];
-
-/** The proxy that resolves its ids against whichever part this one is chained to. */
-const CHAINED_PROXY_TYPE = 'ChainableProxy';
-
-/**
- * The group a component pools through buffs with. Its ids name components of the part at the other
- * end of the buff, never of this one, so nothing may judge them against this part's components.
- */
-export const BUFF_PROXY_CLASS = 'Cosmoteer.Ships.Parts.Logic.BuffMultiProxyRules';
 
 /**
  * Whether a component resolves its component ids against some part other than the one it is written

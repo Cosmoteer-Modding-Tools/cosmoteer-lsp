@@ -12,18 +12,18 @@ import { NewTechHost } from '../features/ships/new-tech.types';
 import { partStatsIndex } from '../features/part-table/part-table.service';
 import { ensureParserResult } from './open-documents';
 import { shipLayerContext } from './ship-layers';
-import { normalizeUri } from '../features/navigation/reference-location';
+import { normalizeUri } from '../document/reference-location';
 import { SchemaIdIndex } from '../features/completion/schema-id.index';
 import { isEnglish, LocalizationKeyIndex } from '../features/completion/localization-key.index';
-import { MentionIndex } from '../features/navigation/mention.index';
+import { MentionIndex } from '../workspace/mention.index';
 import { invalidateModContext } from '../mod/mod-context';
 import { invalidateSchemaContextCache } from '../document/schema/schema-context';
 import { basenameOf, isManifestBasename } from '../document/document-kind';
 import { CosmoteerWorkspaceService } from '../workspace/cosmoteer-workspace.service';
 import { invalidateFsPath } from '../workspace/fs-cache';
-import { filePathToUri } from '../features/navigation/navigation-strategy';
+import { filePathToUri } from '../document/reference-path';
 import { connection, documents } from './context';
-import { diagnosticsCache, inlayHintCache } from './document-caches';
+import { invalidateDerivedCaches } from './document-caches';
 import { markProjectIndexesDirty } from './open-documents';
 import { invalidateShipLayersFor } from './ship-layers';
 import { bumpWorkspaceScanEpoch } from './scan-epoch';
@@ -61,8 +61,10 @@ export function sharedBaseHost(
             invalidateSchemaContextCache();
             // A brand-new base file is outside the manifest's reachability closure until it is redone.
             bumpValidationScopeEpoch();
-            diagnosticsCache.clear();
-            inlayHintCache.clear();
+            // A refactoring writes to disk without going through applyEdit, so no open-document path
+            // drops these for it. The component-id, effective-chain and loose-declaration memos are
+            // as stale as the two caches beside them, so the whole set goes at once.
+            invalidateDerivedCaches();
             bumpWorkspaceScanEpoch();
             clearSharedBaseScanCache();
         },

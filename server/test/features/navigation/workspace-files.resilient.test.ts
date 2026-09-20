@@ -4,7 +4,7 @@ import { join } from 'path';
 import { tmpdir } from 'os';
 import { CancellationToken } from 'vscode-languageserver';
 import * as astUtils from '../../../src/utils/ast.utils';
-import { projectDocuments } from '../../../src/features/navigation/workspace-files';
+import { projectDocuments } from '../../../src/workspace/workspace-files';
 
 // Regression: one unparseable file (the parser still throws on some constructs, e.g.
 // `inferValueType`) must not abort the whole project walk. Otherwise it silently kills

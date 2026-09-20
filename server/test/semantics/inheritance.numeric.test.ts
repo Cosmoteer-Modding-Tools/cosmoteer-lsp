@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { CancellationToken } from 'vscode-languageserver';
 import { lexer } from '../../src/core/lexer/lexer';
 import { parser } from '../../src/core/parser/parser';
-import { FullNavigationStrategy } from '../../src/features/navigation/full.navigation-strategy';
+import { navigate } from '../../src/semantics/navigate-reference';
 import { AbstractNode, isListNode } from '../../src/core/ast/ast';
 import { parseFixture } from '../helpers';
 
@@ -29,11 +29,10 @@ describe('numeric inheritance (`: N`)', () => {
 
     it('resolves a member inherited from the indexed sibling', async () => {
         const doc = parseFixture('numeric-inheritance.rules');
-        const nav = new FullNavigationStrategy();
         const effects = doc.elements.find((e) => isListNode(e) && e.identifier?.name === 'Effects')!;
         const inheritingElement = (effects as unknown as { elements: AbstractNode[] }).elements[2];
         // `Color` is defined only on index 1; it must be reachable via `: 1`.
-        const result = await nav.navigate('Color', inheritingElement, doc.uri, token);
+        const result = await navigate('Color', inheritingElement, doc.uri, token);
         expect(result && 'valueType' in result && (result as { valueType: { value: unknown } }).valueType.value).toBe(
             22
         );

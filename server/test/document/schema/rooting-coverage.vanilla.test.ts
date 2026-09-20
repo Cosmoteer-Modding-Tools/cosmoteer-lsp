@@ -13,7 +13,7 @@ import {
 } from '../../../src/core/ast/ast';
 import { documentRootClass } from '../../../src/document/schema/document-root';
 import { memberTypeIn, resolveGroupClass } from '../../../src/document/schema/schema-context';
-import { ReverseIncludeIndex } from '../../../src/features/navigation/reverse-include.index';
+import { ReverseIncludeIndex } from '../../../src/mod/reverse-include.index';
 import { aliasRootIndex } from '../../../src/document/schema/alias-root';
 import { globalSettings } from '../../../src/settings';
 import { CosmoteerWorkspaceService } from '../../../src/workspace/cosmoteer-workspace.service';
@@ -76,7 +76,7 @@ describe.skipIf(!HAVE_DATA)('rooting coverage over vanilla Data', () => {
             }
             return undefined;
         };
-        // Game-root `<./Data/…>` includes resolve through FullNavigationStrategy, which needs the
+        // Game-root `<./Data/…>` includes resolve through the reference navigation, which needs the
         // workspace initialized against the Data root, as the running server always has it. Without it a
         // beam shot's `: <./Data/shots/…>` inheritance does not resolve and its file looks unrooted.
         globalSettings.cosmoteerPath = DATA_DIR;

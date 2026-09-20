@@ -2,7 +2,7 @@ import { ExtensionContext, Uri, l10n, window, workspace } from 'vscode';
 import { LanguageClient } from 'vscode-languageclient/node';
 import { creationFailureMessage, wiringNotes } from './nebula-wizard';
 import { applyForWizard, scanForWizard, wizardAnchor } from './wizard-client';
-import { escapeHtml, scriptJson, showWizardForm } from './wizard-form';
+import { ID_SUGGESTS_NAME_SCRIPT, escapeHtml, modFolderName, scriptJson, showWizardForm } from './wizard-form';
 import { NewPlanetApplyResult, NewPlanetScanResult, PlanetBase, PlanetForm } from './planet-wizard.types';
 
 /**
@@ -17,6 +17,47 @@ export const NEW_PLANET_LOCAL_COMMAND = 'cosmoteer.newPlanet.create';
 
 /** The server command the wrapper runs. */
 const NEW_PLANET_SERVER_COMMAND = 'cosmoteer.newPlanet';
+
+/**
+ * The form's page script: the size fields appear only when a size of its own was asked for, and an
+ * id whose doodad id is free and a name that is filled in are what the form waits for.
+ */
+const PLANET_FORM_SCRIPT = `
+    var taken = JSON.parse(strings.taken);
+${ID_SUGGESTS_NAME_SCRIPT}
+    var doodadId = function () { return (strings.prefix + '.planet_' + byId('id').value.trim().toLowerCase()); };
+    byId('resize').addEventListener('change', function () { byId('sizes').hidden = !byId('resize').checked; });
+    var placement = function () {
+        var picked = form.querySelector('input[name=placement]:checked');
+        return picked ? picked.value : 'inner';
+    };
+    window.wizard = {
+        validate: function () {
+            var id = byId('id').value.trim();
+            if (!/^[A-Za-z][A-Za-z0-9_]*$/.test(id)) return id ? strings.invalidId : ' ';
+            if (taken.indexOf(doodadId()) >= 0) return strings.takenId;
+            if (!byId('name').value.trim()) return strings.emptyName;
+            if (byId('resize').checked) {
+                var lo = Number(byId('scaleMin').value), hi = Number(byId('scaleMax').value), at = Number(byId('scaleDefault').value);
+                if (!(lo > 0) || !(hi >= lo) || !(at >= lo && at <= hi)) return strings.badSizes;
+            }
+            return '';
+        },
+        answer: function () {
+            var answer = {
+                id: byId('id').value.trim(),
+                name: byId('name').value.trim(),
+                base: byId('base').value,
+                placement: placement(),
+                weight: Math.max(0.05, Number(byId('weight').value) || 1),
+            };
+            if (byId('resize').checked) {
+                answer.scale = [Number(byId('scaleMin').value), Number(byId('scaleMax').value)];
+                answer.defaultScale = Number(byId('scaleDefault').value);
+            }
+            return answer;
+        },
+    };`;
 
 /**
  * Why nothing was created, for the failures this wizard adds to the shared ones.
@@ -100,7 +141,7 @@ const placementLabels = (): [string, string, string][] => [
  * @returns the answers, or undefined when the form was closed.
  */
 const showPlanetForm = (context: ExtensionContext, scan: NewPlanetScanResult): Promise<PlanetForm | undefined> => {
-    const modName = scan.modRoot.replace(/\\/g, '/').split('/').filter(Boolean).pop() ?? scan.modRoot;
+    const modName = modFolderName(scan.modRoot);
     const offered = placementLabels().filter(([id]) => scan.placements.includes(id));
     const baseOption = (base: PlanetBase): string => {
         const text = base.label
@@ -181,47 +222,6 @@ ${offered
             taken: scriptJson(scan.takenIds.map((id) => id.toLowerCase())),
         },
         submit: l10n.t('Create planet'),
-        script: `
-    var taken = JSON.parse(strings.taken);
-    var byId = function (id) { return document.getElementById(id); };
-    var nameTouched = false;
-    var doodadId = function () { return (strings.prefix + '.planet_' + byId('id').value.trim().toLowerCase()); };
-    byId('id').addEventListener('input', function () {
-        if (nameTouched) return;
-        byId('name').value = byId('id').value.trim().split('_').filter(Boolean).map(function (w) { return w.charAt(0).toUpperCase() + w.slice(1); }).join(' ');
-    });
-    byId('name').addEventListener('input', function () { nameTouched = byId('name').value.trim().length > 0; });
-    byId('resize').addEventListener('change', function () { byId('sizes').hidden = !byId('resize').checked; });
-    var placement = function () {
-        var picked = form.querySelector('input[name=placement]:checked');
-        return picked ? picked.value : 'inner';
-    };
-    window.wizard = {
-        validate: function () {
-            var id = byId('id').value.trim();
-            if (!/^[A-Za-z][A-Za-z0-9_]*$/.test(id)) return id ? strings.invalidId : ' ';
-            if (taken.indexOf(doodadId()) >= 0) return strings.takenId;
-            if (!byId('name').value.trim()) return strings.emptyName;
-            if (byId('resize').checked) {
-                var lo = Number(byId('scaleMin').value), hi = Number(byId('scaleMax').value), at = Number(byId('scaleDefault').value);
-                if (!(lo > 0) || !(hi >= lo) || !(at >= lo && at <= hi)) return strings.badSizes;
-            }
-            return '';
-        },
-        answer: function () {
-            var answer = {
-                id: byId('id').value.trim(),
-                name: byId('name').value.trim(),
-                base: byId('base').value,
-                placement: placement(),
-                weight: Math.max(0.05, Number(byId('weight').value) || 1),
-            };
-            if (byId('resize').checked) {
-                answer.scale = [Number(byId('scaleMin').value), Number(byId('scaleMax').value)];
-                answer.defaultScale = Number(byId('scaleDefault').value);
-            }
-            return answer;
-        },
-    };`,
+        script: PLANET_FORM_SCRIPT,
     });
 };

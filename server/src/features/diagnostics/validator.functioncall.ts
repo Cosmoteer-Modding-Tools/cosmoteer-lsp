@@ -1,5 +1,5 @@
 import { FunctionCallNode } from '../../core/ast/ast';
-import { Validation } from './validator';
+import { didYouMeanFix, Validation, ValidationError } from './validator';
 import { functionArgumentCount } from '../../semantics/value-evaluator';
 import {
     ALL_MATH_FUNCTION_NAMES,
@@ -38,6 +38,143 @@ const arityDescription = (name: string, min: number, max: number, got: number): 
     return l10n.t('The "{0}" function takes at least {1} argument(s), but got {2}', name, min, got);
 };
 
+/**
+ * Flags a function name the game's expression parser does not read: a real function under a
+ * capitalized spelling, which the case-sensitive parser refuses outright, or a name the math
+ * function registry does not know at all, which is almost certainly a typo.
+ *
+ * @param node the call to judge.
+ * @param name the written function name.
+ * @returns the finding, or undefined when the name is one the game reads.
+ */
+const checkFunctionName = (node: FunctionCallNode, name: string): ValidationError | undefined => {
+    const corrected = mathNameWithCorrectCase(name);
+    if (corrected) {
+        // Underline the name alone, not the whole call: the quick fix replaces the underlined
+        // span, and swapping the arguments away with it would be worse than the typo.
+        const start = node.position?.start;
+        return {
+            message: l10n.t('Unknown function "{0}", did you mean "{1}"?', node.name, corrected),
+            node,
+            ...(start === undefined ? {} : { range: { start, end: start + node.name.length } }),
+            additionalInfo: l10n.t('Math function names are case-sensitive, write "{0}"', corrected),
+            ...didYouMeanFix(corrected),
+        };
+    }
+    if (!ALL_MATH_FUNCTION_NAMES.has(name)) {
+        return {
+            message: l10n.t('Unknown function "{0}"', node.name),
+            node,
+            additionalInfo: l10n.t('"{0}" is not a known math function', node.name),
+        };
+    }
+    return undefined;
+};
+
+/**
+ * Flags a call written with too few or too many arguments. The arity comes from the registry for
+ * every known function, and both directions are flagged. A nested call or an operator chain in an
+ * argument position (`floor(sqrt(x) * 2)`) does not inflate the count, since `segmentArguments`
+ * collapses each comma-free run into one argument.
+ *
+ * @param node the call to judge.
+ * @param name the written function name.
+ * @returns the finding, or undefined when the count fits.
+ */
+const checkArity = (node: FunctionCallNode, name: string): ValidationError | undefined => {
+    const arity = mathFunction(name)?.arity;
+    if (!arity) return undefined;
+    const got = functionArgumentCount(node);
+    if (got < arity[0]) {
+        return {
+            message: l10n.t('Too few arguments for "{0}"', node.name),
+            node,
+            additionalInfo: arityDescription(node.name, arity[0], arity[1], got),
+        };
+    }
+    if (got > arity[1]) {
+        return {
+            message: l10n.t('Too many arguments for "{0}"', node.name),
+            node,
+            additionalInfo: arityDescription(node.name, arity[0], arity[1], got),
+        };
+    }
+    return undefined;
+};
+
+/**
+ * Flags an argument the game cannot read. The reference-syntax checks (a Reference argument must
+ * start with `&`, and be parenthesized when it sits alongside other arguments) hold for every math
+ * function, so they run for the whole recognized set. The argument-type check is limited to the
+ * evaluatable functions the registry models: the other valid functions (unevaluated mXparser extras,
+ * Cosmoteer's `db2vol`, which takes a quoted string) have argument types that are not known, so
+ * type-checking theirs would false-positive.
+ *
+ * @param node the call to judge.
+ * @param name the written function name.
+ * @returns the finding for the first bad argument, or undefined when every argument is fine.
+ */
+const checkArguments = (node: FunctionCallNode, name: string): ValidationError | undefined => {
+    for (const arg of node.arguments) {
+        if (arg.type === 'Value' && arg.valueType.type === 'Reference') {
+            if (!(arg.valueType.value as string).startsWith('&')) {
+                return {
+                    message: l10n.t('Reference in function calls needs to start with an ampersand'),
+                    node: arg,
+                    additionalInfo: l10n.t(
+                        'Write the argument as "&{0}" so it is read as a reference',
+                        String(arg.valueType.value)
+                    ),
+                };
+            }
+            if (!arg.parenthesized && arg.delimiter === undefined && node.arguments.length > 1) {
+                return {
+                    message: l10n.t('Reference in function calls needs to be parenthesized'),
+                    node: arg,
+                    additionalInfo: l10n.t(
+                        'Wrap the reference in parentheses, e.g. "({0})", to separate it from the other arguments',
+                        String(arg.valueType.value)
+                    ),
+                };
+            }
+        } else if (
+            KNOWN_FUNCTION_NAMES.has(name) &&
+            arg.type === 'Value' &&
+            arg.valueType.type !== 'Reference' &&
+            arg.valueType.type !== 'Number'
+        ) {
+            // The parser flattens a nested call (`floor(sqrt(x) * 2)`) by emitting the inner
+            // function name as a bare unquoted String operand, and bare constants (`pi`, `e`) also
+            // lex as unquoted strings. Neither is a bad argument. Skip them so valid math isn't
+            // flagged. A quoted argument is valid too: the game reads the field value flat, so the
+            // quotes just escape the text and the content is evaluated as an expression. Vanilla
+            // `missile_launcher_thermal` has `ceil("(&~/BASE/…/MaxResources) / (&…)")`. Only an
+            // unknown bare word still reports.
+            const text = String(arg.valueType.value);
+            const isValidStringArgument =
+                arg.quoted ||
+                ALL_MATH_FUNCTION_NAMES.has(text) ||
+                KNOWN_CONSTANT_NAMES.has(text) ||
+                NUMBER_WITH_UNIT.test(text.replace(/\s+/g, '')) ||
+                GLUED_ARITHMETIC.test(text.replace(/\s+/g, ''));
+            if (!isValidStringArgument) {
+                return {
+                    message: l10n.t(
+                        'Invalid argument type, expected Reference(&) or Number. Got {0}',
+                        arg.valueType.type
+                    ),
+                    node: arg,
+                    additionalInfo: l10n.t(
+                        'Function-call arguments must be a number or a reference ("&"), not a {0}',
+                        arg.valueType.type
+                    ),
+                };
+            }
+        }
+    }
+    return undefined;
+};
+
 export const ValidationForFunctionCall: Validation<FunctionCallNode> = {
     type: 'FunctionCall',
     callback: async (node: FunctionCallNode, cancellationToken) => {
@@ -47,116 +184,12 @@ export const ValidationForFunctionCall: Validation<FunctionCallNode> = {
         // `Desejado(s)` (vanilla `strings/pt-br.rules`) parses as a call of an unknown function.
         // The game reads the whole thing as a flat string, so skip function-call validation here.
         if (await isStringsFile(getStartOfAstNode(node).uri, cancellationToken)) return undefined;
-        // The game's expression parser is case-sensitive, so a capitalized spelling of a real
-        // function is a load error rather than a variant of the same call.
-        const corrected = mathNameWithCorrectCase(name);
-        if (corrected) {
-            // Underline the name alone, not the whole call: the quick fix replaces the underlined
-            // span, and swapping the arguments away with it would be worse than the typo.
-            const start = node.position?.start;
-            return {
-                message: l10n.t('Unknown function "{0}", did you mean "{1}"?', node.name, corrected),
-                node,
-                ...(start === undefined ? {} : { range: { start, end: start + node.name.length } }),
-                additionalInfo: l10n.t('Math function names are case-sensitive, write "{0}"', corrected),
-                data: { quickFix: { title: l10n.t('Change to "{0}"', corrected), newText: corrected } },
-            };
-        }
-        // A name the math-function registry does not know is almost certainly a typo.
-        if (!ALL_MATH_FUNCTION_NAMES.has(name)) {
-            return {
-                message: l10n.t('Unknown function "{0}"', node.name),
-                node,
-                additionalInfo: l10n.t('"{0}" is not a known math function', node.name),
-            };
-        }
-        // Reference-syntax checks (a Reference argument must start with `&`, and be parenthesized
-        // when it sits alongside other arguments) hold for every math function, so they run for the
-        // whole recognized set. The argument-*type* check (below) is limited to the evaluatable
-        // functions we model: other valid functions (unevaluated mXparser extras, Cosmoteer's
-        // `db2vol` which takes a quoted string) have argument types we don't know, so type-checking
-        // their args would false-positive.
-        //
-        // Arity comes from the registry for every known function, and both directions are flagged.
-        // A nested call or an operator chain in an argument position (`floor(sqrt(x) * 2)`) does not
-        // inflate the count: `segmentArguments` collapses each comma-free run into one argument.
-        // Measured over vanilla plus every installed workshop mod (8824 files, 2902 known calls),
-        // the over-count check fires on nothing, so it costs no false positive on shipped content.
-        const arity = mathFunction(name)?.arity;
-        if (arity) {
-            const got = functionArgumentCount(node);
-            if (got < arity[0]) {
-                return {
-                    message: l10n.t('Too few arguments for "{0}"', node.name),
-                    node,
-                    additionalInfo: arityDescription(node.name, arity[0], arity[1], got),
-                };
-            }
-            if (got > arity[1]) {
-                return {
-                    message: l10n.t('Too many arguments for "{0}"', node.name),
-                    node,
-                    additionalInfo: arityDescription(node.name, arity[0], arity[1], got),
-                };
-            }
-        }
-        for (const arg of node.arguments) {
-            if (arg.type === 'Value' && arg.valueType.type === 'Reference') {
-                if (!(arg.valueType.value as string).startsWith('&')) {
-                    return {
-                        message: l10n.t('Reference in function calls needs to start with an ampersand'),
-                        node: arg,
-                        additionalInfo: l10n.t(
-                            'Write the argument as "&{0}" so it is read as a reference',
-                            String(arg.valueType.value)
-                        ),
-                    };
-                }
-                if (!arg.parenthesized && arg.delimiter === undefined && node.arguments.length > 1) {
-                    return {
-                        message: l10n.t('Reference in function calls needs to be parenthesized'),
-                        node: arg,
-                        additionalInfo: l10n.t(
-                            'Wrap the reference in parentheses, e.g. "({0})", to separate it from the other arguments',
-                            String(arg.valueType.value)
-                        ),
-                    };
-                }
-            } else if (
-                KNOWN_FUNCTION_NAMES.has(name) &&
-                arg.type === 'Value' &&
-                arg.valueType.type !== 'Reference' &&
-                arg.valueType.type !== 'Number'
-            ) {
-                // The parser flattens a nested call (`floor(sqrt(x) * 2)`) by emitting the inner
-                // function name as a bare unquoted String operand, and bare constants (`pi`, `e`) also
-                // lex as unquoted strings. Neither is a bad argument. Skip them so valid math isn't
-                // flagged. A quoted argument is valid too: the game reads the field value flat, so the
-                // quotes just escape the text and the content is evaluated as an expression. Vanilla
-                // `missile_launcher_thermal` has `ceil("(&~/BASE/…/MaxResources) / (&…)")`. Only an
-                // unknown bare word still reports.
-                const text = String(arg.valueType.value);
-                const isValidStringArgument =
-                    arg.quoted ||
-                    ALL_MATH_FUNCTION_NAMES.has(text) ||
-                    KNOWN_CONSTANT_NAMES.has(text) ||
-                    NUMBER_WITH_UNIT.test(text.replace(/\s+/g, '')) ||
-                    GLUED_ARITHMETIC.test(text.replace(/\s+/g, ''));
-                if (!isValidStringArgument) {
-                    return {
-                        message: l10n.t(
-                            'Invalid argument type, expected Reference(&) or Number. Got {0}',
-                            arg.valueType.type
-                        ),
-                        node: arg,
-                        additionalInfo: l10n.t(
-                            'Function-call arguments must be a number or a reference ("&"), not a {0}',
-                            arg.valueType.type
-                        ),
-                    };
-                }
-            }
-        }
+        const unknownName = checkFunctionName(node, name);
+        if (unknownName) return unknownName;
+        const wrongArity = checkArity(node, name);
+        if (wrongArity) return wrongArity;
+        const badArgument = checkArguments(node, name);
+        if (badArgument) return badArgument;
         // Reported last, so a call with a broken argument still names the argument first: a comma
         // ends a value in the rules format, so an unquoted call with more than one argument never
         // reaches the expression evaluator. The game stops the value at the comma and reports the

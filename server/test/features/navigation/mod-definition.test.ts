@@ -3,7 +3,7 @@ import { join } from 'path';
 import { CancellationToken } from 'vscode-languageserver';
 import { AbstractNodeDocument } from '../../../src/core/ast/ast';
 import { parseFilePath } from '../../../src/utils/ast.utils';
-import { DefinitionService } from '../../../src/features/navigation/definition.service';
+import { getDefinition } from '../../../src/features/navigation/definition.service';
 import { clearModRootCache } from '../../../src/mod/mod-root';
 import { invalidateModContext } from '../../../src/mod/mod-context';
 import { globalSettings } from '../../../src/settings';
@@ -14,7 +14,6 @@ import { FIXTURES_DIR, findReferenceNode, singleLocation } from '../../helpers';
 // `<cosmoteer.rules>/FOO` that name a location in the effective game tree (vanilla +
 // what the mod inserts), not a path relative to the manifest. These need the canonical
 // `<./Data/…>` rewrite + mod-context fallback, which raw navigation does not do.
-const service = DefinitionService.instance;
 const token = CancellationToken.None;
 const MOD_DIR = join(FIXTURES_DIR, 'mod');
 
@@ -23,7 +22,7 @@ const cursorOn = (node: { position: { line: number; characterStart: number } }) 
     character: node.position.characterStart,
 });
 
-describe('DefinitionService: mod-action targets', () => {
+describe('getDefinition: mod-action targets', () => {
     let manifest: AbstractNodeDocument;
 
     beforeAll(async () => {
@@ -38,13 +37,13 @@ describe('DefinitionService: mod-action targets', () => {
         // FOO is not in vanilla cosmoteer.rules. The manifest's `Add` action injects it,
         // sourced from provider.rules. Go-to-def must follow it there.
         const ref = findReferenceNode(manifest, '<cosmoteer.rules>/FOO');
-        const location = singleLocation(await service.getDefinition(manifest, cursorOn(ref), token));
+        const location = singleLocation(await getDefinition(manifest, cursorOn(ref), token));
         expect(location.uri.endsWith('provider.rules')).toBe(true);
     });
 
     it('resolves a whole-file target (`AddTo = <cosmoteer.rules>`) to the game cosmoteer.rules', async () => {
         const ref = findReferenceNode(manifest, '<cosmoteer.rules>');
-        const location = singleLocation(await service.getDefinition(manifest, cursorOn(ref), token));
+        const location = singleLocation(await getDefinition(manifest, cursorOn(ref), token));
         expect(location.uri.endsWith('cosmoteer.rules')).toBe(true);
         expect(location.range).toEqual({ start: { line: 0, character: 0 }, end: { line: 0, character: 0 } });
     });
@@ -54,7 +53,7 @@ describe('DefinitionService: mod-action targets', () => {
         // only in the mod's effective tree, so the prefix loop must not stop at a bare `&`.
         const dataFile = await parseFilePath(join(MOD_DIR, 'consumer.rules'));
         const ref = findReferenceNode(dataFile, '&/GLOBAL_TWO/Bar');
-        const location = singleLocation(await service.getDefinition(dataFile, cursorOn(ref), token));
+        const location = singleLocation(await getDefinition(dataFile, cursorOn(ref), token));
         expect(location.uri.endsWith('provider.rules')).toBe(true);
     });
 
@@ -65,7 +64,7 @@ describe('DefinitionService: mod-action targets', () => {
         // `/INDICATORS`) and never reaches the actual member.
         const dataFile = await parseFilePath(join(MOD_DIR, 'consumer.rules'));
         const ref = findReferenceNode(dataFile, '&/INDICATORS/SWNoShields');
-        const location = singleLocation(await service.getDefinition(dataFile, cursorOn(ref), token));
+        const location = singleLocation(await getDefinition(dataFile, cursorOn(ref), token));
         expect(location.uri.endsWith('mod_indicators.rules')).toBe(true);
     });
 });

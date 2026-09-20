@@ -1,7 +1,7 @@
 import { CompletionItem, CompletionList, MarkupKind } from 'vscode-languageserver/node';
-import { Completion } from '../features/completion/autocompletion.service';
+import { Completion } from '../features/completion/autocompletion.service.types';
 import { toCompletionItem } from '../features/completion/completion-item';
-import { hasCompletionDocResolveCapability, hasSnippetCapability } from './capabilities';
+import { hasCompletionDocResolveCapability, hasSnippetCapability } from '../capabilities';
 
 /** Upper bound of completion items shipped in one response. Larger lists (every localization key,
  *  every project id) are prefix-filtered and truncated, and marked incomplete so the client

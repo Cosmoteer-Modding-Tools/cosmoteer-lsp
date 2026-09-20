@@ -1,6 +1,11 @@
 import { commands, ExtensionContext, l10n, window } from 'vscode';
 import { ExecuteCommandRequest, LanguageClient } from 'vscode-languageclient/node';
 import { openDocumentPaths, saveAndTidy } from '../shared-base/apply-cleanup';
+import {
+    ExtractLocalizationKeyArgs,
+    ExtractLocalizationKeyFailure,
+    ExtractLocalizationKeyResult,
+} from '../../../shared/extract-localization-key.types';
 
 /**
  * Turning a text literal into a localization key every language file declares. The server rewrites
@@ -13,21 +18,6 @@ import { openDocumentPaths, saveAndTidy } from '../shared-base/apply-cleanup';
  */
 export const EXTRACT_LOCALIZATION_KEY_LOCAL_COMMAND = 'cosmoteer.extractLocalizationKeyFromAction';
 
-/** Mirror of the server's extraction arguments (see server features/refactor/extract-localization-key.ts). */
-interface ExtractLocalizationKeyArgs {
-    uri: string;
-    offset: number;
-    literal: string;
-    key: string;
-}
-
-/** Mirror of the server's extraction result. */
-interface ExtractLocalizationKeyResult {
-    key: string;
-    changedFiles: string[];
-    failure?: 'stale' | 'noStringsFiles' | 'editRejected';
-}
-
 /** A key path as a strings file declares one, which is what the input box accepts. */
 const LOCALIZATION_KEY_PATH = /^[A-Za-z0-9_.-]+(\/[A-Za-z0-9_.-]+)*$/;
 
@@ -37,7 +27,7 @@ const LOCALIZATION_KEY_PATH = /^[A-Za-z0-9_.-]+(\/[A-Za-z0-9_.-]+)*$/;
  * @param failure the reason the command reported.
  * @returns the message to show.
  */
-function extractLocalizationKeyFailureMessage(failure: NonNullable<ExtractLocalizationKeyResult['failure']>): string {
+function extractLocalizationKeyFailureMessage(failure: ExtractLocalizationKeyFailure): string {
     switch (failure) {
         case 'stale':
             return l10n.t('That text has changed since the offer was made, so nothing was changed.');

@@ -1,5 +1,6 @@
 import { ExtensionContext, ViewColumn, l10n, window } from 'vscode';
 import { webviewShell } from '../webview-util';
+import { escapeHtml, modFolderName } from '../wizards/wizard-form';
 
 /**
  * The form a new faction is described on: its id, the name the game shows, and the colour of its
@@ -41,19 +42,27 @@ type FormMessage =
     | { type: 'pick'; what: 'icon' | 'beaconShip' }
     | { type: 'cancel' };
 
-/**
- * Escapes text for an HTML attribute or text node.
- *
- * @param text the text.
- * @returns the text with the five markup characters escaped.
- */
-const escapeHtml = (text: string): string =>
-    text
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
+/** The page's styling, which takes its colours and its font from the editor's own theme. */
+const FORM_STYLES = `body { font-family: var(--vscode-font-family); font-size: var(--vscode-font-size); color: var(--vscode-foreground); padding: 1.5rem 2rem; max-width: 40rem; }
+h1 { font-size: 1.4em; font-weight: 600; margin: 0 0 0.25rem; }
+p.lead { margin: 0 0 1.5rem; color: var(--vscode-descriptionForeground); }
+.field { margin-bottom: 1.25rem; }
+label { display: block; font-weight: 600; margin-bottom: 0.3rem; }
+.hint { color: var(--vscode-descriptionForeground); margin-top: 0.3rem; }
+.error { color: var(--vscode-errorForeground); margin-top: 0.3rem; min-height: 1.2em; }
+input[type=text] { width: 100%; box-sizing: border-box; padding: 0.4rem 0.5rem; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border, transparent); border-radius: 2px; font: inherit; }
+input[type=text]:focus { outline: 1px solid var(--vscode-focusBorder); }
+input[type=color] { width: 4rem; height: 2rem; padding: 0; border: 1px solid var(--vscode-input-border, transparent); background: var(--vscode-input-background); vertical-align: middle; }
+.swatch { display: inline-block; margin-left: 0.75rem; vertical-align: middle; font-family: var(--vscode-editor-font-family); color: var(--vscode-descriptionForeground); }
+.picked { display: inline-block; margin-left: 0.75rem; vertical-align: middle; color: var(--vscode-descriptionForeground); word-break: break-all; }
+input[type=checkbox] { vertical-align: middle; margin-right: 0.4rem; }
+.facts { border-left: 3px solid var(--vscode-textBlockQuote-border); background: var(--vscode-textBlockQuote-background); padding: 0.6rem 0.9rem; margin: 1.5rem 0; }
+.facts div { margin: 0.15rem 0; }
+.actions { display: flex; gap: 0.6rem; margin-top: 1rem; }
+button { padding: 0.45rem 1rem; border: none; border-radius: 2px; font: inherit; cursor: pointer; }
+button.primary { background: var(--vscode-button-background); color: var(--vscode-button-foreground); }
+button.primary:disabled { opacity: 0.5; cursor: default; }
+button.secondary { background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); }`;
 
 /**
  * Reads a `#rrggbb` colour into its three channels.
@@ -132,13 +141,8 @@ export const showNewFactionForm = (
  */
 const formHtml = (context: ExtensionContext, webview: import('vscode').Webview, facts: NewFactionFormFacts): string => {
     const { nonce, csp } = webviewShell(webview, context.extensionUri);
-    const modName = facts.modRoot.replace(/\\/g, '/').split('/').filter(Boolean).pop() ?? facts.modRoot;
+    const modName = modFolderName(facts.modRoot);
     const defaultHex = `#${DEFAULT_COLOR.map((channel) => channel.toString(16).padStart(2, '0')).join('')}`;
-    const strings = {
-        invalidId: l10n.t('One word: letters, digits and underscores, starting with a letter.'),
-        takenId: l10n.t('A faction of that id already exists.'),
-        emptyName: l10n.t('Give it a name.'),
-    };
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -147,26 +151,7 @@ const formHtml = (context: ExtensionContext, webview: import('vscode').Webview, 
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>${escapeHtml(l10n.t('New Faction'))}</title>
 <style nonce="${nonce}">
-body { font-family: var(--vscode-font-family); font-size: var(--vscode-font-size); color: var(--vscode-foreground); padding: 1.5rem 2rem; max-width: 40rem; }
-h1 { font-size: 1.4em; font-weight: 600; margin: 0 0 0.25rem; }
-p.lead { margin: 0 0 1.5rem; color: var(--vscode-descriptionForeground); }
-.field { margin-bottom: 1.25rem; }
-label { display: block; font-weight: 600; margin-bottom: 0.3rem; }
-.hint { color: var(--vscode-descriptionForeground); margin-top: 0.3rem; }
-.error { color: var(--vscode-errorForeground); margin-top: 0.3rem; min-height: 1.2em; }
-input[type=text] { width: 100%; box-sizing: border-box; padding: 0.4rem 0.5rem; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border, transparent); border-radius: 2px; font: inherit; }
-input[type=text]:focus { outline: 1px solid var(--vscode-focusBorder); }
-input[type=color] { width: 4rem; height: 2rem; padding: 0; border: 1px solid var(--vscode-input-border, transparent); background: var(--vscode-input-background); vertical-align: middle; }
-.swatch { display: inline-block; margin-left: 0.75rem; vertical-align: middle; font-family: var(--vscode-editor-font-family); color: var(--vscode-descriptionForeground); }
-.picked { display: inline-block; margin-left: 0.75rem; vertical-align: middle; color: var(--vscode-descriptionForeground); word-break: break-all; }
-input[type=checkbox] { vertical-align: middle; margin-right: 0.4rem; }
-.facts { border-left: 3px solid var(--vscode-textBlockQuote-border); background: var(--vscode-textBlockQuote-background); padding: 0.6rem 0.9rem; margin: 1.5rem 0; }
-.facts div { margin: 0.15rem 0; }
-.actions { display: flex; gap: 0.6rem; margin-top: 1rem; }
-button { padding: 0.45rem 1rem; border: none; border-radius: 2px; font: inherit; cursor: pointer; }
-button.primary { background: var(--vscode-button-background); color: var(--vscode-button-foreground); }
-button.primary:disabled { opacity: 0.5; cursor: default; }
-button.secondary { background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); }
+${FORM_STYLES}
 </style>
 </head>
 <body>
@@ -217,7 +202,26 @@ button.secondary { background: var(--vscode-button-secondaryBackground); color: 
 </div>
 </form>
 <script nonce="${nonce}">
-(function () {
+${formScript(facts)}
+</script>
+</body>
+</html>`;
+};
+
+/**
+ * The page's script, which keeps the display name following the id, validates as the author types
+ * and posts the answers back.
+ *
+ * @param facts what the form validates against.
+ * @returns the script, with the taken ids and the messages written into it.
+ */
+const formScript = (facts: NewFactionFormFacts): string => {
+    const strings = {
+        invalidId: l10n.t('One word: letters, digits and underscores, starting with a letter.'),
+        takenId: l10n.t('A faction of that id already exists.'),
+        emptyName: l10n.t('Give it a name.'),
+    };
+    return `(function () {
     var vscode = acquireVsCodeApi();
     var taken = ${JSON.stringify(facts.takenIds.map((id) => id.toLowerCase())).replace(/</g, '\\u003c')};
     var strings = ${JSON.stringify(strings).replace(/</g, '\\u003c')};
@@ -278,8 +282,5 @@ button.secondary { background: var(--vscode-button-secondaryBackground); color: 
     });
     document.getElementById('cancel').addEventListener('click', function () { vscode.postMessage({ type: 'cancel' }); });
     idField.focus();
-})();
-</script>
-</body>
-</html>`;
+})();`;
 };

@@ -8,7 +8,7 @@ import {
     overrideGroupName,
     overrideMemberAt,
 } from '../../../../src/features/refactor/override-in-mod/override-member';
-import { stepIntoNode } from '../../../../src/semantics/reference-resolver';
+import { stepIntoNode } from '../../../../src/document/reference-resolver';
 import { parseText } from '../../../../src/utils/ast.utils';
 import { FIXTURES_DIR } from '../../../helpers';
 

@@ -14,7 +14,7 @@ import { flattenGroup } from '../../semantics/effective-group';
 import { EffectiveMemberEntry, MemberOrigin } from '../../semantics/effective-group.types';
 import { declarationsMatch } from '../../semantics/member-diff';
 import { getStartOfAstNode } from '../../utils/ast.utils';
-import { navigationDepKey } from '../../utils/navigation-deps';
+import { navigationDepKey } from '../../workspace/navigation-deps';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
 import { code, tableCell } from '../report/markdown-link';
 import { nearestGroup, pathOf } from './effective-group.report';

@@ -30,6 +30,9 @@ export type ManifestChoice =
     | { readonly kind: 'none' }
     | { readonly kind: 'ambiguous'; readonly manifests: string[] };
 
+/** The `<…>` span of a reference, whatever member path follows it. */
+const REFERENCE_FILE = /^\s*&?\s*<([^<>]+)>/;
+
 /**
  * The manifest an entry goes into: the one named `mod.rules`, or the mod's only one.
  *
@@ -96,9 +99,6 @@ export const gameRootListTarget = (
     }
     return undefined;
 };
-
-/** The `<…>` span of a reference, whatever member path follows it. */
-const REFERENCE_FILE = /^\s*&?\s*<([^<>]+)>/;
 
 /**
  * The action-target path of a member inside a file one of the game root's own members names.

@@ -1,28 +1,14 @@
 import * as l10n from '@vscode/l10n';
 import { CancellationToken } from 'vscode-languageserver';
-import {
-    AbstractNode,
-    AbstractNodeDocument,
-    GroupNode,
-    isAssignmentNode,
-    isGroupNode,
-    isValueNode,
-    ValueNode,
-} from '../../core/ast/ast';
-import { childNodesOf, getStartOfAstNode } from '../../utils/ast.utils';
-import { resolveGroupClass } from '../../document/schema/schema-context';
+import { AbstractNodeDocument, GroupNode, isGroupNode, isValueNode, ValueNode } from '../../core/ast/ast';
+import { getStartOfAstNode } from '../../utils/ast.utils';
 import { flattenGroup } from '../../semantics/effective-group';
+import { memberOf, partComponentGroupsIn } from './part-component-graph';
 import { PLAIN_ID } from './validator.schema-sibling';
 import { ValidationError } from './validator';
 
-/** The class whose `Components` group is the dictionary every chain is resolved against. */
-const PART_RULES = 'Cosmoteer.Ships.Parts.PartRules';
-
 /** The member holding the component a chainable component hangs its position and rotation off. */
 const CHAINED_TO = 'chainedto';
-
-/** The member of a part holding the components the game registers by id. */
-const COMPONENTS = 'components';
 
 /** One component of the part's dictionary, with the chain it declares. */
 interface ChainNode {
@@ -30,37 +16,6 @@ interface ChainNode {
     readonly name: string;
     /** The value naming the next component, or undefined when it chains to nothing. */
     readonly chainedTo?: ValueNode;
-}
-
-/**
- * The member written under `name` in a group, in both spellings the format allows.
- *
- * @param group the group to read.
- * @param name the folded member name.
- * @returns the member's value, or undefined when the group does not write it.
- */
-const memberOf = (group: GroupNode, name: string): AbstractNode | undefined => {
-    for (const element of group.elements) {
-        if (isAssignmentNode(element) && element.left.name.toLowerCase() === name) return element.right ?? undefined;
-        if (isGroupNode(element) && element.identifier?.name.toLowerCase() === name) return element;
-    }
-    return undefined;
-};
-
-/**
- * Every group a part writes its registered components into, which is the `Components` member of a
- * group the schema types as a part. A `Components` nested inside a toggled set is not one of them,
- * since the game reads those into a list of their own rather than into the part's dictionary.
- *
- * @param node the node to walk.
- * @returns a generator of the part-level component groups found under it.
- */
-function* partComponentGroupsIn(node: AbstractNode): Generator<GroupNode> {
-    if (isGroupNode(node) && resolveGroupClass(node) === PART_RULES) {
-        const components = memberOf(node, COMPONENTS);
-        if (components && isGroupNode(components)) yield components;
-    }
-    for (const child of childNodesOf(node)) yield* partComponentGroupsIn(child);
 }
 
 /**

@@ -33,7 +33,7 @@ import {
     valueTypeLabel,
 } from '../../document/schema/schema';
 import { SchemaField, SchemaRegistry, ValueType } from '../../document/schema/schema.types';
-import { Completion } from './autocompletion.service';
+import { Completion } from './autocompletion.service.types';
 import { completeFieldValue, discriminatorCompletions, enumOrBoolCompletions } from './autocompletion.schema';
 import { componentIdCompletions } from './autocompletion.component-id';
 import { isLabelField } from './schema-id.index';
@@ -49,6 +49,18 @@ import {
     inheritedMembersFor,
     suppliedByChain,
 } from './inherited-members';
+
+/** Matches a value position at the end of a line: a `Key =` whose value is still being written. The
+ *  whole tail after the `=` belongs to the value, so a caret further along the same expression
+ *  (`Density = 1 / <cursor>`) is a value position too, and the field snippets that used to be offered
+ *  there wrote a `Foo = $0` into the middle of a formula. A `;` ends the assignment and a `{` or `[`
+ *  opens a container whose members are their own scope, so any of them in the tail ends the match,
+ *  and a closing `]` or `}` means the value is already complete. */
+const VALUE_POSITION = /(?:^|[\s{;[])([A-Za-z_]\w*)\s*=([^;{}[\]]*)$/;
+
+/** A quoted value the user has already closed. The caret behind it is past the value, not in it, so
+ *  a suggestion accepted there would be appended to the finished one (`"Parts/Test"Parts/Airlock`). */
+const CLOSED_QUOTED_VALUE = /^\s*"[^"]*"\s*$/;
 
 /**
  * The snippet inserted when a field name is accepted, it scaffolds the field's structure so the user
@@ -122,10 +134,72 @@ const listElementCompletions = (list: ListNode): Completion[] => {
 };
 
 /**
+ * The completions for a map entry group (`Upgrades [ { <cursor> } ]`), whose members are the map's
+ * entry names rather than schema fields: `Key` and `Value`, or the `[KeyValuePairNames]` spellings
+ * like `Old` and `New`.
+ *
+ * @param slot the map slot the group sits in.
+ * @param present the member names the group already writes, lower-cased.
+ * @returns one completion per entry name the group does not write yet.
+ */
+const mapEntryCompletions = (slot: Parameters<typeof mapEntryNames>[0], present: ReadonlySet<string>): Completion[] =>
+    mapEntryNames(slot)
+        .filter(([name]) => !present.has(name.toLowerCase()))
+        .map(([name, valueType]) => ({
+            label: name,
+            kind: CompletionItemKind.Field,
+            detail: valueTypeLabel(valueType),
+            insertText: fieldSnippet(name, valueType),
+            isSnippet: true,
+            triggerSuggest: ['polymorphicGroup', 'enum', 'bool', 'reference'].includes(valueType.kind),
+        }));
+
+/**
+ * One pick that scaffolds all the still-missing required fields at once, each a numbered tab stop.
+ * A required field the chain already supplies is not missing, the game reads it here, so scaffolding
+ * it would write an override that changes nothing and would say the opposite of what the
+ * required-field check says about the same group. Required means what the game's deserializer means
+ * by it, which is what `requiredFieldsOf` answers, so the scaffold offers exactly the set the
+ * required-field check reports as missing.
+ *
+ * @param missing the fields the group does not write yet, with the class each one comes from.
+ * @param inherited what the inheritance chain already supplies.
+ * @returns the scaffold, or undefined when fewer than two required fields are missing.
+ */
+const requiredFieldsScaffold = (
+    missing: ReadonlyArray<{ field: SchemaField; owner: string }>,
+    inherited: Awaited<ReturnType<typeof inheritedMembersFor>>
+): Completion | undefined => {
+    const requiredNames = new Set(
+        [...new Set(missing.map(({ owner }) => owner))].flatMap((owner) =>
+            requiredFieldsOf(owner).map((field) => field.name.toLowerCase())
+        )
+    );
+    const requiredMissing = missing
+        .filter(({ field }) => requiredNames.has(field.name.toLowerCase()) && !suppliedByChain(field, inherited))
+        .map(({ field }) => field);
+    if (requiredMissing.length < 2) return undefined;
+    return {
+        label: `Insert ${requiredMissing.length} required fields`,
+        kind: CompletionItemKind.Snippet,
+        detail: requiredMissing.map((f) => f.name).join(', '),
+        documentation: `Scaffolds the required fields: ${requiredMissing.map((f) => `\`${f.name}\``).join(', ')}`,
+        insertText: requiredMissing.map((f, i) => fieldSnippet(f.name, f.valueType, `$${i + 1}`)).join('\n'),
+        isSnippet: true,
+        sortText: '00', // after the injected `Type` ('0'), before individual fields ('0_…')
+    };
+};
+
+/**
  * Field-name completion: at an empty insertion point whose schema class is known, offer that class's
  * not-yet-present fields. The scope is the enclosing group, or at a whole-file-root document's top
  * level the document's root class (e.g. a shot file → `BulletRules`). Offset-based (like the
  * mod.rules path) because an empty line has no AST leaf under the cursor. Required fields sort first.
+ *
+ * @param document the parsed document the caret is in.
+ * @param offset the caret offset.
+ * @param cancellationToken cancels the inheritance and shader lookups.
+ * @returns the completions, in the order they are offered.
  */
 export const schemaFieldNameCompletions = async (
     document: AbstractNodeDocument,
@@ -149,16 +223,18 @@ export const schemaFieldNameCompletions = async (
         if (componentNames) return componentNames;
     }
     // Lower-cased: an already-written `maxhealth` counts as `MaxHealth` (game lookup ignores case).
-    // The member being typed (the bare identifier under the cursor) is not "already written": a
-    // fully typed `Filter` would otherwise count as present and vanish from the popup at its final
-    // character, right when the user wants to accept the scaffolding snippet.
-    const members = namedMembersOf(group ?? document);
-    const underCursor = ([, member]: [string, AbstractNode]): boolean =>
-        isIdentifierNode(member) &&
-        !!member.position &&
-        offset >= member.position.start &&
-        offset <= member.position.end;
-    const present = new Set(members.filter((entry) => !underCursor(entry)).map(([name]) => name.toLowerCase()));
+    // The member whose name holds the cursor is not "already written": a fully typed `Filter` would
+    // otherwise count as present and vanish from the popup at its final character, right when the
+    // user wants to accept the scaffolding snippet. The same goes for the name of a written
+    // assignment (`Ki|nd = Combat`): the editor filters the popup by the letters before the cursor,
+    // and with the field itself withheld nothing was left to match them.
+    const scope = group ?? document;
+    const editedName = memberNameAt(scope, offset)?.toLowerCase();
+    const present = new Set(
+        namedMembersOf(scope)
+            .map(([name]) => name.toLowerCase())
+            .filter((name) => name !== editedName)
+    );
     // A group that names a base already holds every member that base writes, and the popup used to
     // offer those as though nothing had set them. Read what the chain really supplies so each of
     // them can be offered with the value it already has.
@@ -167,19 +243,7 @@ export const schemaFieldNameCompletions = async (
     // map's entry names, `Key`/`Value` or the `[KeyValuePairNames]` spellings like `Old`/`New`.
     if (!cls && group?.parent && isListNode(group.parent)) {
         const slot = listSlotType(group.parent);
-        if (slot?.kind === 'map') {
-            const entries: Completion[] = mapEntryNames(slot)
-                .filter(([name]) => !present.has(name.toLowerCase()))
-                .map(([name, valueType]) => ({
-                    label: name,
-                    kind: CompletionItemKind.Field,
-                    detail: valueTypeLabel(valueType),
-                    insertText: fieldSnippet(name, valueType),
-                    isSnippet: true,
-                    triggerSuggest: ['polymorphicGroup', 'enum', 'bool', 'reference'].includes(valueType.kind),
-                }));
-            return annotateInheritedMembers(entries, inherited);
-        }
+        if (slot?.kind === 'map') return annotateInheritedMembers(mapEntryCompletions(slot, present), inherited);
     }
     // A wrapper-delegation slot reads BOTH the wrapper's fields and the dispatched member's from the
     // same group, while the class resolution stays single-valued, so the fields of every candidate
@@ -219,32 +283,8 @@ export const schemaFieldNameCompletions = async (
         sortText: `${field.optional ? '1' : '0'}_${fieldUsageRank(owner, field.name)}_${field.name}`,
     }));
 
-    // One pick that scaffolds all the still-missing required fields at once (each a numbered tab stop).
-    // A required field the chain already supplies is not missing, the game reads it here, so
-    // scaffolding it would write an override that changes nothing and would say the opposite of what
-    // the required-field check says about the same group.
-    // Required means what the game's deserializer means by it, which is what `requiredFieldsOf`
-    // answers, so the scaffold offers exactly the set the required-field check reports as missing.
-    // Reading `optional` here instead left the two disagreeing about the same group.
-    const requiredNames = new Set(
-        [...new Set(missing.map(({ owner }) => owner))].flatMap((owner) =>
-            requiredFieldsOf(owner).map((field) => field.name.toLowerCase())
-        )
-    );
-    const requiredMissing = missing
-        .filter(({ field }) => requiredNames.has(field.name.toLowerCase()) && !suppliedByChain(field, inherited))
-        .map(({ field }) => field);
-    if (requiredMissing.length >= 2) {
-        completions.unshift({
-            label: `Insert ${requiredMissing.length} required fields`,
-            kind: CompletionItemKind.Snippet,
-            detail: requiredMissing.map((f) => f.name).join(', '),
-            documentation: `Scaffolds the required fields: ${requiredMissing.map((f) => `\`${f.name}\``).join(', ')}`,
-            insertText: requiredMissing.map((f, i) => fieldSnippet(f.name, f.valueType, `$${i + 1}`)).join('\n'),
-            isSnippet: true,
-            sortText: '00', // after the injected `Type` ('0'), before individual fields ('0_…')
-        });
-    }
+    const scaffold = requiredFieldsScaffold(missing, inherited);
+    if (scaffold) completions.unshift(scaffold);
 
     // A polymorphic group that hasn't chosen its concrete subtype yet has no class-specific fields to
     // offer beyond the base, but it must declare `Type` to dispatch. `Type` is not a schema field
@@ -261,6 +301,63 @@ export const schemaFieldNameCompletions = async (
     // Marked at the end rather than per field, so the injected `Type` and a material's shader
     // constants are covered by the same pass as the schema fields.
     return annotateInheritedMembers(completions, inherited);
+};
+
+/**
+ * The name of the member whose name span holds the cursor: the left side of an assignment, the
+ * identifier of a named block, or a bare identifier member. A cursor in a member's value or body
+ * names nothing here, since that member is written and stays present.
+ *
+ * @param scope the group or document whose members are looked at.
+ * @param offset the cursor offset.
+ * @returns the member name under the cursor, or undefined when the cursor is in no name.
+ */
+const memberNameAt = (scope: { elements: AbstractNode[] }, offset: number): string | undefined => {
+    for (const element of scope.elements) {
+        const name = isAssignmentNode(element)
+            ? element.left
+            : isGroupNode(element) || isListNode(element)
+              ? element.identifier
+              : isIdentifierNode(element)
+                ? element
+                : undefined;
+        if (name?.position && offset >= name.position.start && offset <= name.position.end) return name.name;
+    }
+    return undefined;
+};
+
+/**
+ * The source span of the member name the cursor sits in, in the same scope the field-name
+ * completions are read from. A name being retyped over a member that already has its `=` and its
+ * value, or over the identifier of a written block, has to take the bare label over its whole
+ * existing span: the scaffolding snippet would write a second assignment or a second body into the
+ * line, and a range covering only the letters before the cursor would leave the rest of the old
+ * name behind it.
+ *
+ * @param document the parsed document.
+ * @param offset the cursor offset.
+ * @returns the span of the name under the cursor, or undefined when the cursor is in no name.
+ */
+export const editedMemberNameSpanAt = (
+    document: AbstractNodeDocument,
+    offset: number
+): { start: number; end: number } | undefined => {
+    const container = findEnclosingContainer(document, offset);
+    if (container && isListNode(container)) return undefined;
+    const scope = findEnclosingGroup(document, offset) ?? document;
+    for (const element of scope.elements) {
+        const name = isAssignmentNode(element)
+            ? element.left
+            : isGroupNode(element) || isListNode(element)
+              ? element.identifier
+              : isIdentifierNode(element)
+                ? element
+                : undefined;
+        if (name?.position && offset >= name.position.start && offset <= name.position.end) {
+            return { start: name.position.start, end: name.position.end };
+        }
+    }
+    return undefined;
 };
 
 /**
@@ -286,18 +383,6 @@ export const isBareFieldNameIdentifier = (node: AbstractNode): boolean => {
     }
     return true;
 };
-
-/** Matches a value position at the end of a line: a `Key =` whose value is still being written. The
- *  whole tail after the `=` belongs to the value, so a caret further along the same expression
- *  (`Density = 1 / <cursor>`) is a value position too, and the field snippets that used to be offered
- *  there wrote a `Foo = $0` into the middle of a formula. A `;` ends the assignment and a `{` or `[`
- *  opens a container whose members are their own scope, so any of them in the tail ends the match,
- *  and a closing `]` or `}` means the value is already complete. */
-const VALUE_POSITION = /(?:^|[\s{;[])([A-Za-z_]\w*)\s*=([^;{}[\]]*)$/;
-
-/** A quoted value the user has already closed. The caret behind it is past the value, not in it, so
- *  a suggestion accepted there would be appended to the finished one (`"Parts/Test"Parts/Airlock`). */
-const CLOSED_QUOTED_VALUE = /^\s*"[^"]*"\s*$/;
 
 /**
  * Where a comment opens on the line left of the cursor, ignoring a `//` or `/*` that is part of a

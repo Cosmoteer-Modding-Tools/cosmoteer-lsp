@@ -57,3 +57,15 @@ export interface ShaderPreviewData {
     baseSize: number[] | null;
     size: string | null;
 }
+
+/**
+ * The messages the shader preview page posts back to the extension.
+ *
+ * Written as a union for the same reason the other panels' messages are: a kind the page starts
+ * sending without a branch in the handler stops compiling.
+ */
+export type ShaderPreviewPanelMessage = {
+    /** A request to open the `.shader` the material names. */
+    type: 'openShader';
+    uri?: string;
+};

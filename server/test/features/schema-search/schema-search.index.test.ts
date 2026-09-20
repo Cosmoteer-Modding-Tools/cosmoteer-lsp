@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { extendSchemaWithMods, schema } from '../../../src/document/schema/schema';
-import { ModSchemaExtension } from '../../../src/features/mod-schema/extract';
+import { ModSchemaExtension } from '../../../src/document/schema/schema.types';
 import {
     fieldEntryId,
     schemaSearchEntries,

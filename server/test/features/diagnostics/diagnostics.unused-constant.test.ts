@@ -6,7 +6,7 @@ import { pathToFileURL } from 'url';
 import { CancellationToken } from 'vscode-languageserver';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
-import { MentionIndex } from '../../../src/features/navigation/mention.index';
+import { MentionIndex } from '../../../src/workspace/mention.index';
 import {
     unreachableConstants,
     validateUnusedConstants,
@@ -14,8 +14,7 @@ import {
 
 const token = CancellationToken.None;
 const parse = (text: string, uri = 'file:///mod/parts/turret.rules') => parser(lexer(text), uri).value;
-const namesOf = (text: string): string[] =>
-    unreachableConstants(parse(text)).map((entry) => entry.declaration.name);
+const namesOf = (text: string): string[] => unreachableConstants(parse(text)).map((entry) => entry.declaration.name);
 
 describe('unused constants, in-document reachability', () => {
     it('says nothing about a constant a field reads', () => {
@@ -109,7 +108,9 @@ describe('unused constants, in-document reachability', () => {
         );
         expect(entries.map((entry) => entry.declaration.name)).toEqual(['BASE_EFFECT']);
         // The remove fix spans the group's whole body, so the members go with it.
-        expect(entries[0].declaration.range.end).toBeGreaterThan(entries[0].declaration.range.start + 'BASE_EFFECT'.length);
+        expect(entries[0].declaration.range.end).toBeGreaterThan(
+            entries[0].declaration.range.start + 'BASE_EFFECT'.length
+        );
     });
 
     it('says nothing about a group an id field names by plain value', () => {

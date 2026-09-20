@@ -9,7 +9,7 @@ import { validateIgnoredFields } from '../../../src/features/diagnostics/validat
 import { globalSettings } from '../../../src/settings';
 import { CosmoteerWorkspaceService } from '../../../src/workspace/cosmoteer-workspace.service';
 import { aliasRootIndex } from '../../../src/document/schema/alias-root';
-import { ReverseIncludeIndex } from '../../../src/features/navigation/reverse-include.index';
+import { ReverseIncludeIndex } from '../../../src/mod/reverse-include.index';
 
 // False-positive scan of the ignored-field validator over the whole vanilla install. Unlike the
 // cross-file validators, this one is expected to produce findings: vanilla ships real dead fields
@@ -26,8 +26,7 @@ import { ReverseIncludeIndex } from '../../../src/features/navigation/reverse-in
 //   2. the particle-updater dead-field detections still fire, proving the derivation did not collapse
 //      to flagging nothing.
 // Needs the install, self-skips without it.
-const DATA_DIR =
-    process.env.COSMOTEER_DATA_DIR ?? 'C:/Program Files (x86)/Steam/steamapps/common/Cosmoteer/Data';
+const DATA_DIR = process.env.COSMOTEER_DATA_DIR ?? 'C:/Program Files (x86)/Steam/steamapps/common/Cosmoteer/Data';
 const HAVE_DATA = existsSync(DATA_DIR);
 const token = CancellationToken.None;
 const parseFile = (abs: string) => parser(lexer(readFileSync(abs, 'utf8')), pathToFileURL(abs).href).value;
@@ -91,7 +90,11 @@ describe.skipIf(!HAVE_DATA)('ignored-field validator over vanilla Data', () => {
 
     beforeAll(async () => {
         globalSettings.cosmoteerPath = DATA_DIR;
-        const noop: WorkDoneProgressReporter = { begin: () => undefined, report: () => undefined, done: () => undefined };
+        const noop: WorkDoneProgressReporter = {
+            begin: () => undefined,
+            report: () => undefined,
+            done: () => undefined,
+        };
         const svc = CosmoteerWorkspaceService.instance;
         svc.setConnection({
             languages: { diagnostics: { refresh: () => undefined } },

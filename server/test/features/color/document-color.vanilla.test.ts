@@ -11,7 +11,7 @@ import { warmInheritedClasses } from '../../../src/features/completion/inheritan
 import { globalSettings } from '../../../src/settings';
 import { CosmoteerWorkspaceService } from '../../../src/workspace/cosmoteer-workspace.service';
 import { aliasRootIndex } from '../../../src/document/schema/alias-root';
-import { ReverseIncludeIndex } from '../../../src/features/navigation/reverse-include.index';
+import { ReverseIncludeIndex } from '../../../src/mod/reverse-include.index';
 
 // Colour sweep over the whole vanilla install. Two contracts: every swatch the editor shows writes
 // back byte for byte when the picker hands the same colour in again (so using the picker never

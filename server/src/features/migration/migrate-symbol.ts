@@ -4,12 +4,13 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import * as l10n from '@vscode/l10n';
 import { deprecationBySymbol } from '../../document/schema/deprecations';
 import { ValidationErrorData } from '../diagnostics/validator';
-import { MentionIndex } from '../navigation/mention.index';
-import { normalizeUri } from '../navigation/reference-location';
-import { uriToFsPath } from '../navigation/workspace-files';
+import { MentionIndex } from '../../workspace/mention.index';
+import { normalizeUri } from '../../document/reference-location';
+import { uriToFsPath } from '../../workspace/workspace-files';
 import { editableModRootOf } from '../refactor/shared-base/shared-base.analysis-entry';
 import { foldPathCase } from '../../workspace/fs-cache';
-import { MigrateSymbolArgs, MigrateSymbolHost, MigrationChange } from './migration.types';
+import { MigrateSymbolArgs } from '../../../../shared/migration.types';
+import { MigrateSymbolHost, MigrationChange } from './migration.types';
 
 /**
  * The `workspace/executeCommand` id of the bulk deprecation fix. The server claims it, runs the

@@ -19,7 +19,7 @@ import {
 } from '../../document/schema/schema-context';
 import { documentRootClass } from '../../document/schema/document-root';
 import { classByDiscriminator } from '../../document/schema/schema';
-import { DefinitionService, isReferenceValue } from '../navigation/definition.service';
+import { resolveReferenceTarget, isReferenceValue } from '../navigation/reference-target';
 import { FileWithPath, isFile } from '../../workspace/cosmoteer-workspace.service';
 import { getParsedFileDocument } from '../../workspace/parsed-file-cache';
 
@@ -105,9 +105,7 @@ const classThroughOwnBases = async (
     const document = getStartOfAstNode(group);
     for (const reference of group.inheritance ?? []) {
         if (cancellationToken.isCancellationRequested) return undefined;
-        let target = await DefinitionService.instance
-            .resolveReferenceTarget(document, reference, cancellationToken)
-            .catch(() => null);
+        let target = await resolveReferenceTarget(document, reference, cancellationToken).catch(() => null);
         // A base that lands on a macro's reference value (`: /BASE_SHAKE` → the `&<file>` value of
         // `BASE_SHAKE = &<…>` in cosmoteer.rules) is not the base body yet: dereference it (bounded,
         // a macro can alias another macro) until a group, a file, or a dead end.
@@ -117,9 +115,7 @@ const classThroughOwnBases = async (
             hops++
         ) {
             const ref = target as ValueNode;
-            target = await DefinitionService.instance
-                .resolveReferenceTarget(getStartOfAstNode(ref), ref, cancellationToken)
-                .catch(() => null);
+            target = await resolveReferenceTarget(getStartOfAstNode(ref), ref, cancellationToken).catch(() => null);
         }
         if (!target) continue;
         // A whole-file base (`: /BASE_SHAKE` → `BASE_SHAKE = &<common_effects/base_shake.rules>`,

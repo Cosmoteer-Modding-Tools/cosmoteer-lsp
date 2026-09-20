@@ -233,6 +233,12 @@ const VARIADIC_NAMES = [
     'ndist',
 ];
 
+/** mXparser mathematical constants usable bare in an expression (no `&`). */
+export const CONSTANTS: Readonly<Record<string, number>> = registry({
+    pi: Math.PI,
+    e: Math.E,
+});
+
 // Evaluate-closure helpers. Each rejects a call with the wrong argument count by returning null,
 // mirroring the arity the spec declares.
 const unaryFn = (fn: (x: number) => number) => (a: number[]) => (a.length === 1 ? fn(a[0]) : null);
@@ -385,12 +391,6 @@ export const ALL_MATH_FUNCTION_NAMES: ReadonlySet<string> = new Set(Object.keys(
 export const KNOWN_FUNCTION_NAMES: ReadonlySet<string> = new Set(
     Object.keys(MATH_FUNCTIONS).filter((name) => MATH_FUNCTIONS[name].evaluate !== undefined)
 );
-
-/** mXparser mathematical constants usable bare in an expression (no `&`). */
-export const CONSTANTS: Readonly<Record<string, number>> = registry({
-    pi: Math.PI,
-    e: Math.E,
-});
 
 /** Lowercased names of bare numeric constants (`pi`, `e`) that are valid operands without a `&`. */
 export const KNOWN_CONSTANT_NAMES: ReadonlySet<string> = new Set(Object.keys(CONSTANTS));

@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { CancellationToken } from 'vscode-languageserver';
-import { ReferenceAutoCompletionStrategy } from '../../../src/features/completion/strategy/reference.autocompletion-strategy';
-import { FullNavigationStrategy } from '../../../src/features/navigation/full.navigation-strategy';
+import { completeReference } from '../../../src/features/completion/autocompletion.reference-path';
+import { navigate } from '../../../src/semantics/navigate-reference';
 import { AbstractNode, AbstractNodeDocument, ValueNode } from '../../../src/core/ast/ast';
 import { findNodeByIdentifier, parseFilePath } from '../../../src/utils/ast.utils';
 import { globalSettings } from '../../../src/settings';
@@ -9,11 +9,9 @@ import { findReferenceNode, parseFixture } from '../../helpers';
 import { initWorkspace, valueOf, WORKSPACE_DATA_DIR, workspaceFile } from '../../workspace-helper';
 
 // Characterization tests for cross-file and cross-reference autocompletion. They
-// pin the current behavior of ReferenceAutoCompletionStrategy so a future fix is a
+// pin the current behavior of completeReference so a future fix is a
 // deliberate, visible change. Several cases below are known-broken and documented
 // as such. They return [] today where they should list the target's members.
-const completion = new ReferenceAutoCompletionStrategy();
-const navigation = new FullNavigationStrategy();
 const token = CancellationToken.None;
 const pos = { line: 0, characterStart: 0, characterEnd: 0, start: 0, end: 0 };
 
@@ -26,9 +24,9 @@ const refNode = (value: string, parent: AbstractNode): ValueNode => ({
 });
 
 const complete = (value: string, parent: AbstractNode, isInheritanceNode = false) =>
-    completion.complete({ node: refNode(value, parent), isInheritanceNode, cancellationToken: token });
+    completeReference({ node: refNode(value, parent), isInheritanceNode, cancellationToken: token });
 
-describe('ReferenceAutoCompletionStrategy, cross-file', () => {
+describe('completeReference, cross-file', () => {
     let docA: AbstractNodeDocument;
     let shipDoc: AbstractNodeDocument;
 
@@ -157,7 +155,7 @@ describe('ReferenceAutoCompletionStrategy, cross-file', () => {
     });
 });
 
-describe('ReferenceAutoCompletionStrategy & FullNavigationStrategy, in-file reference-to-reference', () => {
+describe('reference completion and navigation, in-file reference-to-reference', () => {
     // The user's case:
     //   TestBase { TestValue = 1 }
     //   Test1 = &TestBase
@@ -170,13 +168,13 @@ describe('ReferenceAutoCompletionStrategy & FullNavigationStrategy, in-file refe
 
     it('navigation resolves a direct group ref + member (&TestBase/TestValue) to 1', async () => {
         const node = findReferenceNode(doc, '&Test1/TestValue');
-        const result = await navigation.navigate('&TestBase/TestValue', node, doc.uri, token);
+        const result = await navigate('&TestBase/TestValue', node, doc.uri, token);
         expect(valueOf(result)).toBe(1);
     });
 
     it('navigation follows an alias (&Test1, where Test1 = &TestBase) to the TestBase group', async () => {
         const node = findReferenceNode(doc, '&Test1/TestValue');
-        const result = await navigation.navigate('&Test1', node, doc.uri, token);
+        const result = await navigate('&Test1', node, doc.uri, token);
         expect(result && 'identifier' in result && (result as { identifier?: { name: string } }).identifier?.name).toBe(
             'TestBase'
         );
@@ -185,14 +183,14 @@ describe('ReferenceAutoCompletionStrategy & FullNavigationStrategy, in-file refe
     it('navigation drills through the alias chain (&Test1/TestValue) to TestValue = 1', async () => {
         // The user's case: Test1 = &TestBase, Test2 = &Test1/TestValue. Previously null.
         const node = findReferenceNode(doc, '&Test1/TestValue');
-        const result = await navigation.navigate('&Test1/TestValue', node, doc.uri, token);
+        const result = await navigate('&Test1/TestValue', node, doc.uri, token);
         expect(valueOf(result)).toBe(1);
     });
 
     it('navigation of a self-referential alias cycle terminates (returns null, no infinite loop)', async () => {
         const cyclic = parseFixture('ref-cycle.rules', 'file:///ref-cycle.rules');
         const node = findReferenceNode(cyclic, '&A/x');
-        const result = await navigation.navigate('&A/x', node, cyclic.uri, token);
+        const result = await navigate('&A/x', node, cyclic.uri, token);
         expect(result).toBeNull();
     });
 

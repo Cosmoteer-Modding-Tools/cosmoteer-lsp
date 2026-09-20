@@ -1,4 +1,4 @@
-import { UNTAGGED_RULE_ID, ruleById, GAME_DATA_RULES, LintSeverity } from '../rule-ids';
+import { UNTAGGED_RULE_ID, ruleById, GAME_DATA_RULES, LintSeverity } from '../../features/diagnostics/rule-ids';
 import { TOOL_NAME, toolVersion } from '../version';
 import { gamePathOrigin, LintReport, plural } from './report';
 

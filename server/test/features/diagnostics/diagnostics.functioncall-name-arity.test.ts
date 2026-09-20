@@ -4,11 +4,7 @@ import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
 import { ValidationForFunctionCall } from '../../../src/features/diagnostics/validator.functioncall';
 import { KNOWN_FUNCTION_NAMES, MATH_FUNCTIONS } from '../../../src/semantics/math-function-registry';
-import {
-    AbstractNode,
-    FunctionCallNode,
-    isFunctionCallNode,
-} from '../../../src/core/ast/ast';
+import { AbstractNode, FunctionCallNode, isFunctionCallNode } from '../../../src/core/ast/ast';
 import { walkAst } from '../../helpers';
 
 const token = CancellationToken.None;

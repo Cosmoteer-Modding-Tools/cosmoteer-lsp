@@ -23,6 +23,17 @@ const LIST_LIMIT = 5;
 const WRAP_WIDTH = 96;
 
 /**
+ * The limits that hold for every run of this check, whatever it found. They are printed always,
+ * because each of them is a way the answer can be right about the files and wrong about the game.
+ */
+export const STANDING_LIMITS: readonly string[] = [
+    'This check answers whether the game loads the mod, and nothing else. Run it without --assert-loads for everything the editor reports.',
+    'Targets are resolved against the game data plus this mod alone. Mods load in the order of their ID and each one sees the tree as the mods before it left it, so a target another mod creates reads as missing here, and a position in a list can name a different entry in the running game.',
+    'Whether the player has the other mods installed cannot be known from this folder.',
+    'The game data cannot be copied into a build service, so a run there needs the game installed on the machine that runs it. Without the game data this check refuses to run at all.',
+];
+
+/**
  * The report a person reads.
  *
  * @param report the finished report.
@@ -175,17 +186,6 @@ const disclosureLines = (disclosures: readonly Disclosure[]): string[] => {
     lines.push('');
     return lines;
 };
-
-/**
- * The limits that hold for every run of this check, whatever it found. They are printed always,
- * because each of them is a way the answer can be right about the files and wrong about the game.
- */
-export const STANDING_LIMITS: readonly string[] = [
-    'This check answers whether the game loads the mod, and nothing else. Run it without --assert-loads for everything the editor reports.',
-    'Targets are resolved against the game data plus this mod alone. Mods load in the order of their ID and each one sees the tree as the mods before it left it, so a target another mod creates reads as missing here, and a position in a list can name a different entry in the running game.',
-    'Whether the player has the other mods installed cannot be known from this folder.',
-    'The game data cannot be copied into a build service, so a run there needs the game installed on the machine that runs it. Without the game data this check refuses to run at all.',
-];
 
 /**
  * The standing limits as the readable report prints them.

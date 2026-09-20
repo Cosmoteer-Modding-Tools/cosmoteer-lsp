@@ -3,7 +3,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { CancellationToken, Connection, TextEdit, WorkDoneProgressReporter } from 'vscode-languageserver';
-import { filePathToUri } from '../../../src/features/navigation/navigation-strategy';
+import { filePathToUri } from '../../../src/document/reference-path';
 import { partStatsIndex } from '../../../src/features/part-table/part-table.service';
 import { clearBaseFileCache } from '../../../src/features/refactor/shared-base/base-index';
 import { newFaction } from '../../../src/features/ships/new-faction.command';
@@ -12,7 +12,7 @@ import { newGalaxySize } from '../../../src/features/ships/new-galaxy-size.comma
 import { NewGalaxySizeApplyResult } from '../../../src/features/ships/new-galaxy-size.types';
 import { newNebula } from '../../../src/features/ships/new-nebula.command';
 import { NewNebulaApplyResult } from '../../../src/features/ships/new-nebula.types';
-import { decodePng } from '../../../src/utils/png';
+import { decodePng } from '../../../src/features/ships/png';
 import { registerShip, RegisterShipHost } from '../../../src/features/ships/register-ship.command';
 import {
     RegisterShipApplyResult,

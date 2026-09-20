@@ -28,7 +28,6 @@ const SEED_DIRS = [
     'server/src/core',
     'server/src/document',
     'server/src/semantics',
-    'server/src/registrar',
     'server/src/mod',
     'server/src/workspace',
     'server/src/utils',

@@ -2,7 +2,7 @@ import { Diagnostic } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { traceFailure } from '../utils/cancellation';
 import { connection, documents, tokenSourceManager } from './context';
-import { hasPullDiagnosticsCapability } from './capabilities';
+import { hasPullDiagnosticsCapability } from '../capabilities';
 import { diagnosticsCache } from './document-caches';
 import { validateTextDocument } from './validate-document';
 
@@ -35,7 +35,10 @@ export function computeDiagnosticsCached(document: TextDocument): Promise<Diagno
         const entry = diagnosticsCache.get(uri);
         if (entry && entry.version === version && entry.promise === promise) diagnosticsCache.delete(uri);
     };
-    const promise: Promise<Diagnostic[]> = validateTextDocument(document, token).then(
+    // The passes that finish their cross-file work after the first publish ask for a second one,
+    // and this flow is the one that publishes, so it hands them the way back in.
+    const refresh = (): void => refreshOpenDocumentDiagnostics(uri);
+    const promise: Promise<Diagnostic[]> = validateTextDocument(document, token, true, refresh).then(
         (diagnostics) => {
             // A cancelled run resolves with partial results, never serve them to a later request.
             if (token.isCancellationRequested) dropOwnEntry();

@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
-import { manifestPathsIn } from '../../../src/mod/mod-dependencies';
+import { manifestPathsIn } from '../../../src/features/mod-report/mod-dependencies';
 import {
     GameVersionInfo,
     gameAssemblyPathFor,

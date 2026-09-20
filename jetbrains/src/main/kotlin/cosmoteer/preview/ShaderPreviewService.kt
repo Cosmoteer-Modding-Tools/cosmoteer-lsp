@@ -29,7 +29,7 @@ import javax.swing.JComponent
 
 /**
  * Owns the live shader preview: a JCEF browser running the same WebGL page the VS Code extension
- * ships (`media/shader-preview.js`). The service asks the language server for the material at a
+ * ships (`media/dist/shader-preview.js`). The service asks the language server for the material at a
  * tracked position, inlines the bound textures as data URIs, and pushes the payload into the page
  * as a `message` event. Edits to the material's document or its resolved shader re-render after a
  * short debounce.

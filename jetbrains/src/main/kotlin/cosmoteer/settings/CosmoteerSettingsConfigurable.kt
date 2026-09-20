@@ -153,13 +153,54 @@ class CosmoteerSettingsConfigurable : BoundConfigurable("Cosmoteer Rules") {
                     )
             }
             row {
+                checkBox("Check pickup sizes against the resource stack")
+                    .bindSelected(state::validateResourcePickups)
+                    .comment(
+                        "Reports a storage handing a crew more of a resource than one crew member " +
+                        "can carry. The storage subtracts the whole amount from itself and the crew " +
+                        "keeps only a stack, so the difference is destroyed."
+                    )
+            }
+            row {
+                checkBox("Check numbers the reader refuses")
+                    .bindSelected(state::validateNumericDomains)
+                    .comment(
+                        "Reports a number the class reading it cannot survive: a continuous beam " +
+                        "with no hit interval, which freezes the game; a converter quantity of " +
+                        "zero, which is divided by; and nugget art sliced into more tiers than the " +
+                        "stack holds."
+                    )
+            }
+            row {
+                checkBox("Check storage composition cycles")
+                    .bindSelected(state::validateStorageCycles)
+                    .comment(
+                        "Reports a resource storage composed out of itself, directly or round a " +
+                        "ring. The game answers what it holds by asking the same question forever, " +
+                        "and the process disappears the moment such a part is built."
+                    )
+            }
+            row {
+                checkBox("Check galaxy generators")
+                    .bindSelected(state::validateGalaxyGenerators)
+                    .comment(
+                        "Reports a Spawners list that builds a map the game cannot use: a career " +
+                        "generator with no RandomSectorTypes, which silently puts every system on " +
+                        "the first sector type; a progression priority reaching past its own list; " +
+                        "a connection radius no pair of nodes falls inside; and a starting-node " +
+                        "filter that keeps nothing."
+                    )
+            }
+            row {
                 checkBox("Check part grid geometry")
                     .bindSelected(state::validatePartGeometry)
                     .comment(
                         "Fades a door location that is not a cell beside the part, and a blocked cell " +
                         "or per-cell map key outside it, none of which the game reads. A PhysicalRect " +
                         "leaving the part and a door presence toggle whose cell is inside the part " +
-                        "are errors, since the game throws on both."
+                        "are errors, since the game throws on both. A resource access point or grid " +
+                        "rect landing outside the part, and a resource sink on a part crew cannot " +
+                        "walk through, are warnings."
                     )
             }
             row {

@@ -30,6 +30,7 @@ import {
     isGroupNode,
     isListNode,
     isValueNode,
+    childNodesOf,
 } from '../../core/ast/ast';
 import { basenameOf } from '../../document/document-kind';
 import { aliasRootIndex } from '../../document/schema/alias-root';
@@ -39,16 +40,16 @@ import { resolveGroupClass } from '../../document/schema/schema-context';
 import { ValueType } from '../../document/schema/schema.types';
 import { ActionRootingIndex } from '../../mod/action-rooting.index';
 import { findMemberThroughInheritance, ResolveReferenceFn } from '../../semantics/inheritance-resolver';
-import { childNodesOf, getStartOfAstNode, namedMembersOf } from '../../utils/ast.utils';
+import { getStartOfAstNode, namedMembersOf } from '../../utils/ast.utils';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
 import { LocalizationKeyIndex } from '../completion/localization-key.index';
 import { SchemaIdIndex } from '../completion/schema-id.index';
-import { FullNavigationStrategy } from '../navigation/full.navigation-strategy';
-import { definitionLocationOf, locationKey, normalizeUri } from '../navigation/reference-location';
-import { ReverseIncludeIndex } from '../navigation/reverse-include.index';
+import { navigate } from '../../semantics/navigate-reference';
+import { definitionLocationOf, locationKey, normalizeUri } from '../../document/reference-location';
+import { ReverseIncludeIndex } from '../../mod/reverse-include.index';
 import { declaringFieldOf, isSameOrSubclass } from '../navigation/schema-id-reference.navigation';
 import { FileReferenceAnchor, fileReferenceName, fileReferenceSites } from '../navigation/schema-id-symbol';
-import { documentsMentioning, uriToFsPath } from '../navigation/workspace-files';
+import { documentsMentioning, uriToFsPath } from '../../workspace/workspace-files';
 import { code, linkDestination } from '../report/markdown-link';
 // The table lives in part-fields.ts so the mod overview's part-unlock section can read it without
 // pulling this report into the cache-id closure. Re-exported, since callers already import it here.
@@ -112,18 +113,9 @@ const MAX_ENCLOSING_DEPTH = 8;
 /** The field names worth collecting a naming site for: the mode surface plus the ship default. */
 const WIRING_FIELD_NAMES: ReadonlySet<string> = new Set([...MODE_PART_FIELDS.keys(), DEFAULT_PART_FIELD]);
 
-const navigation = new FullNavigationStrategy();
-
 /** Adapts the shared navigation strategy to the inheritance resolver's reference-resolution shape. */
 const resolveReference: ResolveReferenceFn = (path, startNode, currentLocation, token, inheritanceVisited) =>
-    navigation.navigate(
-        path,
-        startNode,
-        currentLocation,
-        token,
-        new Set(),
-        inheritanceVisited
-    ) as ReturnType<ResolveReferenceFn>;
+    navigate(path, startNode, currentLocation, token, new Set(), inheritanceVisited) as ReturnType<ResolveReferenceFn>;
 
 /**
  * A member of a container by name, matched case-insensitively like the game's own node lookup. The

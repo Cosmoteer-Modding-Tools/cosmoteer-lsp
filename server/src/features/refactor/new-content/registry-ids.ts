@@ -49,6 +49,26 @@ export interface RegistrySpec {
 /** The `<file>` and member path of a reference, sigil or not. */
 const REFERENCE = /^\s*&?\s*<([^<>]+)>(.*)$/;
 
+/** The build toolbar categories, named members of one file. */
+export const EDITOR_GROUP_REGISTRY: RegistrySpec = {
+    vanillaFile: 'gui/game/designer/editor_groups.rules',
+    targets: ['<gui/game/designer/editor_groups.rules>', '<gui/game/designer/build_gui.rules>/EditorGroups'],
+    named: true,
+    idsOfGroup: () => [],
+};
+
+/**
+ * The buffs, named members of one file the game root reaches as `Buffs = &<buffs/buffs.rules>`.
+ * A mod merges its own in with an `Overrides`, and a member named like a vanilla buff replaces it
+ * without a word from the game, which is why a new buff's name is checked here first.
+ */
+export const BUFF_REGISTRY: RegistrySpec = {
+    vanillaFile: 'buffs/buffs.rules',
+    targets: ['<buffs/buffs.rules>', '<cosmoteer.rules>/Buffs'],
+    named: true,
+    idsOfGroup: () => [],
+};
+
 /**
  * The text of a member holding a plain value, whether it was written bare, quoted or as a reference.
  *
@@ -84,26 +104,6 @@ const choiceIdsOf = (group: GroupNode): string[] => {
         .filter(isGroupNode)
         .map((choice) => memberTextOf(choice, 'ChoiceID'))
         .filter((id): id is string => !!id);
-};
-
-/** The build toolbar categories, named members of one file. */
-export const EDITOR_GROUP_REGISTRY: RegistrySpec = {
-    vanillaFile: 'gui/game/designer/editor_groups.rules',
-    targets: ['<gui/game/designer/editor_groups.rules>', '<gui/game/designer/build_gui.rules>/EditorGroups'],
-    named: true,
-    idsOfGroup: () => [],
-};
-
-/**
- * The buffs, named members of one file the game root reaches as `Buffs = &<buffs/buffs.rules>`.
- * A mod merges its own in with an `Overrides`, and a member named like a vanilla buff replaces it
- * without a word from the game, which is why a new buff's name is checked here first.
- */
-export const BUFF_REGISTRY: RegistrySpec = {
-    vanillaFile: 'buffs/buffs.rules',
-    targets: ['<buffs/buffs.rules>', '<cosmoteer.rules>/Buffs'],
-    named: true,
-    idsOfGroup: () => [],
 };
 
 /** The tooltip stat lines, a list identified by `ID`. */

@@ -2,7 +2,7 @@ import { ExtensionContext, Uri, l10n, window, workspace } from 'vscode';
 import { LanguageClient } from 'vscode-languageclient/node';
 import { creationFailureMessage, wiringNotes } from './nebula-wizard';
 import { applyForWizard, scanForWizard, wizardAnchor } from './wizard-client';
-import { escapeHtml, scriptJson, showWizardForm } from './wizard-form';
+import { escapeHtml, modFolderName, scriptJson, showWizardForm } from './wizard-form';
 import { TradeGoodApplyResult, TradeGoodForm, TradeGoodScanResult, TradeResource } from './trade-good-wizard.types';
 
 /**
@@ -105,7 +105,7 @@ const showTradeGoodForm = (
     scan: TradeGoodScanResult,
     offered: TradeResource[]
 ): Promise<TradeGoodForm | undefined> => {
-    const modName = scan.modRoot.replace(/\\/g, '/').split('/').filter(Boolean).pop() ?? scan.modRoot;
+    const modName = modFolderName(scan.modRoot);
     const option = (resource: TradeResource): string => {
         const source = resource.source === 'mod' ? l10n.t('mod') : l10n.t('game');
         const traded =

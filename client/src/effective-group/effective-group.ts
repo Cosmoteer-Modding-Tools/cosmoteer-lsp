@@ -2,6 +2,7 @@ import { Position, Uri, l10n } from 'vscode';
 import { LanguageClient } from 'vscode-languageclient/node';
 import { showCaretReport } from '../caret-report';
 import { VirtualContentProvider } from '../virtual-content-provider';
+import { COSMOTEER_METHOD } from '../../../shared/lsp-methods';
 
 /** The virtual-document scheme the rendered effective-group markdown is served under. */
 export const EFFECTIVE_GROUP_SCHEME = 'cosmoteer-effective-group';
@@ -36,7 +37,7 @@ export const showEffectiveGroup = (
         client,
         provider,
         {
-            method: 'cosmoteer/effectiveGroup',
+            method: COSMOTEER_METHOD.effectiveGroup,
             scheme: EFFECTIVE_GROUP_SCHEME,
             documentName: 'What The Game Loads.md',
             missing: l10n.t('No report available: the cursor is not inside a readable group.'),

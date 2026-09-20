@@ -1,7 +1,7 @@
 import { l10n } from 'vscode';
 
 /**
- * The user-visible text of the two bundled webview scripts. A webview script runs sandboxed in the
+ * The user-visible text of the bundled webview pages. A webview script runs sandboxed in the
  * page and cannot reach the l10n API, so the panels look every string up here and inline the result
  * into the page ahead of the script. Each string is keyed by its English source the same way the
  * l10n bundle is, so a page whose host inlines no bundle still shows the English words.
@@ -159,6 +159,9 @@ export const partGridEditorStrings = (): Record<string, string> => ({
     ),
     'cell [{0}]  ·  [{1}]': l10n.t('cell [{0}]  ·  [{1}]'),
     'No part found at this position.': l10n.t('No part found at this position.'),
+    'This part could not be drawn. Reopen the editor to try again.': l10n.t(
+        'This part could not be drawn. Reopen the editor to try again.'
+    ),
     'Edit rejected ({0}). Resyncing…': l10n.t('Edit rejected ({0}). Resyncing…'),
 });
 
@@ -337,6 +340,7 @@ export const partTableStrings = (): Record<string, string> => ({
     'The larger of two columns': l10n.t('The larger of two columns'),
     Part: l10n.t('Part'),
     From: l10n.t('From'),
+    Component: l10n.t('Component'),
     'Every category': l10n.t('Every category'),
     'Every component': l10n.t('Every component'),
     Everywhere: l10n.t('Everywhere'),

@@ -10,13 +10,11 @@ import {
     isValueNode,
     ValueNode,
 } from '../../core/ast/ast';
-import { AutoCompletion, Completion } from './autocompletion.service';
-import { AssetAutoCompletionStrategy, AssetType } from './strategy/asset.autocompletion-strategy';
+import { AutoCompletion, Completion } from './autocompletion.service.types';
+import { AssetType, completeAssetPath } from './autocompletion.asset-path';
 import { documentScopeClass, findEnclosingContainer } from '../../document/schema/schema-context';
 import { fieldOf } from '../../document/schema/schema';
 import { resolveClassThroughInheritance } from './inheritance-resolution';
-
-const assetAutoCompletionStrategy = new AssetAutoCompletionStrategy();
 
 /** The asset value-type kind a schema `assetKind` maps to (for the strategy's extension filter). */
 const ASSET_TYPE_BY_KIND: Record<string, AssetType> = { image: 'Sprite', sound: 'Sound', shader: 'Shader' };
@@ -118,9 +116,7 @@ export const assetCompletionsAtOffset = async (
         parent: container as ValueNode['parent'],
         position: { line: position.line, characterStart: 0, characterEnd: 0, start: offset, end: offset },
     };
-    const completions = await assetAutoCompletionStrategy
-        .complete({ node, cancellationToken, assetType })
-        .catch(() => []);
+    const completions = await completeAssetPath({ node, cancellationToken, assetType }).catch(() => []);
     // The labels are one path segment, so the pick replaces the segment being typed and nothing of
     // the directories already written.
     const segment = typed.slice(typed.lastIndexOf('/') + 1);
@@ -189,10 +185,10 @@ export class AutoCompletionAsset implements AutoCompletion<ValueNode> {
         if (!isValueNode(node)) return [];
         const assetType = await schemaAssetType(node, cancellationToken);
         if (assetType) {
-            return await assetAutoCompletionStrategy.complete({ node, cancellationToken, assetType }).catch(() => []);
+            return await completeAssetPath({ node, cancellationToken, assetType }).catch(() => []);
         }
         if (looksLikeAssetPath(node)) {
-            return await assetAutoCompletionStrategy.complete({ node, cancellationToken }).catch(() => []);
+            return await completeAssetPath({ node, cancellationToken }).catch(() => []);
         }
         return [];
     }

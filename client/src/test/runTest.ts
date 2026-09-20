@@ -10,7 +10,9 @@ async function main() {
     try {
         // The folder containing the Extension Manifest package.json
         // Passed to `--extensionDevelopmentPath`
-        const extensionDevelopmentPath = path.resolve(__dirname, '../../../');
+        // tsc's rootDir is the repository root, so this file is emitted at
+        // out/client/client/src/test and the root is five levels up.
+        const extensionDevelopmentPath = path.resolve(__dirname, '../../../../../');
 
         // The path to test runner
         // Passed to --extensionTestsPath

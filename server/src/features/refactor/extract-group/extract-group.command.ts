@@ -7,13 +7,14 @@ import { findModRoot } from '../../../mod/mod-root';
 import { globalSettings } from '../../../settings';
 import { parseText } from '../../../utils/ast.utils';
 import { cachedPathExists } from '../../../workspace/fs-cache';
-import { filePathToUri } from '../../navigation/navigation-strategy';
-import { uriToFsPath } from '../../navigation/workspace-files';
+import { filePathToUri } from '../../../document/reference-path';
+import { uriToFsPath } from '../../../workspace/workspace-files';
 import { documentFor, lineEndingOf, openBuffers } from '../command-host';
 import { relativeRulesReference } from '../shared-base/base-file.emitter';
 import { hasMultiLineString, memberSpanOf } from '../shared-base/member-record';
 import { analyzeReferences, applyRebases } from '../shared-base/reference-safety';
-import { ExtractGroupArgs, ExtractGroupFailure, ExtractGroupHost, ExtractGroupResult } from './extract-group.types';
+import { ExtractGroupHost } from './extract-group.types';
+import { ExtractGroupArgs, ExtractGroupFailure, ExtractGroupResult } from '../../../../../shared/extract-group.types';
 
 /**
  * The `workspace/executeCommand` id that moves an inline group into a file of its own. Both clients

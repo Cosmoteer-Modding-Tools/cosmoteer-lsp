@@ -3,8 +3,8 @@ import { CancellationToken } from 'vscode-languageserver';
 import { AbstractNode } from '../../core/ast/ast';
 import { BUCKET_REGISTRY_CLASS, bucketListsIn } from '../diagnostics/validator.effect-bucket';
 import { parseFilePath } from '../../utils/ast.utils';
-import { ParserResultRegistrar } from '../../registrar/parser-result-registrar';
-import { uriToFsPath } from '../navigation/workspace-files';
+import { ParserResultRegistrar } from '../../document/parser-result-registrar';
+import { uriToFsPath } from '../../workspace/workspace-files';
 import { resolveSchemaIdReference, schemaReferenceFieldOf } from '../navigation/schema-id-reference.navigation';
 
 /**

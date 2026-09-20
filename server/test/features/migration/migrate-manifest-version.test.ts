@@ -8,8 +8,11 @@ import { pathToFileURL } from 'url';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
 import { collectFileMigration } from '../../../src/features/migration/migrate-workspace';
-import { clearGameVersionsCache } from '../../../src/features/diagnostics/validator.manifest-version';
-import { gameAssemblyPathFor, readGameVersionInfo } from '../../../src/features/game-version';
+import {
+    clearGameVersionInfoCache,
+    gameAssemblyPathFor,
+    readGameVersionInfo,
+} from '../../../src/features/game-version';
 import { CosmoteerWorkspaceService } from '../../../src/workspace/cosmoteer-workspace.service';
 
 // A migrated mod has to be one the game still loads, so the migration brings the manifest's
@@ -56,7 +59,7 @@ describe.runIf(HAVE_GAME)('the migration and the manifest version list', () => {
             window: { showWarningMessage: () => undefined },
         } as unknown as Connection);
         await service.initialize(DATA_ROOT, noProgress);
-        clearGameVersionsCache();
+        clearGameVersionInfoCache();
         installed = (await readGameVersionInfo(DATA_ROOT)).installed;
     });
 

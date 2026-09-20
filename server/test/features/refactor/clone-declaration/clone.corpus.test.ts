@@ -6,13 +6,10 @@ import { CancellationToken } from 'vscode-languageserver';
 import { parser } from '../../../../src/core/parser/parser';
 import { lexer } from '../../../../src/core/lexer/lexer';
 import { buildClonePlan } from '../../../../src/features/refactor/clone-declaration/clone-plan';
-import {
-    CloneFailure,
-    ClonePlan,
-    ClonePlanContext,
-} from '../../../../src/features/refactor/clone-declaration/clone.types';
+import { ClonePlan, ClonePlanContext } from '../../../../src/features/refactor/clone-declaration/clone.types';
+import { CloneFailure } from '../../../../../shared/clone-declaration.types';
 import { locateCloneTarget } from '../../../../src/features/refactor/clone-declaration/clone-target';
-import { filePathToUri } from '../../../../src/features/navigation/navigation-strategy';
+import { filePathToUri } from '../../../../src/document/reference-path';
 import { scanSpans } from '../../../../src/features/refactor/clone-declaration/unit-rebase';
 import { looksLikeAssetPath, PATH_TOKEN } from '../../../../src/features/refactor/shared-base/reference-safety';
 import { clearModRootCache } from '../../../../src/mod/mod-root';

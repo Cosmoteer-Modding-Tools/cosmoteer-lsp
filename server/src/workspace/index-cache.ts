@@ -4,7 +4,7 @@ import { mkdir, readdir, readFile, rename, stat, unlink, utimes, writeFile } fro
 import type { Diagnostic } from 'vscode-languageserver';
 import { tmpdir } from 'os';
 import { dirname, join, relative, resolve } from 'path';
-import { collectRulesFiles } from '../features/navigation/workspace-files';
+import { collectRulesFiles } from './rules-file-walk';
 import { foldPathCase, onFsInvalidation } from './fs-cache';
 import { perfCount } from '../utils/perf-counters';
 
@@ -33,8 +33,24 @@ import { perfCount } from '../utils/perf-counters';
  *  cross-file read off a lower-cased key resolves the right file on a case-sensitive filesystem. */
 const CACHE_FORMAT_VERSION = 5;
 
+/** Bump when the persisted scan-cache shape changes. */
+const SCAN_CACHE_FORMAT_VERSION = 1;
+
+/** Bump when the meaning of a persisted rejection changes. */
+const TEXT_GATE_FORMAT_VERSION = 1;
+
+/** Bump when the persisted shape of the alias-root state changes. */
+const ALIAS_ROOT_FORMAT_VERSION = 1;
+
 /** How many `stat` calls run concurrently while building the manifest. */
 const STAT_CONCURRENCY = 64;
+
+/** Cache artifacts unused for this long are deleted (a renamed mod or moved install orphans its
+ *  files forever otherwise, since their names hash the old paths). */
+const CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+
+/** Torn temp files older than this are leftovers of a crashed write, never a write in progress. */
+const TEMP_MAX_AGE_MS = 60 * 60 * 1000;
 
 /** One swept file: its on-disk path plus the identity stat every startup consumer needs. */
 interface SweptFile {
@@ -163,12 +179,6 @@ export const cacheArtifactPath = (dataRoot: string, name: string): string => {
 
 /** The running server build's identity, for cache invalidation across rebuilds. */
 export const currentServerBuildId = (): string => serverBuildId();
-
-/** Cache artifacts unused for this long are deleted (a renamed mod or moved install orphans its
- *  files forever otherwise, since their names hash the old paths). */
-const CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
-/** Torn temp files older than this are leftovers of a crashed write, never a write in progress. */
-const TEMP_MAX_AGE_MS = 60 * 60 * 1000;
 
 /** Whether this process already pruned the cache directory (once per session is plenty). */
 let pruned = false;
@@ -307,9 +317,6 @@ export const saveIndexCache = async (dataRoot: string, states: Record<string, un
 // gate cannot see. An unsaved buffer's cross-file influence is baked into the saved results,
 // which matches the next session when the client restores the buffer (hot exit) and self-heals
 // on the first edit otherwise.
-
-/** Bump when the persisted scan-cache shape changes. */
-const SCAN_CACHE_FORMAT_VERSION = 1;
 
 /** One persisted scan result: the file's identity at validation time and its diagnostics. */
 export type ScanCacheEntry = [path: string, size: number, mtimeMs: number, diagnostics: Diagnostic[]];
@@ -456,7 +463,7 @@ export const saveScanCache = async (
 };
 
 /** One workspace file's identity stamp: the path as walked, plus size and mtime. */
-type ProjectFileStamp = [path: string, size: number, mtimeMs: number];
+export type ProjectFileStamp = [path: string, size: number, mtimeMs: number];
 
 /** The on-disk shape of one saved project cache file. */
 interface ProjectCacheFile {
@@ -589,9 +596,6 @@ export const saveProjectCache = async (
 // as long as they have not changed. Only rejections are kept: an accepted file is read and parsed
 // either way, and a rejected file that changes is read again because its stamp no longer matches.
 
-/** Bump when the meaning of a persisted rejection changes. */
-const TEXT_GATE_FORMAT_VERSION = 1;
-
 /** One rejected file: its path and the identity the rejection was made under. */
 export type TextGateEntry = [path: string, size: number, mtimeMs: number];
 
@@ -643,9 +647,6 @@ export const saveTextGate = async (dataRoot: string, gateId: string, entries: Te
 // The forward alias walk from `cosmoteer.rules` resolves and parses every fragment the game root
 // reaches, on every start. Its result depends on the game tree and on the mod's files, which is the
 // gate the scan cache already uses, so the walk's result is kept behind the same gate.
-
-/** Bump when the persisted shape of the alias-root state changes. */
-const ALIAS_ROOT_FORMAT_VERSION = 1;
 
 interface AliasRootCacheFile {
     formatVersion: number;

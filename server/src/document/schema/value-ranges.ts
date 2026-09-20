@@ -38,6 +38,10 @@ export const RANGE_DIRECTION_RULES: readonly RangeDirectionRule[] = [
     { owner: 'Cosmoteer.Ships.Parts.Weapons.EmitterRules', field: 'Pellets', effect: 'throws' },
     { owner: 'Cosmoteer.Simulation.HitEffects.ChainLightningEffectRules', field: 'ChainStrikes', effect: 'throws' },
     { owner: 'Cosmoteer.Generators.Galaxies.MapNodesSpawner', field: 'Count', effect: 'throws' },
+    // The chain lightning siblings `InitialStrikes` and `MaxChainLength` reach `Range<T>.Evaluate`,
+    // which lerps and takes either order, and `EmitterRules.Burst` is guarded at its call site, so
+    // neither belongs here. This one rolls the count directly.
+    { owner: 'Cosmoteer.Simulation.HitEffects.SpawnBulletsEffectRules', field: 'Count', effect: 'throws' },
     { owner: 'Cosmoteer.Backgrounds.BackgroundObjectRules', field: 'Count', effect: 'throws' },
     { owner: 'Cosmoteer.Generators.Simulation.ResourceTypeLoadoutRules', field: 'Quantity', effect: 'throws' },
     { owner: 'Cosmoteer.Modes.Career.Map.RandomNodeTiersSpawner', field: 'TierRangeLow', effect: 'throws' },

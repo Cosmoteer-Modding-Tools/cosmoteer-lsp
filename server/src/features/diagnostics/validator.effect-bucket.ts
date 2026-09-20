@@ -8,8 +8,8 @@ import {
     isValueNode,
     ListNode,
     ValueNode,
+    descendants,
 } from '../../core/ast/ast';
-import { childNodesOf } from '../../utils/ast.utils';
 import { aliasRootIndex } from '../../document/schema/alias-root';
 import { REGISTRY_LIST_FIELDS, sameId } from '../../document/schema/entity-schema';
 import { ActionRootingIndex } from '../../mod/action-rooting.index';
@@ -57,17 +57,22 @@ export interface BucketList {
  * @returns a generator of the bucket lists found under it.
  */
 export function* bucketListsIn(node: AbstractNode): Generator<BucketList> {
-    const list = isListNode(node) && node.identifier ? { name: node.identifier.name, node } : undefined;
-    const assigned =
-        isAssignmentNode(node) && isListNode(node.right) ? { name: node.left.name, node: node.right } : undefined;
-    const written = list ?? assigned;
-    if (written && REGISTRY_LIST_FIELDS.get(written.name.toLowerCase()) === BUCKET_REGISTRY_CLASS) {
+    for (const candidate of descendants(node)) {
+        const list =
+            isListNode(candidate) && candidate.identifier
+                ? { name: candidate.identifier.name, node: candidate }
+                : undefined;
+        const assigned =
+            isAssignmentNode(candidate) && isListNode(candidate.right)
+                ? { name: candidate.left.name, node: candidate.right }
+                : undefined;
+        const written = list ?? assigned;
+        if (!written || REGISTRY_LIST_FIELDS.get(written.name.toLowerCase()) !== BUCKET_REGISTRY_CLASS) continue;
         const entries = written.node.elements.filter(
             (element): element is ValueNode => isValueNode(element) && String(element.valueType.value).trim() !== ''
         );
         yield { field: written.name, node: written.node, entries };
     }
-    for (const child of childNodesOf(node)) yield* bucketListsIn(child);
 }
 
 /**

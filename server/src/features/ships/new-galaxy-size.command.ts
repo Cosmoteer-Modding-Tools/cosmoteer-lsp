@@ -12,19 +12,25 @@ import {
     isValueNode,
     ValueNode,
 } from '../../core/ast/ast';
-import { identityOfMod, ModIdentity } from '../../mod/mod-dependencies';
+import { identityOfMod, ModIdentity } from '../mod-report/mod-dependencies';
 import { namedMembersOf } from '../../utils/ast.utils';
 import { indentOfLineAt } from '../../utils/text.utils';
-import { filePathToUri } from '../navigation/navigation-strategy';
-import { lineEndingOf } from '../refactor/command-host';
+import { filePathToUri } from '../../document/reference-path';
 import { NewContentHost, writeLocalizationKeys } from '../refactor/new-content/new-content.command';
-import { gameRootListTarget, manifestForRegistration } from '../refactor/new-content/registration.emitter';
+import { gameRootListTarget } from '../refactor/new-content/registration.emitter';
 import { reindent, relativeRulesReference } from '../refactor/shared-base/base-file.emitter';
 import { dirOf, readRulesFile } from '../refactor/shared-base/base-index';
 import { memberOf } from '../refactor/new-content/registry-ids';
 import { factionSegment, keyLabelOf } from './builtin-ships.emitter';
 import { LineEnding } from './builtin-ships.types';
-import { ManifestWiring, modRootFor, wireIntoManifest } from './mod-wiring';
+import {
+    BARE_RULES_ID,
+    ManifestWiring,
+    modRootFor,
+    registrationLineEnding,
+    resolveGameRoot,
+    wireIntoManifest,
+} from './mod-wiring';
 import {
     NewGalaxySizeApplyResult,
     NewGalaxySizeArgs,
@@ -75,8 +81,8 @@ const MAX_SYSTEMS = 2000;
 /** The folder a size's own files go under, mirroring the game's own tree. */
 const SIZES_FOLDER = 'galaxy_map';
 
-/** A size id as a bare word, since it names a group and a folder. */
-const SIZE_ID = /^[A-Za-z][A-Za-z0-9_]*$/;
+/** A reference's file part, when it names a rules file. */
+const RULES_REFERENCE = /<([^<>]+\.rules)>/gi;
 
 /** A scan result carrying nothing but the reason there is nothing to report. */
 const scanFailed = (failure: NewGalaxySizeFailure): NewGalaxySizeScanResult => ({
@@ -160,9 +166,6 @@ const standardGeneratorOf = async (dataRoot: string): Promise<StandardGenerator 
         systems: Number.isInteger(systems) && systems > 0 ? systems : VANILLA_STANDARD_SYSTEMS,
     };
 };
-
-/** A reference's file part, when it names a rules file. */
-const RULES_REFERENCE = /<([^<>]+\.rules)>/gi;
 
 /**
  * A reference as the size file has to spell it: the generator's own references are relative to its
@@ -326,11 +329,10 @@ const applyRound = async (
     cancellationToken: CancellationToken
 ): Promise<NewGalaxySizeApplyResult> => {
     const id = (args.id ?? '').trim();
-    if (!SIZE_ID.test(id)) return applyFailed(id, 'invalidId');
-    const dataRoot = host.dataRoot();
-    const root = await host.gameRoot().catch(() => undefined);
-    const rootDocument = (root?.content as { parsedDocument?: AbstractNodeDocument } | undefined)?.parsedDocument;
-    if (!dataRoot || !root?.path || !rootDocument) return applyFailed(id, 'noGameRoot');
+    if (!BARE_RULES_ID.test(id)) return applyFailed(id, 'invalidId');
+    const game = await resolveGameRoot(host);
+    if (!game) return applyFailed(id, 'noGameRoot');
+    const { dataRoot, rootPath, rootDocument } = game;
     const generator = await standardGeneratorOf(dataRoot);
     if (!generator) return applyFailed(id, 'noGameRoot');
     // The mod's own sizes are known by their folders, so a folder that is there is reported as the
@@ -350,9 +352,7 @@ const applyRound = async (
     const nameKey = `${MAP_SIZES_MEMBER}/${label}`;
     const tipKey = `${MAP_SIZES_MEMBER}/${label}Tip`;
 
-    const choice = manifestForRegistration(modRoot);
-    const lineEnding: LineEnding =
-        choice.kind === 'manifest' ? lineEndingOf((await readRulesFile(choice.fsPath))?.text ?? '') : '\n';
+    const { choice, lineEnding } = await registrationLineEnding(modRoot);
 
     const created: string[] = [];
     try {
@@ -388,13 +388,13 @@ const applyRound = async (
         const wirings: Wiring[] = [
             {
                 key: 'career',
-                target: modeSizesTarget(rootDocument, root.path, dataRoot, CAREER_MODE_MEMBER),
+                target: modeSizesTarget(rootDocument, rootPath, dataRoot, CAREER_MODE_MEMBER),
                 reference,
                 file,
             },
             {
                 key: 'creative',
-                target: modeSizesTarget(rootDocument, root.path, dataRoot, CREATIVE_MODE_MEMBER),
+                target: modeSizesTarget(rootDocument, rootPath, dataRoot, CREATIVE_MODE_MEMBER),
                 reference,
                 file,
             },

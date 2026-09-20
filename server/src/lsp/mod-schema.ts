@@ -1,16 +1,15 @@
-import { buildModSchema, ModSchemaSummary } from '../features/mod-schema/mod-schema';
+import { traceFailure } from '../utils/cancellation';
+import { buildModSchema } from '../features/mod-schema/mod-schema';
+import { ModSchemaSummary } from '../../../shared/mod-schema.types';
 import { watchDirectories, watchModAssemblies } from '../features/mod-schema/watch';
 import { extendSchemaWithMods, modSchemaSignature } from '../document/schema/schema';
 import { invalidateSchemaContextCache } from '../document/schema/schema-context';
-import { invalidateComponentIdCache } from '../features/diagnostics/validator.schema-sibling';
-import { invalidateEffectiveChainCache } from '../semantics/effective-group';
-import { invalidateLooseDeclarationCache } from '../features/diagnostics/validator.schema-id-reference';
 import { localModDirs, workshopContentDir } from '../workspace/workshop-dir';
 import { CosmoteerWorkspaceService } from '../workspace/cosmoteer-workspace.service';
 import { globalSettings } from '../settings';
-import { hasPullDiagnosticsCapability } from './capabilities';
+import { hasPullDiagnosticsCapability } from '../capabilities';
 import { connection, documents } from './context';
-import { diagnosticsCache, inlayHintCache } from './document-caches';
+import { invalidateDerivedCaches } from './document-caches';
 import { schedulePushValidation } from './push-diagnostics';
 import { bumpWorkspaceScanEpoch } from './scan-epoch';
 import { workspaceFolderPaths } from './workspace-folders';
@@ -124,7 +123,7 @@ export async function refreshModSchema(): Promise<void> {
                 `${summary.documented} documented fields from ${summary.assemblies} assemblies.`
         );
     } catch (e) {
-        if (globalSettings.trace.server === 'messages') console.error(e);
+        traceFailure(e);
     } finally {
         modSchemaRefreshRunning = false;
         if (modSchemaRefreshQueued) {
@@ -140,12 +139,8 @@ export async function refreshModSchema(): Promise<void> {
  * against the old one, since no document version moved.
  */
 export function applyModSchemaChange(): void {
-    diagnosticsCache.clear();
-    inlayHintCache.clear();
+    invalidateDerivedCaches();
     invalidateSchemaContextCache();
-    invalidateComponentIdCache();
-    invalidateEffectiveChainCache();
-    invalidateLooseDeclarationCache();
     bumpWorkspaceScanEpoch();
     if (hasPullDiagnosticsCapability) connection.languages.diagnostics.refresh();
     else for (const document of documents.all()) schedulePushValidation(document);

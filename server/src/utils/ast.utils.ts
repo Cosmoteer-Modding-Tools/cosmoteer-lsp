@@ -11,7 +11,6 @@ import {
     isMathExpressionNode,
     isValueNode,
 } from '../core/ast/ast';
-import { FileWithPath } from '../workspace/cosmoteer-workspace.service';
 import { readFile } from 'fs/promises';
 import { lexer } from '../core/lexer/lexer';
 import { parser } from '../core/parser/parser';
@@ -41,13 +40,6 @@ export const namedMembersOf = (node: { elements: AbstractNode[] }): [string, Abs
 };
 
 /**
- * The nodes a whole-document walk descends into: a container's elements, an assignment's value.
- * The single definition of "child" the diagnostic and schema passes walk documents by. Inheritance
- * lists, function-call arguments and math operands are deliberately left out of it.
- * @param node the node a walk has reached
- * @returns the nodes to visit below it, in document order, empty when it holds none
- */
-/**
  * The member written under a name in a group, in the assignment and the named-block spellings,
  * matched ignoring case the way the game matches member names.
  *
@@ -65,13 +57,6 @@ export const memberValueNamed = (group: { elements: AbstractNode[] }, name: stri
     }
     return undefined;
 };
-
-export const childNodesOf = (node: AbstractNode): AbstractNode[] =>
-    isGroupNode(node) || isListNode(node) || isDocumentNode(node)
-        ? node.elements
-        : isAssignmentNode(node) && node.right
-          ? [node.right]
-          : [];
 
 /** Per-container lookup table from an assignment's right-hand node to its field name. Built once per
  *  container instead of rescanning its elements for every candidate node, which made a string-heavy
@@ -136,7 +121,15 @@ export const memberNameAt = (node: AbstractNode, container: { elements: Abstract
     return undefined;
 };
 
-export const parseFile = async (file: FileWithPath): Promise<AbstractNodeDocument> => {
+/**
+ * Read and parse a file named by an object carrying its on-disk path. Declared as the shape it
+ * reads rather than as the workspace service's `FileWithPath`, so this layer stays free of the
+ * workspace layer above it while every `FileWithPath` still fits.
+ *
+ * @param file the file to read, as anything carrying its on-disk path.
+ * @returns the parsed document.
+ */
+export const parseFile = async (file: { readonly path: string }): Promise<AbstractNodeDocument> => {
     const data = await readFile(file.path, { encoding: 'utf-8' });
     const document = parser(lexer(data), file.path).value;
     return document;

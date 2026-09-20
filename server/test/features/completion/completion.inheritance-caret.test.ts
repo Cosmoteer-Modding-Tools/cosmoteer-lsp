@@ -3,19 +3,18 @@ import { CancellationToken } from 'vscode-languageserver';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
 import { AbstractNode, isAssignmentNode, isGroupNode, isValueNode, ValueNode } from '../../../src/core/ast/ast';
-import { ReferenceAutoCompletionStrategy } from '../../../src/features/completion/strategy/reference.autocompletion-strategy';
-import { AutoCompletionService } from '../../../src/features/completion/autocompletion.service';
+import { completeReference } from '../../../src/features/completion/autocompletion.reference-path';
+import { getCompletions } from '../../../src/features/completion/autocompletion.service';
 import { findNodeAtPosition } from '../../../src/utils/ast.utils';
-import { Completion } from '../../../src/features/completion/autocompletion.service';
+import { Completion } from '../../../src/features/completion/autocompletion.service.types';
 import { initWorkspace, workspaceFile } from '../../workspace-helper';
 
 // Completing a caret-inheritance reference path (`&^/0/`, or the vanilla `&~/Part/^/0/`) must list the
 // members of the resolved inheritance base, not the base file's root. `^` selects the current node's own
 // inheritance anchor and the following `/N` indexes it, matching the shared resolver used by navigation
-// and go-to in semantics/reference-resolver.ts. The regression this guards: the completion traversal
+// and go-to in document/reference-resolver.ts. The regression this guards: the completion traversal
 // jumped to the original node's grandparent, which for a value parented to its group is the document, so
 // `/0` found no member and it listed the base file's root (`[Part]`) instead of the base Part's members.
-const strat = new ReferenceAutoCompletionStrategy();
 const token = CancellationToken.None;
 
 /** The labels of a completion list, which answers a bare string and a suggestion object alike. */
@@ -50,7 +49,7 @@ const completeCaretRef = async (ampPrefix: '&' | '', ref: string): Promise<strin
     };
     doc.elements.forEach(walk);
     expect(refNode, `no reference node found for ${ref}`).toBeDefined();
-    return labelsOf(await strat.complete({ node: refNode!, isInheritanceNode: false, cancellationToken: token }));
+    return labelsOf(await completeReference({ node: refNode!, isInheritanceNode: false, cancellationToken: token }));
 };
 
 describe('caret-inheritance reference completion', () => {
@@ -86,7 +85,7 @@ const completeAtAmp = async (src: string): Promise<string[]> => {
     const character = 'X = &'.length + 1; // one tab of indentation before `X`
     const node = findNodeAtPosition(doc, { line, character });
     const svc: Completion[] = node
-        ? await AutoCompletionService.instance.getCompletions(node, token)
+        ? await getCompletions(node, token)
         : [];
     return svc.map((c) => (typeof c === 'string' ? c : c.label));
 };

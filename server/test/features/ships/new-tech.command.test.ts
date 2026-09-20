@@ -6,7 +6,7 @@ import { CancellationToken, Connection, TextEdit, WorkDoneProgressReporter } fro
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
-import { filePathToUri } from '../../../src/features/navigation/navigation-strategy';
+import { filePathToUri } from '../../../src/document/reference-path';
 import { clearBaseFileCache } from '../../../src/features/refactor/shared-base/base-index';
 import { newTech } from '../../../src/features/ships/new-tech.command';
 import {

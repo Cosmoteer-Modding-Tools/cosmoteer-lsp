@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { CancellationToken } from 'vscode-languageserver';
-import { DefinitionService } from '../../../src/features/navigation/definition.service';
-import { FullNavigationStrategy } from '../../../src/features/navigation/full.navigation-strategy';
+import { getDefinition } from '../../../src/features/navigation/definition.service';
+import { navigate } from '../../../src/semantics/navigate-reference';
 import { AbstractNode, AbstractNodeDocument } from '../../../src/core/ast/ast';
 import { findNodeByIdentifier, parseFilePath } from '../../../src/utils/ast.utils';
 import { isAssignmentNode } from '../../../src/core/ast/ast';
@@ -11,8 +11,6 @@ import { initWorkspace, workspaceFile } from '../../workspace-helper';
 // End-to-end go-to-definition: cursor position -> reference node -> navigated target
 // -> LSP Location (uri + range). Covers in-file, cross-file, file-target and the
 // no-definition cases.
-const service = DefinitionService.instance;
-const navigation = new FullNavigationStrategy();
 const token = CancellationToken.None;
 
 /**
@@ -26,7 +24,7 @@ const cursorOn = (node: AbstractNode) => ({
     character: node.position.characterStart,
 });
 
-describe('DefinitionService: go-to-definition', () => {
+describe('getDefinition', () => {
     let refChain: AbstractNodeDocument;
     let docA: AbstractNodeDocument;
 
@@ -38,9 +36,9 @@ describe('DefinitionService: go-to-definition', () => {
 
     it('in-file: jumps through the alias chain (&Test1/TestValue) to TestValue = 1', async () => {
         const ref = findReferenceNode(refChain, '&Test1/TestValue');
-        const target = await navigation.navigate(String(ref.valueType.value), ref, refChain.uri, token);
+        const target = await navigate(String(ref.valueType.value), ref, refChain.uri, token);
 
-        const location = singleLocation(await service.getDefinition(refChain, cursorOn(ref), token));
+        const location = singleLocation(await getDefinition(refChain, cursorOn(ref), token));
 
         expect(location.uri).toBe(refChain.uri);
         // Points at the resolved target node (the `1`), proving the cursor→target mapping.
@@ -54,9 +52,9 @@ describe('DefinitionService: go-to-definition', () => {
         // expression (not stop at the whole value) so go-to-definition lands on the `B = 2` sibling.
         const mathDoc = parseFixture('math.rules', 'file:///math.rules');
         const ref = findReferenceNode(mathDoc, '&B'); // appears only inside the Result expression
-        const target = await navigation.navigate(String(ref.valueType.value), ref, mathDoc.uri, token);
+        const target = await navigate(String(ref.valueType.value), ref, mathDoc.uri, token);
 
-        const location = singleLocation(await service.getDefinition(mathDoc, cursorOn(ref), token));
+        const location = singleLocation(await getDefinition(mathDoc, cursorOn(ref), token));
 
         expect(location.uri).toBe(mathDoc.uri);
         expect(location.range.start.line).toBe((target as AbstractNode).position.line);
@@ -65,9 +63,9 @@ describe('DefinitionService: go-to-definition', () => {
 
     it('cross-file: jumps into b.rules for &<./Data/b.rules>/B/InnerValue', async () => {
         const ref = findReferenceNode(docA, '&<./Data/b.rules>/B/InnerValue');
-        const target = await navigation.navigate(String(ref.valueType.value), ref, docA.uri, token);
+        const target = await navigate(String(ref.valueType.value), ref, docA.uri, token);
 
-        const location = singleLocation(await service.getDefinition(docA, cursorOn(ref), token));
+        const location = singleLocation(await getDefinition(docA, cursorOn(ref), token));
 
         expect(location.uri.startsWith('file://')).toBe(true);
         expect(location.uri.endsWith('b.rules')).toBe(true);
@@ -78,7 +76,7 @@ describe('DefinitionService: go-to-definition', () => {
         const doc = parseFixture('def-fileref.rules', 'file:///def-fileref.rules');
         const ref = findReferenceNode(doc, '&<./Data/c.rules>');
 
-        const location = singleLocation(await service.getDefinition(doc, cursorOn(ref), token));
+        const location = singleLocation(await getDefinition(doc, cursorOn(ref), token));
 
         expect(location.uri.endsWith('c.rules')).toBe(true);
         expect(location.range).toEqual({ start: { line: 0, character: 0 }, end: { line: 0, character: 0 } });
@@ -94,7 +92,7 @@ describe('DefinitionService: go-to-definition', () => {
         ) as unknown as { inheritance: AbstractNode[] };
         const inh = editorGroups.inheritance[0];
 
-        const location = singleLocation(await service.getDefinition(derived, cursorOn(inh), token));
+        const location = singleLocation(await getDefinition(derived, cursorOn(inh), token));
         expect(location.uri.endsWith('eg_base.rules')).toBe(true);
     });
 
@@ -104,14 +102,14 @@ describe('DefinitionService: go-to-definition', () => {
         const direct = findNodeByIdentifier(aObj, 'Direct')!;
         expect(isAssignmentNode(direct)).toBe(true);
         const numberValue = isAssignmentNode(direct) ? valueOf(direct) : direct;
-        const location = await service.getDefinition(docA, cursorOn(numberValue), token);
+        const location = await getDefinition(docA, cursorOn(numberValue), token);
         expect(location).toBeNull();
     });
 
     it('returns null for an unresolvable reference', async () => {
         const doc = parseFixture('ref-cycle.rules', 'file:///ref-cycle.rules');
         const ref = findReferenceNode(doc, '&A/x'); // cyclic alias -> no target
-        const location = await service.getDefinition(doc, cursorOn(ref), token);
+        const location = await getDefinition(doc, cursorOn(ref), token);
         expect(location).toBeNull();
     });
 });

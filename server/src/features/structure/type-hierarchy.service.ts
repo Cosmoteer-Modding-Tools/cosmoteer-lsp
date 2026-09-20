@@ -26,10 +26,10 @@ import { workspaceRelativePath } from '../../utils/relative-path';
 import { FileTree, isFile } from '../../workspace/cosmoteer-workspace.service';
 import { cachedParseFilePath } from '../../workspace/fs-cache';
 import { atOrBefore, enclosingRange, orderRange, unionRange } from '../navigation/ast-range';
-import { FullNavigationStrategy } from '../navigation/full.navigation-strategy';
-import { filePathToUri } from '../navigation/navigation-strategy';
-import { normalizeUri, rangeOf } from '../navigation/reference-location';
-import { uriToFsPath } from '../navigation/workspace-files';
+import { navigate } from '../../semantics/navigate-reference';
+import { filePathToUri } from '../../document/reference-path';
+import { normalizeUri, rangeOf } from '../../document/reference-location';
+import { uriToFsPath } from '../../workspace/workspace-files';
 
 /**
  * Type hierarchy (`textDocument/prepareTypeHierarchy` and its two expansions) over `Foo : Bar`
@@ -52,8 +52,6 @@ import { uriToFsPath } from '../navigation/workspace-files';
 type Container = GroupNode | ListNode;
 
 /** The shared resolver that turns one written inheritance reference into the node it names. */
-const navigation = new FullNavigationStrategy();
-
 /**
  * How many subtypes one expansion answers with. The largest real subtype set in the vanilla tree is
  * 182 (`AudioExterior` in `common_effects/sounds/base_sounds.rules`) and the 99th percentile over
@@ -269,9 +267,12 @@ export const supertypesOf = async (
         if (!isValueNode(reference)) continue;
         // An appended base is written in the manifest, so each reference is resolved against the file
         // it is written in rather than against the container it was appended to.
-        const target = await navigation
-            .navigate(String(reference.valueType.value), reference, getStartOfAstNode(reference).uri, cancellationToken)
-            .catch(() => null);
+        const target = await navigate(
+            String(reference.valueType.value),
+            reference,
+            getStartOfAstNode(reference).uri,
+            cancellationToken
+        ).catch(() => null);
         if (!target || isFile(target as FileTree)) continue;
         const base = target as AbstractNode;
         if (!isGroupNode(base) && !isListNode(base)) continue;

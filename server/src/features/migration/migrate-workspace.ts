@@ -10,8 +10,8 @@ import { validateIgnoredFields } from '../diagnostics/validator.ignored-field';
 import { readGameVersionInfo } from '../game-version';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
 import { removalRange } from '../../utils/removal-range';
-import { unifiedDiff } from '../../utils/unified-diff';
-import { ManualFinding, MigrationPreview, MigrationPreviewFile } from './migration.types';
+import { unifiedDiff } from '../refactor/unified-diff';
+import { ManualFinding, MigrationPreview, MigrationPreviewFile } from '../../../../shared/migration.types';
 
 /**
  * The `workspace/executeCommand` id of the one-command workspace migration. Both clients invoke it
@@ -105,23 +105,6 @@ interface FileMigrationResult {
 }
 
 /**
- * Collect the migration edits for one parsed rules file: run the deprecation-aware validators and
- * translate every migration-tagged finding's sanctioned fix (`migration.apply` names it) into text
- * edits, using the same removal widening the interactive quick fixes use. A migration finding
- * without a sanctioned fix becomes a {@link ManualFinding}. A mod manifest gets its own tiny pass
- * (the manifest is not schema-validated), renaming fields from the manifest rename registry.
- *
- * @param documentNode the file's parsed AST.
- * @param doc the file's text document (open buffer or disk content), used for offset→position.
- * @param includeDeadFields also remove every ignored/dead-field finding without a migration tag.
- * Ignored when a `symbol` is given: a fix the author asked for one deprecation must not quietly
- * delete unrelated fields as well.
- * @param token cancellation token for the validators.
- * @param symbol collect only the findings of that one deprecation-registry entry (see
- * deprecations.ts), which is what turns the whole-file migration into a single bulk rename.
- * @returns the file's edits and report bookkeeping.
- */
-/**
  * Bring a manifest's `CompatibleGameVersions` to the version the installed build is.
  *
  * Nothing is rewritten while the list already names that version, which also makes a second
@@ -150,6 +133,23 @@ const manifestVersionEdit = async (
     };
 };
 
+/**
+ * Collect the migration edits for one parsed rules file: run the deprecation-aware validators and
+ * translate every migration-tagged finding's sanctioned fix (`migration.apply` names it) into text
+ * edits, using the same removal widening the interactive quick fixes use. A migration finding
+ * without a sanctioned fix becomes a {@link ManualFinding}. A mod manifest gets its own tiny pass
+ * (the manifest is not schema-validated), renaming fields from the manifest rename registry.
+ *
+ * @param documentNode the file's parsed AST.
+ * @param doc the file's text document (open buffer or disk content), used for offset→position.
+ * @param includeDeadFields also remove every ignored/dead-field finding without a migration tag.
+ * Ignored when a `symbol` is given: a fix the author asked for one deprecation must not quietly
+ * delete unrelated fields as well.
+ * @param token cancellation token for the validators.
+ * @param symbol collect only the findings of that one deprecation-registry entry (see
+ * deprecations.ts), which is what turns the whole-file migration into a single bulk rename.
+ * @returns the file's edits and report bookkeeping.
+ */
 export const collectFileMigration = async (
     documentNode: AbstractNodeDocument,
     doc: TextDocument,

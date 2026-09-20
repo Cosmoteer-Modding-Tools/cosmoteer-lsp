@@ -1,5 +1,6 @@
 import { commands, ConfigurationTarget, ExtensionContext, l10n, window, workspace } from 'vscode';
 import { LanguageClient } from 'vscode-languageclient/node';
+import { COSMOTEER_METHOD } from '../../../shared/lsp-methods';
 
 /**
  * The one-time notice that the Problems panel covers the whole mod. The server says when a pass did
@@ -69,7 +70,7 @@ async function showWorkspaceValidationNotice(
 export function registerWorkspaceValidation(context: ExtensionContext, client: LanguageClient): void {
     // Whole-mod validation is on by default, which is work the user never asked for. Tell them once,
     // the first time it actually costs something, and offer the switch right there.
-    client.onNotification('cosmoteer/workspaceValidated', async (params: WorkspaceValidatedParams) => {
+    client.onNotification(COSMOTEER_METHOD.workspaceValidated, async (params: WorkspaceValidatedParams) => {
         await showWorkspaceValidationNotice(context, params);
     });
 }

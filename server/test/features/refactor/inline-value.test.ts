@@ -6,7 +6,7 @@ import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
 import { inlineValueCodeAction } from '../../../src/features/refactor/inline-value';
 import { AbstractNodeDocument, ValueNode, isValueNode } from '../../../src/core/ast/ast';
-import { filePathToUri } from '../../../src/features/navigation/navigation-strategy';
+import { filePathToUri } from '../../../src/document/reference-path';
 import { walkAst } from '../../helpers';
 import { initWorkspace, workspaceFile } from '../../workspace-helper';
 

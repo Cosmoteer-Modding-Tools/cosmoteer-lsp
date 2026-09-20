@@ -56,6 +56,12 @@ const FUNCTION_RE = /^\s*(?:\[[^\]]*\]\s*)*[A-Za-z_][\w<>]*\s+([A-Za-z_]\w*)\s*\
 /** Matches an `#include "path"` directive, capturing the quoted path. */
 const INCLUDE_RE = /^\s*#\s*include\s+"([^"]+)"/;
 
+/** Control-flow keywords that read like `keyword (…) {` but are not function definitions. */
+const CONTROL_KEYWORDS = new Set(['if', 'else', 'for', 'while', 'switch', 'case', 'default', 'do', 'return']);
+
+/** Matches a function definition `type name(params) [: SEMANTIC] {`, capturing type, name and params. */
+const SIGNATURE_RE = /\b([A-Za-z_]\w*)\s+([A-Za-z_]\w*)\s*\(([^{}();]*)\)\s*(?::\s*[A-Za-z_]\w*\s*)?\{/g;
+
 /**
  * Removes comments and string/char literals from a line of HLSL so the scanner never trips over a
  * `{`, `}`, `;` or `_name` that lives inside one. Block comments are handled by the caller, this only
@@ -195,15 +201,9 @@ export const parseShader = (source: string): ParsedShader => {
     return { includes, constants, functions, functionDecls };
 };
 
-/** Control-flow keywords that read like `keyword (…) {` but are not function definitions. */
-const CONTROL_KEYWORDS = new Set(['if', 'else', 'for', 'while', 'switch', 'case', 'default', 'do', 'return']);
-
 /** Replaces every comment with spaces, preserving newlines and length so offsets are unaffected. */
 const blankComments = (source: string): string =>
     source.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, (m) => m.replace(/[^\n]/g, ' '));
-
-/** Matches a function definition `type name(params) [: SEMANTIC] {`, capturing type, name and params. */
-const SIGNATURE_RE = /\b([A-Za-z_]\w*)\s+([A-Za-z_]\w*)\s*\(([^{}();]*)\)\s*(?::\s*[A-Za-z_]\w*\s*)?\{/g;
 
 /** Parses one parameter declaration (`in float2 uv : TEXCOORD0`) into its type and name, or null. */
 const parseParam = (part: string): ShaderParam | null => {

@@ -5,7 +5,7 @@ import { parser } from '../../../src/core/parser/parser';
 import { classByDiscriminator, firstRegistryDeclaring } from '../../../src/document/schema/schema';
 import { schemaFieldNameCompletions } from '../../../src/features/completion/autocompletion.schema-fields';
 import { validateSchema } from '../../../src/features/diagnostics/validator.schema';
-import { Completion } from '../../../src/features/completion/autocompletion.service';
+import { Completion } from '../../../src/features/completion/autocompletion.service.types';
 
 // A mod written against an older Cosmoteer still spells a renamed `Type=` (e.g. `AmmoDrain`, now
 // `ResourceDrain`). The deprecation hint on the `Type =` line says so, but the group must not go

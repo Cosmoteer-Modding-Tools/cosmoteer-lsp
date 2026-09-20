@@ -202,6 +202,189 @@ const isEquivalent = (original: string, originalTokens: Token[], originalSpans: 
     return oldComments.length === newComments.length && oldComments.every((c, i) => c === newComments[i]);
 };
 
+/** One line of the output, before the blank-line runs are capped. */
+interface RenderedLine {
+    content: string;
+    /** True when the line is blank and outside any span or `\`-suppressed run, so it may collapse. */
+    blank: boolean;
+}
+
+/** What every line of one rewrite is rendered against. */
+interface RenderContext {
+    /** The document text, which every span is a slice of. */
+    readonly text: string;
+    /** The lexer's token stream for that text. */
+    readonly tokens: Token[];
+    /** The untouchable spans, in document order. */
+    readonly spans: Span[];
+    /** The nesting depth in front of each token, in token order. */
+    readonly depthBefore: number[];
+    /** One level of indentation, a tab or a run of spaces per the editor options. */
+    readonly indentUnit: string;
+}
+
+/**
+ * Strip the `\r` a CRLF terminator leaves at the end of a sliced line, it is re-added via eol.
+ *
+ * @param line the sliced line.
+ * @returns the line without its carriage return.
+ */
+const dropCr = (line: string): string => (line.endsWith('\r') ? line.slice(0, -1) : line);
+
+/**
+ * The `{`/`[` nesting depth in front of each token. A closing token is recorded at the
+ * already-decremented depth, which is exactly the indent its line should get.
+ *
+ * @param tokens the token stream.
+ * @returns one depth per token, in token order.
+ */
+const depthsBefore = (tokens: Token[]): number[] => {
+    const depthBefore: number[] = [];
+    let depth = 0;
+    for (const token of tokens) {
+        if (isCloser(token.type)) depth = Math.max(0, depth - 1);
+        depthBefore.push(depth);
+        if (isOpener(token.type)) depth++;
+    }
+    return depthBefore;
+};
+
+/**
+ * The indentation level of one line. It comes from the structural depth at the line's first token.
+ * A comment-only line uses the depth of the next token after it (one level deeper when that token
+ * closes a group, the comment still belongs inside it). A line whose first token continues the
+ * previous line's value (its newline was `\`-suppressed) gets one extra level.
+ *
+ * @param ctx what the line is rendered against.
+ * @param lineSpans the spans that start on the line.
+ * @param spanIndex where the line's spans begin in the span table.
+ * @returns the number of indent units the line is written at.
+ */
+const lineDepthOf = (ctx: RenderContext, lineSpans: Span[], spanIndex: number): number => {
+    const { tokens, spans, depthBefore } = ctx;
+    const firstTokenSpan = lineSpans.find((s) => s.kind === 'token');
+    let lineDepth = 0;
+    if (firstTokenSpan?.tokenIndex !== undefined) {
+        lineDepth = depthBefore[firstTokenSpan.tokenIndex];
+    } else {
+        for (let i = spanIndex; i < spans.length; i++) {
+            if (spans[i].kind === 'token') {
+                const idx = spans[i].tokenIndex as number;
+                lineDepth = depthBefore[idx] + (isCloser(tokens[idx].type) ? 1 : 0);
+                break;
+            }
+        }
+    }
+    const leadToken = lineSpans[0].kind === 'token' ? lineSpans[0].token : undefined;
+    if (leadToken && leadToken !== tokens[0] && !leadToken.precededByNewline) lineDepth++;
+    return lineDepth;
+};
+
+/**
+ * The rewritten text of one line that holds spans: the indentation, then every span as written with
+ * the gaps between them normalized.
+ *
+ * @param ctx what the line is rendered against.
+ * @param line the line's offsets in the text.
+ * @param lineSpans the spans that start on the line.
+ * @param lineDepth the number of indent units the line is written at.
+ * @returns the line's text, without its terminator.
+ */
+const renderSpanLine = (ctx: RenderContext, line: Line, lineSpans: Span[], lineDepth: number): string => {
+    const { text } = ctx;
+    let content = ctx.indentUnit.repeat(Math.max(0, lineDepth));
+    // The member's own `=` or `:` is the last piece of structure on the line. What follows it,
+    // for as long as no bracket opens, is the value, where whitespace is the game's own and not
+    // ours to place.
+    const assignmentAt = lineSpans.findIndex(
+        (candidate) =>
+            candidate.kind === 'token' &&
+            (candidate.token?.type === TOKEN_TYPES.EQUALS || candidate.token?.type === TOKEN_TYPES.COLON)
+    );
+    let bracketDepth = 0;
+    for (let i = 0; i < lineSpans.length; i++) {
+        const span = lineSpans[i];
+        const pastAssignment = assignmentAt >= 0 && i - 1 > assignmentAt && bracketDepth === 0;
+        if (i > 0) {
+            const prevSpan = lineSpans[i - 1];
+            const gap = text.slice(prevSpan.end, span.start);
+            if (prevSpan.kind === 'token' && span.kind === 'token' && prevSpan.token && span.token) {
+                content += desiredGap(prevSpan.token.type, span.token.type, gap, pastAssignment);
+            } else {
+                content += gap;
+            }
+        }
+        let piece = text.slice(span.start, Math.min(span.end, line.end));
+        if (span.kind === 'lineComment') piece = piece.trimEnd();
+        // A span running past the line end (multi-line string or block comment) freezes the
+        // rest of the line, nothing after it may be trimmed.
+        if (span.end > line.end) piece = dropCr(piece);
+        content += piece;
+        if (span.kind === 'token' && span.token) {
+            if (
+                span.token.type === TOKEN_TYPES.LEFT_PAREN ||
+                span.token.type === TOKEN_TYPES.LEFT_BRACE ||
+                span.token.type === TOKEN_TYPES.LEFT_BRACKET
+            ) {
+                bracketDepth++;
+            } else if (
+                span.token.type === TOKEN_TYPES.RIGHT_PAREN ||
+                span.token.type === TOKEN_TYPES.RIGHT_BRACE ||
+                span.token.type === TOKEN_TYPES.RIGHT_BRACKET
+            ) {
+                bracketDepth = Math.max(0, bracketDepth - 1);
+            }
+        }
+    }
+    return content;
+};
+
+/**
+ * One line holding no span. It may collapse unless it sits in a `\`-suppressed run, recognizable by
+ * the next token continuing the previous line's value despite the intervening newline.
+ *
+ * @param ctx what the line is rendered against.
+ * @param spanIndex where the line's spans would begin in the span table.
+ * @param raw the line as written.
+ * @returns the rendered line.
+ */
+const renderBlankLine = (ctx: RenderContext, spanIndex: number, raw: string): RenderedLine => {
+    const { tokens, spans } = ctx;
+    let nextToken: Token | undefined;
+    for (let i = spanIndex; i < spans.length; i++) {
+        if (spans[i].kind === 'token') {
+            nextToken = spans[i].token;
+            break;
+        }
+    }
+    const suppressed = nextToken !== undefined && nextToken !== tokens[0] && !nextToken.precededByNewline;
+    return { content: suppressed ? raw : '', blank: !suppressed };
+};
+
+/**
+ * Joins the rendered lines up: blank-line runs capped, trailing blank lines dropped, exactly one
+ * terminator at the end.
+ *
+ * @param rendered the rendered lines.
+ * @param eol the terminator the document is written with.
+ * @returns the output text.
+ */
+const joinRendered = (rendered: RenderedLine[], eol: string): string => {
+    const output: string[] = [];
+    let blankRun = 0;
+    for (const line of rendered) {
+        if (line.blank) {
+            blankRun++;
+            if (blankRun <= MAX_BLANK_LINES) output.push('');
+            continue;
+        }
+        blankRun = 0;
+        output.push(line.content);
+    }
+    while (output.length && output[output.length - 1] === '') output.pop();
+    return output.join(eol) + eol;
+};
+
 /**
  * Format a `.rules` document.
  *
@@ -217,31 +400,17 @@ export const formatRulesDocument = (text: string, options: RulesFormattingOption
     if (!spans) return null;
 
     const eol = text.includes('\r\n') ? '\r\n' : '\n';
-    const indentUnit = options.insertSpaces ? ' '.repeat(Math.max(1, options.tabSize)) : '\t';
-    const lines = splitLines(text);
-
-    // Depth of `{`/`[` nesting in front of each token, in token order. A closing token is recorded
-    // at the already-decremented depth, which is exactly the indent its line should get.
-    const depthBefore: number[] = [];
-    let depth = 0;
-    for (const token of tokens) {
-        if (isCloser(token.type)) depth = Math.max(0, depth - 1);
-        depthBefore.push(depth);
-        if (isOpener(token.type)) depth++;
-    }
-
-    interface RenderedLine {
-        content: string;
-        /** True when the line is blank and outside any span or `\`-suppressed run, so it may collapse. */
-        blank: boolean;
-    }
-
-    /** Strip the `\r` a CRLF terminator leaves at the end of a sliced line, it is re-added via eol. */
-    const dropCr = (s: string): string => (s.endsWith('\r') ? s.slice(0, -1) : s);
+    const ctx: RenderContext = {
+        text,
+        tokens,
+        spans,
+        depthBefore: depthsBefore(tokens),
+        indentUnit: options.insertSpaces ? ' '.repeat(Math.max(1, options.tabSize)) : '\t',
+    };
 
     const rendered: RenderedLine[] = [];
     let spanIndex = 0;
-    for (const line of lines) {
+    for (const line of splitLines(text)) {
         const raw = dropCr(text.slice(line.start, line.end));
         while (spanIndex < spans.length && spans[spanIndex].end <= line.start) spanIndex++;
         const lineSpans: Span[] = [];
@@ -251,107 +420,18 @@ export const formatRulesDocument = (text: string, options: RulesFormattingOption
         // leading whitespace is string content (or comment art) that must not be re-indented.
         if (lineSpans.length && lineSpans[0].start < line.start) {
             rendered.push({ content: raw, blank: false });
-            continue;
-        }
-
-        if (lineSpans.length === 0) {
-            // Blank line. It may collapse unless it sits in a `\`-suppressed run, recognizable by
-            // the next token continuing the previous line's value despite the intervening newline.
-            let nextToken: Token | undefined;
-            for (let i = spanIndex; i < spans.length; i++) {
-                if (spans[i].kind === 'token') {
-                    nextToken = spans[i].token;
-                    break;
-                }
-            }
-            const suppressed = nextToken !== undefined && nextToken !== tokens[0] && !nextToken.precededByNewline;
-            rendered.push({ content: suppressed ? raw : '', blank: !suppressed });
-            continue;
-        }
-
-        // Indentation from the structural depth at the line's first token. A comment-only line uses
-        // the depth of the next token after it (one level deeper when that token closes a group, the
-        // comment still belongs inside it). A line whose first token continues the previous line's
-        // value (its newline was `\`-suppressed) gets one extra level.
-        const firstTokenSpan = lineSpans.find((s) => s.kind === 'token');
-        let lineDepth = 0;
-        if (firstTokenSpan?.tokenIndex !== undefined) {
-            lineDepth = depthBefore[firstTokenSpan.tokenIndex];
+        } else if (lineSpans.length === 0) {
+            rendered.push(renderBlankLine(ctx, spanIndex, raw));
         } else {
-            for (let i = spanIndex; i < spans.length; i++) {
-                if (spans[i].kind === 'token') {
-                    const idx = spans[i].tokenIndex as number;
-                    lineDepth = depthBefore[idx] + (isCloser(tokens[idx].type) ? 1 : 0);
-                    break;
-                }
-            }
+            const lineDepth = lineDepthOf(ctx, lineSpans, spanIndex);
+            rendered.push({ content: renderSpanLine(ctx, line, lineSpans, lineDepth), blank: false });
         }
-        const leadToken = lineSpans[0].kind === 'token' ? lineSpans[0].token : undefined;
-        if (leadToken && leadToken !== tokens[0] && !leadToken.precededByNewline) lineDepth++;
-
-        let content = indentUnit.repeat(Math.max(0, lineDepth));
-        // The member's own `=` or `:` is the last piece of structure on the line. What follows it,
-        // for as long as no bracket opens, is the value, where whitespace is the game's own and not
-        // ours to place.
-        const assignmentAt = lineSpans.findIndex(
-            (candidate) =>
-                candidate.kind === 'token' &&
-                (candidate.token?.type === TOKEN_TYPES.EQUALS || candidate.token?.type === TOKEN_TYPES.COLON)
-        );
-        let bracketDepth = 0;
-        for (let i = 0; i < lineSpans.length; i++) {
-            const span = lineSpans[i];
-            const pastAssignment = assignmentAt >= 0 && i - 1 > assignmentAt && bracketDepth === 0;
-            if (i > 0) {
-                const prevSpan = lineSpans[i - 1];
-                const gap = text.slice(prevSpan.end, span.start);
-                if (prevSpan.kind === 'token' && span.kind === 'token' && prevSpan.token && span.token) {
-                    content += desiredGap(prevSpan.token.type, span.token.type, gap, pastAssignment);
-                } else {
-                    content += gap;
-                }
-            }
-            let piece = text.slice(span.start, Math.min(span.end, line.end));
-            if (span.kind === 'lineComment') piece = piece.trimEnd();
-            // A span running past the line end (multi-line string or block comment) freezes the
-            // rest of the line, nothing after it may be trimmed.
-            if (span.end > line.end) piece = dropCr(piece);
-            content += piece;
-            if (span.kind === 'token' && span.token) {
-                if (
-                    span.token.type === TOKEN_TYPES.LEFT_PAREN ||
-                    span.token.type === TOKEN_TYPES.LEFT_BRACE ||
-                    span.token.type === TOKEN_TYPES.LEFT_BRACKET
-                ) {
-                    bracketDepth++;
-                } else if (
-                    span.token.type === TOKEN_TYPES.RIGHT_PAREN ||
-                    span.token.type === TOKEN_TYPES.RIGHT_BRACE ||
-                    span.token.type === TOKEN_TYPES.RIGHT_BRACKET
-                ) {
-                    bracketDepth = Math.max(0, bracketDepth - 1);
-                }
-            }
-        }
-        rendered.push({ content, blank: false });
     }
 
-    // Cap blank-line runs and drop trailing blank lines, then terminate with exactly one EOL.
-    const output: string[] = [];
-    let blankRun = 0;
-    for (const line of rendered) {
-        if (line.blank) {
-            blankRun++;
-            if (blankRun <= MAX_BLANK_LINES) output.push('');
-            continue;
-        }
-        blankRun = 0;
-        output.push(line.content);
-    }
-    while (output.length && output[output.length - 1] === '') output.pop();
-    const formatted = output.join(eol) + eol;
-
+    const formatted = joinRendered(rendered, eol);
     if (formatted === text) return text;
+    // The one guarantee this formatter makes: the rewrite is refused outright unless the result lexes
+    // to the same token stream and the same comments.
     if (!isEquivalent(text, tokens, spans, formatted)) return null;
     return formatted;
 };

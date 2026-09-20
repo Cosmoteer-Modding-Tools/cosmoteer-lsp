@@ -21,9 +21,9 @@ import {
     schemaFieldNameCompletions,
     schemaValueCompletionsAtOffset,
 } from '../../../src/features/completion/autocompletion.schema-fields';
-import { Completion } from '../../../src/features/completion/autocompletion.service';
+import { Completion } from '../../../src/features/completion/autocompletion.service.types';
 import { validateSchema } from '../../../src/features/diagnostics/validator.schema';
-import { HoverService } from '../../../src/features/hover/hover.service';
+import { getHover } from '../../../src/features/hover/hover.service';
 import { schemaReferenceFieldOf } from '../../../src/features/navigation/schema-id-reference.navigation';
 import { resolveGroupClass } from '../../../src/document/schema/schema-context';
 import { globalSettings } from '../../../src/settings';
@@ -120,7 +120,7 @@ describe('members of a group classified through a cross-file base', () => {
 
     it('describes a field of the nested group on hover', async () => {
         const left = assignment(dynamicVolume, 'MaxDistance').left;
-        const hover = await HoverService.instance.getHover(
+        const hover = await getHover(
             document,
             { line: left.position.line, character: left.position.characterStart + 1 },
             token

@@ -1,5 +1,5 @@
 import { AbstractNode, isAssignmentNode, isDocumentNode, isGroupNode, isListNode } from '../core/ast/ast';
-import { memberNameOf, memberValueOf } from './reference-resolver';
+import { memberNameOf, memberValueOf } from '../document/reference-resolver';
 
 /**
  * Why a node has no member path the game could address it by.

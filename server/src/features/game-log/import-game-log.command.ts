@@ -4,14 +4,14 @@ import { dirname, isAbsolute, join, resolve } from 'path';
 import { CancellationToken, Diagnostic, DiagnosticSeverity, Range } from 'vscode-languageserver';
 import { AbstractNode } from '../../core/ast/ast';
 import { findModRoot } from '../../mod/mod-root';
-import { stepIntoNode } from '../../semantics/reference-resolver';
-import { identityOfMod } from '../../mod/mod-dependencies';
+import { stepIntoNode } from '../../document/reference-resolver';
+import { identityOfMod } from '../mod-report/mod-dependencies';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
 import { cachedParseFilePath } from '../../workspace/fs-cache';
 import { foldPathCase } from '../../workspace/fs-cache';
 import { localModDirs } from '../../workspace/workshop-dir';
-import { filePathToUri } from '../navigation/navigation-strategy';
-import { extractSubstrings } from '../navigation/navigation-strategy';
+import { filePathToUri } from '../../document/reference-path';
+import { extractSubstrings } from '../../document/reference-path';
 import { GameLogFinding, HOME_FOLDER_TOKEN, parseGameLog } from './game-log';
 import * as l10n from '@vscode/l10n';
 

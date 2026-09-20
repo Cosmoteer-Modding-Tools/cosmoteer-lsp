@@ -7,7 +7,7 @@ import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
 import { globalSettings } from '../../../src/settings';
 import { CosmoteerWorkspaceService } from '../../../src/workspace/cosmoteer-workspace.service';
-import { ParserResultRegistrar } from '../../../src/registrar/parser-result-registrar';
+import { ParserResultRegistrar } from '../../../src/document/parser-result-registrar';
 import { validateMarkerVocabulary } from '../../../src/features/diagnostics/validator.marker-vocabulary';
 import { validateInertFields } from '../../../src/features/diagnostics/validator.inert-field';
 import { validateEffectBuckets } from '../../../src/features/diagnostics/validator.effect-bucket';
@@ -15,8 +15,7 @@ import { validateEffectBuckets } from '../../../src/features/diagnostics/validat
 // False-positive scan of the three checks that judge a file against the game's own rules rather
 // than against another file. Everything the game ships loads and runs, so every finding here is a
 // false positive by definition, and all three default to on. Needs the install, self-skips without.
-const DATA_DIR =
-    process.env.COSMOTEER_DATA_DIR ?? 'C:/Program Files (x86)/Steam/steamapps/common/Cosmoteer/Data';
+const DATA_DIR = process.env.COSMOTEER_DATA_DIR ?? 'C:/Program Files (x86)/Steam/steamapps/common/Cosmoteer/Data';
 const HAVE_DATA = existsSync(DATA_DIR);
 const token = CancellationToken.None;
 
@@ -46,7 +45,11 @@ const report = (name: string, findings: string[]): void => {
 describe.skipIf(!HAVE_DATA)('the game-rule checks over vanilla Data', () => {
     beforeAll(async () => {
         globalSettings.cosmoteerPath = DATA_DIR;
-        const noop: WorkDoneProgressReporter = { begin: () => undefined, report: () => undefined, done: () => undefined };
+        const noop: WorkDoneProgressReporter = {
+            begin: () => undefined,
+            report: () => undefined,
+            done: () => undefined,
+        };
         const service = CosmoteerWorkspaceService.instance;
         service.setConnection({
             languages: { diagnostics: { refresh: () => undefined } },

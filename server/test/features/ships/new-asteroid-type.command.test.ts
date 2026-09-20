@@ -7,8 +7,8 @@ import { CancellationToken, Connection, TextEdit, WorkDoneProgressReporter } fro
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
-import { filePathToUri } from '../../../src/features/navigation/navigation-strategy';
-import { uriToFsPath } from '../../../src/features/navigation/workspace-files';
+import { filePathToUri } from '../../../src/document/reference-path';
+import { uriToFsPath } from '../../../src/workspace/workspace-files';
 import { clearBaseFileCache } from '../../../src/features/refactor/shared-base/base-index';
 import { newAsteroidType } from '../../../src/features/ships/new-asteroid-type.command';
 import {

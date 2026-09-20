@@ -11,7 +11,7 @@ import {
     modRulesOffsetCompletions,
     verbSnippetSuggestions,
 } from '../../src/features/completion/autocompletion.mod-rules';
-import { Completion } from '../../src/features/completion/autocompletion.service';
+import { Completion } from '../../src/features/completion/autocompletion.service.types';
 import { ValueNode } from '../../src/core/ast/ast';
 import { globalSettings } from '../../src/settings';
 import { initWorkspace, WORKSPACE_DATA_DIR } from '../workspace-helper';

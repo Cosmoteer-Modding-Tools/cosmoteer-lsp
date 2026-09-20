@@ -5,10 +5,12 @@ import { lexer } from '../core/lexer/lexer';
 import { parser } from '../core/parser/parser';
 import { collectFileMigration, createMigrationPreview } from '../features/migration/migrate-workspace';
 import { applyMigrationChanges, narrowToSymbolScope } from '../features/migration/migrate-symbol';
-import { MigrationChange, MigrationSummary } from '../features/migration/migration.types';
-import { collectRulesFiles, uriToFsPath } from '../features/navigation/workspace-files';
-import { filePathToUri } from '../features/navigation/navigation-strategy';
-import { normalizeUri } from '../features/navigation/reference-location';
+import { MigrationSummary } from '../../../shared/migration.types';
+import { MigrationChange } from '../features/migration/migration.types';
+import { uriToFsPath } from '../workspace/workspace-files';
+import { collectRulesFiles } from '../workspace/rules-file-walk';
+import { filePathToUri } from '../document/reference-path';
+import { normalizeUri } from '../document/reference-location';
 import { reachabilityKey } from '../mod/mod-reachability';
 import { beginFsTrustWindow, endFsTrustWindow } from '../workspace/fs-cache';
 import { workspaceRelativePath } from '../utils/relative-path';
@@ -17,6 +19,140 @@ import { ensureFragmentRooting } from './fragment-rooting';
 import { sharedBaseHost } from './hosts';
 import { isOutsideRulesPanel, validationScopeKeys } from './validation-scope';
 import { workspaceFolderUris } from './workspace-folders';
+
+/** What a migration run was asked to do. */
+interface MigrationOptions {
+    /** Also strips every ignored or dead-field finding, the fields the game never reads. */
+    readonly removeDeadFields?: boolean;
+    /** Works the whole migration out and answers with it as a diff, without changing anything. */
+    readonly dryRun?: boolean;
+    /** Narrows the run to one deprecation-registry entry. */
+    readonly symbol?: string;
+    /** The file the bulk fix was invoked from, whose mod the run then stays inside. */
+    readonly scopeFsPath?: string;
+}
+
+/** What one migration pass gathers as it walks the files. */
+interface MigrationRun {
+    /** The counts the client displays, added to as each file is read. */
+    readonly summary: MigrationSummary;
+    /** The per-file edits a real run collects, left empty by a dry run. */
+    readonly changes: MigrationChange[];
+    /** The side-by-side text a dry run collects, absent during a real run. */
+    readonly preview: ReturnType<typeof createMigrationPreview> | undefined;
+    /** The workspace folders, which the preview writes its relative paths against. */
+    readonly folderPaths: string[];
+    /** Whether the run also strips the fields the game never reads. */
+    readonly removeDeadFields: boolean;
+    /** The one deprecation a bulk fix narrows the run to, absent for a whole-workspace run. */
+    readonly symbol: string | undefined;
+    /** The open editor buffers by normalized uri, which win over what is on disk. */
+    readonly openByNorm: Map<string, TextDocument>;
+    /** Cancels the per-file collection. */
+    readonly token: CancellationToken;
+}
+
+/**
+ * The files the migration visits: every rules file of the opened folders, cut to the ones the game
+ * can load, and cut again to the mod and the mentions a bulk fix for one deprecation cares about.
+ *
+ * @param folderUris the workspace folders to walk.
+ * @param folderPaths the same folders as paths, which the symbol narrowing reads.
+ * @param options the run's options, whose `symbol` and `scopeFsPath` drive the narrowing.
+ * @param token cancels the walk.
+ * @returns the files to migrate, in walk order.
+ */
+const filesToMigrate = async (
+    folderUris: string[],
+    folderPaths: string[],
+    options: MigrationOptions,
+    token: CancellationToken
+): Promise<string[]> => {
+    const files: string[] = [];
+    for (const folder of folderUris) {
+        for await (const file of collectRulesFiles(uriToFsPath(folder))) files.push(file);
+    }
+    // Same scope the diagnostics scan uses: only files the game can actually load.
+    const scopeKeys = await validationScopeKeys(token);
+    const loadable = scopeKeys ? files.filter((file) => scopeKeys.has(reachabilityKey(file))) : files;
+    await ensureFragmentRooting(token).catch(() => undefined);
+    // A bulk fix for one deprecation stays inside the mod it was invoked from and only visits
+    // the files that can mention the old name. Both gates belong to that command: the
+    // whole-workspace migration deliberately covers every folder the user opened.
+    if (options.symbol === undefined || options.scopeFsPath === undefined) return loadable;
+    return narrowToSymbolScope(
+        loadable,
+        { symbol: options.symbol, scopeFsPath: options.scopeFsPath, folderPaths },
+        token
+    );
+};
+
+/**
+ * Reads one file, works out what the migration changes in it, and adds the result to the run: the
+ * counts either way, the edits for a real run, the side-by-side text for a dry run.
+ *
+ * A file the parser could not fully read is never edited mechanically, since an edit computed
+ * against a desynced AST could land in the wrong place. It is counted as unparsable instead.
+ *
+ * @param run what the pass has gathered so far, which this adds to.
+ * @param file the file to read.
+ * @param reportProgress tells the client how far the walk has come, called once the file is read.
+ * @returns once the file has been accounted for.
+ */
+const migrateOneFile = async (run: MigrationRun, file: string, reportProgress: () => void): Promise<void> => {
+    const { summary, preview } = run;
+    const canonicalUri = filePathToUri(file);
+    let doc = run.openByNorm.get(normalizeUri(canonicalUri));
+    if (!doc) {
+        // Prose the game never loads (a readme, a `.txt` nothing references) is skipped like
+        // the diagnostics scan skips it.
+        if (await isOutsideRulesPanel(file, run.token)) return;
+        let text: string;
+        try {
+            text = await readFile(file, { encoding: 'utf-8' });
+        } catch {
+            return;
+        }
+        doc = TextDocument.create(canonicalUri, 'rules', 0, text);
+    }
+    const parserResult = parser(lexer(doc.getText()), doc.uri);
+    if (parserResult.parserErrors.length > 0) {
+        summary.unparsable++;
+        return;
+    }
+    const fileResult = await collectFileMigration(
+        parserResult.value,
+        doc,
+        run.removeDeadFields,
+        run.token,
+        run.symbol
+    ).catch(() => undefined);
+    reportProgress();
+    if (!fileResult) return;
+    summary.manual.push(...fileResult.manual);
+    for (const [version, count] of Object.entries(fileResult.byVersion)) {
+        summary.byVersion[version] = (summary.byVersion[version] ?? 0) + count;
+        summary.fixes += count;
+    }
+    summary.deadFieldsRemoved += fileResult.deadFieldsRemoved;
+    if (fileResult.edits.length === 0) return;
+    summary.files++;
+    if (!preview) {
+        run.changes.push({ uri: doc.uri, fsPath: file, text: doc.getText(), edits: fileResult.edits });
+        return;
+    }
+    // A dry run answers with the text the edits produce rather than with the edits, so the
+    // client can put it side by side against what is on disk. An edit set that does not
+    // apply cleanly is counted as not shown instead of being rendered wrong.
+    let after: string;
+    try {
+        after = TextDocument.applyEdits(doc, fileResult.edits);
+    } catch {
+        preview.omit();
+        return;
+    }
+    preview.add(file, workspaceRelativePath(file, run.folderPaths), doc.getText(), after);
+};
 
 /**
  * The one-command workspace migration: walk every rules file the workspace scan would validate, run
@@ -33,12 +169,7 @@ import { workspaceFolderUris } from './workspace-folders';
  * from, whose mod the run then stays inside. Both are given together, by the bulk fix only.
  * @returns the summary for the invoking client to display, or null without workspace folders.
  */
-export async function migrateWorkspace(options: {
-    removeDeadFields?: boolean;
-    dryRun?: boolean;
-    symbol?: string;
-    scopeFsPath?: string;
-}): Promise<MigrationSummary | null> {
+export async function migrateWorkspace(options: MigrationOptions): Promise<MigrationSummary | null> {
     const folderUris = await workspaceFolderUris();
     if (folderUris.length === 0) return null;
     const token = CancellationToken.None;
@@ -51,25 +182,7 @@ export async function migrateWorkspace(options: {
     // (the WorkspaceEdit applies only at the end).
     beginFsTrustWindow();
     try {
-        const files: string[] = [];
-        for (const folder of folderUris) {
-            for await (const file of collectRulesFiles(uriToFsPath(folder))) files.push(file);
-        }
-        // Same scope the diagnostics scan uses: only files the game can actually load.
-        const scopeKeys = await validationScopeKeys(token);
-        const loadable = scopeKeys ? files.filter((file) => scopeKeys.has(reachabilityKey(file))) : files;
-        await ensureFragmentRooting(token).catch(() => undefined);
-        // A bulk fix for one deprecation stays inside the mod it was invoked from and only visits
-        // the files that can mention the old name. Both gates belong to that command: the
-        // whole-workspace migration deliberately covers every folder the user opened.
-        const scoped =
-            options.symbol !== undefined && options.scopeFsPath !== undefined
-                ? await narrowToSymbolScope(
-                      loadable,
-                      { symbol: options.symbol, scopeFsPath: options.scopeFsPath, folderPaths },
-                      token
-                  )
-                : loadable;
+        const scoped = await filesToMigrate(folderUris, folderPaths, options, token);
         // An open editor buffer wins over the disk content, and its (possibly differently-encoded)
         // uri is the one the WorkspaceEdit must target, or the client would open a second buffer.
         const openByNorm = new Map<string, TextDocument>();
@@ -83,62 +196,22 @@ export async function migrateWorkspace(options: {
             unparsable: 0,
         };
         const changes: MigrationChange[] = [];
+        const run: MigrationRun = {
+            summary,
+            changes,
+            preview,
+            folderPaths,
+            removeDeadFields: options.removeDeadFields === true,
+            symbol: options.symbol,
+            openByNorm,
+            token,
+        };
         let done = 0;
         for (const file of scoped) {
             done++;
-            const canonicalUri = filePathToUri(file);
-            let doc = openByNorm.get(normalizeUri(canonicalUri));
-            if (!doc) {
-                // Prose the game never loads (a readme, a `.txt` nothing references) is skipped like
-                // the diagnostics scan skips it.
-                if (await isOutsideRulesPanel(file, token)) continue;
-                let text: string;
-                try {
-                    text = await readFile(file, { encoding: 'utf-8' });
-                } catch {
-                    continue;
-                }
-                doc = TextDocument.create(canonicalUri, 'rules', 0, text);
-            }
-            const parserResult = parser(lexer(doc.getText()), doc.uri);
-            // A file the parser could not fully read is never edited mechanically: an edit computed
-            // against a desynced AST could land in the wrong place.
-            if (parserResult.parserErrors.length > 0) {
-                summary.unparsable++;
-                continue;
-            }
-            const fileResult = await collectFileMigration(
-                parserResult.value,
-                doc,
-                options.removeDeadFields === true,
-                token,
-                options.symbol
-            ).catch(() => undefined);
-            progress.report(Math.round((done / scoped.length) * 100), `${done}/${scoped.length}`);
-            if (!fileResult) continue;
-            summary.manual.push(...fileResult.manual);
-            for (const [version, count] of Object.entries(fileResult.byVersion)) {
-                summary.byVersion[version] = (summary.byVersion[version] ?? 0) + count;
-                summary.fixes += count;
-            }
-            summary.deadFieldsRemoved += fileResult.deadFieldsRemoved;
-            if (fileResult.edits.length === 0) continue;
-            summary.files++;
-            if (!preview) {
-                changes.push({ uri: doc.uri, fsPath: file, text: doc.getText(), edits: fileResult.edits });
-                continue;
-            }
-            // A dry run answers with the text the edits produce rather than with the edits, so the
-            // client can put it side by side against what is on disk. An edit set that does not
-            // apply cleanly is counted as not shown instead of being rendered wrong.
-            let after: string;
-            try {
-                after = TextDocument.applyEdits(doc, fileResult.edits);
-            } catch {
-                preview.omit();
-                continue;
-            }
-            preview.add(file, workspaceRelativePath(file, folderPaths), doc.getText(), after);
+            await migrateOneFile(run, file, () =>
+                progress.report(Math.round((done / scoped.length) * 100), `${done}/${scoped.length}`)
+            );
         }
         if (preview) {
             summary.preview = preview.result();

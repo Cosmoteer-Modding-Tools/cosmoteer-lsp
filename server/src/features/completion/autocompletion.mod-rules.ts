@@ -22,12 +22,23 @@ import {
     VERB_SCHEMA,
 } from '../../mod/action';
 import { normalizeTargetPath } from '../../mod/action-target-resolver';
-import { AutoCompletion, Completion, CompletionSuggestion } from './autocompletion.service';
-import { ReferenceAutoCompletionStrategy } from './strategy/reference.autocompletion-strategy';
-
-const referenceStrategy = new ReferenceAutoCompletionStrategy();
+import { AutoCompletion, Completion, CompletionSuggestion } from './autocompletion.service.types';
+import { completeRawPath } from './autocompletion.reference-path';
 
 const BOOLEAN_VALUES = ['true', 'false'];
+
+/** A manifest assignment whose value is still being written: `Key = `, with whatever has been typed
+ *  of the value. `=` is a completion trigger character, so this is the popup a modder sees on every
+ *  field of every action they write. */
+const MOD_VALUE_POSITION = /(?:^|[\s{;[])([A-Za-z_]\w*)\s*=\s*("?[^"]*)$/;
+
+/** The reference-start prefixes a source field's value can take (`ToAdd = &<…>`). */
+const SOURCE_PREFIXES = ['&<', '&<./Data/', '&/', '&~/'];
+
+/** The source fields of every verb, whose value supplies the data the action adds. */
+const SOURCE_FIELDS = new Set(
+    Object.values(VERB_SCHEMA).flatMap((schema) => schema.sources.map((n) => n.toLowerCase()))
+);
 
 const flagFieldKeys = new Set([...FLAG_FIELDS].map((name) => name.toLowerCase()));
 
@@ -188,19 +199,6 @@ export const findActionGroupAtOffset = (document: AbstractNodeDocument, offset: 
     return undefined;
 };
 
-/** A manifest assignment whose value is still being written: `Key = `, with whatever has been typed
- *  of the value. `=` is a completion trigger character, so this is the popup a modder sees on every
- *  field of every action they write. */
-const MOD_VALUE_POSITION = /(?:^|[\s{;[])([A-Za-z_]\w*)\s*=\s*("?[^"]*)$/;
-
-/** The reference-start prefixes a source field's value can take (`ToAdd = &<…>`). */
-const SOURCE_PREFIXES = ['&<', '&<./Data/', '&/', '&~/'];
-
-/** The source fields of every verb, whose value supplies the data the action adds. */
-const SOURCE_FIELDS = new Set(
-    Object.values(VERB_SCHEMA).flatMap((schema) => schema.sources.map((n) => n.toLowerCase()))
-);
-
 /**
  * Completions for the value of one manifest action field.
  *
@@ -230,13 +228,11 @@ const valueCompletionsForField = async (
     if (isTargetField(fieldName)) {
         // A target path is rooted at the game's Data folder, written inside the `<…>` file token.
         if (!typed.includes('<')) return ['<./Data/', '<'];
-        return referenceStrategy
-            .completeRawPath(normalizeTargetPath(typed.replace(/^"/, '')), node, cancellationToken)
-            .catch(() => []);
+        return completeRawPath(normalizeTargetPath(typed.replace(/^"/, '')), node, cancellationToken).catch(() => []);
     }
     if (SOURCE_FIELDS.has(fieldKey)) {
         if (!typed.includes('&')) return SOURCE_PREFIXES;
-        return referenceStrategy.completeRawPath(typed.replace(/^"/, ''), node, cancellationToken).catch(() => []);
+        return completeRawPath(typed.replace(/^"/, ''), node, cancellationToken).catch(() => []);
     }
     return [];
 };
@@ -310,9 +306,7 @@ export class AutoCompletionModRules implements AutoCompletion<AbstractNode> {
             }
             if (field && isTargetField(field)) {
                 if (!partial.includes('<')) return ['<./Data/', '<'];
-                return referenceStrategy
-                    .completeRawPath(normalizeTargetPath(partial), node, cancellationToken)
-                    .catch(() => []);
+                return completeRawPath(normalizeTargetPath(partial), node, cancellationToken).catch(() => []);
             }
             return [];
         }

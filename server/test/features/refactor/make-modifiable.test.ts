@@ -5,7 +5,7 @@ import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
 import { makeModifiableCodeActions } from '../../../src/features/refactor/make-modifiable';
 import { plainTextOf } from '../../../src/features/refactor/snippet-action';
-import { filePathToUri } from '../../../src/features/navigation/navigation-strategy';
+import { filePathToUri } from '../../../src/document/reference-path';
 import { setGlobalSettings, globalSettings } from '../../../src/settings';
 import { initWorkspace, workspaceFile } from '../../workspace-helper';
 

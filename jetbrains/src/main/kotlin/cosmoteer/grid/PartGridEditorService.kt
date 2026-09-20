@@ -30,7 +30,7 @@ import javax.swing.JComponent
 
 /**
  * Owns the interactive part grid editor: a JCEF browser running the same page the VS Code
- * extension ships (`media/part-grid-editor.js`). The service asks the language server for the part
+ * extension ships (`media/dist/part-grid-editor.js`). The service asks the language server for the part
  * at a tracked position, inlines the part sprites as data URIs, and pushes the payload into the
  * page as a `message` event. Page clicks come back as mutations: the server turns each into a
  * WorkspaceEdit which is applied in a write command (native undo), and the resulting document

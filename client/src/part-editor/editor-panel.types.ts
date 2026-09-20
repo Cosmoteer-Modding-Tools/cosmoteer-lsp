@@ -34,3 +34,17 @@ export interface EditMessage {
     mutation: unknown;
     dataVersion: number;
 }
+
+/**
+ * The messages the part grid editor page posts back to the extension.
+ *
+ * One case per kind rather than one shape with every field optional, so the handler's branches
+ * narrow and a kind the page starts sending without a branch here stops compiling.
+ */
+export type PartGridPanelMessage =
+    /** A grid mutation, sent to the server so the returned WorkspaceEdit keeps undo native. */
+    | { type: 'edit'; mutation?: unknown; dataVersion?: number }
+    /** A jump to where a value is written. */
+    | { type: 'openLocation'; uri?: string; range?: unknown }
+    /** The page asking to be drawn again. */
+    | { type: 'refresh' };

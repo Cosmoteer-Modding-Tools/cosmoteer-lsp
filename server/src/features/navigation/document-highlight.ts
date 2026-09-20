@@ -25,8 +25,8 @@ import { warmInheritedClasses } from '../completion/inheritance-resolution';
 import { documentRootClass } from '../../document/schema/document-root';
 import { entityDeclarationsOf, sameId } from '../../document/schema/entity-schema';
 import { onFsInvalidation } from '../../workspace/fs-cache';
-import { isReferenceValue } from './definition.service';
-import { segmentName, segmentSpans } from './navigation-strategy';
+import { isReferenceValue } from './reference-target';
+import { segmentName, segmentSpans } from '../../document/reference-path';
 import {
     MEMBER_SEGMENT_NAME,
     segmentNameRange,
@@ -35,8 +35,15 @@ import {
     segmentTargetNode,
 } from './reference-segment';
 import { ChannelOccurrence, channelOccurrences, channelRangeOf, particleChannelAt } from './particle-channel';
-import { enclosingContainerKey, findReferenceTargetAtPosition, referenceNodesOf } from './reference-index';
-import { definitionLocationOf, definitionNameOf, locationKey, normalizeUri, rangeOf } from './reference-location';
+import { findReferenceTargetAtPosition } from './reference-index';
+import { enclosingContainerKey, referenceNodesOf } from './reference-nodes';
+import {
+    definitionLocationOf,
+    definitionNameOf,
+    locationKey,
+    normalizeUri,
+    rangeOf,
+} from '../../document/reference-location';
 import {
     isSameOrSubclass,
     mapKeyReferenceAt,

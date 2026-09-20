@@ -43,7 +43,11 @@ const isRulesOrTxt = (n: string): boolean => /\.(rules|txt)$/i.test(n);
 describe.skipIf(!HAVE)('txt reference oracle probe', () => {
     it('keeps every referenced .txt and drops the unreferenced ones', async () => {
         globalSettings.cosmoteerPath = DATA_DIR;
-        const noop: WorkDoneProgressReporter = { begin: () => undefined, report: () => undefined, done: () => undefined };
+        const noop: WorkDoneProgressReporter = {
+            begin: () => undefined,
+            report: () => undefined,
+            done: () => undefined,
+        };
         const svc = CosmoteerWorkspaceService.instance;
         svc.setConnection({
             languages: { diagnostics: { refresh: () => undefined } },
@@ -64,7 +68,14 @@ describe.skipIf(!HAVE)('txt reference oracle probe', () => {
             // resolved against that file's own directory (the form every ref in this corpus uses) and
             // kept only when it names a file that exists. Path-aware on purpose, since two mod folders
             // hold same-named `.txt` files and a basename match cannot tell them apart.
-            const referencedPaths = new Set<string>();
+            //
+            // Rooted the way the loader roots a file, rather than taken flat: only a `.rules` file is
+            // discovered on its own, so a `.txt` is live when a `.rules` names it or when a live `.txt`
+            // does. A mod that keeps a stale `.txt` copy of its part tree beside the `.rules` it now
+            // loads has a set of files that name each other and nothing else, and none of them is
+            // content the game reads.
+            const txtRefs = new Map<string, string[]>();
+            const rootedByRules: string[] = [];
             for (const source of filesUnder(mod, isRulesOrTxt)) {
                 let text: string;
                 try {
@@ -72,9 +83,22 @@ describe.skipIf(!HAVE)('txt reference oracle probe', () => {
                 } catch {
                     continue;
                 }
+                const targets: string[] = [];
                 for (const m of text.matchAll(/<([^<>\n]*\.txt)>/gi)) {
                     const target = join(dirname(source), m[1].trim().replace(/\\/g, '/'));
-                    if (existsSync(target)) referencedPaths.add(foldPathCase(target));
+                    if (existsSync(target)) targets.push(foldPathCase(target));
+                }
+                if (isTxt(source)) txtRefs.set(foldPathCase(source), targets);
+                else rootedByRules.push(...targets);
+            }
+            const referencedPaths = new Set<string>(rootedByRules);
+            for (let growing = true; growing;) {
+                growing = false;
+                for (const [txt, targets] of txtRefs) {
+                    if (!referencedPaths.has(txt)) continue;
+                    txtRefs.delete(txt);
+                    for (const target of targets) referencedPaths.add(target);
+                    growing = true;
                 }
             }
             for (const txt of filesUnder(mod, isTxt)) {

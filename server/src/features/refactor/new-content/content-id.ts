@@ -5,7 +5,7 @@ import { CancellationToken } from 'vscode-languageserver';
 import { isRulesFileName } from '../../../document/document-kind';
 import { modIdDeclarationsOf } from '../../diagnostics/validator.duplicate-id';
 import { parseText } from '../../../utils/ast.utils';
-import { ContentKind } from './new-content.types';
+import { ContentKind } from '../../../../../shared/new-content.types';
 
 /**
  * Names and ids for created content.

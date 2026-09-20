@@ -1,7 +1,7 @@
 import { CancellationToken } from 'vscode-languageserver/node';
 import { join } from 'path';
 import { globalSettings } from '../settings';
-import { uriToFsPath } from '../features/navigation/workspace-files';
+import { uriToFsPath } from '../workspace/workspace-files';
 import { foldPathCase } from '../workspace/fs-cache';
 import { collectReferencedTxtKeys } from '../features/navigation/txt-reference-scan';
 import { basenameOf, isDocumentationFileName } from '../document/document-kind';
@@ -80,15 +80,6 @@ export async function isOutsideRulesPanel(file: string, token: CancellationToken
 }
 
 /**
- * The reachability keys the 'modRulesReachable' validation scope allows, or undefined when every
- * file is in scope (allFiles scope, or no workspace folder carries a mod manifest to scope by).
- * The closure walk parses every manifest and reached file, so the result is cached until a disk
- * or folder change bumps {@link validationScopeEpoch}.
- *
- * @param token cancels the closure walk. A cancelled (possibly partial) walk is not cached.
- * @returns the allowed reachability keys, or undefined when unrestricted.
- */
-/**
  * A predicate telling whether a file is one the game actually loads, for a feature that must not act
  * on backups, templates and other dead content. Undefined when the workspace has no manifest to scope
  * by, or when the user asked for every file, which both mean "no restriction".
@@ -103,6 +94,15 @@ export async function reachableFileFilter(
     return keys ? (fsPath: string) => keys.has(reachabilityKey(fsPath)) : undefined;
 }
 
+/**
+ * The reachability keys the 'modRulesReachable' validation scope allows, or undefined when every
+ * file is in scope (allFiles scope, or no workspace folder carries a mod manifest to scope by).
+ * The closure walk parses every manifest and reached file, so the result is cached until a disk
+ * or folder change bumps {@link validationScopeEpoch}.
+ *
+ * @param token cancels the closure walk. A cancelled (possibly partial) walk is not cached.
+ * @returns the allowed reachability keys, or undefined when unrestricted.
+ */
 export async function validationScopeKeys(token: CancellationToken): Promise<Set<string> | undefined> {
     if (workspaceValidationScope() !== 'modRulesReachable') return undefined;
     if (validationScopeCache?.epoch === validationScopeEpoch) return validationScopeCache.keys;

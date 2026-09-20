@@ -5,7 +5,7 @@ import {
     InsertTextMode,
     MarkupKind,
 } from 'vscode-languageserver';
-import { Completion } from './autocompletion.service';
+import { Completion } from './autocompletion.service.types';
 
 /**
  * Reduce an LSP snippet string to the plain text it would insert (drop the `$0`/`$1` tab stops and

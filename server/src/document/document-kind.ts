@@ -20,6 +20,9 @@ type DocumentKind = 'rules' | 'mod-rules';
  */
 const MOD_MANIFEST_BASENAME = /^(mod\.rules|mod_.*\.rules)$/i;
 
+/** A file whose name says it is prose for the reader, whatever extension it carries. */
+const DOCUMENTATION_BASENAME = /^(readme|changelog)(\.[^.]*)?$/i;
+
 /** The last path segment of a `file://` URI or OS path (slash or backslash separated). */
 export const basenameOf = (uri: string): string => {
     const path = uri.split(/[?#]/, 1)[0].replace(/\\/g, '/');
@@ -41,9 +44,6 @@ export const isRulesFileName = (basename: string): boolean => {
     const lower = basename.toLowerCase();
     return lower.endsWith('.rules') || lower.endsWith('.txt');
 };
-
-/** A file whose name says it is prose for the reader, whatever extension it carries. */
-const DOCUMENTATION_BASENAME = /^(readme|changelog)(\.[^.]*)?$/i;
 
 /**
  * True if a filename is a mod's readme or changelog. Modders write those next to the rules and

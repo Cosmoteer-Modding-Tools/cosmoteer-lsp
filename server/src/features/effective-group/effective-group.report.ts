@@ -17,7 +17,7 @@ import { SchemaField } from '../../document/schema/schema.types';
 import { flattenGroup } from '../../semantics/effective-group';
 import { EffectiveMemberEntry, UnreadableBase, UnreadableReason } from '../../semantics/effective-group.types';
 import { getStartOfAstNode } from '../../utils/ast.utils';
-import { navigationDepKey } from '../../utils/navigation-deps';
+import { navigationDepKey } from '../../workspace/navigation-deps';
 import { findEnclosingGroup } from '../../document/schema/schema-context';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
 import { valueAt } from '../completion/inherited-members';

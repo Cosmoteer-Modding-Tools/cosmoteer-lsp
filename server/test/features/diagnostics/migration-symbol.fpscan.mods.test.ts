@@ -128,7 +128,9 @@ describe.skipIf(!HAVE)('per-symbol migration over the installed corpus', () => {
                 }
                 const expected = editKeys(whole.edits);
                 if (parts.sort().join('|') !== expected.join('|') || partManual !== whole.manual.length) {
-                    mismatches.push(`${file}: ${parts.length}/${partManual} vs ${expected.length}/${whole.manual.length}`);
+                    mismatches.push(
+                        `${file}: ${parts.length}/${partManual} vs ${expected.length}/${whole.manual.length}`
+                    );
                 }
             }
         }

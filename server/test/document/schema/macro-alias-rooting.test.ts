@@ -8,7 +8,7 @@ import { parser } from '../../../src/core/parser/parser';
 import { AbstractNodeDocument, GroupNode, isGroupNode } from '../../../src/core/ast/ast';
 import { documentRootClass } from '../../../src/document/schema/document-root';
 import { memberTypeIn, resolveGroupClass } from '../../../src/document/schema/schema-context';
-import { ReverseIncludeIndex } from '../../../src/features/navigation/reverse-include.index';
+import { ReverseIncludeIndex } from '../../../src/mod/reverse-include.index';
 import { aliasRootIndex } from '../../../src/document/schema/alias-root';
 import { globalSettings } from '../../../src/settings';
 import { CosmoteerWorkspaceService } from '../../../src/workspace/cosmoteer-workspace.service';

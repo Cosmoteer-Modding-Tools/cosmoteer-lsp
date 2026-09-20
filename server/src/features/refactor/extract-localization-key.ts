@@ -8,6 +8,10 @@ import {
 } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
+    ExtractLocalizationKeyArgs,
+    ExtractLocalizationKeyResult,
+} from '../../../../shared/extract-localization-key.types';
+import {
     AbstractNode,
     AbstractNodeDocument,
     GroupNode,
@@ -21,9 +25,9 @@ import { findNodeAtPosition, namedMembersOf } from '../../utils/ast.utils';
 import { fieldOfValueNode } from '../completion/autocompletion.schema';
 import { LocalizationKeyIndex } from '../completion/localization-key.index';
 import { buildInsertLocalizationKeyEdit, modStringsFiles } from '../diagnostics/localization-key-insert';
-import { normalizeUri } from '../navigation/reference-location';
+import { normalizeUri } from '../../document/reference-location';
 import { stringValueNodesOf } from '../navigation/schema-reference.navigation';
-import { uriToFsPath } from '../navigation/workspace-files';
+import { uriToFsPath } from '../../workspace/workspace-files';
 import * as l10n from '@vscode/l10n';
 
 /**
@@ -42,31 +46,6 @@ export const EXTRACT_LOCALIZATION_KEY_COMMAND = 'cosmoteer.extractLocalizationKe
  * for the key path, then invoke {@link EXTRACT_LOCALIZATION_KEY_COMMAND} with the answer.
  */
 export const EXTRACT_LOCALIZATION_KEY_ACTION_COMMAND = 'cosmoteer.extractLocalizationKeyFromAction';
-
-/** What the client sends once the author has named the key. */
-export interface ExtractLocalizationKeyArgs {
-    /** The file the extracted literal lives in. */
-    uri: string;
-    /** The literal's start offset in that file, opening quote included. */
-    offset: number;
-    /** The literal exactly as written, quotes included, which is also the text the strings files get. */
-    literal: string;
-    /** The key path to declare. The code action proposes one, the author may rewrite it. */
-    key: string;
-}
-
-/** Why an extraction did nothing. */
-type ExtractLocalizationKeyFailure = 'stale' | 'noStringsFiles' | 'editRejected';
-
-/** What the extraction did, or why it did nothing. */
-export interface ExtractLocalizationKeyResult {
-    /** The key the value now points at. */
-    key: string;
-    /** The strings files the key was written into (absolute paths), for the client's tidy-up. */
-    changedFiles: string[];
-    /** Set when nothing was changed. */
-    failure?: ExtractLocalizationKeyFailure;
-}
 
 /** The result plus the edit itself, which the server applies rather than sending to the client. */
 interface ExtractLocalizationKeyPlan extends ExtractLocalizationKeyResult {

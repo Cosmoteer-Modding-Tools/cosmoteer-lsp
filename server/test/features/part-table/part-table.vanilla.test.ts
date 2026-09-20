@@ -6,7 +6,7 @@ import { CancellationToken, Connection, WorkDoneProgressReporter } from 'vscode-
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
 import { aliasRootIndex } from '../../../src/document/schema/alias-root';
-import { ReverseIncludeIndex } from '../../../src/features/navigation/reverse-include.index';
+import { ReverseIncludeIndex } from '../../../src/mod/reverse-include.index';
 import { buildPartTable } from '../../../src/features/part-table/part-table.service';
 import { PartTableColumn, PartTableData, PartTableRow } from '../../../src/features/part-table/part-table.types';
 import { globalSettings } from '../../../src/settings';

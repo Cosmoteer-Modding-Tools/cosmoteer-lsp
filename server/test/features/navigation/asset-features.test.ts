@@ -4,9 +4,9 @@ import { CancellationToken, Position } from 'vscode-languageserver';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
 import { AbstractNode, AbstractNodeDocument, isValueNode, ValueNode } from '../../../src/core/ast/ast';
-import { AssetNavigationStrategy } from '../../../src/features/navigation/asset.navigation-strategy';
-import { DefinitionService } from '../../../src/features/navigation/definition.service';
-import { HoverService } from '../../../src/features/hover/hover.service';
+import { resolveAsset } from '../../../src/features/navigation/navigate-asset';
+import { getDefinition } from '../../../src/features/navigation/definition.service';
+import { getHover } from '../../../src/features/hover/hover.service';
 import { globalSettings } from '../../../src/settings';
 import { singleLocation, walkAst } from '../../helpers';
 import { initWorkspace, WORKSPACE_DATA_DIR, workspaceFile } from '../../workspace-helper';
@@ -35,53 +35,52 @@ describe('asset features', () => {
         doc = parser(lexer(readFileSync(ASSETS_URI, 'utf-8')), ASSETS_URI).value;
     });
 
-    describe('AssetNavigationStrategy.resolveAsset', () => {
-        const nav = new AssetNavigationStrategy();
+    describe('resolveAsset', () => {
 
         it('resolves a sibling sprite to its absolute path', async () => {
-            const path = await nav.resolveAsset('spark.png', assetNode(doc, 'spark.png'), ASSETS_URI);
+            const path = await resolveAsset('spark.png', ASSETS_URI);
             expect(path).not.toBeNull();
             expect(path!.replace(/\\/g, '/').endsWith('effects/spark.png')).toBe(true);
         });
 
         it('resolves a relative sound across directories', async () => {
-            const path = await nav.resolveAsset('../sounds/fx/beep.wav', assetNode(doc, '../sounds/fx/beep.wav'), ASSETS_URI);
+            const path = await resolveAsset('../sounds/fx/beep.wav', ASSETS_URI);
             expect(path).not.toBeNull();
             expect(path!.replace(/\\/g, '/').endsWith('sounds/fx/beep.wav')).toBe(true);
         });
 
         it('resolves a `./Data/...` absolute path (case-insensitive)', async () => {
-            const path = await nav.resolveAsset('./data/sounds/fx/beep.wav', assetNode(doc, 'spark.png'), ASSETS_URI);
+            const path = await resolveAsset('./data/sounds/fx/beep.wav', ASSETS_URI);
             expect(path).not.toBeNull();
         });
 
         it('returns null for a missing asset', async () => {
-            const path = await nav.resolveAsset('sparkk.png', assetNode(doc, 'sparkk.png'), ASSETS_URI);
+            const path = await resolveAsset('sparkk.png', ASSETS_URI);
             expect(path).toBeNull();
         });
     });
 
     describe('go-to-definition', () => {
         it('jumps to the sprite file on disk', async () => {
-            const location = singleLocation(await DefinitionService.instance.getDefinition(doc, cursorOn(assetNode(doc, 'spark.png')), token));
+            const location = singleLocation(await getDefinition(doc, cursorOn(assetNode(doc, 'spark.png')), token));
             expect(location.uri.endsWith('spark.png')).toBe(true);
             expect(location.range).toEqual({ start: { line: 0, character: 0 }, end: { line: 0, character: 0 } });
         });
 
         it('jumps to a relative sound file', async () => {
-            const location = singleLocation(await DefinitionService.instance.getDefinition(doc, cursorOn(assetNode(doc, '../sounds/fx/beep.wav')), token));
+            const location = singleLocation(await getDefinition(doc, cursorOn(assetNode(doc, '../sounds/fx/beep.wav')), token));
             expect(location.uri.endsWith('beep.wav')).toBe(true);
         });
 
         it('returns null for a missing asset', async () => {
-            const location = await DefinitionService.instance.getDefinition(doc, cursorOn(assetNode(doc, 'sparkk.png')), token);
+            const location = await getDefinition(doc, cursorOn(assetNode(doc, 'sparkk.png')), token);
             expect(location).toBeNull();
         });
     });
 
     describe('hover', () => {
         const hoverText = async (value: string): Promise<string> => {
-            const hover = await HoverService.instance.getHover(doc, cursorOn(assetNode(doc, value)), token);
+            const hover = await getHover(doc, cursorOn(assetNode(doc, value)), token);
             return hover ? (hover.contents as { value: string }).value : '';
         };
 

@@ -12,7 +12,7 @@ import {
 } from '../../../src/core/ast/ast';
 import { resolveGroupClass } from '../../../src/document/schema/schema-context';
 import { schemaFieldNameCompletions } from '../../../src/features/completion/autocompletion.schema-fields';
-import { Completion } from '../../../src/features/completion/autocompletion.service';
+import { Completion } from '../../../src/features/completion/autocompletion.service.types';
 import { validateSchema } from '../../../src/features/diagnostics/validator.schema';
 
 // A `Modifiable<T>` field (here TurretWeaponRules.TargetingRange, a ModifiableFloat) has two valid

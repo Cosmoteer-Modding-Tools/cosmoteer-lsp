@@ -7,15 +7,15 @@ import {
     ResponseError,
     UnchangedDocumentDiagnosticReport,
 } from 'vscode-languageserver/node';
-import { ParserResultRegistrar } from '../../registrar/parser-result-registrar';
+import { ParserResultRegistrar } from '../../document/parser-result-registrar';
 import { clearDocumentHighlightCache } from '../../features/navigation/document-highlight';
-import { invalidateNavigationMemoForFile } from '../../features/navigation/full.navigation-strategy';
-import { filePathToUri } from '../../features/navigation/navigation-strategy';
-import { normalizeUri } from '../../features/navigation/reference-location';
-import { uriToFsPath } from '../../features/navigation/workspace-files';
+import { invalidateNavigationMemoForFile } from '../../semantics/navigate-reference';
+import { filePathToUri } from '../../document/reference-path';
+import { normalizeUri } from '../../document/reference-location';
+import { uriToFsPath } from '../../workspace/workspace-files';
 import { reachabilityKey } from '../../mod/mod-reachability';
 import { traceFailure } from '../../utils/cancellation';
-import { hasPullDiagnosticsCapability } from '../capabilities';
+import { hasPullDiagnosticsCapability } from '../../capabilities';
 import { connection, documents, tokenSourceManager } from '../context';
 import { diagnosticsCache, inlayHintCache, semanticTokensCache } from '../document-caches';
 import { forgetDocumentSettings } from '../document-settings';

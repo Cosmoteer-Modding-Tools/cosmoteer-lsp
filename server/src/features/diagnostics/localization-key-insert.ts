@@ -8,10 +8,10 @@ import { indentUnitOf, lineEndingOf } from '../refactor/command-host';
 import { parseText } from '../../utils/ast.utils';
 import { safeReaddir } from '../../utils/fs.utils';
 import { offsetToPosition } from '../../utils/text.utils';
-import { filePathToUri } from '../navigation/navigation-strategy';
+import { filePathToUri } from '../../document/reference-path';
 import { findModRoot } from '../../mod/mod-root';
 import { isEnglish, languageOf, LocalizationKeyIndex } from '../completion/localization-key.index';
-import { uriToFsPath } from '../navigation/workspace-files';
+import { uriToFsPath } from '../../workspace/workspace-files';
 import { resolveStringsFolders, isUnderFolder } from '../../mod/strings-folder';
 
 /**

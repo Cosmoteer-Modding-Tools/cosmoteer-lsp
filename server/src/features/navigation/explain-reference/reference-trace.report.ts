@@ -194,6 +194,54 @@ const verdictText = (trace: ReferenceTrace): string => {
 };
 
 /**
+ * The table of members the walk had to choose from, with the did-you-mean above it and a warning
+ * when a base could not be read.
+ *
+ * @param trace the finished trace.
+ * @param available the members found at the place the walk stopped.
+ * @returns the markdown lines.
+ */
+const memberTableLines = (trace: ReferenceTrace, available: Extract<AvailableAt, { kind: 'members' }>): string[] => {
+    const lines: string[] = [];
+    lines.push(
+        trace.lastGood
+            ? l10n.t('The walk got as far as {0}, which holds these members.', placeLink(trace.lastGood))
+            : l10n.t('These are the members the walk had to choose from.')
+    );
+    if (trace.suggestion) {
+        lines.push('');
+        lines.push(`**${l10n.t('Did you mean {0}?', code(trace.suggestion))}**`);
+    }
+    if (available.incomplete) {
+        lines.push('');
+        lines.push(
+            `> ⚠ ${l10n.t('A base of this container could not be read, so the game may have members this list does not show.')}`
+        );
+    }
+    lines.push('');
+    lines.push(`| ${l10n.t('Member')} | ${l10n.t('Where it comes from')} |`);
+    lines.push('| --- | --- |');
+    if (available.names.length === 0) {
+        lines.push(`| *${l10n.t('none')}* | |`);
+    } else {
+        for (const member of available.names) {
+            lines.push(
+                `| ${code(member.name)} | ${
+                    member.inherited
+                        ? l10n.t('inherited from {0}', placeLink(member.origin))
+                        : l10n.t('written in {0}', placeLink(member.origin))
+                } |`
+            );
+        }
+    }
+    if (available.total > available.names.length) {
+        lines.push('');
+        lines.push(l10n.t('{0} more members are not listed.', String(available.total - available.names.length)));
+    }
+    return lines;
+};
+
+/**
  * The heart of the report: where the walk stopped and what the game has there.
  *
  * @param trace the finished trace.
@@ -211,46 +259,9 @@ const stoppedSection = (trace: ReferenceTrace): string[] => {
     lines.push(`## ${l10n.t('Where it stops')}`);
     lines.push('');
     switch (available.kind) {
-        case 'members': {
-            lines.push(
-                trace.lastGood
-                    ? l10n.t('The walk got as far as {0}, which holds these members.', placeLink(trace.lastGood))
-                    : l10n.t('These are the members the walk had to choose from.')
-            );
-            if (trace.suggestion) {
-                lines.push('');
-                lines.push(`**${l10n.t('Did you mean {0}?', code(trace.suggestion))}**`);
-            }
-            if (available.incomplete) {
-                lines.push('');
-                lines.push(
-                    `> ⚠ ${l10n.t('A base of this container could not be read, so the game may have members this list does not show.')}`
-                );
-            }
-            lines.push('');
-            lines.push(`| ${l10n.t('Member')} | ${l10n.t('Where it comes from')} |`);
-            lines.push('| --- | --- |');
-            if (available.names.length === 0) {
-                lines.push(`| *${l10n.t('none')}* | |`);
-            } else {
-                for (const member of available.names) {
-                    lines.push(
-                        `| ${code(member.name)} | ${
-                            member.inherited
-                                ? l10n.t('inherited from {0}', placeLink(member.origin))
-                                : l10n.t('written in {0}', placeLink(member.origin))
-                        } |`
-                    );
-                }
-            }
-            if (available.total > available.names.length) {
-                lines.push('');
-                lines.push(
-                    l10n.t('{0} more members are not listed.', String(available.total - available.names.length))
-                );
-            }
+        case 'members':
+            lines.push(...memberTableLines(trace, available));
             break;
-        }
         case 'entries':
             lines.push(
                 available.count === 0

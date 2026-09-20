@@ -7,7 +7,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { AbstractNodeDocument, isAssignmentNode, isValueNode } from '../../src/core/ast/ast';
 import { lexer } from '../../src/core/lexer/lexer';
 import { parser } from '../../src/core/parser/parser';
-import { ParserResultRegistrar } from '../../src/registrar/parser-result-registrar';
+import { ParserResultRegistrar } from '../../src/document/parser-result-registrar';
 import { perfSnapshot } from '../../src/utils/perf-counters';
 import { FileWithPath } from '../../src/workspace/cosmoteer-workspace.service';
 import {

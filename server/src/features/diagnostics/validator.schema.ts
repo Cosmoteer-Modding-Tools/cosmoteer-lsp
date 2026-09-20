@@ -12,8 +12,8 @@ import {
     isValueNode,
     ListNode,
     ValueNode,
+    childNodesOf,
 } from '../../core/ast/ast';
-import { childNodesOf } from '../../utils/ast.utils';
 import { isModRules } from '../../document/document-kind';
 import {
     groupDiscriminator,
@@ -127,6 +127,797 @@ const classReadsList = (classRef: string, depth = 0): boolean => {
 const requiresWholeNumber = (valueType: ValueType): boolean =>
     valueType.kind === 'int' || (valueType.kind === 'number' && valueType.type === 'ModifiableInt');
 
+/** The state one {@link validateSchema} run threads through its per-concern checks. */
+interface SchemaCheckContext {
+    /** The findings so far, in the order the checks produced them. That order is observable: the
+     *  server truncates a document at its problem limit. */
+    readonly errors: ValidationError[];
+    /** Every container the synchronous walk resolved a concrete class for, so the asynchronous pass
+     *  can revisit the same fields without resolving them again. */
+    readonly typedContainers: Array<{ container: { elements: AbstractNode[] }; cls: string }>;
+    /** Cancels the value resolution the asynchronous checks do. */
+    readonly cancellationToken: CancellationToken;
+}
+
+/**
+ * Flag an assignment written under a pre-rename spelling the game still accepts, or under a field
+ * superseded by a richer one. Both deserialize fine (the schema carries the old alias and the old
+ * member), so no other check ever surfaces them and the deprecations registry is the only source.
+ * Hint severity: the game reads the value, this is a modernization nudge, not a load problem.
+ *
+ * @param ctx the findings and resolved containers of the run.
+ * @param container the container the assignment sits in, read for an already-present successor.
+ * @param cls the container's resolved class.
+ * @param element the assignment to judge.
+ */
+const checkFieldDeprecations = (
+    ctx: SchemaCheckContext,
+    container: { elements: AbstractNode[] },
+    cls: string,
+    element: AssignmentNode
+): void => {
+    const written = element.left.name;
+    let rename: ReturnType<typeof renamedFieldAlias>;
+    let obsolete: ReturnType<typeof obsoleteField>;
+    for (const ancestor of classAncestry(cls)) {
+        rename ??= renamedFieldAlias(ancestor, written);
+        obsolete ??= obsoleteField(ancestor, written);
+    }
+    const target = rename ?? obsolete;
+    if (!target) return;
+    // When the successor is already assigned beside the old spelling, a mechanical fix would
+    // create a duplicate member, so the finding is reported for manual review instead.
+    const replacementPresent = container.elements.some(
+        (sibling) =>
+            sibling !== element &&
+            ((isAssignmentNode(sibling) && sibling.left.name.toLowerCase() === target.replacement.toLowerCase()) ||
+                ((isGroupNode(sibling) || isListNode(sibling)) &&
+                    sibling.identifier?.name.toLowerCase() === target.replacement.toLowerCase()))
+    );
+    if (rename) {
+        ctx.errors.push({
+            message: l10n.t(
+                "'{0}' was renamed to '{1}' in game version {2} ({3}).",
+                written,
+                rename.replacement,
+                rename.version,
+                rename.note
+            ),
+            node: element.left,
+            severity: 'hint',
+            data: replacementPresent
+                ? { migration: { version: rename.version, symbol: migrationSymbolOf('renamedAlias', written) } }
+                : {
+                      migration: {
+                          version: rename.version,
+                          apply: 'quickFix',
+                          symbol: migrationSymbolOf('renamedAlias', written),
+                      },
+                      quickFix: {
+                          title: l10n.t("Change to '{0}'", rename.replacement),
+                          newText: rename.replacement,
+                      },
+                  },
+        });
+        return;
+    }
+    if (!obsolete) return;
+    const error: ValidationError = {
+        message: l10n.t(
+            "'{0}' was superseded by '{1}' in game version {2} ({3}).",
+            written,
+            obsolete.replacement,
+            obsolete.version,
+            obsolete.note
+        ),
+        node: element.left,
+        severity: 'hint',
+        data: { migration: { version: obsolete.version, symbol: migrationSymbolOf('obsoleteField', written) } },
+    };
+    // The mechanical rewrites wrap the existing scalar value in the successor's container shape
+    // (`ComponentID = X` → `ComponentIDs = [X]`, `ExplosiveDamageResistance = X` →
+    // `DamageResistances = { explosive = X }`), keeping the value's own text untouched. Only a
+    // plain scalar value qualifies. Anything else (already a container, a missing value) needs
+    // author judgment and stays a manual finding.
+    const value = element.right;
+    if (!replacementPresent && value && isValueNode(value)) {
+        const wrap =
+            obsolete.replacement === 'ComponentIDs'
+                ? { open: '[', close: ']' }
+                : obsolete.replacement === 'DamageResistances'
+                  ? { open: '{ explosive = ', close: ' }' }
+                  : undefined;
+        if (wrap) {
+            error.data = {
+                migration: {
+                    version: obsolete.version,
+                    apply: 'rewrite',
+                    symbol: migrationSymbolOf('obsoleteField', written),
+                },
+                rewrite: {
+                    title: l10n.t("Change to '{0}'", obsolete.replacement),
+                    edits: [
+                        {
+                            start: element.left.position.start,
+                            end: element.left.position.end,
+                            newText: obsolete.replacement,
+                        },
+                        { start: value.position.start, end: value.position.start, newText: wrap.open },
+                        { start: value.position.end, end: value.position.end, newText: wrap.close },
+                    ],
+                },
+            };
+        }
+    }
+    ctx.errors.push(error);
+};
+
+/**
+ * Flag a `name = <word>` assignment whose schema field is an enum/bool not allowing that bare word.
+ * Bare-word values only. `&refs`, expressions, numbers and quoted strings parse as other types.
+ *
+ * @param ctx the findings and resolved containers of the run.
+ * @param container the container whose elements are judged.
+ * @param cls the container's resolved class.
+ */
+const checkEnums = (ctx: SchemaCheckContext, container: { elements: AbstractNode[] }, cls: string): void => {
+    ctx.typedContainers.push({ container, cls });
+    for (const element of container.elements) {
+        // A bare valueless field (`ScaleIn` alone on a line) deserializes as null, which the
+        // game only tolerates for nullable member types. On a non-nullable one it throws a
+        // DeserializeException at load. Only flagged when the schema knows the field is
+        // non-nullable, so partially-modelled classes stay silent.
+        if (isIdentifierNode(element)) {
+            const field = fieldOf(cls, element.name);
+            if (field?.nullable === false) {
+                ctx.errors.push({
+                    message: l10n.t(
+                        "'{0}' has no value. The game reads a valueless field as null and fails to load it into a non-nullable {1}.",
+                        element.name,
+                        valueTypeLabel(field.valueType)
+                    ),
+                    node: element,
+                    severity: 'warning',
+                });
+            }
+            continue;
+        }
+        if (!isAssignmentNode(element)) continue;
+        checkFieldDeprecations(ctx, container, cls, element);
+        const value = element.right;
+        if (!isValueNode(value) || value.valueType.type !== 'String') continue;
+        const field = fieldOf(cls, element.left.name);
+        if (!field) continue;
+        const written = String(value.valueType.value);
+
+        if (field.valueType.kind === 'enum') {
+            const members = enumDef(field.valueType.ref)?.members ?? [];
+            if (members.length > 0 && !members.includes(written)) {
+                // The game parses enum values with the case-sensitive `Enum.Parse(type, text)`,
+                // so a member matched only after case-folding still fails to load in game and
+                // deserves its own message.
+                // A member the game renamed is reported as the rename it is, with the version
+                // that made it, rather than as a value the enum happens not to have.
+                const renamed = deprecatedEnumValue(field.valueType.ref, written);
+                const folded = members.find((m) => m.toLowerCase() === written.toLowerCase());
+                if (renamed) {
+                    ctx.errors.push({
+                        message: l10n.t(
+                            "'{0}' was renamed to '{1}' in game version {2} ({3}).",
+                            written,
+                            renamed.replacement,
+                            renamed.version ?? '',
+                            renamed.note
+                        ),
+                        node: value,
+                        severity: 'hint',
+                        data: {
+                            migration: {
+                                version: renamed.version,
+                                apply: 'rewrite',
+                                symbol: migrationSymbolOf('enumValue', written),
+                            },
+                            rewrite: {
+                                title: l10n.t("Change to '{0}'", renamed.replacement),
+                                edits: [
+                                    {
+                                        start: value.position.start,
+                                        end: value.position.end,
+                                        newText: renamed.replacement,
+                                    },
+                                ],
+                            },
+                            quickFix: {
+                                title: l10n.t("Change to '{0}'", renamed.replacement),
+                                newText: renamed.replacement,
+                            },
+                        },
+                    });
+                } else if (folded) {
+                    ctx.errors.push({
+                        message: l10n.t(
+                            "'{0}' has the wrong casing. The game's enum parsing is case-sensitive; write '{1}'.",
+                            written,
+                            folded
+                        ),
+                        node: value,
+                        severity: 'warning',
+                        data: { quickFix: { title: l10n.t("Change to '{0}'", folded), newText: folded } },
+                    });
+                } else {
+                    flag(ctx, value, written, field.valueType.name, members, closestMatch(written, members, true));
+                }
+            }
+        } else if (field.valueType.kind === 'bool') {
+            // The game's BooleanSerializer accepts true/yes/y and false/no/n (ignoring case)
+            // plus the literal 1/0 (which lex as numbers and never reach this String branch).
+            if (!BOOLEAN_WORDS.has(written.toLowerCase())) {
+                const bools = ['true', 'false'];
+                flag(ctx, value, written, 'boolean', bools, closestMatch(written, bools, true));
+            }
+        } else if (field.valueType.kind === 'number' && NUMERIC_SCALAR_TYPES.has(field.valueType.type ?? '')) {
+            flagNonNumber(ctx, value, written);
+        }
+    }
+};
+
+/**
+ * Flag a bare-word value sitting in a numeric field (e.g. an angle/`Direction` written as a word
+ * rather than a number). Only a plain unquoted, unparenthesized identifier that is not a math
+ * keyword/constant qualifies. Anything that could be a literal, reference or expression is
+ * already a different value type and never reaches here.
+ *
+ * @param ctx the findings and resolved containers of the run.
+ * @param value the value node to report on.
+ * @param written the value as the author wrote it.
+ */
+const flagNonNumber = (ctx: SchemaCheckContext, value: ValueNode, written: string): void => {
+    if (value.quoted || value.parenthesized) return;
+    const word = written.toLowerCase();
+    if (!BARE_WORD.test(written) || NUMERIC_LITERAL_WORDS.has(word) || ALL_MATH_FUNCTION_NAMES.has(word)) {
+        return;
+    }
+    ctx.errors.push({
+        message: l10n.t("'{0}' is not a valid number.", written),
+        node: value,
+        severity: 'warning',
+    });
+};
+
+/**
+ * Reports a value that is not one of a closed set of members, with a did-you-mean fix when one fits.
+ *
+ * @param ctx the findings and resolved containers of the run.
+ * @param value the value node to report on.
+ * @param written the value as the author wrote it.
+ * @param typeName the name of the type the value was expected to belong to.
+ * @param members the members that type allows.
+ * @param suggestion the closest member, or null when none is close enough.
+ */
+const flag = (
+    ctx: SchemaCheckContext,
+    value: AbstractNode,
+    written: string,
+    typeName: string,
+    members: string[],
+    suggestion: string | null | undefined
+): void => {
+    ctx.errors.push({
+        message: l10n.t("'{0}' is not a valid {1}. Expected one of: {2}", written, typeName, members.join(', ')),
+        node: value,
+        severity: 'warning',
+        ...didYouMeanFix(suggestion),
+    });
+};
+
+/**
+ * The registry a `Type=`-dispatched group belongs to, but only when we're confident: the slot it
+ * sits in is typed as a polymorphic registry (precise), or for custom-deserialized containers
+ * with no slot (Components, BulletComponents) a sibling's valid `Type` proves the registry.
+ *
+ * @param group the group to type.
+ * @returns the registry, or undefined when none can be inferred.
+ */
+const confidentRegistryFor = (group: GroupNode): SchemaRegistry | undefined => {
+    const slot = registryHintFromContainer(group);
+    if (slot) return schema.registries[slot];
+    const container = group.parent;
+    return container && isGroupNode(container) ? registryForContainer(container) : undefined;
+};
+
+/**
+ * Flag a `Type = <word>` (in a group or the document root) whose value is not a member of the
+ * given registry, the polymorphic analogue of the enum check (closed set, low false-positive
+ * risk). Shared by nested groups and whole-file roots.
+ *
+ * @param ctx the findings and resolved containers of the run.
+ * @param container the group or document whose discriminator is read.
+ * @param registry the registry the discriminator has to name a member of.
+ */
+const flagInvalidType = (
+    ctx: SchemaCheckContext,
+    container: { elements: AbstractNode[] },
+    registry: SchemaRegistry
+): void => {
+    let valueNode: AbstractNode | undefined;
+    for (const element of container.elements) {
+        if (isAssignmentNode(element) && element.left.name === registry.typeField) {
+            valueNode = element.right ?? undefined;
+            break;
+        }
+    }
+    if (!valueNode || !isValueNode(valueNode) || valueNode.valueType.type !== 'String') return;
+    const written = String(valueNode.valueType.value);
+    const members = Object.keys(registry.members);
+    if (members.some((m) => m.toLowerCase() === written.toLowerCase())) return;
+    // A type that was renamed in a newer game version (a mod written against an older Cosmoteer):
+    // say what it became and offer that fix, but only when the new name is valid in THIS registry, so
+    // the hint never points at a replacement that wouldn't deserialize here.
+    const deprecation = deprecatedDiscriminator(written);
+    if (deprecation && members.includes(deprecation.replacement)) {
+        ctx.errors.push({
+            message: deprecation.version
+                ? l10n.t(
+                      "'{0}' was renamed to '{1}' in game version {2} ({3}).",
+                      written,
+                      deprecation.replacement,
+                      deprecation.version,
+                      deprecation.note
+                  )
+                : l10n.t(
+                      "'{0}' was renamed to '{1}' in a newer game version ({2}).",
+                      written,
+                      deprecation.replacement,
+                      deprecation.note
+                  ),
+            node: valueNode,
+            severity: 'warning',
+            data: {
+                migration: {
+                    version: deprecation.version,
+                    apply: 'quickFix',
+                    symbol: migrationSymbolOf('discriminator', written),
+                },
+                quickFix: {
+                    title: l10n.t("Change to '{0}'", deprecation.replacement),
+                    newText: deprecation.replacement,
+                },
+            },
+        });
+        return;
+    }
+    const suggestion = closestMatch(written, members, true);
+    ctx.errors.push({
+        message: l10n.t("'{0}' is not a valid {1} type.", written, registry.name),
+        node: valueNode,
+        severity: 'warning',
+        ...didYouMeanFix(suggestion),
+    });
+};
+
+/**
+ * A nested group: validate its `Type=` against the registry confidently inferred from its slot
+ * or a valid sibling.
+ *
+ * @param ctx the findings and resolved containers of the run.
+ * @param group the group to judge.
+ */
+const checkDiscriminator = (ctx: SchemaCheckContext, group: GroupNode): void => {
+    const registry = confidentRegistryFor(group);
+    if (registry) flagInvalidType(ctx, group, registry);
+};
+
+/**
+ * Walks a node and its children, running the synchronous class-resolved checks on every group.
+ *
+ * @param ctx the findings and resolved containers of the run.
+ * @param node the node to walk.
+ */
+const visit = (ctx: SchemaCheckContext, node: AbstractNode): void => {
+    if (ctx.cancellationToken.isCancellationRequested) return;
+    if (isGroupNode(node)) {
+        // A group's class comes from its slot (which disambiguates a `Type=` collision via the
+        // container's field type). Only skip when the discriminator is ambiguous and the
+        // container gives no hint, where we can't trust the class, so we'd risk a false positive.
+        const disc = groupDiscriminator(node);
+        const slotRegistry = registryHintFromContainer(node);
+        const unresolvableAmbiguity = disc && discriminatorIsAmbiguous(disc) && !slotRegistry;
+        const cls = unresolvableAmbiguity ? undefined : resolveGroupClass(node);
+        if (cls) checkEnums(ctx, node, cls);
+        // A `Type=` that resolves to no class (typo) is caught here against the inferred
+        // registry. A polymorphic slot needs one more case: it resolves the group to the
+        // registry base itself when the discriminator matches no member (that fallback keeps
+        // the base's fields working), so a slot-typed group whose class is exactly that
+        // fallback validates its discriminator too. A concrete resolution (including the
+        // sector spawners whose `Type = Doodads` dispatches beyond the slot registry's own
+        // member map) is proof the game reads it and stays silent. A deprecated name is the
+        // exception: it resolves through its rename as an editing courtesy, but the game does
+        // not read it, so it must still surface the rename hint.
+        if (disc && (!cls || cls === slotRegistry || deprecatedDiscriminator(disc))) checkDiscriminator(ctx, node);
+    }
+    const children = childNodesOf(node);
+    for (const child of children) visit(ctx, child);
+};
+
+/**
+ * A value sitting in an integer-only field: flag when it resolves to a non-whole number. Unlike
+ * the bare-word checks above, this resolves the value, following references through inheritance
+ * and evaluating math expressions/functions via the shared evaluator. Anything the evaluator
+ * can't reduce to a number (unresolved/runtime refs, named constants, non-numeric strings) yields
+ * `null` and is left alone, so the check stays false-positive-free. A `%` operand (e.g. `50%` →
+ * 0.5) is skipped, since percentages belong to fractional fields, so a stray one is not a fact.
+ *
+ * @param ctx the findings and resolved containers of the run.
+ * @param value the value to resolve and judge.
+ */
+const checkInteger = async (ctx: SchemaCheckContext, value: AbstractNode): Promise<void> => {
+    if (isValueNode(value) && /%/.test(String(value.valueType.value))) return;
+    const resolved = await evaluateNumericValue(value, ctx.cancellationToken).catch(() => null);
+    if (resolved === null || Number.isInteger(resolved)) return;
+    ctx.errors.push({
+        message: l10n.t('Expected a whole number, but this value is {0}.', formatNumber(resolved)),
+        node: value,
+        severity: 'warning',
+    });
+};
+
+/**
+ * A value in an integer-element `Range<int>` field. The engine accepts a range as either a single
+ * scalar (min == max) or a `[from, to]` list, so check each endpoint individually. Range ordering
+ * is deliberately not validated: `Range<T>` does not require from <= to. Its endpoints are
+ * interpolation bounds (e.g. `VolumeOverIntensity = [1.5, 0.5]` fades down), and vanilla ships
+ * many descending pairs, so a min>max check would be a false positive.
+ *
+ * @param ctx the findings and resolved containers of the run.
+ * @param value the range value, written either as a scalar or as a list of endpoints.
+ */
+const checkIntegerRange = async (ctx: SchemaCheckContext, value: AbstractNode): Promise<void> => {
+    if (isListNode(value)) {
+        for (const endpoint of value.elements) await checkInteger(ctx, endpoint);
+    } else {
+        await checkInteger(ctx, value);
+    }
+};
+
+/**
+ * A group-typed field written in its positional list form (`GridSize = [1, 2]`): the game
+ * deserializer reads element N through the class's digit field `"N"` (the same fallback that
+ * makes `[7.2, 7.2]` a legal Vector2), so an integer-constrained component (IntVector2,
+ * IntRect, …) is checked exactly like its group-form counterpart. Classes without digit
+ * fields simply have no positional field to check against.
+ *
+ * @param ctx the findings and resolved containers of the run.
+ * @param list the list form to walk.
+ * @param classRef the class the list form stands for.
+ */
+const checkPositionalElements = async (ctx: SchemaCheckContext, list: ListNode, classRef: string): Promise<void> => {
+    // An inheriting list (`X : base [ … ]`) appends its local elements after the inherited
+    // ones, so the local index is not the game index and the check must stay silent. A class
+    // with a list-reading value form has no positional digit semantics either.
+    if (list.inheritance?.length || classReadsList(classRef)) return;
+    for (const [index, element] of list.elements.entries()) {
+        const positional = fieldOf(classRef, String(index));
+        if (positional && requiresWholeNumber(positional.valueType)) await checkInteger(ctx, element);
+    }
+};
+
+/**
+ * Whether an AST list element maps one-to-one onto a game list element. The game only ends a
+ * list element at `,`, `;`, a line break or `]`, and the parser now folds a math run into one
+ * node for the same reason, so a computed element counts once just like a plain one. A bare
+ * operator node is the only shape left that does not stand for an element of its own, and its
+ * presence means the run did not fold, which makes every later index unreliable.
+ *
+ * @param element the list element to judge.
+ * @returns true when the element is one game list element.
+ */
+const isAtomicListElement = (element: AbstractNode): boolean =>
+    isGroupNode(element) ||
+    isListNode(element) ||
+    isAssignmentNode(element) ||
+    isMathExpressionNode(element) ||
+    isFunctionCallNode(element) ||
+    (isValueNode(element) && (element.valueType.type === 'Number' || element.valueType.type === 'String'));
+
+/**
+ * A named member inside a group-typed field's list form (`Offset [Scale2In = offset]`): the
+ * game reads list-form members positionally through the class's digit fields or by the class's
+ * own member names, so a name the class does not own is silently ignored. The classic trap is
+ * a field of the enclosing group written inside the brackets, where the author meant it one
+ * level up, and that case gets its own move-it-out message. Everything else gets a did-you-mean
+ * against the class's members when one is close. Unnamed elements past the class's digit fields
+ * (`Offset [0, 1, 2, 3]` on a Vector2, which reads only elements 0 and 1) are dead the same
+ * way, flagged per element so every unread value shows, but only when every element is atomic
+ * (see {@link isAtomicListElement}) so the AST indices are the game indices. Both checks stay
+ * silent on an inheriting list (local indices are not the game indices) and the positional one
+ * also needs the class to declare digit fields at all, so a custom-deserialized list form is
+ * never second-guessed.
+ *
+ * @param ctx the findings and resolved containers of the run.
+ * @param list the list form to walk.
+ * @param classRef the class the list form stands for.
+ * @param containerCls the enclosing class, so a field of it can be named in the message.
+ * @param declaredName the name the list was written under, for that same message.
+ */
+const checkListFormMembers = (
+    ctx: SchemaCheckContext,
+    list: ListNode,
+    classRef: string,
+    containerCls?: string,
+    declaredName?: string
+): void => {
+    if (list.inheritance?.length) return;
+    // A class whose value-form delegation is itself a list (`HitEffects [ … ]` binds an
+    // effect array) reads its list spelling directly, so there is no positional group form
+    // to hold the elements against.
+    if (classReadsList(classRef)) return;
+    const digitFieldCount = list.elements.every(isAtomicListElement)
+        ? fieldsOf(classRef).filter((member) => /^\d+$/.test(member.name)).length
+        : 0;
+    for (const [index, element] of list.elements.entries()) {
+        const nameNode = isAssignmentNode(element)
+            ? element.left
+            : isGroupNode(element) || isListNode(element)
+              ? element.identifier
+              : undefined;
+        const classLabel = schema.types[classRef]?.name ?? classRef;
+        if (!nameNode) {
+            if (digitFieldCount > 0 && !fieldOf(classRef, String(index))) {
+                ctx.errors.push({
+                    message: l10n.t(
+                        '{0} reads only the first {1} list elements, so the game never reads this one.',
+                        classLabel,
+                        String(digitFieldCount)
+                    ),
+                    node: element,
+                    severity: 'warning',
+                });
+            }
+            continue;
+        }
+        if (/^\d+$/.test(nameNode.name) || fieldOf(classRef, nameNode.name)) continue;
+        if (containerCls && declaredName && fieldOf(containerCls, nameNode.name)) {
+            ctx.errors.push({
+                message: l10n.t(
+                    "'{0}' is not a member of {1}, so the game never reads it here. It is a field of the enclosing group and belongs outside the '{2}' brackets.",
+                    nameNode.name,
+                    classLabel,
+                    declaredName
+                ),
+                node: nameNode,
+                severity: 'warning',
+            });
+            continue;
+        }
+        const members = fieldsOf(classRef)
+            .map((member) => member.name)
+            .filter((name) => !/^\d+$/.test(name));
+        const suggestion = closestMatch(nameNode.name, members, true);
+        ctx.errors.push({
+            message: l10n.t(
+                "'{0}' is not a member of {1}, so the game never reads it here.",
+                nameNode.name,
+                classLabel
+            ),
+            node: nameNode,
+            severity: 'warning',
+            ...didYouMeanFix(suggestion),
+        });
+    }
+};
+
+/**
+ * A `list<group>` field whose entries are positional lists themselves (`EditorParentParts =
+ * [ [hull_part, 1] ]`, a route generator's `Routes`): each entry checks like a directly-written
+ * positional group value.
+ *
+ * @param ctx the findings and resolved containers of the run.
+ * @param value the list of entries.
+ * @param elementClassRef the class one entry stands for.
+ */
+const checkPositionalEntries = async (
+    ctx: SchemaCheckContext,
+    value: AbstractNode,
+    elementClassRef: string
+): Promise<void> => {
+    if (!isListNode(value)) return;
+    for (const entry of value.elements) {
+        if (isListNode(entry)) {
+            checkListFormMembers(ctx, entry, elementClassRef);
+            await checkPositionalElements(ctx, entry, elementClassRef);
+        }
+    }
+};
+
+/**
+ * A math expression or function call written into a field whose deserializer never evaluates
+ * math: the game reads it as literal text, so it silently ships broken. Only flagged when the
+ * shared evaluator can reduce the value to a number, which is what proves it is math. A
+ * parenthesized text value (`Name = Big Gun (Mk2)`) or an expression over unresolved references
+ * evaluates to `null` and is left alone, keeping the check false-positive-free.
+ *
+ * @param ctx the findings and resolved containers of the run.
+ * @param value the written value.
+ * @param fieldName the field the value is written under.
+ * @param valueType the type that field declares.
+ */
+const checkMathOnTextField = async (
+    ctx: SchemaCheckContext,
+    value: AbstractNode,
+    fieldName: string,
+    valueType: ValueType
+) => {
+    const resolved = await evaluateNumericValue(value, ctx.cancellationToken).catch(() => null);
+    if (resolved === null) return;
+    ctx.errors.push({
+        message: l10n.t(
+            "'{0}' is a {1} field; the game does not evaluate math here and reads the value as literal text.",
+            fieldName,
+            valueTypeLabel(valueType)
+        ),
+        node: value,
+        severity: 'warning',
+    });
+};
+
+/**
+ * A value written in a structural shape the field's deserializer never reads. The game loads
+ * such a file without error and silently misreads or drops the value, so the mismatch gets a
+ * warning: a list on a scalar/map/polymorphic field, a group on a textual or plain numeric
+ * field, and elements past what a range (two endpoints) or tuple (fixed arity) reads. The
+ * table errs on silence to honor the zero-false-positive contract: scalar values are never
+ * flagged (many group types also read an uncaptured scalar form, `Time` being the canonical
+ * case), asset fields accept groups (the `Texture` dual form), list-kind fields accept groups
+ * (custom collection deserializers), extras only count when every element is atomic, and
+ * opaque/constructed/generic kinds are skipped entirely.
+ *
+ * @param ctx the findings and resolved containers of the run.
+ * @param field the schema field the value is written under.
+ * @param value the written value.
+ * @param writtenName the name the value was written under.
+ */
+const checkValueForm = (
+    ctx: SchemaCheckContext,
+    field: SchemaField,
+    value: AbstractNode,
+    writtenName: string
+): void => {
+    const vt = field.valueType;
+    const flagForm = (form: string): void => {
+        ctx.errors.push({
+            message: l10n.t(
+                "'{0}' is a {1} field. The game cannot read a {2} value here.",
+                writtenName,
+                valueTypeLabel(vt),
+                form
+            ),
+            node: value,
+            severity: 'warning',
+        });
+    };
+    if (isListNode(value) && !value.inheritance?.length) {
+        const arity = vt.kind === 'tuple' ? vt.elements.length : undefined;
+        // A range is the one shape where a wrong element count is not a value the game quietly
+        // drops. Its reader takes elements "0" and "1" positionally and refuses anything else
+        // outright, so a list of none or of three is a file the game will not load.
+        if (vt.kind === 'range' && value.elements.every(isAtomicListElement)) {
+            const written = value.elements.length;
+            if (written !== 1 && written !== 2) {
+                ctx.errors.push({
+                    message: l10n.t(
+                        "'{0}' is a range, which reads one or two list elements. This list has {1}, so the game refuses to load the file.",
+                        writtenName,
+                        String(written)
+                    ),
+                    node: value,
+                    severity: 'error',
+                });
+            }
+        } else if (arity !== undefined && value.elements.every(isAtomicListElement)) {
+            for (const extra of value.elements.slice(arity)) {
+                ctx.errors.push({
+                    message: l10n.t(
+                        "'{0}' reads only {1} list elements, so the game never reads this one.",
+                        writtenName,
+                        String(arity)
+                    ),
+                    node: extra,
+                    severity: 'warning',
+                });
+            }
+        } else if (
+            vt.kind === 'polymorphicGroup' ||
+            vt.kind === 'bool' ||
+            vt.kind === 'string' ||
+            vt.kind === 'reference' ||
+            vt.kind === 'int' ||
+            vt.kind === 'float' ||
+            vt.kind === 'number' ||
+            vt.kind === 'asset' ||
+            vt.kind === 'code'
+        ) {
+            // Enum fields are exempt: a `[Flags]` enum reads a list of members
+            // (`ExternalWalls = [Left, Right]` all over vanilla) and the schema does not
+            // capture which enums are flags. Map fields are exempt too: the game's map
+            // deserializer also accepts a list of entries (`RenderLayers`, `…ByCell`).
+            flagForm(l10n.t('list'));
+        }
+    } else if (isGroupNode(value) && !value.inheritance?.length) {
+        const groupFormless = (vt.kind === 'int' || vt.kind === 'float' || vt.kind === 'number') && !vt.groupForm;
+        if (TEXTUAL_KINDS.has(vt.kind) || groupFormless) flagForm(l10n.t('group'));
+    } else if (isValueNode(value)) {
+        // A literal scalar in a group/map slot (`Offset = 5`), which only the custom-serialized
+        // classes in {@link SCALAR_FORM_GROUP_CLASSES} can read. References stay silent (any
+        // group field legally takes `&ref`), as do asset-typed values, whose classes read paths.
+        const literal =
+            value.valueType.type === 'String' ||
+            value.valueType.type === 'Number' ||
+            value.valueType.type === 'Boolean';
+        const isString = value.valueType.type === 'String';
+        const scalarLegal =
+            vt.kind === 'group' &&
+            (classReadsScalar(vt.ref, isString) || (field.scalarStringForm === true && isString));
+        if (literal && !scalarLegal && (vt.kind === 'map' || vt.kind === 'group')) {
+            flagForm(l10n.t('plain'));
+        }
+    }
+};
+
+/**
+ * Async pass: integer-constrained fields (scalar or `Range<int>`) and math written into a
+ * textual field, revisiting every container whose class we resolved during the synchronous
+ * walk above.
+ *
+ * @param ctx the findings and resolved containers of the run.
+ */
+const checkResolvedContainers = async (ctx: SchemaCheckContext): Promise<void> => {
+    for (const { container, cls } of ctx.typedContainers) {
+        if (ctx.cancellationToken.isCancellationRequested) break;
+        for (const element of container.elements) {
+            // An identified list member (`GridSize [1, 2]`) is the assignment-less spelling of the
+            // positional list form, so it takes the same per-element check.
+            if (isListNode(element) && element.identifier) {
+                const field = fieldOf(cls, element.identifier.name);
+                if (field?.valueType.kind === 'group') {
+                    checkListFormMembers(ctx, element, field.valueType.ref, cls, element.identifier.name);
+                    await checkPositionalElements(ctx, element, field.valueType.ref);
+                } else if (field?.valueType.kind === 'list' && field.valueType.element.kind === 'group') {
+                    await checkPositionalEntries(ctx, element, field.valueType.element.ref);
+                } else if (field) {
+                    checkValueForm(ctx, field, element, element.identifier.name);
+                }
+                continue;
+            }
+            // An identified group member (`Mode { … }` where the field is scalar-kind) takes the
+            // same structural check as its assignment spelling.
+            if (isGroupNode(element) && element.identifier) {
+                const field = fieldOf(cls, element.identifier.name);
+                if (field) checkValueForm(ctx, field, element, element.identifier.name);
+                continue;
+            }
+            if (!isAssignmentNode(element) || !element.right) continue;
+            const field = fieldOf(cls, element.left.name);
+            if (!field) continue;
+            checkValueForm(ctx, field, element.right, element.left.name);
+            if (requiresWholeNumber(field.valueType)) {
+                await checkInteger(ctx, element.right);
+            } else if (field.valueType.kind === 'range' && requiresWholeNumber(field.valueType.element)) {
+                await checkIntegerRange(ctx, element.right);
+            } else if (field.valueType.kind === 'group' && isListNode(element.right)) {
+                checkListFormMembers(ctx, element.right, field.valueType.ref, cls, element.left.name);
+                await checkPositionalElements(ctx, element.right, field.valueType.ref);
+            } else if (field.valueType.kind === 'list' && field.valueType.element.kind === 'group') {
+                await checkPositionalEntries(ctx, element.right, field.valueType.element.ref);
+            } else if (
+                TEXTUAL_KINDS.has(field.valueType.kind) &&
+                (isMathExpressionNode(element.right) || isFunctionCallNode(element.right))
+            ) {
+                await checkMathOnTextField(ctx, element.right, field.name, field.valueType);
+            }
+        }
+    }
+};
+
 /**
  * Whole-document schema validation. Runs as a separate pass (the {@link Validator} allows one
  * callback per AstType, and `Assignment` is taken). Deliberately conservative: every check is built
@@ -146,677 +937,25 @@ const requiresWholeNumber = (valueType: ValueType): boolean =>
  *
  * Range ordering is intentionally never checked: `Range<T>` endpoints are From→To interpolation
  * bounds, not min/max, and vanilla ships many descending pairs, so a `min>max` check is unsafe.
+ *
+ * @param document the parsed document to validate.
+ * @param cancellationToken cancels the value resolution the asynchronous checks do.
+ * @returns the findings, in the order the checks produced them.
  */
 export const validateSchema = async (
     document: AbstractNodeDocument,
     cancellationToken: CancellationToken
 ): Promise<ValidationError[]> => {
     if (isModRules(document.uri)) return [];
-    const errors: ValidationError[] = [];
-    // Every container we resolved a concrete class for, collected during the (sync) enum/bool walk so
-    // the async integer-resolution pass below can revisit the same fields without re-resolving classes.
-    const typedContainers: Array<{ container: { elements: AbstractNode[] }; cls: string }> = [];
-
-    // Flag an assignment written under a pre-rename spelling the game still accepts, or under a field
-    // superseded by a richer one. Both deserialize fine (the schema carries the old alias and the old
-    // member), so no other check ever surfaces them and the deprecations registry is the only source.
-    // Hint severity: the game reads the value, this is a modernization nudge, not a load problem.
-    const checkFieldDeprecations = (
-        container: { elements: AbstractNode[] },
-        cls: string,
-        element: AssignmentNode
-    ): void => {
-        const written = element.left.name;
-        let rename: ReturnType<typeof renamedFieldAlias>;
-        let obsolete: ReturnType<typeof obsoleteField>;
-        for (const ancestor of classAncestry(cls)) {
-            rename ??= renamedFieldAlias(ancestor, written);
-            obsolete ??= obsoleteField(ancestor, written);
-        }
-        const target = rename ?? obsolete;
-        if (!target) return;
-        // When the successor is already assigned beside the old spelling, a mechanical fix would
-        // create a duplicate member, so the finding is reported for manual review instead.
-        const replacementPresent = container.elements.some(
-            (sibling) =>
-                sibling !== element &&
-                ((isAssignmentNode(sibling) && sibling.left.name.toLowerCase() === target.replacement.toLowerCase()) ||
-                    ((isGroupNode(sibling) || isListNode(sibling)) &&
-                        sibling.identifier?.name.toLowerCase() === target.replacement.toLowerCase()))
-        );
-        if (rename) {
-            errors.push({
-                message: l10n.t(
-                    "'{0}' was renamed to '{1}' in game version {2} ({3}).",
-                    written,
-                    rename.replacement,
-                    rename.version,
-                    rename.note
-                ),
-                node: element.left,
-                severity: 'hint',
-                data: replacementPresent
-                    ? { migration: { version: rename.version, symbol: migrationSymbolOf('renamedAlias', written) } }
-                    : {
-                          migration: {
-                              version: rename.version,
-                              apply: 'quickFix',
-                              symbol: migrationSymbolOf('renamedAlias', written),
-                          },
-                          quickFix: {
-                              title: l10n.t("Change to '{0}'", rename.replacement),
-                              newText: rename.replacement,
-                          },
-                      },
-            });
-            return;
-        }
-        if (!obsolete) return;
-        const error: ValidationError = {
-            message: l10n.t(
-                "'{0}' was superseded by '{1}' in game version {2} ({3}).",
-                written,
-                obsolete.replacement,
-                obsolete.version,
-                obsolete.note
-            ),
-            node: element.left,
-            severity: 'hint',
-            data: { migration: { version: obsolete.version, symbol: migrationSymbolOf('obsoleteField', written) } },
-        };
-        // The mechanical rewrites wrap the existing scalar value in the successor's container shape
-        // (`ComponentID = X` → `ComponentIDs = [X]`, `ExplosiveDamageResistance = X` →
-        // `DamageResistances = { explosive = X }`), keeping the value's own text untouched. Only a
-        // plain scalar value qualifies. Anything else (already a container, a missing value) needs
-        // author judgment and stays a manual finding.
-        const value = element.right;
-        if (!replacementPresent && value && isValueNode(value)) {
-            const wrap =
-                obsolete.replacement === 'ComponentIDs'
-                    ? { open: '[', close: ']' }
-                    : obsolete.replacement === 'DamageResistances'
-                      ? { open: '{ explosive = ', close: ' }' }
-                      : undefined;
-            if (wrap) {
-                error.data = {
-                    migration: {
-                        version: obsolete.version,
-                        apply: 'rewrite',
-                        symbol: migrationSymbolOf('obsoleteField', written),
-                    },
-                    rewrite: {
-                        title: l10n.t("Change to '{0}'", obsolete.replacement),
-                        edits: [
-                            {
-                                start: element.left.position.start,
-                                end: element.left.position.end,
-                                newText: obsolete.replacement,
-                            },
-                            { start: value.position.start, end: value.position.start, newText: wrap.open },
-                            { start: value.position.end, end: value.position.end, newText: wrap.close },
-                        ],
-                    },
-                };
-            }
-        }
-        errors.push(error);
-    };
-
-    // Flag a `name = <word>` assignment whose schema field is an enum/bool not allowing that bare word.
-    // Bare-word values only. `&refs`, expressions, numbers and quoted strings parse as other types.
-    const checkEnums = (container: { elements: AbstractNode[] }, cls: string): void => {
-        typedContainers.push({ container, cls });
-        for (const element of container.elements) {
-            // A bare valueless field (`ScaleIn` alone on a line) deserializes as null, which the
-            // game only tolerates for nullable member types. On a non-nullable one it throws a
-            // DeserializeException at load. Only flagged when the schema knows the field is
-            // non-nullable, so partially-modelled classes stay silent.
-            if (isIdentifierNode(element)) {
-                const field = fieldOf(cls, element.name);
-                if (field?.nullable === false) {
-                    errors.push({
-                        message: l10n.t(
-                            "'{0}' has no value. The game reads a valueless field as null and fails to load it into a non-nullable {1}.",
-                            element.name,
-                            valueTypeLabel(field.valueType)
-                        ),
-                        node: element,
-                        severity: 'warning',
-                    });
-                }
-                continue;
-            }
-            if (!isAssignmentNode(element)) continue;
-            checkFieldDeprecations(container, cls, element);
-            const value = element.right;
-            if (!isValueNode(value) || value.valueType.type !== 'String') continue;
-            const field = fieldOf(cls, element.left.name);
-            if (!field) continue;
-            const written = String(value.valueType.value);
-
-            if (field.valueType.kind === 'enum') {
-                const members = enumDef(field.valueType.ref)?.members ?? [];
-                if (members.length > 0 && !members.includes(written)) {
-                    // The game parses enum values with the case-sensitive `Enum.Parse(type, text)`,
-                    // so a member matched only after case-folding still fails to load in game and
-                    // deserves its own message.
-                    // A member the game renamed is reported as the rename it is, with the version
-                    // that made it, rather than as a value the enum happens not to have.
-                    const renamed = deprecatedEnumValue(field.valueType.ref, written);
-                    const folded = members.find((m) => m.toLowerCase() === written.toLowerCase());
-                    if (renamed) {
-                        errors.push({
-                            message: l10n.t(
-                                "'{0}' was renamed to '{1}' in game version {2} ({3}).",
-                                written,
-                                renamed.replacement,
-                                renamed.version ?? '',
-                                renamed.note
-                            ),
-                            node: value,
-                            severity: 'hint',
-                            data: {
-                                migration: {
-                                    version: renamed.version,
-                                    apply: 'rewrite',
-                                    symbol: migrationSymbolOf('enumValue', written),
-                                },
-                                rewrite: {
-                                    title: l10n.t("Change to '{0}'", renamed.replacement),
-                                    edits: [
-                                        {
-                                            start: value.position.start,
-                                            end: value.position.end,
-                                            newText: renamed.replacement,
-                                        },
-                                    ],
-                                },
-                                quickFix: {
-                                    title: l10n.t("Change to '{0}'", renamed.replacement),
-                                    newText: renamed.replacement,
-                                },
-                            },
-                        });
-                    } else if (folded) {
-                        errors.push({
-                            message: l10n.t(
-                                "'{0}' has the wrong casing. The game's enum parsing is case-sensitive; write '{1}'.",
-                                written,
-                                folded
-                            ),
-                            node: value,
-                            severity: 'warning',
-                            data: { quickFix: { title: l10n.t("Change to '{0}'", folded), newText: folded } },
-                        });
-                    } else {
-                        flag(value, written, field.valueType.name, members, closestMatch(written, members, true));
-                    }
-                }
-            } else if (field.valueType.kind === 'bool') {
-                // The game's BooleanSerializer accepts true/yes/y and false/no/n (ignoring case)
-                // plus the literal 1/0 (which lex as numbers and never reach this String branch).
-                if (!BOOLEAN_WORDS.has(written.toLowerCase())) {
-                    const bools = ['true', 'false'];
-                    flag(value, written, 'boolean', bools, closestMatch(written, bools, true));
-                }
-            } else if (field.valueType.kind === 'number' && NUMERIC_SCALAR_TYPES.has(field.valueType.type ?? '')) {
-                flagNonNumber(value, written);
-            }
-        }
-    };
-
-    // Flag a bare-word value sitting in a numeric field (e.g. an angle/`Direction` written as a word
-    // rather than a number). Only a plain unquoted, unparenthesized identifier that is not a math
-    // keyword/constant qualifies. Anything that could be a literal, reference or expression is
-    // already a different value type and never reaches here.
-    const flagNonNumber = (value: ValueNode, written: string): void => {
-        if (value.quoted || value.parenthesized) return;
-        const word = written.toLowerCase();
-        if (!BARE_WORD.test(written) || NUMERIC_LITERAL_WORDS.has(word) || ALL_MATH_FUNCTION_NAMES.has(word)) {
-            return;
-        }
-        errors.push({
-            message: l10n.t("'{0}' is not a valid number.", written),
-            node: value,
-            severity: 'warning',
-        });
-    };
-
-    const flag = (
-        value: AbstractNode,
-        written: string,
-        typeName: string,
-        members: string[],
-        suggestion: string | null | undefined
-    ): void => {
-        errors.push({
-            message: l10n.t("'{0}' is not a valid {1}. Expected one of: {2}", written, typeName, members.join(', ')),
-            node: value,
-            severity: 'warning',
-            ...didYouMeanFix(suggestion),
-        });
-    };
-
-    // The registry a `Type=`-dispatched group belongs to, but only when we're confident: the slot it
-    // sits in is typed as a polymorphic registry (precise), or for custom-deserialized containers
-    // with no slot (Components, BulletComponents) a sibling's valid `Type` proves the registry.
-    const confidentRegistryFor = (group: GroupNode): SchemaRegistry | undefined => {
-        const slot = registryHintFromContainer(group);
-        if (slot) return schema.registries[slot];
-        const container = group.parent;
-        return container && isGroupNode(container) ? registryForContainer(container) : undefined;
-    };
-
-    // Flag a `Type = <word>` (in a group or the document root) whose value is not a member of the
-    // given registry, the polymorphic analogue of the enum check (closed set, low false-positive
-    // risk). Shared by nested groups and whole-file roots.
-    const flagInvalidType = (container: { elements: AbstractNode[] }, registry: SchemaRegistry): void => {
-        let valueNode: AbstractNode | undefined;
-        for (const element of container.elements) {
-            if (isAssignmentNode(element) && element.left.name === registry.typeField) {
-                valueNode = element.right ?? undefined;
-                break;
-            }
-        }
-        if (!valueNode || !isValueNode(valueNode) || valueNode.valueType.type !== 'String') return;
-        const written = String(valueNode.valueType.value);
-        const members = Object.keys(registry.members);
-        if (members.some((m) => m.toLowerCase() === written.toLowerCase())) return;
-        // A type that was renamed in a newer game version (a mod written against an older Cosmoteer):
-        // say what it became and offer that fix, but only when the new name is valid in THIS registry, so
-        // the hint never points at a replacement that wouldn't deserialize here.
-        const deprecation = deprecatedDiscriminator(written);
-        if (deprecation && members.includes(deprecation.replacement)) {
-            errors.push({
-                message: deprecation.version
-                    ? l10n.t(
-                          "'{0}' was renamed to '{1}' in game version {2} ({3}).",
-                          written,
-                          deprecation.replacement,
-                          deprecation.version,
-                          deprecation.note
-                      )
-                    : l10n.t(
-                          "'{0}' was renamed to '{1}' in a newer game version ({2}).",
-                          written,
-                          deprecation.replacement,
-                          deprecation.note
-                      ),
-                node: valueNode,
-                severity: 'warning',
-                data: {
-                    migration: {
-                        version: deprecation.version,
-                        apply: 'quickFix',
-                        symbol: migrationSymbolOf('discriminator', written),
-                    },
-                    quickFix: {
-                        title: l10n.t("Change to '{0}'", deprecation.replacement),
-                        newText: deprecation.replacement,
-                    },
-                },
-            });
-            return;
-        }
-        const suggestion = closestMatch(written, members, true);
-        errors.push({
-            message: l10n.t("'{0}' is not a valid {1} type.", written, registry.name),
-            node: valueNode,
-            severity: 'warning',
-            ...didYouMeanFix(suggestion),
-        });
-    };
-
-    // A nested group: validate its `Type=` against the registry confidently inferred from its slot
-    // or a valid sibling.
-    const checkDiscriminator = (group: GroupNode): void => {
-        const registry = confidentRegistryFor(group);
-        if (registry) flagInvalidType(group, registry);
-    };
-
+    const ctx: SchemaCheckContext = { errors: [], typedContainers: [], cancellationToken };
     // Whole-file-root documents (e.g. shot files → BulletRules): validate the top-level fields.
     const rootClass = documentRootClass(document);
-    if (rootClass) checkEnums(document, rootClass);
+    if (rootClass) checkEnums(ctx, document, rootClass);
     // A whole-file root dispatched by its top-level `Type=` (doodad/effect/music): validate that
     // discriminator against its registry, known by the canonical folder even when it's a typo.
     const rootRegistry = documentRootRegistry(document);
-    if (rootRegistry) flagInvalidType(document, rootRegistry);
-
-    const visit = (node: AbstractNode): void => {
-        if (cancellationToken.isCancellationRequested) return;
-        if (isGroupNode(node)) {
-            // A group's class comes from its slot (which disambiguates a `Type=` collision via the
-            // container's field type). Only skip when the discriminator is ambiguous and the
-            // container gives no hint, where we can't trust the class, so we'd risk a false positive.
-            const disc = groupDiscriminator(node);
-            const slotRegistry = registryHintFromContainer(node);
-            const unresolvableAmbiguity = disc && discriminatorIsAmbiguous(disc) && !slotRegistry;
-            const cls = unresolvableAmbiguity ? undefined : resolveGroupClass(node);
-            if (cls) checkEnums(node, cls);
-            // A `Type=` that resolves to no class (typo) is caught here against the inferred
-            // registry. A polymorphic slot needs one more case: it resolves the group to the
-            // registry base itself when the discriminator matches no member (that fallback keeps
-            // the base's fields working), so a slot-typed group whose class is exactly that
-            // fallback validates its discriminator too. A concrete resolution (including the
-            // sector spawners whose `Type = Doodads` dispatches beyond the slot registry's own
-            // member map) is proof the game reads it and stays silent. A deprecated name is the
-            // exception: it resolves through its rename as an editing courtesy, but the game does
-            // not read it, so it must still surface the rename hint.
-            if (disc && (!cls || cls === slotRegistry || deprecatedDiscriminator(disc))) checkDiscriminator(node);
-        }
-        const children = childNodesOf(node);
-        for (const child of children) visit(child);
-    };
-
-    // A value sitting in an integer-only field: flag when it resolves to a non-whole number. Unlike
-    // the bare-word checks above, this resolves the value, following references through inheritance
-    // and evaluating math expressions/functions via the shared evaluator. Anything the evaluator
-    // can't reduce to a number (unresolved/runtime refs, named constants, non-numeric strings) yields
-    // `null` and is left alone, so the check stays false-positive-free. A `%` operand (e.g. `50%` →
-    // 0.5) is skipped, since percentages belong to fractional fields, so a stray one is not a fact.
-    const checkInteger = async (value: AbstractNode): Promise<void> => {
-        if (isValueNode(value) && /%/.test(String(value.valueType.value))) return;
-        const resolved = await evaluateNumericValue(value, cancellationToken).catch(() => null);
-        if (resolved === null || Number.isInteger(resolved)) return;
-        errors.push({
-            message: l10n.t('Expected a whole number, but this value is {0}.', formatNumber(resolved)),
-            node: value,
-            severity: 'warning',
-        });
-    };
-
-    // A value in an integer-element `Range<int>` field. The engine accepts a range as either a single
-    // scalar (min == max) or a `[from, to]` list, so check each endpoint individually. Range ordering
-    // is deliberately not validated: `Range<T>` does not require from <= to. Its endpoints are
-    // interpolation bounds (e.g. `VolumeOverIntensity = [1.5, 0.5]` fades down), and vanilla ships
-    // many descending pairs, so a min>max check would be a false positive.
-    const checkIntegerRange = async (value: AbstractNode): Promise<void> => {
-        if (isListNode(value)) {
-            for (const endpoint of value.elements) await checkInteger(endpoint);
-        } else {
-            await checkInteger(value);
-        }
-    };
-
-    // A group-typed field written in its positional list form (`GridSize = [1, 2]`): the game
-    // deserializer reads element N through the class's digit field `"N"` (the same fallback that
-    // makes `[7.2, 7.2]` a legal Vector2), so an integer-constrained component (IntVector2,
-    // IntRect, …) is checked exactly like its group-form counterpart. Classes without digit
-    // fields simply have no positional field to check against.
-    const checkPositionalElements = async (list: ListNode, classRef: string): Promise<void> => {
-        // An inheriting list (`X : base [ … ]`) appends its local elements after the inherited
-        // ones, so the local index is not the game index and the check must stay silent. A class
-        // with a list-reading value form has no positional digit semantics either.
-        if (list.inheritance?.length || classReadsList(classRef)) return;
-        for (const [index, element] of list.elements.entries()) {
-            const positional = fieldOf(classRef, String(index));
-            if (positional && requiresWholeNumber(positional.valueType)) await checkInteger(element);
-        }
-    };
-
-    // Whether an AST list element maps one-to-one onto a game list element. The game only ends a
-    // list element at `,`, `;`, a line break or `]`, and the parser now folds a math run into one
-    // node for the same reason, so a computed element counts once just like a plain one. A bare
-    // operator node is the only shape left that does not stand for an element of its own, and its
-    // presence means the run did not fold, which makes every later index unreliable.
-    const isAtomicListElement = (element: AbstractNode): boolean =>
-        isGroupNode(element) ||
-        isListNode(element) ||
-        isAssignmentNode(element) ||
-        isMathExpressionNode(element) ||
-        isFunctionCallNode(element) ||
-        (isValueNode(element) && (element.valueType.type === 'Number' || element.valueType.type === 'String'));
-
-    // A named member inside a group-typed field's list form (`Offset [Scale2In = offset]`): the
-    // game reads list-form members positionally through the class's digit fields or by the class's
-    // own member names, so a name the class does not own is silently ignored. The classic trap is
-    // a field of the enclosing group written inside the brackets, where the author meant it one
-    // level up, and that case gets its own move-it-out message. Everything else gets a did-you-mean
-    // against the class's members when one is close. Unnamed elements past the class's digit fields
-    // (`Offset [0, 1, 2, 3]` on a Vector2, which reads only elements 0 and 1) are dead the same
-    // way, flagged per element so every unread value shows, but only when every element is atomic
-    // (see {@link isAtomicListElement}) so the AST indices are the game indices. Both checks stay
-    // silent on an inheriting list (local indices are not the game indices) and the positional one
-    // also needs the class to declare digit fields at all, so a custom-deserialized list form is
-    // never second-guessed.
-    const checkListFormMembers = (
-        list: ListNode,
-        classRef: string,
-        containerCls?: string,
-        declaredName?: string
-    ): void => {
-        if (list.inheritance?.length) return;
-        // A class whose value-form delegation is itself a list (`HitEffects [ … ]` binds an
-        // effect array) reads its list spelling directly, so there is no positional group form
-        // to hold the elements against.
-        if (classReadsList(classRef)) return;
-        const digitFieldCount = list.elements.every(isAtomicListElement)
-            ? fieldsOf(classRef).filter((member) => /^\d+$/.test(member.name)).length
-            : 0;
-        for (const [index, element] of list.elements.entries()) {
-            const nameNode = isAssignmentNode(element)
-                ? element.left
-                : isGroupNode(element) || isListNode(element)
-                  ? element.identifier
-                  : undefined;
-            const classLabel = schema.types[classRef]?.name ?? classRef;
-            if (!nameNode) {
-                if (digitFieldCount > 0 && !fieldOf(classRef, String(index))) {
-                    errors.push({
-                        message: l10n.t(
-                            '{0} reads only the first {1} list elements, so the game never reads this one.',
-                            classLabel,
-                            String(digitFieldCount)
-                        ),
-                        node: element,
-                        severity: 'warning',
-                    });
-                }
-                continue;
-            }
-            if (/^\d+$/.test(nameNode.name) || fieldOf(classRef, nameNode.name)) continue;
-            if (containerCls && declaredName && fieldOf(containerCls, nameNode.name)) {
-                errors.push({
-                    message: l10n.t(
-                        "'{0}' is not a member of {1}, so the game never reads it here. It is a field of the enclosing group and belongs outside the '{2}' brackets.",
-                        nameNode.name,
-                        classLabel,
-                        declaredName
-                    ),
-                    node: nameNode,
-                    severity: 'warning',
-                });
-                continue;
-            }
-            const members = fieldsOf(classRef)
-                .map((member) => member.name)
-                .filter((name) => !/^\d+$/.test(name));
-            const suggestion = closestMatch(nameNode.name, members, true);
-            errors.push({
-                message: l10n.t(
-                    "'{0}' is not a member of {1}, so the game never reads it here.",
-                    nameNode.name,
-                    classLabel
-                ),
-                node: nameNode,
-                severity: 'warning',
-                ...didYouMeanFix(suggestion),
-            });
-        }
-    };
-
-    // A `list<group>` field whose entries are positional lists themselves (`EditorParentParts =
-    // [ [hull_part, 1] ]`, a route generator's `Routes`): each entry checks like a directly-written
-    // positional group value.
-    const checkPositionalEntries = async (value: AbstractNode, elementClassRef: string): Promise<void> => {
-        if (!isListNode(value)) return;
-        for (const entry of value.elements) {
-            if (isListNode(entry)) {
-                checkListFormMembers(entry, elementClassRef);
-                await checkPositionalElements(entry, elementClassRef);
-            }
-        }
-    };
-
-    for (const element of document.elements) visit(element);
-
-    // A math expression or function call written into a field whose deserializer never evaluates
-    // math: the game reads it as literal text, so it silently ships broken. Only flagged when the
-    // shared evaluator can reduce the value to a number, which is what proves it IS math. A
-    // parenthesized text value (`Name = Big Gun (Mk2)`) or an expression over unresolved references
-    // evaluates to `null` and is left alone, keeping the check false-positive-free.
-    const checkMathOnTextField = async (value: AbstractNode, fieldName: string, valueType: ValueType) => {
-        const resolved = await evaluateNumericValue(value, cancellationToken).catch(() => null);
-        if (resolved === null) return;
-        errors.push({
-            message: l10n.t(
-                "'{0}' is a {1} field; the game does not evaluate math here and reads the value as literal text.",
-                fieldName,
-                valueTypeLabel(valueType)
-            ),
-            node: value,
-            severity: 'warning',
-        });
-    };
-
-    // A value written in a structural shape the field's deserializer never reads. The game loads
-    // such a file without error and silently misreads or drops the value, so the mismatch gets a
-    // warning: a list on a scalar/map/polymorphic field, a group on a textual or plain numeric
-    // field, and elements past what a range (two endpoints) or tuple (fixed arity) reads. The
-    // table errs on silence to honor the zero-false-positive contract: scalar values are never
-    // flagged (many group types also read an uncaptured scalar form, `Time` being the canonical
-    // case), asset fields accept groups (the `Texture` dual form), list-kind fields accept groups
-    // (custom collection deserializers), extras only count when every element is atomic, and
-    // opaque/constructed/generic kinds are skipped entirely.
-    const checkValueForm = (field: SchemaField, value: AbstractNode, writtenName: string): void => {
-        const vt = field.valueType;
-        const flagForm = (form: string): void => {
-            errors.push({
-                message: l10n.t(
-                    "'{0}' is a {1} field. The game cannot read a {2} value here.",
-                    writtenName,
-                    valueTypeLabel(vt),
-                    form
-                ),
-                node: value,
-                severity: 'warning',
-            });
-        };
-        if (isListNode(value) && !value.inheritance?.length) {
-            const arity = vt.kind === 'tuple' ? vt.elements.length : undefined;
-            // A range is the one shape where a wrong element count is not a value the game quietly
-            // drops. Its reader takes elements "0" and "1" positionally and refuses anything else
-            // outright, so a list of none or of three is a file the game will not load.
-            if (vt.kind === 'range' && value.elements.every(isAtomicListElement)) {
-                const written = value.elements.length;
-                if (written !== 1 && written !== 2) {
-                    errors.push({
-                        message: l10n.t(
-                            "'{0}' is a range, which reads one or two list elements. This list has {1}, so the game refuses to load the file.",
-                            writtenName,
-                            String(written)
-                        ),
-                        node: value,
-                        severity: 'error',
-                    });
-                }
-            } else if (arity !== undefined && value.elements.every(isAtomicListElement)) {
-                for (const extra of value.elements.slice(arity)) {
-                    errors.push({
-                        message: l10n.t(
-                            "'{0}' reads only {1} list elements, so the game never reads this one.",
-                            writtenName,
-                            String(arity)
-                        ),
-                        node: extra,
-                        severity: 'warning',
-                    });
-                }
-            } else if (
-                vt.kind === 'polymorphicGroup' ||
-                vt.kind === 'bool' ||
-                vt.kind === 'string' ||
-                vt.kind === 'reference' ||
-                vt.kind === 'int' ||
-                vt.kind === 'float' ||
-                vt.kind === 'number' ||
-                vt.kind === 'asset' ||
-                vt.kind === 'code'
-            ) {
-                // Enum fields are exempt: a `[Flags]` enum reads a list of members
-                // (`ExternalWalls = [Left, Right]` all over vanilla) and the schema does not
-                // capture which enums are flags. Map fields are exempt too: the game's map
-                // deserializer also accepts a list of entries (`RenderLayers`, `…ByCell`).
-                flagForm(l10n.t('list'));
-            }
-        } else if (isGroupNode(value) && !value.inheritance?.length) {
-            const groupFormless = (vt.kind === 'int' || vt.kind === 'float' || vt.kind === 'number') && !vt.groupForm;
-            if (TEXTUAL_KINDS.has(vt.kind) || groupFormless) flagForm(l10n.t('group'));
-        } else if (isValueNode(value)) {
-            // A literal scalar in a group/map slot (`Offset = 5`), which only the custom-serialized
-            // classes in {@link SCALAR_FORM_GROUP_CLASSES} can read. References stay silent (any
-            // group field legally takes `&ref`), as do asset-typed values, whose classes read paths.
-            const literal =
-                value.valueType.type === 'String' ||
-                value.valueType.type === 'Number' ||
-                value.valueType.type === 'Boolean';
-            const isString = value.valueType.type === 'String';
-            const scalarLegal =
-                vt.kind === 'group' &&
-                (classReadsScalar(vt.ref, isString) || (field.scalarStringForm === true && isString));
-            if (literal && !scalarLegal && (vt.kind === 'map' || vt.kind === 'group')) {
-                flagForm(l10n.t('plain'));
-            }
-        }
-    };
-
-    // Async pass: integer-constrained fields (scalar or `Range<int>`) and math written into a
-    // textual field, revisiting every container whose class we resolved during the synchronous
-    // walk above.
-    for (const { container, cls } of typedContainers) {
-        if (cancellationToken.isCancellationRequested) break;
-        for (const element of container.elements) {
-            // An identified list member (`GridSize [1, 2]`) is the assignment-less spelling of the
-            // positional list form, so it takes the same per-element check.
-            if (isListNode(element) && element.identifier) {
-                const field = fieldOf(cls, element.identifier.name);
-                if (field?.valueType.kind === 'group') {
-                    checkListFormMembers(element, field.valueType.ref, cls, element.identifier.name);
-                    await checkPositionalElements(element, field.valueType.ref);
-                } else if (field?.valueType.kind === 'list' && field.valueType.element.kind === 'group') {
-                    await checkPositionalEntries(element, field.valueType.element.ref);
-                } else if (field) {
-                    checkValueForm(field, element, element.identifier.name);
-                }
-                continue;
-            }
-            // An identified group member (`Mode { … }` where the field is scalar-kind) takes the
-            // same structural check as its assignment spelling.
-            if (isGroupNode(element) && element.identifier) {
-                const field = fieldOf(cls, element.identifier.name);
-                if (field) checkValueForm(field, element, element.identifier.name);
-                continue;
-            }
-            if (!isAssignmentNode(element) || !element.right) continue;
-            const field = fieldOf(cls, element.left.name);
-            if (!field) continue;
-            checkValueForm(field, element.right, element.left.name);
-            if (requiresWholeNumber(field.valueType)) {
-                await checkInteger(element.right);
-            } else if (field.valueType.kind === 'range' && requiresWholeNumber(field.valueType.element)) {
-                await checkIntegerRange(element.right);
-            } else if (field.valueType.kind === 'group' && isListNode(element.right)) {
-                checkListFormMembers(element.right, field.valueType.ref, cls, element.left.name);
-                await checkPositionalElements(element.right, field.valueType.ref);
-            } else if (field.valueType.kind === 'list' && field.valueType.element.kind === 'group') {
-                await checkPositionalEntries(element.right, field.valueType.element.ref);
-            } else if (
-                TEXTUAL_KINDS.has(field.valueType.kind) &&
-                (isMathExpressionNode(element.right) || isFunctionCallNode(element.right))
-            ) {
-                await checkMathOnTextField(element.right, field.name, field.valueType);
-            }
-        }
-    }
-    return errors;
+    if (rootRegistry) flagInvalidType(ctx, document, rootRegistry);
+    for (const element of document.elements) visit(ctx, element);
+    await checkResolvedContainers(ctx);
+    return ctx.errors;
 };

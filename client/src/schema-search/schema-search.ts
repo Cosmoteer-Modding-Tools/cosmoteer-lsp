@@ -1,6 +1,7 @@
 import { Position, QuickInputButton, QuickPickItem, ThemeIcon, Uri, commands, l10n, window } from 'vscode';
 import { ExecuteCommandRequest, LanguageClient } from 'vscode-languageclient/node';
 import { VirtualContentProvider } from '../virtual-content-provider';
+import { COSMOTEER_METHOD } from '../../../shared/lsp-methods';
 
 /** The virtual-document scheme the rendered schema documentation is served under. */
 export const SCHEMA_DOC_SCHEME = 'cosmoteer-schema-doc';
@@ -144,7 +145,7 @@ export async function showSchemaSearch(client: LanguageClient, provider: SchemaD
         const ticket = ++queryTicket;
         picker.busy = true;
         try {
-            const result = await client.sendRequest<SchemaSearchResult | null>('cosmoteer/schemaSearch', {
+            const result = await client.sendRequest<SchemaSearchResult | null>(COSMOTEER_METHOD.schemaSearch, {
                 query,
                 ...(withCaret && caret
                     ? {
@@ -169,7 +170,7 @@ export async function showSchemaSearch(client: LanguageClient, provider: SchemaD
 
     const openDocumentation = async (hit: SchemaSearchHit): Promise<void> => {
         const markdown = await client
-            .sendRequest<string | null>('cosmoteer/schemaSearchDetail', { id: hit.id })
+            .sendRequest<string | null>(COSMOTEER_METHOD.schemaSearchDetail, { id: hit.id })
             .catch(() => null);
         if (!markdown) {
             void window.showWarningMessage(l10n.t('No documentation is available for {0}.', hit.label));

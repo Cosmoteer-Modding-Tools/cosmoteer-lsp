@@ -25,8 +25,8 @@ import {
 export const ACTION_VERBS = ['Add', 'AddMany', 'Overrides', 'Replace', 'Remove', 'RemoveMany', 'AddBase'] as const;
 export type ActionVerb = (typeof ACTION_VERBS)[number];
 
-export const isActionVerb = (text: string | undefined): text is ActionVerb =>
-    !!text && (ACTION_VERBS as readonly string[]).includes(text);
+/** The case-insensitive name of the list that holds action entries, per the game's node lookup. */
+const ACTIONS_LIST_NAME = 'actions';
 
 export type ActionFlag = 'OnlyIfNotExisting' | 'CreateIfNotExisting' | 'IgnoreIfNotExisting';
 
@@ -143,6 +143,15 @@ export const TARGET_FIELDS = new Set<string>(Object.values(VERB_SCHEMA).flatMap(
 
 const targetFieldKeys = new Set([...TARGET_FIELDS].map((name) => name.toLowerCase()));
 
+/**
+ * Whether a written word is one of the seven verbs the game knows.
+ *
+ * @param text the verb as written, or undefined when the entry declares none.
+ * @returns true when the game would read the word as a verb.
+ */
+export const isActionVerb = (text: string | undefined): text is ActionVerb =>
+    !!text && (ACTION_VERBS as readonly string[]).includes(text);
+
 /** Whether a written field name is a target field, ignoring case like the game's node lookup. */
 export const isTargetField = (name: string): boolean => targetFieldKeys.has(name.toLowerCase());
 
@@ -175,9 +184,6 @@ export interface ModAction {
 
 /** Public alias kept stable: the registrar stores `Action[]`. */
 export type Action = ModAction;
-
-/** The case-insensitive name of the list that holds action entries, per the game's node lookup. */
-const ACTIONS_LIST_NAME = 'actions';
 
 /** Whether a `{}` group directly declares an `Action = …` field (the game's action-entry marker). */
 const hasActionField = (group: GroupNode): boolean =>
@@ -215,7 +221,7 @@ export const isActionsList = (node: AbstractNode | undefined): node is ListNode 
  * lives in, so it identifies action entries in an included fragment file (launcher.rules) exactly as
  * in a mod.rules manifest. The verb text itself is not required to be known here. A typo'd verb is
  * still an action entry, so its target is still exempt from the generic reference checks and the
- * "unknown verb" message comes from {@link import('./action-parser').parseModActions}.
+ * "unknown verb" message comes from `parseModActions` in the action parser, which reads this model.
  */
 export const isActionEntryGroup = (group: GroupNode): boolean => hasActionField(group) && isActionsList(group.parent);
 

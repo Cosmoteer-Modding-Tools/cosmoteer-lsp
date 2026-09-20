@@ -19,7 +19,9 @@ import {
     PartTableEdit,
     PartTableEditResult,
     PartTableFormulaResult,
+    PartTableWorkbookResult,
 } from './table-panel.types';
+import { COSMOTEER_METHOD } from '../../../shared/lsp-methods';
 
 /**
  * Where the saved views live. Global rather than per workspace: a view is a way of looking at parts,
@@ -151,7 +153,7 @@ export class PartTablePanel {
         }
         this.waiting = true;
         const table = await this.client
-            .sendRequest<PartTableData | null>('cosmoteer/partTable', {
+            .sendRequest<PartTableData | null>(COSMOTEER_METHOD.partTable, {
                 textDocument: this.tracked ? { uri: this.tracked.toString() } : undefined,
                 columns,
                 filter,
@@ -251,13 +253,16 @@ export class PartTablePanel {
             }
             case 'formula': {
                 if (!message.id || !message.formula) return;
-                const result = await this.client.sendRequest<PartTableFormulaResult>('cosmoteer/partTableFormula', {
-                    formula: message.formula,
-                    reference: message.reference || undefined,
-                    formulas: message.formulas,
-                    rows: message.rows,
-                    overrides: message.overrides,
-                });
+                const result = await this.client.sendRequest<PartTableFormulaResult>(
+                    COSMOTEER_METHOD.partTableFormula,
+                    {
+                        formula: message.formula,
+                        reference: message.reference || undefined,
+                        formulas: message.formulas,
+                        rows: message.rows,
+                        overrides: message.overrides,
+                    }
+                );
                 await this.panel.webview.postMessage({ type: 'formulaResult', id: message.id, ...result });
                 return;
             }
@@ -265,13 +270,43 @@ export class PartTablePanel {
                 await this.applyEdits(message.edits ?? []);
                 return;
             }
-            case 'copyCsv': {
-                if (!message.text) return;
-                await env.clipboard.writeText(message.text);
-                void window.showInformationMessage(l10n.t('The table is on the clipboard, ready to paste.'));
+            case 'exportExcel': {
+                if (!message.model) return;
+                await this.exportWorkbook(message.model);
                 return;
             }
         }
+    }
+
+    /**
+     * Builds the workbook for what the table is showing and writes it where the reader asks for
+     * it. The file is offered to be opened afterwards, since an export is made to be looked at.
+     *
+     * @param model the rows, columns and formulas the page sends.
+     */
+    private async exportWorkbook(model: unknown): Promise<void> {
+        const built = await this.client
+            .sendRequest<PartTableWorkbookResult | null>(COSMOTEER_METHOD.partTableWorkbook, model)
+            .catch(() => null);
+        if (!built) {
+            void window.showWarningMessage(l10n.t('The workbook could not be built.'));
+            return;
+        }
+        const folder = workspace.workspaceFolders?.[0]?.uri;
+        const target = await window.showSaveDialog({
+            defaultUri: folder ? Uri.joinPath(folder, built.fileName) : Uri.file(built.fileName),
+            filters: { [l10n.t('Excel workbook')]: ['xlsx'] },
+            title: l10n.t('Export the part table'),
+        });
+        if (!target) return;
+        try {
+            await workspace.fs.writeFile(target, Buffer.from(built.base64, 'base64'));
+        } catch {
+            void window.showErrorMessage(l10n.t('The workbook could not be written.'));
+            return;
+        }
+        const open = await window.showInformationMessage(l10n.t('The part table was exported.'), l10n.t('Open it'));
+        if (open) await env.openExternal(target);
     }
 
     /**
@@ -285,7 +320,7 @@ export class PartTablePanel {
         const results: Array<PartTableEdit & { status: string; message?: string; note?: string }> = [];
         for (const edit of edits) {
             const result = await this.client
-                .sendRequest<PartTableEditResult | null>('cosmoteer/partTableEdit', edit)
+                .sendRequest<PartTableEditResult | null>(COSMOTEER_METHOD.partTableEdit, edit)
                 .catch(() => null);
             if (!result) {
                 results.push({ ...edit, status: 'error', message: l10n.t('The value could not be written.') });
@@ -363,7 +398,7 @@ export class PartTablePanel {
 <label class="check"><input id="percent" type="checkbox" disabled />${l10n.t('Show as % of that part')}</label>
 <span id="legend" class="legend" hidden><span class="swatch below"></span>${l10n.t('below')} <span class="swatch same"></span>${l10n.t('same')} <span class="swatch above"></span>${l10n.t('above')}</span>
 <label class="check"><input id="per-tile" type="checkbox" />${l10n.t('Per tile')}</label>
-<button id="copy-csv" type="button" class="secondary">${l10n.t('Copy as CSV')}</button>
+<button id="export-excel" type="button" class="secondary">${l10n.t('Export to Excel…')}</button>
 <button id="refresh" type="button" class="secondary">${l10n.t('Refresh')}</button>
 <button id="apply-edits" type="button" hidden></button>
 <button id="discard-edits" type="button" class="secondary" hidden></button>
@@ -413,7 +448,7 @@ export class PartTablePanel {
 </div>
 </div>
 ${stringsScript(nonce, partTableStrings())}
-<script nonce="${nonce}" src="${asset('part-table.js')}"></script>
+<script nonce="${nonce}" src="${asset('dist', 'part-table.js')}"></script>
 </body>
 </html>`;
     }

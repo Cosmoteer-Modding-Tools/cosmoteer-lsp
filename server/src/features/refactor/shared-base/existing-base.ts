@@ -4,7 +4,8 @@ import { foldPathCase } from '../../../workspace/fs-cache';
 import { BaseTarget, readRulesFile, resolveBaseTarget } from './base-index';
 import { baseIdentityOf } from './duplicate-field.analysis';
 import { topLevelMembersOf } from './member-record';
-import { BaseLocation, ExtractionPlan } from './plan.types';
+import { ExtractionPlan } from './plan.types';
+import { BaseLocation } from '../../../../../shared/shared-base.types';
 import { analyzeReferences } from './reference-safety';
 
 /**

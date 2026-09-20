@@ -6,7 +6,7 @@ import { parseFilePath } from '../../../src/utils/ast.utils';
 import { aliasRootIndex } from '../../../src/document/schema/alias-root';
 import { invalidateSchemaContextCache } from '../../../src/document/schema/schema-context';
 import { ensureAliasRootIndex } from '../../../src/features/navigation/alias-root-builder';
-import { ReverseIncludeIndex } from '../../../src/features/navigation/reverse-include.index';
+import { ReverseIncludeIndex } from '../../../src/mod/reverse-include.index';
 import { SchemaIdIndex } from '../../../src/features/completion/schema-id.index';
 import { LocalizationKeyIndex } from '../../../src/features/completion/localization-key.index';
 import { ActionRootingIndex } from '../../../src/mod/action-rooting.index';

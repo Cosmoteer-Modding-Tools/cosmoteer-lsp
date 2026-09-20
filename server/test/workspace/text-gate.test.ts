@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { CancellationToken } from 'vscode-languageserver';
-import { projectDocuments } from '../../src/features/navigation/workspace-files';
+import { projectDocuments } from '../../src/workspace/workspace-files';
 import { saveTextGate, tryLoadTextGate } from '../../src/workspace/index-cache';
 import { FIXTURES_DIR } from '../helpers';
 

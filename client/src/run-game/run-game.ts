@@ -1,18 +1,13 @@
 import { commands, ExtensionContext, l10n, window } from 'vscode';
 import { ExecuteCommandRequest, LanguageClient } from 'vscode-languageclient/node';
 import { anchorUri } from '../wizards/wizard-client';
+import { RunGameRefusal, RunGameResult } from '../../../shared/run-game.types';
 
 /**
  * Starting the game with the mod enabled. The server links the mod in, switches it on and starts the
  * game, and this side asks the one question it cannot answer, which user folder the game uses, and
  * puts every refusal into a sentence of its own.
  */
-
-/** Mirror of the server's run-in-game result (see server features/run-game/run-game.command.ts). */
-type RunGameResult =
-    | { kind: 'started'; modFolder: string; linked: boolean; enabled: boolean; backup?: string; compatible: boolean }
-    | { kind: 'choose-user-data'; candidates: string[] }
-    | { kind: 'refused'; reason: string; detail?: string };
 
 /**
  * The sentence for each reason the run refused. Every one of them is a state the flow will not
@@ -22,7 +17,7 @@ type RunGameResult =
  * @param detail the path or message it named, when it named one.
  * @returns the message to show.
  */
-function runGameRefusalMessage(reason: string, detail?: string): string {
+function runGameRefusalMessage(reason: RunGameRefusal, detail?: string): string {
     switch (reason) {
         case 'unsupported-platform':
             return l10n.t('Cosmoteer ships no macOS build, so it cannot be started from here.');
@@ -60,8 +55,6 @@ function runGameRefusalMessage(reason: string, detail?: string): string {
             return l10n.t('The change to the settings file did not come out as expected, so nothing was written.');
         case 'settings-write-failed':
             return l10n.t('The settings file could not be written: {0}', detail ?? '');
-        default:
-            return l10n.t('Cosmoteer could not be started.');
     }
 }
 

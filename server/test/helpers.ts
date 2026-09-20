@@ -27,7 +27,7 @@ export const FIXTURES_DIR = join(__dirname, 'fixtures');
  * definition, here" should say so rather than index past the union, so this asserts the shape and the
  * failure message names which half was wrong.
  *
- * @param result the value returned by DefinitionService.getDefinition.
+ * @param result the value returned by getDefinition.
  * @returns the single Location.
  */
 export const singleLocation = (result: Location | Location[] | null): Location => {

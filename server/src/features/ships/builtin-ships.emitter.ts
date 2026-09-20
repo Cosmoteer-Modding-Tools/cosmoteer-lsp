@@ -135,6 +135,50 @@ export const ROLE_LAYOUTS: Readonly<Record<ShipRole, RoleLayout>> = {
     },
 };
 
+/** The prefix the vanilla wreckage file gives its ids. */
+const WRECKAGE_ID_PREFIX = 'Wreckage';
+
+/** The folder every faction's ships go under, mirroring the game's own tree. */
+export const BUILTIN_SHIPS_FOLDER = 'builtin_ships';
+
+/** The list member every builtin-ships file writes, which is what roots it as the database. */
+export const SHIPS_MEMBER = 'Ships';
+
+/** The group a trade-route file writes its entries in. */
+export const TRADE_SHIPS_MEMBER = 'TradeShips';
+
+/** The indentation the game's own files use. */
+const INDENT = '\t';
+
+/** The tier bands the game's own trade routes use, by the ship's tier. */
+const TRADE_TIER_RANGES: ReadonlyArray<{
+    readonly upTo: number;
+    readonly range: readonly [number, number];
+    readonly tradeTime: number;
+}> = [
+    { upTo: 3, range: [1, 9], tradeTime: 40 },
+    { upTo: 5, range: [3, 12], tradeTime: 60 },
+    { upTo: 7, range: [6, 18], tradeTime: 80 },
+    { upTo: Infinity, range: [12, 18], tradeTime: 100 },
+];
+
+/** The same for crew transports, which trade faster and start earlier. */
+const CREW_TIER_RANGES: ReadonlyArray<{ readonly upTo: number; readonly range: readonly [number, number] }> = [
+    { upTo: 5, range: [1, 12] },
+    { upTo: 8, range: [6, 18] },
+    { upTo: Infinity, range: [12, 18] },
+];
+
+/** How long a crew transport trades for, in the game's own routes. */
+const CREW_TRADE_TIME = 20;
+
+/**
+ * The speed a trade ship travels at between stations while out of sight, which the game's own
+ * routes write per ship from how fast the ship really flies. Nothing here can fly it, so every new
+ * route gets the middle of the vanilla spread and the file says so.
+ */
+export const DEFAULT_STASIS_SPEED = 60;
+
 /**
  * A localization key label made from an id or a name: every word capitalized and run together, the
  * way the game's own keys are spelled (`Factions/Monolith`, `StarterShips/ModelL`).
@@ -148,9 +192,6 @@ export const keyLabelOf = (text: string): string =>
         .filter((word) => word.length > 0)
         .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
         .join('');
-
-/** The prefix the vanilla wreckage file gives its ids. */
-const WRECKAGE_ID_PREFIX = 'Wreckage';
 
 /**
  * The prefix a role file gives its ships' ids, when it gives one.
@@ -166,18 +207,6 @@ export const idPrefixForRole = (role: ShipRole, factionLabel: string): string | 
     if (prefix === 'wreckage') return WRECKAGE_ID_PREFIX;
     return undefined;
 };
-
-/** The folder every faction's ships go under, mirroring the game's own tree. */
-export const BUILTIN_SHIPS_FOLDER = 'builtin_ships';
-
-/** The list member every builtin-ships file writes, which is what roots it as the database. */
-export const SHIPS_MEMBER = 'Ships';
-
-/** The group a trade-route file writes its entries in. */
-export const TRADE_SHIPS_MEMBER = 'TradeShips';
-
-/** The indentation the game's own files use. */
-const INDENT = '\t';
 
 /**
  * A faction id as a file-name segment: lower case, with anything but letters, digits and
@@ -377,35 +406,6 @@ export const aggregatorText = (references: readonly string[], lineEnding: LineEn
  */
 export const roleFileReference = (aggregatorDir: string, roleFile: string): string =>
     relativeRulesReference(aggregatorDir, roleFile, SHIPS_MEMBER);
-
-/** The tier bands the game's own trade routes use, by the ship's tier. */
-const TRADE_TIER_RANGES: ReadonlyArray<{
-    readonly upTo: number;
-    readonly range: readonly [number, number];
-    readonly tradeTime: number;
-}> = [
-    { upTo: 3, range: [1, 9], tradeTime: 40 },
-    { upTo: 5, range: [3, 12], tradeTime: 60 },
-    { upTo: 7, range: [6, 18], tradeTime: 80 },
-    { upTo: Infinity, range: [12, 18], tradeTime: 100 },
-];
-
-/** The same for crew transports, which trade faster and start earlier. */
-const CREW_TIER_RANGES: ReadonlyArray<{ readonly upTo: number; readonly range: readonly [number, number] }> = [
-    { upTo: 5, range: [1, 12] },
-    { upTo: 8, range: [6, 18] },
-    { upTo: Infinity, range: [12, 18] },
-];
-
-/** How long a crew transport trades for, in the game's own routes. */
-const CREW_TRADE_TIME = 20;
-
-/**
- * The speed a trade ship travels at between stations while out of sight, which the game's own
- * routes write per ship from how fast the ship really flies. Nothing here can fly it, so every new
- * route gets the middle of the vanilla spread and the file says so.
- */
-export const DEFAULT_STASIS_SPEED = 60;
 
 /**
  * The trade-route entry a civilian ship of a tier gets, on the game's own bands.

@@ -7,7 +7,7 @@ import { findModRoot } from '../../../mod/mod-root';
 import { globalSettings } from '../../../settings';
 import { memberSpanOf } from '../shared-base/member-record';
 import { EXTRACT_GROUP_ACTION_COMMAND, locateGroup } from './extract-group.command';
-import { ExtractGroupArgs } from './extract-group.types';
+import { ExtractGroupArgs } from '../../../../../shared/extract-group.types';
 
 /**
  * The "move this block into a file of its own" refactoring, offered on a named group inside a file

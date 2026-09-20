@@ -1,12 +1,12 @@
 import { CancellationToken, DocumentLink, Location, Position, Range } from 'vscode-languageserver';
 import { AbstractNode, AbstractNodeDocument } from '../../core/ast/ast';
 import { findNodeAtPosition } from '../../utils/ast.utils';
-import { isReferenceValue } from './definition.service';
+import { isReferenceValue } from './reference-target';
 import { isAssetValue } from './asset-resolver';
-import { DefinitionService } from './definition.service';
-import { FullNavigationStrategy } from './full.navigation-strategy';
-import { definitionLocationOf } from './reference-location';
-import { filePathToUri } from './navigation-strategy';
+import { getDefinition } from './definition.service';
+import { navigate } from '../../semantics/navigate-reference';
+import { definitionLocationOf } from '../../document/reference-location';
+import { filePathToUri } from '../../document/reference-path';
 import { FileTree, FileWithPath, isFile } from '../../workspace/cosmoteer-workspace.service';
 
 /**
@@ -18,15 +18,13 @@ import { FileTree, FileWithPath, isFile } from '../../workspace/cosmoteer-worksp
  * A reference is split **per path segment**: `&<file>/Weapon/Damage` yields three links. The `<file>`
  * part jumps to the file, `Weapon` to that group, `Damage` to the field, where go-to-definition only
  * ever lands on the final target. Each segment resolves its own longest-prefix. The final segment goes
- * through the full {@link DefinitionService} so mod-action / ID / channel targets keep resolving.
+ * through the full {@link getDefinition} so mod-action / ID / channel targets keep resolving.
  *
  * Links are produced cheaply here (ranges only). Targets are resolved lazily in
  * {@link resolveDocumentLink}, so an unfollowed link costs nothing.
  */
 
 const ZERO_RANGE = Range.create(0, 0, 0, 0);
-const navigation = new FullNavigationStrategy();
-
 /** Payload on an unresolved link: where the token sits (to re-find it) and which prefix this segment resolves. */
 interface DocumentLinkData {
     uri: string;
@@ -161,9 +159,7 @@ export const resolveDocumentLink = async (
     const position = Position.create(data.line, data.character);
 
     if (data.isFull || data.prefix === undefined) {
-        const location = await DefinitionService.instance
-            .getDefinition(document, position, cancellationToken, folderPaths)
-            .catch(() => null);
+        const location = await getDefinition(document, position, cancellationToken, folderPaths).catch(() => null);
         // A virtual-inheritance reference resolves to several override sites; a document link is a single
         // target, so follow the first (the base's own declaration, when present).
         const single = Array.isArray(location) ? location[0] : location;
@@ -173,7 +169,7 @@ export const resolveDocumentLink = async (
 
     const node = findNodeAtPosition(document, position);
     if (!node) return link;
-    const target = (await navigation.navigate(data.prefix, node, data.uri, cancellationToken).catch(() => null)) as
+    const target = (await navigate(data.prefix, node, data.uri, cancellationToken).catch(() => null)) as
         AbstractNode | FileWithPath | null;
     if (target) link.target = linkTargetFromLocation(locationOfTarget(target));
     return link;

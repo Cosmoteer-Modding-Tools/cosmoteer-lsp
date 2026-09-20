@@ -10,8 +10,8 @@ import {
     isListNode,
     isMathExpressionNode,
     isValueNode,
+    childNodesOf,
 } from '../../core/ast/ast';
-import { childNodesOf } from '../../utils/ast.utils';
 import { resolveGroupClass } from '../../document/schema/schema-context';
 import { fieldOf } from '../../document/schema/schema';
 import { ValueType } from '../../document/schema/schema.types';

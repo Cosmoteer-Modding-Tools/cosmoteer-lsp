@@ -62,6 +62,303 @@ const TYPE_MAP: Readonly<Record<string, string>> = registry({
 /** The GLSL type names that can open a file-scope declaration. */
 const GLSL_TYPES = ['vec2', 'vec3', 'vec4', 'mat2', 'mat3', 'mat4', 'float', 'int', 'bool'];
 
+/** Builtins whose result type is the type of their first argument. */
+const SAME_AS_FIRST_ARGUMENT = new Set([
+    'abs',
+    'floor',
+    'ceil',
+    'fract',
+    'sign',
+    'sqrt',
+    'inversesqrt',
+    'normalize',
+    'exp',
+    'log',
+    'exp2',
+    'log2',
+    'sin',
+    'cos',
+    'tan',
+    'asin',
+    'acos',
+    'radians',
+    'degrees',
+    'dFdx',
+    'dFdy',
+    'fwidth',
+]);
+
+/** Builtins whose result type is the widest of their arguments (the scalar-promoting ones). */
+const WIDEST_ARGUMENT = new Set([
+    'min',
+    'max',
+    'clamp',
+    'mod',
+    'mix',
+    'step',
+    'smoothstep',
+    'atan',
+    'reflect',
+    'pow',
+    'pow_',
+    'lerp_',
+    'clamp_0_1',
+    'pvMod',
+]);
+
+/** Builtins with a fixed result type, whatever their arguments. */
+const FIXED_RESULT: Readonly<Record<string, string>> = {
+    length: 'float',
+    distance: 'float',
+    dot: 'float',
+    cross: 'vec3',
+    texture2D: 'vec4',
+    pvTexLod: 'vec4',
+    pvTexSize: 'vec2',
+    pvIsInf: 'bool',
+};
+
+/** Matches a function definition's signature: return type, name, parameter list and the body brace. */
+const FUNCTION_SIGNATURE = /(?:^|\n)[ \t]*([A-Za-z_]\w*)[ \t]+([A-Za-z_]\w*)[ \t]*\(([^;{)]*)\)[ \t\n]*\{/g;
+
+/** Matches a variable declaration: an optional qualifier, a type, a name and a `;`, `=` or `,`. */
+const DECLARATION = /\b(?:const\s+|uniform\s+|varying\s+|attribute\s+)*([A-Za-z_]\w*)\s+([A-Za-z_]\w*)\s*(?=[;=,])/g;
+
+/** The GLSL types a varying may carry; a struct field outside this set rules the vertex stage out. */
+const VARYING_TYPES = new Set(['float', 'vec2', 'vec3', 'vec4']);
+
+/**
+ * Sensible stand-in values for the vertex-stage outputs the preview does not compute, keyed by field
+ * name and then by the field's declared GLSL type: the same name is declared with different types
+ * across shaders (nebula's `worldLoc` is a `vec2` of world units, a particle's is a `vec4`), and a
+ * type-mismatched assignment fails GLSL compilation. The beam fields mirror what `base_beam.shader`'s
+ * vertex stage forwards, fed from the preview-only `uPv…` uniforms the prelude declares so the webview
+ * can animate the beam time and expose intensity and fade as live controls. World locations scale
+ * `vUv` up so world-unit noise math (nebulas) still shows variation across the quad.
+ */
+const FIELD_DEFAULTS: Readonly<Record<string, Readonly<Record<string, string>>>> = registry<
+    Readonly<Record<string, string>>
+>({
+    uv: { vec2: 'vUv', vec4: 'vec4(vUv, 0.0, 1.0)' },
+    color: { vec4: 'vColor', vec3: 'vColor.rgb' },
+    // The engine tangent is (rightDir.xy, flipX, flipY); an unrotated unflipped sprite is (1, 0, 1, 1).
+    // A zero in `z` would wipe the normal's x channel in rotateFlipNormals and kill the lighting.
+    tangent: { vec4: 'vec4(1.0, 0.0, 1.0, 1.0)' },
+    // The engine's default light direction (BackgroundStyleRules), so lit stand-ins match the game.
+    lightNormal: { vec3: 'vec3(-0.67, -0.67, 0.33)', vec2: 'vec2(0.0, 0.0)' },
+    screenUV: { vec2: 'vUv' },
+    screenLoc: { vec4: 'vec4(vUv, 0.0, 1.0)', vec2: 'vUv' },
+    screenCenter: { vec4: 'vec4(0.5, 0.5, 0.0, 1.0)', vec2: 'vec2(0.5, 0.5)' },
+    // The additive-lighting center doubles as the light source; a positive z puts it above the plane
+    // so the screen-space light direction has a component toward the viewer and the light shows.
+    center: { vec4: 'vec4(0.0, 0.0, 0.5, 1.0)', vec3: 'vec3(0.0, 0.0, 0.5)', vec2: 'vec2(0.5, 0.5)' },
+    localLoc: { vec4: 'vec4((vUv - 0.5) * 100.0, 0.0, 1.0)', vec2: '(vUv - 0.5) * 100.0' },
+    spriteUV: { vec2: 'vUv' },
+    // The atlas animation block: frame 0 of a one-frame animation whose cell spans the whole quad,
+    // so the animated-UV math resolves to the plain quad UVs (see crew's drop-shadow division).
+    animUV: { vec2: 'vec2(0.0, 0.0)' },
+    animUVOffsetPerFrame: { vec2: 'vec2(1.0, 1.0)' },
+    shirtColor: { vec4: 'vec4(0.2, 0.45, 0.85, 1.0)' },
+    skinColor: { vec4: 'vec4(0.87, 0.72, 0.6, 1.0)' },
+    hairColor: { vec4: 'vec4(0.35, 0.22, 0.12, 1.0)' },
+    powerLevel: { float: '1.0' },
+    normalizedLocation: { vec2: 'vUv' },
+    normalizedCenter: { vec2: 'vec2(0.5, 0.5)' },
+    // The ship-quad geometry stage's per-pixel ship coordinates (heat, scorched, salvage…): a small
+    // span matching a part-sized quad, so tile-scaled noise UVs show game-like variation.
+    shipLocation: { vec2: '(vUv - 0.5) * 4.0' },
+    maskUV: { vec2: 'vUv' },
+    roofOpacity: { float: '1.0' },
+    worldLoc: { vec4: 'vec4(vUv, 0.0, 1.0)', vec2: 'vUv * 100.0' },
+    color2: { vec4: 'vColor' },
+    beamTime: { float: 'uPvBeamTime' },
+    intensity: { float: 'uPvIntensity' },
+    fadeAlpha: { float: 'uPvFadeAlpha' },
+    buff: { float: '0.0' },
+    length: { float: 'uPvBeamLength' },
+    unexploredUV: { vec2: 'vUv' },
+});
+
+/**
+ * Overloads covering HLSL's implicit scalar promotion in `lerp` calls (`lerp(luminance, rgb, t)`
+ * promotes the float to a vector), which GLSL does not perform, plus the vector-interpolant form of
+ * the intrinsic. The scalar-promotion forms clamp `t` the way `base.shader`'s own overloads do (in
+ * the game those calls resolve to them by promotion); the vector-`t` form has no base overload, so it
+ * keeps the unclamped intrinsic semantics via `mix`. None of these signatures collides with
+ * `base.shader`'s set, so they are safe to emit alongside it.
+ */
+const LERP_PROMOTIONS = `
+vec2 lerp_(float a, vec2 b, float t) { t = clamp(t, 0.0, 1.0); return vec2(a) + (b - vec2(a)) * t; }
+vec3 lerp_(float a, vec3 b, float t) { t = clamp(t, 0.0, 1.0); return vec3(a) + (b - vec3(a)) * t; }
+vec4 lerp_(float a, vec4 b, float t) { t = clamp(t, 0.0, 1.0); return vec4(a) + (b - vec4(a)) * t; }
+vec2 lerp_(vec2 a, float b, float t) { t = clamp(t, 0.0, 1.0); return a + (vec2(b) - a) * t; }
+vec3 lerp_(vec3 a, float b, float t) { t = clamp(t, 0.0, 1.0); return a + (vec3(b) - a) * t; }
+vec4 lerp_(vec4 a, float b, float t) { t = clamp(t, 0.0, 1.0); return a + (vec4(b) - a) * t; }
+vec2 lerp_(vec2 a, vec2 b, vec2 t) { return mix(a, b, t); }
+vec3 lerp_(vec3 a, vec3 b, vec3 t) { return mix(a, b, t); }
+vec4 lerp_(vec4 a, vec4 b, vec4 t) { return mix(a, b, t); }
+`;
+
+/**
+ * The plain `lerp` set for a shader that calls it without including `base.shader` (whose overloads
+ * would otherwise define it). Without a user definition the game resolves to the HLSL intrinsic,
+ * which does not clamp, so these use `mix` directly.
+ */
+const LERP_FALLBACK = `
+float lerp_(float a, float b, float t) { return mix(a, b, t); }
+vec2 lerp_(vec2 a, vec2 b, float t) { return mix(a, b, t); }
+vec3 lerp_(vec3 a, vec3 b, float t) { return mix(a, b, t); }
+vec4 lerp_(vec4 a, vec4 b, float t) { return mix(a, b, t); }
+`;
+
+/**
+ * Per-vertex stand-ins for a `vert` function's input struct, keyed by field name and declared GLSL
+ * type the way {@link FIELD_DEFAULTS} is. The quad supplies `aPos` (corner, ±1) and `aUv` (0–1,
+ * top-origin); everything else comes from the preview uniforms. Sprite locations are scaled into a
+ * nominal ±50 world-unit span (the preview transform scales it back) so world-unit noise math still
+ * varies across the quad. Beam inputs lay the beam horizontally through the canvas: the start sits
+ * half a beam length left of center, `vertexOffset.x` marks which end a corner belongs to and
+ * `vertexOffset.y` carries the half-thickness the game's CPU normally supplies. A field with no
+ * entry here means the vertex stage cannot be synthesized and the preview keeps the stand-in path.
+ */
+const VERT_INPUT_DEFAULTS: Readonly<Record<string, Readonly<Record<string, string>>>> = registry<
+    Readonly<Record<string, string>>
+>({
+    location: { vec4: 'vec4(aPos * 50.0, 0.0, 1.0)' },
+    locationMin: { vec4: 'vec4(aPos * 50.0, 0.0, 1.0)' },
+    locationMax: { vec4: 'vec4(aPos * 50.0, 0.0, 1.0)' },
+    uv: { vec2: 'uUvRect.xy + aUv * uUvRect.zw' },
+    color: { vec4: 'uTint' },
+    color2: { vec4: 'uTint' },
+    // A particle's center is a vec2 world position; the atlas quad's is a vec4 whose z doubles as the
+    // additive light height, kept above the plane so screen-space lights show (see FIELD_DEFAULTS).
+    center: { vec2: 'vec2(0.0, 0.0)', vec4: 'vec4(0.0, 0.0, 0.5, 1.0)', vec3: 'vec3(0.0, 0.0, 0.0)' },
+    scale: { vec2: 'vec2(1.0, 1.0)' },
+    rotation: { float: '0.0' },
+    offset: { vec2: 'aPos * 0.5' },
+    lightNormal: { vec3: 'vec3(-0.67, -0.67, 0.33)' },
+    // The atlas per-quad data (base_atlas.shader): an unrotated, unflipped quad showing frame 0 of a
+    // one-frame animation whose cell is the sprite-sheet rect the preview already computes.
+    tangent: { vec4: 'vec4(1.0, 0.0, 1.0, 1.0)' },
+    spriteUV: { vec2: 'aUv' },
+    rotateAround: { vec4: 'vec4(0.0, 0.0, 0.0, 1.0)' },
+    rotSpeed: { float: '0.0' },
+    uvOffsetPerFrame: { vec2: 'uUvRect.zw' },
+    animationInterval: { float: '1.0e38' },
+    animationStartTime: { float: '0.0' },
+    animationFrames: { vec2: 'vec2(1.0, 1.0)' },
+    animationClamp: { float: '1.0' },
+    // The crew vertex data (base_crew.shader): a standing crew quad with the engine's default light
+    // and the vanilla-ish clothing colours the per-crew streams would carry.
+    vertexOffset: {
+        vec2: 'vec2(step(0.5, aUv.x), (0.5 - aUv.y) * 0.3 * uPvBeamLength)',
+    },
+    fromOffset: { vec3: 'vec3(0.0, 0.0, 0.0)' },
+    crewTime: { float: '0.0' },
+    shirtColor: { vec4: 'vec4(0.2, 0.45, 0.85, 1.0)' },
+    skinColor: { vec4: 'vec4(0.87, 0.72, 0.6, 1.0)' },
+    hairColor: { vec4: 'vec4(0.35, 0.22, 0.12, 1.0)' },
+    beamStart: { vec4: 'vec4(-0.5 * uPvBeamLength, 0.0, 0.0, 1.0)' },
+    direction: { float: '0.0' },
+    length: { float: 'uPvBeamLength' },
+    intensity: { float: 'uPvIntensity' },
+    fadeAlpha: { float: 'uPvFadeAlpha' },
+    beamTime: { float: 'uPvBeamTime' },
+    buff: { float: '0.0' },
+    // The remaining per-quad extras across the vanilla vert inputs: star twinkle (background), shield
+    // waves at full power, the GUI blur mask, overlay pivots, indicator cycling, and the randomized
+    // time offsets the effect quads carry.
+    twinkleInterval: { float: '2.0' },
+    twinkleOffset: { float: '0.0' },
+    twinkleAddColor: { vec4: 'vec4(1.0, 1.0, 1.0, 1.0)' },
+    powerLevel: { float: '1.0' },
+    randomWaveTimeOffset: { float: '0.0' },
+    randomWaveUOffset: { float: '0.0' },
+    maskUV: { vec2: 'aUv' },
+    pivot: { vec2: 'vec2(0.0, 0.0)' },
+    cycleOffset: { float: '0.0' },
+    cycleSiblingCount: { float: '1.0' },
+    randomTimeOffset: { float: '0.0' },
+    roofOpacity: { float: '1.0' },
+});
+
+/** The preview-only uniforms standing in for the vertex-stage inputs the engine feeds per frame. */
+const PV_UNIFORMS = `uniform float uPvBeamTime;
+uniform float uPvIntensity;
+uniform float uPvFadeAlpha;
+uniform float uPvBeamLength;
+`;
+
+/**
+ * The helper functions the translated intrinsics rely on, shared by both stages. The `pvTexLod` and
+ * `pvTexSize` bodies here are the GLSL ES 1.00 fallbacks (default-mip sample, nominal size); the
+ * webview replaces these exact body strings with `textureLod`/`textureSize` when it runs on WebGL2,
+ * so their spelling is a contract with `media/shader-preview.js`.
+ */
+const HELPERS = `float clamp_0_1(float x) { return clamp(x, 0.0, 1.0); }
+vec2 clamp_0_1(vec2 x) { return clamp(x, 0.0, 1.0); }
+vec3 clamp_0_1(vec3 x) { return clamp(x, 0.0, 1.0); }
+vec4 clamp_0_1(vec4 x) { return clamp(x, 0.0, 1.0); }
+float mul_(float a, float b) { return a * b; }
+vec2 mul_(vec2 v, mat2 m) { return v * m; }
+vec3 mul_(vec3 v, mat3 m) { return v * m; }
+vec4 mul_(vec4 v, mat4 m) { return v * m; }
+vec2 mul_(mat2 m, vec2 v) { return m * v; }
+vec3 mul_(mat3 m, vec3 v) { return m * v; }
+vec4 mul_(mat4 m, vec4 v) { return m * v; }
+mat4 mul_(mat4 a, mat4 b) { return a * b; }
+vec2 mul_(float a, vec2 b) { return a * b; }
+vec3 mul_(float a, vec3 b) { return a * b; }
+vec4 mul_(float a, vec4 b) { return a * b; }
+float pvMod(float a, float b) { return mod(a, b); }
+vec2 pvMod(vec2 a, vec2 b) { return mod(a, b); }
+vec3 pvMod(vec3 a, vec3 b) { return mod(a, b); }
+vec4 pvMod(vec4 a, vec4 b) { return mod(a, b); }
+vec2 pvMod(vec2 a, float b) { return mod(a, b); }
+vec3 pvMod(vec3 a, float b) { return mod(a, b); }
+vec4 pvMod(vec4 a, float b) { return mod(a, b); }
+int pvMod(int a, int b) { return int(mod(float(a), float(b))); }
+bool pvIsInf(float x) { return abs(x) > 1.0e30; }
+vec4 pvTexLod(sampler2D t, vec2 uv, float lod) { return texture2D(t, uv); }
+vec2 pvTexSize(sampler2D t) { return vec2(256.0, 256.0); }
+float pow_(float x, float y) { return pow(x, y); }
+vec2 pow_(vec2 x, vec2 y) { return pow(x, y); }
+vec3 pow_(vec3 x, vec3 y) { return pow(x, y); }
+vec4 pow_(vec4 x, vec4 y) { return pow(x, y); }
+vec2 pow_(vec2 x, float y) { return pow(x, vec2(y)); }
+vec3 pow_(vec3 x, float y) { return pow(x, vec3(y)); }
+vec4 pow_(vec4 x, float y) { return pow(x, vec4(y)); }
+vec2 pow_(float x, vec2 y) { return pow(vec2(x), y); }
+vec3 pow_(float x, vec3 y) { return pow(vec3(x), y); }
+vec4 pow_(float x, vec4 y) { return pow(vec4(x), y); }
+`;
+
+/**
+ * The fragment prelude: precision, the varyings the fixed quad supplies, the preview uniforms and
+ * the shared helpers.
+ */
+const PRELUDE = `precision highp float;
+
+varying vec2 vUv;
+varying vec4 vColor;
+
+${PV_UNIFORMS}
+${HELPERS}`;
+
+/**
+ * The vertex-stage prelude: the quad attributes and the preview uniforms the synthesized inputs
+ * read, plus the shared helpers for the intrinsics a vertex stage calls.
+ */
+const VERTEX_PRELUDE = `precision highp float;
+
+attribute vec2 aPos;
+attribute vec2 aUv;
+
+uniform vec4 uTint;
+uniform vec4 uUvRect;
+${PV_UNIFORMS}
+${HELPERS}`;
+
 /** Replaces every whole-word occurrence of `from` with `to`. */
 const replaceWord = (src: string, from: string, to: string): string =>
     src.replace(new RegExp(`\\b${from.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'g'), to);
@@ -541,62 +838,6 @@ const vectorType = (dimension: number): string => (dimension === 1 ? 'float' : `
 /** True when a member name is a vector swizzle rather than a struct field. */
 const isSwizzle = (name: string): boolean => /^(?:[xyzw]{1,4}|[rgba]{1,4}|[stpq]{1,4})$/.test(name);
 
-/** Builtins whose result type is the type of their first argument. */
-const SAME_AS_FIRST_ARGUMENT = new Set([
-    'abs',
-    'floor',
-    'ceil',
-    'fract',
-    'sign',
-    'sqrt',
-    'inversesqrt',
-    'normalize',
-    'exp',
-    'log',
-    'exp2',
-    'log2',
-    'sin',
-    'cos',
-    'tan',
-    'asin',
-    'acos',
-    'radians',
-    'degrees',
-    'dFdx',
-    'dFdy',
-    'fwidth',
-]);
-
-/** Builtins whose result type is the widest of their arguments (the scalar-promoting ones). */
-const WIDEST_ARGUMENT = new Set([
-    'min',
-    'max',
-    'clamp',
-    'mod',
-    'mix',
-    'step',
-    'smoothstep',
-    'atan',
-    'reflect',
-    'pow',
-    'pow_',
-    'lerp_',
-    'clamp_0_1',
-    'pvMod',
-]);
-
-/** Builtins with a fixed result type, whatever their arguments. */
-const FIXED_RESULT: Readonly<Record<string, string>> = {
-    length: 'float',
-    distance: 'float',
-    dot: 'float',
-    cross: 'vec3',
-    texture2D: 'vec4',
-    pvTexLod: 'vec4',
-    pvTexSize: 'vec2',
-    pvIsInf: 'bool',
-};
-
 /** The names, structs and function return types an expression inside one function is read against. */
 interface TypeScope {
     /** Variable and parameter names in scope, mapped to their GLSL type. */
@@ -814,12 +1055,6 @@ interface TypedFunction {
     /** The parameter names mapped to their GLSL types. */
     readonly parameters: ReadonlyMap<string, string>;
 }
-
-/** Matches a function definition's signature: return type, name, parameter list and the body brace. */
-const FUNCTION_SIGNATURE = /(?:^|\n)[ \t]*([A-Za-z_]\w*)[ \t]+([A-Za-z_]\w*)[ \t]*\(([^;{)]*)\)[ \t\n]*\{/g;
-
-/** Matches a variable declaration: an optional qualifier, a type, a name and a `;`, `=` or `,`. */
-const DECLARATION = /\b(?:const\s+|uniform\s+|varying\s+|attribute\s+)*([A-Za-z_]\w*)\s+([A-Za-z_]\w*)\s*(?=[;=,])/g;
 
 /**
  * Locates every function definition and reads its parameters, so each body can be typed on its own.
@@ -1061,238 +1296,6 @@ const pruneUnreachableFunctions = (src: string, entry: string): { src: string; k
 };
 
 /**
- * Sensible stand-in values for the vertex-stage outputs the preview does not compute, keyed by field
- * name and then by the field's declared GLSL type: the same name is declared with different types
- * across shaders (nebula's `worldLoc` is a `vec2` of world units, a particle's is a `vec4`), and a
- * type-mismatched assignment fails GLSL compilation. The beam fields mirror what `base_beam.shader`'s
- * vertex stage forwards, fed from the preview-only `uPv…` uniforms the prelude declares so the webview
- * can animate the beam time and expose intensity and fade as live controls. World locations scale
- * `vUv` up so world-unit noise math (nebulas) still shows variation across the quad.
- */
-const FIELD_DEFAULTS: Readonly<Record<string, Readonly<Record<string, string>>>> = registry<
-    Readonly<Record<string, string>>
->({
-    uv: { vec2: 'vUv', vec4: 'vec4(vUv, 0.0, 1.0)' },
-    color: { vec4: 'vColor', vec3: 'vColor.rgb' },
-    // The engine tangent is (rightDir.xy, flipX, flipY); an unrotated unflipped sprite is (1, 0, 1, 1).
-    // A zero in `z` would wipe the normal's x channel in rotateFlipNormals and kill the lighting.
-    tangent: { vec4: 'vec4(1.0, 0.0, 1.0, 1.0)' },
-    // The engine's default light direction (BackgroundStyleRules), so lit stand-ins match the game.
-    lightNormal: { vec3: 'vec3(-0.67, -0.67, 0.33)', vec2: 'vec2(0.0, 0.0)' },
-    screenUV: { vec2: 'vUv' },
-    screenLoc: { vec4: 'vec4(vUv, 0.0, 1.0)', vec2: 'vUv' },
-    screenCenter: { vec4: 'vec4(0.5, 0.5, 0.0, 1.0)', vec2: 'vec2(0.5, 0.5)' },
-    // The additive-lighting center doubles as the light source; a positive z puts it above the plane
-    // so the screen-space light direction has a component toward the viewer and the light shows.
-    center: { vec4: 'vec4(0.0, 0.0, 0.5, 1.0)', vec3: 'vec3(0.0, 0.0, 0.5)', vec2: 'vec2(0.5, 0.5)' },
-    localLoc: { vec4: 'vec4((vUv - 0.5) * 100.0, 0.0, 1.0)', vec2: '(vUv - 0.5) * 100.0' },
-    spriteUV: { vec2: 'vUv' },
-    // The atlas animation block: frame 0 of a one-frame animation whose cell spans the whole quad,
-    // so the animated-UV math resolves to the plain quad UVs (see crew's drop-shadow division).
-    animUV: { vec2: 'vec2(0.0, 0.0)' },
-    animUVOffsetPerFrame: { vec2: 'vec2(1.0, 1.0)' },
-    shirtColor: { vec4: 'vec4(0.2, 0.45, 0.85, 1.0)' },
-    skinColor: { vec4: 'vec4(0.87, 0.72, 0.6, 1.0)' },
-    hairColor: { vec4: 'vec4(0.35, 0.22, 0.12, 1.0)' },
-    powerLevel: { float: '1.0' },
-    normalizedLocation: { vec2: 'vUv' },
-    normalizedCenter: { vec2: 'vec2(0.5, 0.5)' },
-    // The ship-quad geometry stage's per-pixel ship coordinates (heat, scorched, salvage…): a small
-    // span matching a part-sized quad, so tile-scaled noise UVs show game-like variation.
-    shipLocation: { vec2: '(vUv - 0.5) * 4.0' },
-    maskUV: { vec2: 'vUv' },
-    roofOpacity: { float: '1.0' },
-    worldLoc: { vec4: 'vec4(vUv, 0.0, 1.0)', vec2: 'vUv * 100.0' },
-    color2: { vec4: 'vColor' },
-    beamTime: { float: 'uPvBeamTime' },
-    intensity: { float: 'uPvIntensity' },
-    fadeAlpha: { float: 'uPvFadeAlpha' },
-    buff: { float: '0.0' },
-    length: { float: 'uPvBeamLength' },
-    unexploredUV: { vec2: 'vUv' },
-});
-
-/**
- * Overloads covering HLSL's implicit scalar promotion in `lerp` calls (`lerp(luminance, rgb, t)`
- * promotes the float to a vector), which GLSL does not perform, plus the vector-interpolant form of
- * the intrinsic. The scalar-promotion forms clamp `t` the way `base.shader`'s own overloads do (in
- * the game those calls resolve to them by promotion); the vector-`t` form has no base overload, so it
- * keeps the unclamped intrinsic semantics via `mix`. None of these signatures collides with
- * `base.shader`'s set, so they are safe to emit alongside it.
- */
-const LERP_PROMOTIONS = `
-vec2 lerp_(float a, vec2 b, float t) { t = clamp(t, 0.0, 1.0); return vec2(a) + (b - vec2(a)) * t; }
-vec3 lerp_(float a, vec3 b, float t) { t = clamp(t, 0.0, 1.0); return vec3(a) + (b - vec3(a)) * t; }
-vec4 lerp_(float a, vec4 b, float t) { t = clamp(t, 0.0, 1.0); return vec4(a) + (b - vec4(a)) * t; }
-vec2 lerp_(vec2 a, float b, float t) { t = clamp(t, 0.0, 1.0); return a + (vec2(b) - a) * t; }
-vec3 lerp_(vec3 a, float b, float t) { t = clamp(t, 0.0, 1.0); return a + (vec3(b) - a) * t; }
-vec4 lerp_(vec4 a, float b, float t) { t = clamp(t, 0.0, 1.0); return a + (vec4(b) - a) * t; }
-vec2 lerp_(vec2 a, vec2 b, vec2 t) { return mix(a, b, t); }
-vec3 lerp_(vec3 a, vec3 b, vec3 t) { return mix(a, b, t); }
-vec4 lerp_(vec4 a, vec4 b, vec4 t) { return mix(a, b, t); }
-`;
-
-/**
- * The plain `lerp` set for a shader that calls it without including `base.shader` (whose overloads
- * would otherwise define it). Without a user definition the game resolves to the HLSL intrinsic,
- * which does not clamp, so these use `mix` directly.
- */
-const LERP_FALLBACK = `
-float lerp_(float a, float b, float t) { return mix(a, b, t); }
-vec2 lerp_(vec2 a, vec2 b, float t) { return mix(a, b, t); }
-vec3 lerp_(vec3 a, vec3 b, float t) { return mix(a, b, t); }
-vec4 lerp_(vec4 a, vec4 b, float t) { return mix(a, b, t); }
-`;
-
-/**
- * Per-vertex stand-ins for a `vert` function's input struct, keyed by field name and declared GLSL
- * type the way {@link FIELD_DEFAULTS} is. The quad supplies `aPos` (corner, ±1) and `aUv` (0–1,
- * top-origin); everything else comes from the preview uniforms. Sprite locations are scaled into a
- * nominal ±50 world-unit span (the preview transform scales it back) so world-unit noise math still
- * varies across the quad. Beam inputs lay the beam horizontally through the canvas: the start sits
- * half a beam length left of center, `vertexOffset.x` marks which end a corner belongs to and
- * `vertexOffset.y` carries the half-thickness the game's CPU normally supplies. A field with no
- * entry here means the vertex stage cannot be synthesized and the preview keeps the stand-in path.
- */
-const VERT_INPUT_DEFAULTS: Readonly<Record<string, Readonly<Record<string, string>>>> = registry<
-    Readonly<Record<string, string>>
->({
-    location: { vec4: 'vec4(aPos * 50.0, 0.0, 1.0)' },
-    locationMin: { vec4: 'vec4(aPos * 50.0, 0.0, 1.0)' },
-    locationMax: { vec4: 'vec4(aPos * 50.0, 0.0, 1.0)' },
-    uv: { vec2: 'uUvRect.xy + aUv * uUvRect.zw' },
-    color: { vec4: 'uTint' },
-    color2: { vec4: 'uTint' },
-    // A particle's center is a vec2 world position; the atlas quad's is a vec4 whose z doubles as the
-    // additive light height, kept above the plane so screen-space lights show (see FIELD_DEFAULTS).
-    center: { vec2: 'vec2(0.0, 0.0)', vec4: 'vec4(0.0, 0.0, 0.5, 1.0)', vec3: 'vec3(0.0, 0.0, 0.0)' },
-    scale: { vec2: 'vec2(1.0, 1.0)' },
-    rotation: { float: '0.0' },
-    offset: { vec2: 'aPos * 0.5' },
-    lightNormal: { vec3: 'vec3(-0.67, -0.67, 0.33)' },
-    // The atlas per-quad data (base_atlas.shader): an unrotated, unflipped quad showing frame 0 of a
-    // one-frame animation whose cell is the sprite-sheet rect the preview already computes.
-    tangent: { vec4: 'vec4(1.0, 0.0, 1.0, 1.0)' },
-    spriteUV: { vec2: 'aUv' },
-    rotateAround: { vec4: 'vec4(0.0, 0.0, 0.0, 1.0)' },
-    rotSpeed: { float: '0.0' },
-    uvOffsetPerFrame: { vec2: 'uUvRect.zw' },
-    animationInterval: { float: '1.0e38' },
-    animationStartTime: { float: '0.0' },
-    animationFrames: { vec2: 'vec2(1.0, 1.0)' },
-    animationClamp: { float: '1.0' },
-    // The crew vertex data (base_crew.shader): a standing crew quad with the engine's default light
-    // and the vanilla-ish clothing colours the per-crew streams would carry.
-    vertexOffset: {
-        vec2: 'vec2(step(0.5, aUv.x), (0.5 - aUv.y) * 0.3 * uPvBeamLength)',
-    },
-    fromOffset: { vec3: 'vec3(0.0, 0.0, 0.0)' },
-    crewTime: { float: '0.0' },
-    shirtColor: { vec4: 'vec4(0.2, 0.45, 0.85, 1.0)' },
-    skinColor: { vec4: 'vec4(0.87, 0.72, 0.6, 1.0)' },
-    hairColor: { vec4: 'vec4(0.35, 0.22, 0.12, 1.0)' },
-    beamStart: { vec4: 'vec4(-0.5 * uPvBeamLength, 0.0, 0.0, 1.0)' },
-    direction: { float: '0.0' },
-    length: { float: 'uPvBeamLength' },
-    intensity: { float: 'uPvIntensity' },
-    fadeAlpha: { float: 'uPvFadeAlpha' },
-    beamTime: { float: 'uPvBeamTime' },
-    buff: { float: '0.0' },
-    // The remaining per-quad extras across the vanilla vert inputs: star twinkle (background), shield
-    // waves at full power, the GUI blur mask, overlay pivots, indicator cycling, and the randomized
-    // time offsets the effect quads carry.
-    twinkleInterval: { float: '2.0' },
-    twinkleOffset: { float: '0.0' },
-    twinkleAddColor: { vec4: 'vec4(1.0, 1.0, 1.0, 1.0)' },
-    powerLevel: { float: '1.0' },
-    randomWaveTimeOffset: { float: '0.0' },
-    randomWaveUOffset: { float: '0.0' },
-    maskUV: { vec2: 'aUv' },
-    pivot: { vec2: 'vec2(0.0, 0.0)' },
-    cycleOffset: { float: '0.0' },
-    cycleSiblingCount: { float: '1.0' },
-    randomTimeOffset: { float: '0.0' },
-    roofOpacity: { float: '1.0' },
-});
-
-/** The preview-only uniforms standing in for the vertex-stage inputs the engine feeds per frame. */
-const PV_UNIFORMS = `uniform float uPvBeamTime;
-uniform float uPvIntensity;
-uniform float uPvFadeAlpha;
-uniform float uPvBeamLength;
-`;
-
-/**
- * The helper functions the translated intrinsics rely on, shared by both stages. The `pvTexLod` and
- * `pvTexSize` bodies here are the GLSL ES 1.00 fallbacks (default-mip sample, nominal size); the
- * webview replaces these exact body strings with `textureLod`/`textureSize` when it runs on WebGL2,
- * so their spelling is a contract with `media/shader-preview.js`.
- */
-const HELPERS = `float clamp_0_1(float x) { return clamp(x, 0.0, 1.0); }
-vec2 clamp_0_1(vec2 x) { return clamp(x, 0.0, 1.0); }
-vec3 clamp_0_1(vec3 x) { return clamp(x, 0.0, 1.0); }
-vec4 clamp_0_1(vec4 x) { return clamp(x, 0.0, 1.0); }
-float mul_(float a, float b) { return a * b; }
-vec2 mul_(vec2 v, mat2 m) { return v * m; }
-vec3 mul_(vec3 v, mat3 m) { return v * m; }
-vec4 mul_(vec4 v, mat4 m) { return v * m; }
-vec2 mul_(mat2 m, vec2 v) { return m * v; }
-vec3 mul_(mat3 m, vec3 v) { return m * v; }
-vec4 mul_(mat4 m, vec4 v) { return m * v; }
-mat4 mul_(mat4 a, mat4 b) { return a * b; }
-vec2 mul_(float a, vec2 b) { return a * b; }
-vec3 mul_(float a, vec3 b) { return a * b; }
-vec4 mul_(float a, vec4 b) { return a * b; }
-float pvMod(float a, float b) { return mod(a, b); }
-vec2 pvMod(vec2 a, vec2 b) { return mod(a, b); }
-vec3 pvMod(vec3 a, vec3 b) { return mod(a, b); }
-vec4 pvMod(vec4 a, vec4 b) { return mod(a, b); }
-vec2 pvMod(vec2 a, float b) { return mod(a, b); }
-vec3 pvMod(vec3 a, float b) { return mod(a, b); }
-vec4 pvMod(vec4 a, float b) { return mod(a, b); }
-int pvMod(int a, int b) { return int(mod(float(a), float(b))); }
-bool pvIsInf(float x) { return abs(x) > 1.0e30; }
-vec4 pvTexLod(sampler2D t, vec2 uv, float lod) { return texture2D(t, uv); }
-vec2 pvTexSize(sampler2D t) { return vec2(256.0, 256.0); }
-float pow_(float x, float y) { return pow(x, y); }
-vec2 pow_(vec2 x, vec2 y) { return pow(x, y); }
-vec3 pow_(vec3 x, vec3 y) { return pow(x, y); }
-vec4 pow_(vec4 x, vec4 y) { return pow(x, y); }
-vec2 pow_(vec2 x, float y) { return pow(x, vec2(y)); }
-vec3 pow_(vec3 x, float y) { return pow(x, vec3(y)); }
-vec4 pow_(vec4 x, float y) { return pow(x, vec4(y)); }
-vec2 pow_(float x, vec2 y) { return pow(vec2(x), y); }
-vec3 pow_(float x, vec3 y) { return pow(vec3(x), y); }
-vec4 pow_(float x, vec4 y) { return pow(vec4(x), y); }
-`;
-
-/**
- * The fragment prelude: precision, the varyings the fixed quad supplies, the preview uniforms and
- * the shared helpers.
- */
-const PRELUDE = `precision highp float;
-
-varying vec2 vUv;
-varying vec4 vColor;
-
-${PV_UNIFORMS}
-${HELPERS}`;
-
-/**
- * The vertex-stage prelude: the quad attributes and the preview uniforms the synthesized inputs
- * read, plus the shared helpers for the intrinsics a vertex stage calls.
- */
-const VERTEX_PRELUDE = `precision highp float;
-
-attribute vec2 aPos;
-attribute vec2 aUv;
-
-uniform vec4 uTint;
-uniform vec4 uUvRect;
-${PV_UNIFORMS}
-${HELPERS}`;
-
-/**
  * Builds the `main()` entry point. It reconstructs the pixel shader's input struct from the varyings,
  * substituting stand-ins for the vertex outputs the preview does not produce, then writes the result
  * of the translated `pix` function to `gl_FragColor`.
@@ -1319,9 +1322,6 @@ ${assigns}
 }
 `;
 };
-
-/** The GLSL types a varying may carry; a struct field outside this set rules the vertex stage out. */
-const VARYING_TYPES = new Set(['float', 'vec2', 'vec3', 'vec4']);
 
 /**
  * Builds the translated vertex stage and its varying-fed fragment shader, when the source defines

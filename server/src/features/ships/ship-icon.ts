@@ -1,4 +1,4 @@
-import { encodePng } from '../../utils/png';
+import { encodePng } from './png';
 
 // The game draws a station's stasis icon (ShipRenderer.RefreshIcon with ShipIconType.Indicator) by
 // painting every part's footprint white onto a transparent target and blurring the result until the

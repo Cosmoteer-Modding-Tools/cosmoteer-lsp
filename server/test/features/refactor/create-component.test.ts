@@ -3,9 +3,9 @@ import { CancellationToken } from 'vscode-languageserver';
 import { TextEdit } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { createComponent } from '../../../src/features/refactor/create-component/create-component.command';
-import { CreateComponentResult } from '../../../src/features/refactor/create-component/create-component.types';
+import { CreateComponentResult } from '../../../../shared/create-component.types';
 import { plainTextOf } from '../../../src/features/refactor/snippet-action';
-import { filePathToUri } from '../../../src/features/navigation/navigation-strategy';
+import { filePathToUri } from '../../../src/document/reference-path';
 import { globalSettings, setGlobalSettings } from '../../../src/settings';
 import { initWorkspace, workspaceFile } from '../../workspace-helper';
 

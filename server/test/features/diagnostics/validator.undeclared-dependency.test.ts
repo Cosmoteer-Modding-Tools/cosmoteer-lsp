@@ -2,7 +2,10 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { join } from 'path';
 import { CancellationToken } from 'vscode-languageserver';
 import { AbstractNode, AbstractNodeDocument, isValueNode } from '../../../src/core/ast/ast';
-import { IdReference, undeclaredDependencyErrors } from '../../../src/features/diagnostics/validator.schema-id-reference';
+import {
+    IdReference,
+    undeclaredDependencyErrors,
+} from '../../../src/features/diagnostics/validator.schema-id-reference';
 import { parseFilePath } from '../../../src/utils/ast.utils';
 import { globalSettings } from '../../../src/settings';
 import { FIXTURES_DIR, walkAst } from '../../helpers';

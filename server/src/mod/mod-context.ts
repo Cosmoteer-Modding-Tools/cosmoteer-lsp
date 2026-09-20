@@ -11,8 +11,8 @@ import {
     isValueNode,
 } from '../core/ast/ast';
 import { getStartOfAstNode, namedMembersOf, parseFilePath } from '../utils/ast.utils';
-import { extractSubstrings } from '../features/navigation/navigation-strategy';
-import { FullNavigationStrategy } from '../features/navigation/full.navigation-strategy';
+import { extractSubstrings } from '../document/reference-path';
+import { navigate } from '../semantics/navigate-reference';
 import { FileTree, FileWithPath, isFile } from '../workspace/cosmoteer-workspace.service';
 import { ActionSource } from './action';
 import { findActionEntryLists, parseModActions } from './action-parser';
@@ -21,12 +21,10 @@ import { findModRoot } from './mod-root';
 import { overrideMembersOf } from './override-members';
 import { safeReaddir } from '../utils/fs.utils';
 import { isManifestBasename, isRulesPathSegment } from '../document/document-kind';
-import { ParserResultRegistrar } from '../registrar/parser-result-registrar';
-import { recordNavigationDep } from '../utils/navigation-deps';
-import { uriToFsPath } from '../features/navigation/workspace-files';
-import { setModContextResolver, withinModContext } from './mod-context-fallback';
-
-const navigation = new FullNavigationStrategy();
+import { ParserResultRegistrar } from '../document/parser-result-registrar';
+import { recordNavigationDep } from '../workspace/navigation-deps';
+import { uriToFsPath } from '../workspace/workspace-files';
+import { setModContextResolver, withinModContext } from '../semantics/mod-context-fallback';
 
 /**
  * A game-root target path as a case-folded map key. The game resolves file paths through the
@@ -279,7 +277,7 @@ export class ModContext {
         }
         for (const { prefix, rest } of candidates) {
             if (rest.length === 0) continue;
-            const fileNode = await navigation.navigate(prefix, node, uri, cancellationToken).catch(() => null);
+            const fileNode = await navigate(prefix, node, uri, cancellationToken).catch(() => null);
             const key = fileKeyOfResolved(fileNode);
             if (!key) continue;
             const byName = this.fileOverrides.get(key);
@@ -302,23 +300,24 @@ export class ModContext {
         // Dereference the source to a concrete node (a `&<file>` global -> its document).
         let resolved: AbstractNode | null | FileWithPath = source;
         if (isValueNode(source) && source.valueType.type === 'Reference') {
-            resolved = await navigation
-                .navigate(source.valueType.value, source, getStartOfAstNode(source).uri, cancellationToken)
-                .catch(() => null);
+            resolved = await navigate(
+                source.valueType.value,
+                source,
+                getStartOfAstNode(source).uri,
+                cancellationToken
+            ).catch(() => null);
             if (resolved && isFile(resolved as unknown as FileTree)) {
                 resolved = await parseFilePath((resolved as FileWithPath).path).catch(() => null);
             }
         }
         if (rest.length === 0) return resolved ?? source; // the member exists even if its source is unresolved
         if (!resolved || isFile(resolved as unknown as FileTree)) return null;
-        return navigation
-            .navigate(
-                rest.join('/'),
-                resolved as AbstractNode,
-                getStartOfAstNode(resolved as AbstractNode).uri,
-                cancellationToken
-            )
-            .catch(() => null);
+        return navigate(
+            rest.join('/'),
+            resolved as AbstractNode,
+            getStartOfAstNode(resolved as AbstractNode).uri,
+            cancellationToken
+        ).catch(() => null);
     }
 }
 
@@ -384,14 +383,12 @@ const overrideMembers = (source: ActionSource): Promise<[string, AbstractNode][]
 
 /** Dereference a `&<file>` source value to that file's parsed document (or null). */
 const dereferenceSourceToDocument = async (source: ActionSource): Promise<AbstractNodeDocument | null> => {
-    const resolved = await navigation
-        .navigate(
-            String((source as { valueType: { value: unknown } }).valueType.value),
-            source,
-            getStartOfAstNode(source).uri,
-            CancellationToken.None
-        )
-        .catch(() => null);
+    const resolved = await navigate(
+        String((source as { valueType: { value: unknown } }).valueType.value),
+        source,
+        getStartOfAstNode(source).uri,
+        CancellationToken.None
+    ).catch(() => null);
     if (!resolved) return null;
     // A workspace-tree file resolves to a FileWithPath (parse it). A mod-relative whole-file ref
     // resolves through `navigateRulesByCurrentLocation`, which returns the already-parsed document.
@@ -471,18 +468,11 @@ export const resolveWithModContext = async (
     node: AbstractNode,
     cancellationToken: CancellationToken
 ): Promise<AbstractNode | null | FileWithPath> => {
-    const vanilla = await navigation
-        .navigate(path, node, getStartOfAstNode(node).uri, cancellationToken)
-        .catch(() => null);
+    const vanilla = await navigate(path, node, getStartOfAstNode(node).uri, cancellationToken).catch(() => null);
     if (vanilla) return vanilla;
     return resolveFromModContextOnly(path, node, cancellationToken);
 };
 
-/**
- * The member names the mod merged into `resolved` (a resolved whole file / document) via a whole-file
- * or file-aliasing-global `Overrides` action, so completion of `&/INDICATORS/` etc. offers the
- * mod-added members alongside the file's own. `node` locates the owning mod; returns [] outside a mod.
- */
 /**
  * The global names the mod adds to the root `cosmoteer.rules` (its own cosmoteer.rules globals plus
  * manifest `Add` actions targeting `<cosmoteer.rules>`), so `&/` completion can offer them alongside
@@ -494,6 +484,11 @@ export const modAddedGlobalNames = async (originUri: string): Promise<string[]> 
     return (await getModContext(modRoot)).cosmoteerRulesAdditionNames();
 };
 
+/**
+ * The member names the mod merged into `resolved` (a resolved whole file / document) via a whole-file
+ * or file-aliasing-global `Overrides` action, so completion of `&/INDICATORS/` etc. offers the
+ * mod-added members alongside the file's own. `node` locates the owning mod; returns [] outside a mod.
+ */
 export const modOverrideMemberNamesForFile = async (
     resolved: AbstractNode | FileWithPath,
     originUri: string

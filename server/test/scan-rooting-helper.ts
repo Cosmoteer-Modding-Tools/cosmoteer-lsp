@@ -1,6 +1,6 @@
 import { CancellationToken } from 'vscode-languageserver';
 import { invalidateSchemaContextCache } from '../src/document/schema/schema-context';
-import { ReverseIncludeIndex } from '../src/features/navigation/reverse-include.index';
+import { ReverseIncludeIndex } from '../src/mod/reverse-include.index';
 import { ActionRootingIndex } from '../src/mod/action-rooting.index';
 
 /**

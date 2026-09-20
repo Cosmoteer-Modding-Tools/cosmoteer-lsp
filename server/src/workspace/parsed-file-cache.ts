@@ -1,11 +1,14 @@
 import { Stats } from 'fs';
 import { stat } from 'fs/promises';
 import { AbstractNodeDocument } from '../core/ast/ast';
-import { ParserResultRegistrar } from '../registrar/parser-result-registrar';
+import { ParserResultRegistrar } from '../document/parser-result-registrar';
 import { parseFile } from '../utils/ast.utils';
-import { recordNavigationDep } from '../utils/navigation-deps';
+import { recordNavigationDep } from './navigation-deps';
 import { perfCount } from '../utils/perf-counters';
-import { FileWithPath } from './cosmoteer-workspace.service';
+// Type-only on purpose: the cache reads nothing out of the workspace service at runtime, it only
+// keys by the file shape the service hands it. A value import would make the two modules a load
+// cycle for the sake of a name the compiler erases.
+import type { FileWithPath } from './cosmoteer-workspace.service';
 import { currentFsTrustGeneration, invalidateFsPath, onFsInvalidation } from './fs-cache';
 
 // Navigation, inheritance resolution, and completion lazily parse game-tree files and pin the AST

@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { CancellationToken } from 'vscode-languageserver';
 import { ValidationForAssignment } from '../../../src/features/diagnostics/validator.assignment';
-import { AbstractNode, AbstractNodeDocument, AssignmentNode, AstPosition, ValueNode, isAssignmentNode } from '../../../src/core/ast/ast';
+import {
+    AbstractNode,
+    AbstractNodeDocument,
+    AssignmentNode,
+    AstPosition,
+    ValueNode,
+    isAssignmentNode,
+} from '../../../src/core/ast/ast';
 import { parseText } from '../../../src/utils/ast.utils';
 
 const token = CancellationToken.None;
@@ -35,11 +42,14 @@ describe('assignment diagnostics', () => {
         expect(error?.additionalInfo).toContain('without quotation marks');
     });
 
-    it.each(['<a/b>', '..Sibling', '~/Root', '^/0/Base'])('flags a reference that omits the leading ampersand: %s', async (value) => {
-        const error = await run(assign(refValue(value)));
-        expect(error?.message).toBe('Reference should start with an ampersand');
-        expect(error?.additionalInfo).toContain('&');
-    });
+    it.each(['<a/b>', '..Sibling', '~/Root', '^/0/Base'])(
+        'flags a reference that omits the leading ampersand: %s',
+        async (value) => {
+            const error = await run(assign(refValue(value)));
+            expect(error?.message).toBe('Reference should start with an ampersand');
+            expect(error?.additionalInfo).toContain('&');
+        }
+    );
 
     it('accepts a well-formed "&" reference', async () => {
         expect(await run(assign(refValue('&Bar')))).toBeUndefined();

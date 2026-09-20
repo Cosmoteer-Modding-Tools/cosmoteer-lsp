@@ -22,6 +22,11 @@ import {
     VERB_SCHEMA,
 } from './action';
 
+/** An action entry writes its verb out as `Action`, whatever its list is called. The lexer reads a
+    `\` as whitespace, which ends a token rather than continuing one, so no continuation can split
+    the word across the text, and neither quoting form hides its letters. */
+const ACTIONS_WORD = /action/i;
+
 /**
  * The top-level `Actions [ ... ]` list of a manifest, or undefined. The game looks nodes up
  * case-insensitively (OTGroupNode keys its children with InvariantCultureIgnoreCase), so a
@@ -54,11 +59,6 @@ export const isActionFragmentDocument = (document: AbstractNodeDocument): boolea
     findActionEntryLists(document).some((list) =>
         list.elements.some((element) => isGroupNode(element) && isActionEntryGroup(element))
     );
-
-/** An action entry writes its verb out as `Action`, whatever its list is called. The lexer reads a
-    `\` as whitespace, which ends a token rather than continuing one, so no continuation can split
-    the word across the text, and neither quoting form hides its letters. */
-const ACTIONS_WORD = /action/i;
 
 /**
  * Whether a file's raw text leaves it possible that the file carries mod actions, the cheap gate in

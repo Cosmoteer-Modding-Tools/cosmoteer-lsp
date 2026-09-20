@@ -9,8 +9,8 @@ import {
     isListNode,
     isValueNode,
     ValueNode,
+    descendants,
 } from '../../core/ast/ast';
-import { childNodesOf } from '../../utils/ast.utils';
 import { resolveGroupClass } from '../../document/schema/schema-context';
 import { classAncestry } from '../../document/schema/schema';
 import { RefusalConsequence, REFUSED_ENUM_RULES, RefusedEnumRule } from '../../document/schema/refused-enum-values';
@@ -131,25 +131,22 @@ export const validateRefusedEnumValues = async (
         const ancestry = new Set(classAncestry(cls));
         return REFUSED_ENUM_RULES.filter((rule) => ancestry.has(rule.owner));
     };
-    const visit = (node: AbstractNode): void => {
-        if (cancellationToken.isCancellationRequested) return;
-        if (isGroupNode(node)) {
-            const cls = resolveGroupClass(node);
-            for (const rule of cls ? rulesFor(cls) : []) {
-                const accepted = new Set(rule.accepted.map((member) => member.toLowerCase()));
-                for (const value of writtenMembers(memberAtPath(node, rule.path), rule.listed === true)) {
-                    const written = String(value.valueType.value).trim();
-                    if (accepted.has(written.toLowerCase())) continue;
-                    errors.push({
-                        message: messageFor(rule.consequence, written, rule.accepted.join(', ')),
-                        node: value,
-                        severity: rule.severity,
-                    });
-                }
+    for (const node of descendants(document)) {
+        if (cancellationToken.isCancellationRequested) break;
+        if (!isGroupNode(node)) continue;
+        const cls = resolveGroupClass(node);
+        for (const rule of cls ? rulesFor(cls) : []) {
+            const accepted = new Set(rule.accepted.map((member) => member.toLowerCase()));
+            for (const value of writtenMembers(memberAtPath(node, rule.path), rule.listed === true)) {
+                const written = String(value.valueType.value).trim();
+                if (accepted.has(written.toLowerCase())) continue;
+                errors.push({
+                    message: messageFor(rule.consequence, written, rule.accepted.join(', ')),
+                    node: value,
+                    severity: rule.severity,
+                });
             }
         }
-        for (const child of childNodesOf(node)) visit(child);
-    };
-    visit(document);
+    }
     return errors;
 };

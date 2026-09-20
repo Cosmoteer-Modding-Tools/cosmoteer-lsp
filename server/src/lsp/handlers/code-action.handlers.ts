@@ -1,13 +1,21 @@
 import * as l10n from '@vscode/l10n';
-import { CodeAction, CodeActionKind, Diagnostic, TextEdit } from 'vscode-languageserver/node';
+import {
+    CancellationToken,
+    CodeAction,
+    CodeActionKind,
+    CodeActionParams,
+    Diagnostic,
+    TextEdit,
+} from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
+import { AbstractNodeDocument } from '../../core/ast/ast';
 import { extractValueCodeAction } from '../../features/refactor/extract-value';
 import { inlineValueCodeAction } from '../../features/refactor/inline-value';
 import { makeModifiableCodeActions } from '../../features/refactor/make-modifiable';
 import { selfRootReferenceCodeAction } from '../../features/refactor/self-root-reference';
 import { sortMembersCodeAction } from '../../features/refactor/sort-members';
 import { CREATE_COMPONENT_ACTION_COMMAND } from '../../features/refactor/create-component/create-component.command';
-import { CreateComponentArgs } from '../../features/refactor/create-component/create-component.types';
+import { CreateComponentArgs } from '../../../../shared/create-component.types';
 import { extractGroupCodeAction } from '../../features/refactor/extract-group/extract-group.codeaction';
 import { extractLocalizationKeyCodeAction } from '../../features/refactor/extract-localization-key';
 import { extractSharedBaseCodeActions } from '../../features/refactor/shared-base/extract-shared-base.codeaction';
@@ -21,10 +29,12 @@ import {
     buildInsertLocalizationKeyEdit,
 } from '../../features/diagnostics/localization-key-insert';
 import { requiredFieldInsertText } from '../../features/diagnostics/required-field-insert';
-import { addDependencyEdit } from '../../mod/mod-dependencies';
+import { addDependencyEdit } from '../../features/mod-report/mod-dependencies';
 import { findModRoot } from '../../mod/mod-root';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
 import { isShaderDocument } from '../../document/document-kind';
+// The whole-line widening a removal gets lives in utils, so the workspace migration applies exactly
+// the one the code-action fixes apply.
 import { removalRange } from '../../utils/removal-range';
 import { globalSettings } from '../../settings';
 import { connection, documents } from '../context';
@@ -290,277 +300,399 @@ const fixAllActionFor = (uri: string, context: { only?: string[]; diagnostics: D
 };
 
 /**
+ * The refactorings that read nothing but the document in front of them, offered as plain edits of
+ * the file the caret is in.
+ *
+ * @param params the request, whose range start is the caret.
+ * @param cancellationToken cancels the offers with the request.
+ * @param parserResult the parsed document.
+ * @param text the document as the author wrote it.
+ * @param document the open buffer, absent when the server does not hold the file.
+ * @returns the actions, in the order they are offered.
+ */
+const treeRefactorActions = async (
+    params: CodeActionParams,
+    cancellationToken: CancellationToken,
+    parserResult: AbstractNodeDocument,
+    text: string,
+    document: TextDocument | undefined
+): Promise<CodeAction[]> => {
+    const actions: CodeAction[] = [];
+    const extract = extractValueCodeAction(parserResult, text, params.range.start, params.textDocument.uri);
+    if (extract) actions.push(extract);
+    // Display text written where a localization key belongs: offer to move it into the mod's
+    // language files. Not tied to a diagnostic, the literal itself is not an error.
+    const extractKey = await extractLocalizationKeyCodeAction(
+        parserResult,
+        text,
+        params.range.start,
+        params.textDocument.uri,
+        await searchFolderUris(),
+        cancellationToken
+    ).catch(() => undefined);
+    if (extractKey) actions.push(extractKey);
+    // A reference read once costs a reader a jump to learn one number: offer to replace it
+    // with the value the game reads through it.
+    const inline = await inlineValueCodeAction(
+        parserResult,
+        text,
+        params.range.start,
+        params.textDocument.uri,
+        cancellationToken
+    ).catch(() => undefined);
+    if (inline) actions.push(inline);
+    // A number the game also reads as a `{ BaseValue = … }` group: offer the group form, so a
+    // field that is about to take a buff is written the way the game reads one. The reverse is
+    // offered on a group that carries nothing but its `BaseValue`.
+    if (document)
+        actions.push(
+            ...makeModifiableCodeActions(
+                parserResult,
+                document,
+                document.offsetAt(params.range.start),
+                params.textDocument.uri
+            )
+        );
+    // A reference naming its own file: offer the `~` form, which says the same thing and
+    // keeps saying it after the file is renamed.
+    if (document) {
+        const selfRooted = await selfRootReferenceCodeAction(
+            parserResult,
+            document,
+            params.range.start,
+            params.textDocument.uri,
+            cancellationToken
+        ).catch(() => undefined);
+        if (selfRooted) actions.push(selfRooted);
+    }
+    // A group whose every member the schema knows: offer to write them in the order the
+    // class declares, so a mod file reads next to the game's own.
+    if (document) {
+        const sorted = sortMembersCodeAction(
+            parserResult,
+            document,
+            document.offsetAt(params.range.start),
+            params.textDocument.uri
+        );
+        if (sorted) actions.push(sorted);
+    }
+    return actions;
+};
+
+/**
+ * The refactorings that write somewhere other than the file the caret is in, or that need a name
+ * only the author can choose. Each is offered as a command rather than as an edit.
+ *
+ * @param params the request, whose range start is the caret.
+ * @param cancellationToken cancels the offers with the request.
+ * @param parserResult the parsed document, absent when the file is not parsed.
+ * @param text the document as the author wrote it, absent when the server does not hold the file.
+ * @param document the open buffer, absent when the server does not hold the file.
+ * @returns the actions, in the order they are offered.
+ */
+const commandRefactorActions = async (
+    params: CodeActionParams,
+    cancellationToken: CancellationToken,
+    parserResult: AbstractNodeDocument | undefined,
+    text: string | undefined,
+    document: TextDocument | undefined
+): Promise<CodeAction[]> => {
+    const actions: CodeAction[] = [];
+    // The shared-base extraction creates a file and rewrites every file that will inherit it, so
+    // it is offered as a command rather than an edit (see extract-shared-base.codeaction.ts).
+    if (parserResult && text !== undefined && document && globalSettings.diagnostics?.validateDuplicateFields) {
+        actions.push(
+            ...(await extractSharedBaseCodeActions(
+                parserResult,
+                text,
+                document.offsetAt(params.range.start),
+                await searchFolderUris(),
+                cancellationToken,
+                await reachableFileFilter(cancellationToken)
+            ).catch(() => []))
+        );
+    }
+    // Moving an inline block into a file of its own. It creates a file, and whether the block
+    // can move at all depends on what its values read, so the offer carries a command.
+    if (parserResult && document) {
+        const extractGroup = extractGroupCodeAction(
+            parserResult,
+            document.offsetAt(params.range.start),
+            params.textDocument.uri
+        );
+        if (extractGroup) actions.push(extractGroup);
+    }
+    // The registration writes into a ship file or into the mod's manifest, neither of which is
+    // the file the cursor is in, so it is offered as a command rather than an edit. Not gated on
+    // any diagnostics setting, unlike the shared-base offer above: it carries no hint of its own.
+    if (parserResult && document) {
+        const register = registerPartInShipCodeAction(
+            parserResult,
+            document.offsetAt(params.range.start),
+            params.textDocument.uri
+        );
+        if (register) actions.push(register);
+    }
+    // Overriding a value of the game's own install from a mod. The edit lands in the mod's
+    // manifest rather than in the file the caret is in, and which mod it goes into is a
+    // choice only the author can make, so this is carried as a command too. The offer
+    // consults no index: it reads the document in front of it and the folders it is handed.
+    if (parserResult && text !== undefined && document) {
+        const override = overrideInModCodeAction(
+            parserResult,
+            text,
+            document.offsetAt(params.range.start),
+            params.textDocument.uri,
+            CosmoteerWorkspaceService.instance.dataRootPath,
+            await workspaceFolderPaths()
+        );
+        if (override) actions.push(override);
+    }
+    // The copy writes files that are not the one the caret is in, and its new id is a name only
+    // the author can choose, so it is offered as a command rather than as an edit. Not gated on
+    // the source being editable, unlike the offer above: copying a file of the game's own install
+    // into a mod is what this exists for, and it is the destination the command gates.
+    if (parserResult && document) {
+        const clone = cloneDeclarationCodeAction(
+            parserResult,
+            document.offsetAt(params.range.start),
+            params.textDocument.uri
+        );
+        if (clone) actions.push(clone);
+    }
+    return actions;
+};
+
+/**
+ * The refactorings offered on the tree under the caret, or none when the client asked only for
+ * kinds that exclude them. None of them is tied to a diagnostic: the extract-to-shared-field offer
+ * stands on a repeated literal value, which is no error.
+ *
+ * The refactorings read an Object Text parse, so none is offered on a `.shader`, whose parse is
+ * nonsense. The diagnostic-driven fixes are unaffected: they read the diagnostic's own data rather
+ * than the tree.
+ *
+ * @param params the request, whose range start is the caret.
+ * @param cancellationToken cancels the offers with the request.
+ * @returns the actions, in the order they are offered.
+ */
+const refactorActions = async (
+    params: CodeActionParams,
+    cancellationToken: CancellationToken
+): Promise<CodeAction[]> => {
+    const wantsRefactor =
+        !isShaderDocument(params.textDocument.uri) &&
+        (!params.context.only ||
+            params.context.only.some((kind) =>
+                [CodeActionKind.RefactorExtract, CodeActionKind.RefactorInline, CodeActionKind.RefactorRewrite].some(
+                    (offered) => offered.startsWith(kind)
+                )
+            ));
+    if (!wantsRefactor) return [];
+    const parserResult = ensureParserResult(params.textDocument.uri);
+    const text = documents.get(params.textDocument.uri)?.getText();
+    const document = documents.get(params.textDocument.uri);
+    const actions: CodeAction[] = [];
+    if (parserResult && text !== undefined) {
+        actions.push(...(await treeRefactorActions(params, cancellationToken, parserResult, text, document)));
+    }
+    actions.push(...(await commandRefactorActions(params, cancellationToken, parserResult, text, document)));
+    return actions;
+};
+
+/**
+ * The quick fixes of one finding whose edit lands somewhere other than the file the finding sits
+ * in: the strings files of the mod, every language beside the one being edited, and the manifest's
+ * dependency list.
+ *
+ * @param params the request.
+ * @param diagnostic the finding.
+ * @param data what the validator attached to the finding, absent when it attached nothing.
+ * @param cancellationToken cancels the sweeps with the request.
+ * @returns the actions, in the order they are offered.
+ */
+const crossFileFixActions = async (
+    params: CodeActionParams,
+    diagnostic: Diagnostic,
+    data: ValidationErrorData | undefined,
+    cancellationToken: CancellationToken
+): Promise<CodeAction[]> => {
+    const actions: CodeAction[] = [];
+    if (data?.insertLocalizationKey) {
+        const key = data.insertLocalizationKey.key;
+        const edit = await buildInsertLocalizationKeyEdit(params.textDocument.uri, key, cancellationToken).catch(
+            () => null
+        );
+        if (edit) {
+            actions.push({
+                title: l10n.t('Add "{0}" to the mod\'s strings files', key),
+                kind: CodeActionKind.QuickFix,
+                diagnostics: [diagnostic],
+                edit,
+            });
+        }
+    }
+    // A language of the mod that is behind the languages beside it: write every key they
+    // declare into it, each with the English sentence to translate rather than a blank.
+    if (data?.fillLanguageKeys) {
+        const { count } = data.fillLanguageKeys;
+        const edit = await buildFillLanguageKeysEdit(
+            params.textDocument.uri,
+            await searchFolderPaths(),
+            cancellationToken,
+            openBufferReadOverride()
+        ).catch(() => null);
+        if (edit) {
+            actions.push({
+                title: l10n.t('Add the {0} missing key(s) to this language', count),
+                kind: CodeActionKind.QuickFix,
+                diagnostics: [diagnostic],
+                edit,
+            });
+        }
+    }
+    // A mod this file leans on without saying so: write it into the manifest's Dependencies, so
+    // the mod states what it needs instead of only working where that mod happens to be
+    // installed. The edit lands in the manifest, not in the file the diagnostic sits in.
+    if (data?.addModDependency) {
+        const { token, name } = data.addModDependency;
+        const modRoot = findModRoot(params.textDocument.uri);
+        const insert = modRoot ? await addDependencyEdit(modRoot, token).catch(() => null) : null;
+        if (insert) {
+            actions.push({
+                title: l10n.t("Add '{0}' to the manifest's Dependencies", name),
+                kind: CodeActionKind.QuickFix,
+                diagnostics: [diagnostic],
+                edit: { changes: { [insert.uri]: [insert.edit] } },
+            });
+        }
+    }
+    return actions;
+};
+
+/**
+ * The scaffolding fixes of a group missing a schema-required field: one for the field the finding
+ * names, and one for the whole group when it is short more than one.
+ *
+ * The edit is literal text, so each scaffolded field gets a starting value to replace rather than
+ * an empty one, which the game reads as a parse error the moment it stands in front of the closing
+ * brace. Never preferred: the value is the fix's, not the author's, so it must not be applied
+ * without being looked at.
+ *
+ * @param params the request.
+ * @param doc the buffer the fields are written into.
+ * @param diagnostic the finding.
+ * @param insert the fields the group is missing and the offset to write them at.
+ * @returns the actions, or none when the offsets no longer describe the buffer.
+ */
+const requiredFieldFixActions = (
+    params: CodeActionParams,
+    doc: TextDocument,
+    diagnostic: Diagnostic,
+    insert: NonNullable<ValidationErrorData['insertRequiredFields']>
+): CodeAction[] => {
+    const actions: CodeAction[] = [];
+    const field = insert.fields.at(insert.fieldIndex);
+    if (!field || doc.offsetAt(diagnostic.range.end) > insert.offset) return actions;
+    const text = doc.getText();
+    const one = requiredFieldInsertText(text, insert, [field]);
+    if (one !== null) {
+        actions.push({
+            title: l10n.t("Insert the missing required field '{0}'", field.name),
+            kind: CodeActionKind.QuickFix,
+            diagnostics: [diagnostic],
+            edit: { changes: { [params.textDocument.uri]: [editOf(doc, one)] } },
+        });
+    }
+    // One fix for the whole group, so a component short several fields is scaffolded in
+    // one go rather than one lightbulb at a time.
+    const all = insert.fields.length > 1 ? requiredFieldInsertText(text, insert, insert.fields) : null;
+    if (all !== null) {
+        actions.push({
+            title: l10n.t('Insert the {0} missing required fields', insert.fields.length),
+            kind: CodeActionKind.QuickFix,
+            diagnostics: [diagnostic],
+            edit: { changes: { [params.textDocument.uri]: [editOf(doc, all)] } },
+        });
+    }
+    return actions;
+};
+
+/**
+ * The quick fixes carried on the findings' own `data`, in the order the findings arrived.
+ *
+ * @param params the request, which carries the findings.
+ * @param cancellationToken cancels the sweeps with the request.
+ * @returns the actions, in the order they are offered.
+ */
+const diagnosticFixActions = async (
+    params: CodeActionParams,
+    cancellationToken: CancellationToken
+): Promise<CodeAction[]> => {
+    const actions: CodeAction[] = [];
+    for (const diagnostic of params.context.diagnostics) {
+        const data = diagnostic.data as ValidationErrorData | undefined;
+        const doc = documents.get(params.textDocument.uri);
+        if (doc) actions.push(...textFixActions(doc, params.textDocument.uri, diagnostic));
+        // The same deprecation usually repeats across a mod, one `Flammable = false` per part file,
+        // so the whole-mod fix is offered beside the single-file one. It carries a command rather
+        // than an edit: which files change is only known after a sweep, which must not happen while
+        // the lightbulb menu is being built.
+        const bulkMigration = migrateSymbolCodeAction(diagnostic, params.textDocument.uri, data);
+        if (bulkMigration) actions.push(bulkMigration);
+        // A part that wires a component before declaring it: offer to declare it. The offer carries
+        // a command rather than an edit, since which kind of component it is cannot be read off the
+        // reference and only the author knows it.
+        if (data?.createComponent) {
+            if (doc) {
+                const args: CreateComponentArgs = {
+                    uri: params.textDocument.uri,
+                    offset: doc.offsetAt(diagnostic.range.start),
+                    name: data.createComponent.name,
+                };
+                const title = l10n.t("Create the component '{0}'...", data.createComponent.name);
+                actions.push({
+                    title,
+                    kind: CodeActionKind.QuickFix,
+                    diagnostics: [diagnostic],
+                    command: { title, command: CREATE_COMPONENT_ACTION_COMMAND, arguments: [args] },
+                });
+            }
+        }
+        actions.push(...(await crossFileFixActions(params, diagnostic, data, cancellationToken)));
+        if (data?.insertRequiredFields && doc) {
+            actions.push(...requiredFieldFixActions(params, doc, diagnostic, data.insertRequiredFields));
+        }
+    }
+    return actions;
+};
+
+/**
+ * Code actions: surface the quick fixes carried on diagnostics' `data`, the "did you mean …"
+ * replacements (a typo'd reference name, asset filename, or localization key) as one-click edits of
+ * the flagged range, and the "insert missing localization key" fix as a cross-file edit that adds the
+ * key to every language strings file of the mod, plus the extract-repeated-value refactoring.
+ *
+ * @param params the document, the range the caret covers and the findings under it.
+ * @param cancellationToken cancels the offers with the request.
+ * @returns every action offered, with the file-wide fix-all last.
+ */
+const handleCodeAction = async (
+    params: CodeActionParams,
+    cancellationToken: CancellationToken
+): Promise<CodeAction[]> => {
+    const actions: CodeAction[] = await refactorActions(params, cancellationToken);
+    if (!wantsKind(params.context.only, CodeActionKind.QuickFix)) {
+        return [...actions, ...fixAllActionFor(params.textDocument.uri, params.context)];
+    }
+    actions.push(...(await diagnosticFixActions(params, cancellationToken)));
+    return [...actions, ...fixAllActionFor(params.textDocument.uri, params.context)];
+};
+
+/**
  * Registers the code-action request: the refactorings offered on the tree under the caret and the
  * quick fixes carried on a diagnostic's `data`.
  */
 export function register(): void {
-    // removalRange moved to utils/removal-range.ts so the workspace migration shares the exact
-    // whole-line widening the code-action fixes use.
-
-    // Code actions: surface the quick fixes carried on diagnostics' `data`, the "did you mean …"
-    // replacements (a typo'd reference name, asset filename, or localization key) as one-click edits of
-    // the flagged range, and the "insert missing localization key" fix as a cross-file edit that adds the
-    // key to every language strings file of the mod, plus the extract-repeated-value refactoring.
-    connection.onCodeAction(async (params, cancellationToken): Promise<CodeAction[]> => {
-        const actions: CodeAction[] = [];
-        // Extract-to-shared-field refactoring, offered on repeated literal values independent of any
-        // diagnostic (skipped when the client asked only for kinds that exclude refactorings).
-        // The refactorings below read an Object Text AST, so they are never offered on a `.shader`, whose
-        // parse is nonsense. The diagnostic-driven fixes further down stay, they read the diagnostic's
-        // own data rather than the tree.
-        const wantsRefactor =
-            !isShaderDocument(params.textDocument.uri) &&
-            (!params.context.only ||
-                params.context.only.some((kind) =>
-                    [
-                        CodeActionKind.RefactorExtract,
-                        CodeActionKind.RefactorInline,
-                        CodeActionKind.RefactorRewrite,
-                    ].some((offered) => offered.startsWith(kind))
-                ));
-        if (wantsRefactor) {
-            const parserResult = ensureParserResult(params.textDocument.uri);
-            const text = documents.get(params.textDocument.uri)?.getText();
-            const document = documents.get(params.textDocument.uri);
-            if (parserResult && text !== undefined) {
-                const extract = extractValueCodeAction(parserResult, text, params.range.start, params.textDocument.uri);
-                if (extract) actions.push(extract);
-                // Display text written where a localization key belongs: offer to move it into the mod's
-                // language files. Not tied to a diagnostic, the literal itself is not an error.
-                const extractKey = await extractLocalizationKeyCodeAction(
-                    parserResult,
-                    text,
-                    params.range.start,
-                    params.textDocument.uri,
-                    await searchFolderUris(),
-                    cancellationToken
-                ).catch(() => undefined);
-                if (extractKey) actions.push(extractKey);
-                // A reference read once costs a reader a jump to learn one number: offer to replace it
-                // with the value the game reads through it.
-                const inline = await inlineValueCodeAction(
-                    parserResult,
-                    text,
-                    params.range.start,
-                    params.textDocument.uri,
-                    cancellationToken
-                ).catch(() => undefined);
-                if (inline) actions.push(inline);
-                // A number the game also reads as a `{ BaseValue = … }` group: offer the group form, so a
-                // field that is about to take a buff is written the way the game reads one. The reverse is
-                // offered on a group that carries nothing but its `BaseValue`.
-                if (document)
-                    actions.push(
-                        ...makeModifiableCodeActions(
-                            parserResult,
-                            document,
-                            document.offsetAt(params.range.start),
-                            params.textDocument.uri
-                        )
-                    );
-                // A reference naming its own file: offer the `~` form, which says the same thing and
-                // keeps saying it after the file is renamed.
-                if (document) {
-                    const selfRooted = await selfRootReferenceCodeAction(
-                        parserResult,
-                        document,
-                        params.range.start,
-                        params.textDocument.uri,
-                        cancellationToken
-                    ).catch(() => undefined);
-                    if (selfRooted) actions.push(selfRooted);
-                }
-                // A group whose every member the schema knows: offer to write them in the order the
-                // class declares, so a mod file reads next to the game's own.
-                if (document) {
-                    const sorted = sortMembersCodeAction(
-                        parserResult,
-                        document,
-                        document.offsetAt(params.range.start),
-                        params.textDocument.uri
-                    );
-                    if (sorted) actions.push(sorted);
-                }
-            }
-            // The shared-base extraction creates a file and rewrites every file that will inherit it, so
-            // it is offered as a command rather than an edit (see extract-shared-base.codeaction.ts).
-            if (parserResult && text !== undefined && document && globalSettings.diagnostics?.validateDuplicateFields) {
-                actions.push(
-                    ...(await extractSharedBaseCodeActions(
-                        parserResult,
-                        text,
-                        document.offsetAt(params.range.start),
-                        await searchFolderUris(),
-                        cancellationToken,
-                        await reachableFileFilter(cancellationToken)
-                    ).catch(() => []))
-                );
-            }
-            // Moving an inline block into a file of its own. It creates a file, and whether the block
-            // can move at all depends on what its values read, so the offer carries a command.
-            if (parserResult && document) {
-                const extractGroup = extractGroupCodeAction(
-                    parserResult,
-                    document.offsetAt(params.range.start),
-                    params.textDocument.uri
-                );
-                if (extractGroup) actions.push(extractGroup);
-            }
-            // The registration writes into a ship file or into the mod's manifest, neither of which is
-            // the file the cursor is in, so it is offered as a command rather than an edit. Not gated on
-            // any diagnostics setting, unlike the shared-base offer above: it carries no hint of its own.
-            if (parserResult && document) {
-                const register = registerPartInShipCodeAction(
-                    parserResult,
-                    document.offsetAt(params.range.start),
-                    params.textDocument.uri
-                );
-                if (register) actions.push(register);
-            }
-            // Overriding a value of the game's own install from a mod. The edit lands in the mod's
-            // manifest rather than in the file the caret is in, and which mod it goes into is a
-            // choice only the author can make, so this is carried as a command too. The offer
-            // consults no index: it reads the document in front of it and the folders it is handed.
-            if (parserResult && text !== undefined && document) {
-                const override = overrideInModCodeAction(
-                    parserResult,
-                    text,
-                    document.offsetAt(params.range.start),
-                    params.textDocument.uri,
-                    CosmoteerWorkspaceService.instance.dataRootPath,
-                    await workspaceFolderPaths()
-                );
-                if (override) actions.push(override);
-            }
-            // The copy writes files that are not the one the caret is in, and its new id is a name only
-            // the author can choose, so it is offered as a command rather than as an edit. Not gated on
-            // the source being editable, unlike the offer above: copying a file of the game's own install
-            // into a mod is what this exists for, and it is the destination the command gates.
-            if (parserResult && document) {
-                const clone = cloneDeclarationCodeAction(
-                    parserResult,
-                    document.offsetAt(params.range.start),
-                    params.textDocument.uri
-                );
-                if (clone) actions.push(clone);
-            }
-        }
-        if (!wantsKind(params.context.only, CodeActionKind.QuickFix)) {
-            return [...actions, ...fixAllActionFor(params.textDocument.uri, params.context)];
-        }
-        for (const diagnostic of params.context.diagnostics) {
-            const data = diagnostic.data as ValidationErrorData | undefined;
-            const doc = documents.get(params.textDocument.uri);
-            if (doc) actions.push(...textFixActions(doc, params.textDocument.uri, diagnostic));
-            // The same deprecation usually repeats across a mod, one `Flammable = false` per part file,
-            // so the whole-mod fix is offered beside the single-file one. It carries a command rather
-            // than an edit: which files change is only known after a sweep, which must not happen while
-            // the lightbulb menu is being built.
-            const bulkMigration = migrateSymbolCodeAction(diagnostic, params.textDocument.uri, data);
-            if (bulkMigration) actions.push(bulkMigration);
-            // A part that wires a component before declaring it: offer to declare it. The offer carries
-            // a command rather than an edit, since which kind of component it is cannot be read off the
-            // reference and only the author knows it.
-            if (data?.createComponent) {
-                if (doc) {
-                    const args: CreateComponentArgs = {
-                        uri: params.textDocument.uri,
-                        offset: doc.offsetAt(diagnostic.range.start),
-                        name: data.createComponent.name,
-                    };
-                    const title = l10n.t("Create the component '{0}'...", data.createComponent.name);
-                    actions.push({
-                        title,
-                        kind: CodeActionKind.QuickFix,
-                        diagnostics: [diagnostic],
-                        command: { title, command: CREATE_COMPONENT_ACTION_COMMAND, arguments: [args] },
-                    });
-                }
-            }
-            if (data?.insertLocalizationKey) {
-                const key = data.insertLocalizationKey.key;
-                const edit = await buildInsertLocalizationKeyEdit(
-                    params.textDocument.uri,
-                    key,
-                    cancellationToken
-                ).catch(() => null);
-                if (edit) {
-                    actions.push({
-                        title: l10n.t('Add "{0}" to the mod\'s strings files', key),
-                        kind: CodeActionKind.QuickFix,
-                        diagnostics: [diagnostic],
-                        edit,
-                    });
-                }
-            }
-            // A language of the mod that is behind the languages beside it: write every key they
-            // declare into it, each with the English sentence to translate rather than a blank.
-            if (data?.fillLanguageKeys) {
-                const { count } = data.fillLanguageKeys;
-                const edit = await buildFillLanguageKeysEdit(
-                    params.textDocument.uri,
-                    await searchFolderPaths(),
-                    cancellationToken,
-                    openBufferReadOverride()
-                ).catch(() => null);
-                if (edit) {
-                    actions.push({
-                        title: l10n.t('Add the {0} missing key(s) to this language', count),
-                        kind: CodeActionKind.QuickFix,
-                        diagnostics: [diagnostic],
-                        edit,
-                    });
-                }
-            }
-            // A mod this file leans on without saying so: write it into the manifest's Dependencies, so
-            // the mod states what it needs instead of only working where that mod happens to be
-            // installed. The edit lands in the manifest, not in the file the diagnostic sits in.
-            if (data?.addModDependency) {
-                const { token, name } = data.addModDependency;
-                const modRoot = findModRoot(params.textDocument.uri);
-                const insert = modRoot ? await addDependencyEdit(modRoot, token).catch(() => null) : null;
-                if (insert) {
-                    actions.push({
-                        title: l10n.t("Add '{0}' to the manifest's Dependencies", name),
-                        kind: CodeActionKind.QuickFix,
-                        diagnostics: [diagnostic],
-                        edit: { changes: { [insert.uri]: [insert.edit] } },
-                    });
-                }
-            }
-            // A group missing a schema-required field: write the field in, at the end of the group and
-            // with the indentation its other members use. The edit is literal text, so each scaffolded
-            // field gets a starting value to replace rather than an empty one, which the game reads as a
-            // parse error the moment it stands in front of the closing brace. Never preferred: the value
-            // is the fix's, not the author's, so it must not be applied without being looked at.
-            if (data?.insertRequiredFields) {
-                const insert = data.insertRequiredFields;
-                const field = insert.fields.at(insert.fieldIndex);
-                if (doc && field && doc.offsetAt(diagnostic.range.end) <= insert.offset) {
-                    const text = doc.getText();
-                    const one = requiredFieldInsertText(text, insert, [field]);
-                    if (one !== null) {
-                        actions.push({
-                            title: l10n.t("Insert the missing required field '{0}'", field.name),
-                            kind: CodeActionKind.QuickFix,
-                            diagnostics: [diagnostic],
-                            edit: { changes: { [params.textDocument.uri]: [editOf(doc, one)] } },
-                        });
-                    }
-                    // One fix for the whole group, so a component short several fields is scaffolded in
-                    // one go rather than one lightbulb at a time.
-                    const all = insert.fields.length > 1 ? requiredFieldInsertText(text, insert, insert.fields) : null;
-                    if (all !== null) {
-                        actions.push({
-                            title: l10n.t('Insert the {0} missing required fields', insert.fields.length),
-                            kind: CodeActionKind.QuickFix,
-                            diagnostics: [diagnostic],
-                            edit: { changes: { [params.textDocument.uri]: [editOf(doc, all)] } },
-                        });
-                    }
-                }
-            }
-        }
-        return [...actions, ...fixAllActionFor(params.textDocument.uri, params.context)];
-    });
+    connection.onCodeAction(handleCodeAction);
 }

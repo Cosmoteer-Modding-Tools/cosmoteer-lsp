@@ -82,7 +82,7 @@ const settings = {
 const nodeArgs = ['--max-semi-space-size=64', '--expose-gc'];
 if (MAX_OLD_SPACE_MB > 0) nodeArgs.push(`--max-old-space-size=${MAX_OLD_SPACE_MB}`);
 // SCAN_CPU_PROF=dir makes the server write one scan-scoped .cpuprofile per pass into that
-// directory (see server/src/utils/cpu-profile.ts). Analyze self-times to attribute scan cost
+// directory (see server/src/lsp/cpu-profile.ts). Analyze self-times to attribute scan cost
 // precisely. The summed per-pass counters cross-bill under concurrency.
 const serverEnv = process.env.SCAN_CPU_PROF
     ? { ...process.env, COSMOTEER_CPU_PROF: process.env.SCAN_CPU_PROF }

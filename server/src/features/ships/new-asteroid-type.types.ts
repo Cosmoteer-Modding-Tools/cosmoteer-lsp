@@ -6,7 +6,12 @@
 
 import { CancellationToken } from 'vscode-languageserver';
 import { NewContentHost } from '../refactor/new-content/new-content.command';
-import { ASTEROID_SIZES, RARITIES } from './new-asteroid-type.command';
+
+/** The asteroid sizes in the game's order, the order every recipe and id list is built in. */
+export const ASTEROID_SIZES = ['s', 'm', 'l', 'xl', 'xxl'] as const;
+
+/** The rarities a type can spawn from, each with its own spawner list. */
+export const RARITIES = ['common', 'rare', 'sun'] as const;
 
 export type AsteroidSize = (typeof ASTEROID_SIZES)[number];
 export type AsteroidRarity = (typeof RARITIES)[number];

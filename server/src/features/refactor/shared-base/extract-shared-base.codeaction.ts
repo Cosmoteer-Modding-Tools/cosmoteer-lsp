@@ -1,6 +1,6 @@
 import { CancellationToken, CodeAction, CodeActionKind } from 'vscode-languageserver';
 import { AbstractNodeDocument } from '../../../core/ast/ast';
-import { normalizeUri } from '../../navigation/reference-location';
+import { normalizeUri } from '../../../document/reference-location';
 import { containerAtOffset, plansForDocument } from './shared-base.analysis-entry';
 import { EXTRACT_SHARED_BASE_ACTION_COMMAND } from './shared-base.command';
 import { ExtractionPlan, serializePlan } from './plan.types';

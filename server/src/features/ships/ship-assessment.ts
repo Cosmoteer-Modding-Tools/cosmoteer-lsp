@@ -107,6 +107,9 @@ const TRADE_WEAPON_SHARE = 0.12;
 /** From this share of value in weapons an immobile ship is a military station rather than a trading one. */
 const MILITARY_STATION_WEAPON_SHARE = 0.11;
 
+/** The highest tier the game's own galaxy generates, the ceiling every suggested tier is held to. */
+const HIGHEST_TIER = 18;
+
 /**
  * Whether a part is a weapon. The `weapon` category is what the game's own weapons declare, but not
  * all of them: the chaingun, the flak cannon and the point defense carry categories of their own, so
@@ -342,9 +345,6 @@ export const assessBlueprint = (
         roles: rolesOf(signals, value, name),
     };
 };
-
-/** The highest tier the game's own galaxy generates, the ceiling every suggested tier is held to. */
-const HIGHEST_TIER = 18;
 
 /**
  * The tier a ship of a value tier is registered at in a role.

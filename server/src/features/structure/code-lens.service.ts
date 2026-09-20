@@ -4,7 +4,7 @@ import { isModRules } from '../../document/document-kind';
 import { reachabilityKey, reachabilityMemo, relativeToMod } from '../../mod/mod-reachability';
 import { findModRoot } from '../../mod/mod-root';
 import { isStringsFile } from '../../mod/strings-folder';
-import { uriToFsPath } from '../navigation/workspace-files';
+import { uriToFsPath } from '../../workspace/workspace-files';
 
 /**
  * Code lenses over a `.rules` file, the server side of the two clients' own lens providers.

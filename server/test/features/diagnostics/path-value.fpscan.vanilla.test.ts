@@ -8,16 +8,15 @@ import { parser } from '../../../src/core/parser/parser';
 import { globalSettings } from '../../../src/settings';
 import { CosmoteerWorkspaceService } from '../../../src/workspace/cosmoteer-workspace.service';
 import { aliasRootIndex } from '../../../src/document/schema/alias-root';
-import { ReverseIncludeIndex } from '../../../src/features/navigation/reverse-include.index';
-import { ParserResultRegistrar } from '../../../src/registrar/parser-result-registrar';
+import { ReverseIncludeIndex } from '../../../src/mod/reverse-include.index';
+import { ParserResultRegistrar } from '../../../src/document/parser-result-registrar';
 import { validatePathValues } from '../../../src/features/diagnostics/validator.path-value';
 
 // False-positive scan of the path-existence check over the whole vanilla install. Everything the
 // game ships loads fine in-game, so every finding here is a false positive by definition, which
 // makes zero findings the contract that lets the check run by default. Needs the install, self-skips
 // without it.
-const DATA_DIR =
-    process.env.COSMOTEER_DATA_DIR ?? 'C:/Program Files (x86)/Steam/steamapps/common/Cosmoteer/Data';
+const DATA_DIR = process.env.COSMOTEER_DATA_DIR ?? 'C:/Program Files (x86)/Steam/steamapps/common/Cosmoteer/Data';
 const HAVE_DATA = existsSync(DATA_DIR);
 const token = CancellationToken.None;
 
@@ -47,7 +46,11 @@ const report = (name: string, findings: string[]): void => {
 describe.skipIf(!HAVE_DATA)('path values over vanilla Data', () => {
     beforeAll(async () => {
         globalSettings.cosmoteerPath = DATA_DIR;
-        const noop: WorkDoneProgressReporter = { begin: () => undefined, report: () => undefined, done: () => undefined };
+        const noop: WorkDoneProgressReporter = {
+            begin: () => undefined,
+            report: () => undefined,
+            done: () => undefined,
+        };
         const svc = CosmoteerWorkspaceService.instance;
         svc.setConnection({
             languages: { diagnostics: { refresh: () => undefined } },

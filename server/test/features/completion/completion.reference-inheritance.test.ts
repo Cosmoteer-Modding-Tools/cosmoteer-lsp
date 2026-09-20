@@ -2,14 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { CancellationToken } from 'vscode-languageserver';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
-import { ReferenceAutoCompletionStrategy } from '../../../src/features/completion/strategy/reference.autocompletion-strategy';
+import { completeReference } from '../../../src/features/completion/autocompletion.reference-path';
 import { AbstractNode, AbstractNodeDocument, ValueNode } from '../../../src/core/ast/ast';
-import { Completion } from '../../../src/features/completion/autocompletion.service';
+import { Completion } from '../../../src/features/completion/autocompletion.service.types';
 
 // The game reads a node as the union of its own members and the ones its bases supply, so a
 // reference path walking into such a node has to offer both. A Star Wars part whose `Components`
 // block inherits nearly everything used to complete to nothing on a path that validated clean.
-const strategy = new ReferenceAutoCompletionStrategy();
 const token = CancellationToken.None;
 const pos = { line: 0, characterStart: 0, characterEnd: 0, start: 0, end: 0 };
 
@@ -48,7 +47,7 @@ const labels = (options: Completion[]): string[] =>
 
 const complete = async (value: string): Promise<Completion[]> => {
     const document = parse();
-    return strategy.complete({
+    return completeReference({
         node: refNode(value, document),
         isInheritanceNode: false,
         cancellationToken: token,

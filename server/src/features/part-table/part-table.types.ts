@@ -250,3 +250,69 @@ export interface PartTableEditHooks {
     /** The game's data root, which no edit may land in. */
     readonly dataRootPath: string | undefined;
 }
+
+/** One column of the workbook the view exports, as the view is showing it. */
+export interface PartTableWorkbookColumn {
+    /** The view's own key for the column, which is what the formulas are keyed by. */
+    readonly key: string;
+    /** The member path, for a column read from the files rather than computed by a formula. */
+    readonly path?: string;
+    /** The header's own name, the last part of the path or the name given to a formula column. */
+    readonly label: string;
+    /** What sits above the label in the header, empty for a column whose path has one segment. */
+    readonly context?: string;
+    /** Whether the column holds numbers, which decides its format and its place in the totals row. */
+    readonly numeric: boolean;
+    /** The formula as the reader wrote it, for a formula column. */
+    readonly formula?: string;
+    /** The unit the column's numbers carry, which decides the format they are written with. */
+    readonly unit?: PartTableUnit;
+    /** The width the reader dragged the column to, in pixels. */
+    readonly width?: number;
+    /** Whether the view keeps the column pinned at its left edge. */
+    readonly frozen?: boolean;
+}
+
+/** One row of the workbook the view exports. */
+export interface PartTableWorkbookRow {
+    /** The part's id, which the first column holds and the comparison looks the compared part up by. */
+    readonly id: string;
+    /** The file the part is written in, for the tooltip over the link. */
+    readonly file?: string;
+    /** The file's URI, which the part's cell links to. */
+    readonly uri?: string;
+    /** The labels of the grouping the view groups by, outermost first. */
+    readonly groups?: readonly string[];
+    /** The cells, by column: a number, text, or null for a cell the part leaves empty. */
+    readonly cells: readonly (number | string | null)[];
+}
+
+/** What the view is showing, which is what the workbook is built out of. */
+export interface PartTableWorkbookModel {
+    readonly columns: readonly PartTableWorkbookColumn[];
+    readonly rows: readonly PartTableWorkbookRow[];
+    /** The headers of the grouping columns, outermost first, empty when the view groups nothing. */
+    readonly groupHeaders?: readonly string[];
+    /** The name of the mod the table reads beside the game, empty when it reads the game alone. */
+    readonly mod: string;
+    /** How many parts the scope holds before the filter. */
+    readonly total: number;
+    /** The text the reader filtered by, empty for none. */
+    readonly search?: string;
+    /** The filter bar as it stands, already labelled by the view. */
+    readonly filters?: readonly { readonly label: string; readonly value: string }[];
+    /** The id of the part the view compares against, absent when it compares nothing. */
+    readonly referenceId?: string;
+    /** Whether every number is divided by the tiles the part covers. */
+    readonly perTile: boolean;
+    /** Whether the view was showing percentages of the compared part rather than the values. */
+    readonly asPercent: boolean;
+}
+
+/** The workbook, as the client writes it to the file the reader picked. */
+export interface PartTableWorkbookResult {
+    /** The name the save dialog opens on. */
+    readonly fileName: string;
+    /** The file's bytes, base64 encoded. */
+    readonly base64: string;
+}

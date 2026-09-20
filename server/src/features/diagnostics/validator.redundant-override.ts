@@ -21,7 +21,7 @@ import {
     topLevelMembersOf,
 } from '../refactor/shared-base/member-record';
 import { analyzeReferences, applyRebases } from '../refactor/shared-base/reference-safety';
-import { uriToFsPath } from '../navigation/workspace-files';
+import { uriToFsPath } from '../../workspace/workspace-files';
 import { ValidationError } from './validator';
 import { referencedSegments } from './validator.ignored-field';
 import * as l10n from '@vscode/l10n';

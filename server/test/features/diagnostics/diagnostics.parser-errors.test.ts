@@ -24,7 +24,11 @@ describe('parser error diagnostics', () => {
         // A call cannot name a base, and it is not a member head either, so the inheritance list does
         // walk it and report it. `A : 1\nB = 2` no longer reaches here: `B =` opens a member, which
         // ends the list before it is collected.
-        ['non-reference after inheritance value', 'A : &B ( 1 )\n{\n}\n', 'Expected reference value after reference value but found FunctionCall'],
+        [
+            'non-reference after inheritance value',
+            'A : &B ( 1 )\n{\n}\n',
+            'Expected reference value after reference value but found FunctionCall',
+        ],
         ['unknown token', 'X = @\n', 'Unknown token type'],
         // The real OT parser throws `Unexpected "=" at position …` here too (OTGroupNode.Parse),
         // so this is reported as invalid input rather than a possible parser bug.
@@ -33,7 +37,11 @@ describe('parser error diagnostics', () => {
         ['list bracket never closed (immediate EOF)', 'Foo [', 'Expected right bracket but found end of file'],
         ['unclosed parenthesized reference', 'X = ceil((&A + 3\n', 'Expected right paren'],
         ['non-value inside a function call', 'X = ceil(1 {})\n', 'Expected value, expression or function call'],
-        ['non-value inside a parenthesized math group', 'X = (1 {})\n', 'Expected value or expression in math expression'],
+        [
+            'non-value inside a parenthesized math group',
+            'X = (1 {})\n',
+            'Expected value or expression in math expression',
+        ],
     ])('reports %s', (_label, src, expected) => {
         expect(messages(src)).toContain(expected);
     });
@@ -41,8 +49,12 @@ describe('parser error diagnostics', () => {
     it('attaches actionable "how to fix" details to a value-less assignment', () => {
         const error = parseErrors('X =\n').find((e) => e.message === 'Expected value after equals');
         const details = (error?.additionalInfo ?? []).map((i) => i.message);
-        expect(details).toContain('If you want to assign a value to an identifier, you need to provide a value after the equals sign');
-        expect(details).toContain("If you don't want to assign a value to an identifier, you need to remove the equals sign");
+        expect(details).toContain(
+            'If you want to assign a value to an identifier, you need to provide a value after the equals sign'
+        );
+        expect(details).toContain(
+            "If you don't want to assign a value to an identifier, you need to remove the equals sign"
+        );
     });
 
     it('explains that an inheritance colon expects references', () => {

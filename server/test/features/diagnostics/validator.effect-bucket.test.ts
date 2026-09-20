@@ -39,7 +39,9 @@ afterAll(() => aliasRootIndex.invalidate());
 describe('the media effect bucket registry', () => {
     it('says nothing about a registry written the way the game writes its own', async () => {
         expect(
-            await findings(['LowerBuckets [ BulletLower1, BulletLower2 ]', 'MiddleBuckets [ default_bullet ]', ''].join('\n'))
+            await findings(
+                ['LowerBuckets [ BulletLower1, BulletLower2 ]', 'MiddleBuckets [ default_bullet ]', ''].join('\n')
+            )
         ).toEqual([]);
     });
 

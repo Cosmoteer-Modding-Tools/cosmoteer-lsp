@@ -10,6 +10,13 @@ import * as path from 'path';
 import { globalSettings } from '../settings';
 import { findCosmoteerDataPath, steamInstallPaths } from './steam-library';
 
+/** A reporter that drops every call, used when there is no connection (unit tests) so work still runs. */
+const NOOP_PROGRESS: WorkDoneProgressReporter = {
+    begin: () => undefined,
+    report: () => undefined,
+    done: () => undefined,
+};
+
 /**
  * Normalize a user-supplied game path to its `Data` root: a path ending in `Data`, `Cosmoteer`, or
  * `common` (the common install-tree tails) maps to the corresponding `.../Data` directory. Returns
@@ -26,13 +33,6 @@ const toDataRoot = (cosmoteerPath: string): string | undefined => {
         return path.join(cosmoteerPath, 'Cosmoteer', 'Data');
     }
     return undefined;
-};
-
-/** A reporter that drops every call, used when there is no connection (unit tests) so work still runs. */
-const NOOP_PROGRESS: WorkDoneProgressReporter = {
-    begin: () => undefined,
-    report: () => undefined,
-    done: () => undefined,
 };
 
 export class CosmoteerWorkspaceService {

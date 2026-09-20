@@ -77,9 +77,18 @@ describe('buildInsertSchemaFieldEdit', () => {
     });
 
     it('indents one level past the brace in a group that has no members yet', async () => {
+        // Nothing in this file is indented yet, so there is no step to copy and the scaffold takes the
+        // tab the game's own files are written with, the same fallback every other writer into a
+        // `.rules` buffer uses.
         const source = 'Part\n{|\n}\n';
         const result = await insertAt(source, partUri, fieldEntryId(PART, 'MaxDoors'));
-        expect(applied(source, partUri, editOf(result))).toBe('Part\n{\n    MaxDoors = 0\n}\n');
+        expect(applied(source, partUri, editOf(result))).toBe('Part\n{\n\tMaxDoors = 0\n}\n');
+    });
+
+    it('keeps a space-indented file on spaces', async () => {
+        const source = 'Part\n{|\n    MaxHealth = 100\n}\n';
+        const result = await insertAt(source, partUri, fieldEntryId(PART, 'MaxDoors'));
+        expect(applied(source, partUri, editOf(result))).toBe('Part\n{\n    MaxDoors = 0\n    MaxHealth = 100\n}\n');
     });
 
     it('accepts a field declared on a base class when the caret resolves to a deriver', async () => {

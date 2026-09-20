@@ -5,7 +5,7 @@ import { parser } from '../../../src/core/parser/parser';
 import { AbstractNode, GroupNode, isAssignmentNode, isDocumentNode, isGroupNode, isListNode } from '../../../src/core/ast/ast';
 import { memberTypeIn, resolveGroupClass } from '../../../src/document/schema/schema-context';
 import { schemaFieldNameCompletions } from '../../../src/features/completion/autocompletion.schema-fields';
-import { Completion } from '../../../src/features/completion/autocompletion.service';
+import { Completion } from '../../../src/features/completion/autocompletion.service.types';
 
 // The engine's Range<T> reads four written forms: a scalar, a 1/2-element list, a group with
 // `Value` or `Min`/`Max` keys (each the element type), and otherwise the whole group AS the element

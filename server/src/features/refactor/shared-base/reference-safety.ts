@@ -20,12 +20,6 @@ interface ReferenceVerdict {
 }
 
 /**
- * The game reads a `<./…>` reference path from the install root rather than from the declaring file,
- * so it means the same thing wherever it is written and is carried over untouched.
- */
-export const isGameRootPath = (path: string): boolean => /^\s*\.[\\/]/.test(path);
-
-/**
  * The file extensions the game loads as an asset. A value ending in one of them is a path the engine
  * resolves against the directory of the file it is written in (`Halfling.IO.FilePath`), exactly like
  * a `<…>` reference, so it has to be re-expressed when the member moves to another directory. The
@@ -55,6 +49,12 @@ const ASSET_EXTENSIONS = new Set([
 
 /** A run of characters that could spell a path, bounded by what an ObjectText value can hold. */
 export const PATH_TOKEN = /[A-Za-z0-9_.\-/\\ ]*\.[A-Za-z][A-Za-z0-9]{0,6}/g;
+
+/**
+ * The game reads a `<./…>` reference path from the install root rather than from the declaring file,
+ * so it means the same thing wherever it is written and is carried over untouched.
+ */
+export const isGameRootPath = (path: string): boolean => /^\s*\.[\\/]/.test(path);
 
 /** Whether a token ends in an extension the game loads as an asset. */
 export const looksLikeAssetPath = (token: string): boolean => {

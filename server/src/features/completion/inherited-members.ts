@@ -16,8 +16,8 @@ import { getStartOfAstNode } from '../../utils/ast.utils';
 import { SchemaField } from '../../document/schema/schema.types';
 import { flattenGroup } from '../../semantics/effective-group';
 import { MemberOrigin } from '../../semantics/effective-group.types';
-import { inheritanceEntriesOf, memberValueOf } from '../../semantics/reference-resolver';
-import { Completion } from './autocompletion.service';
+import { inheritanceEntriesOf, memberValueOf } from '../../document/reference-resolver';
+import { Completion } from './autocompletion.service.types';
 
 /**
  * What a group's inheritance chain already supplies, for the field-name popup.

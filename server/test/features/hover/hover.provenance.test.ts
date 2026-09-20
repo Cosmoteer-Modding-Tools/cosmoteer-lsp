@@ -2,7 +2,7 @@ import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { CancellationToken, Position } from 'vscode-languageserver';
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { HoverService } from '../../../src/features/hover/hover.service';
+import { getHover } from '../../../src/features/hover/hover.service';
 import {
     AbstractNodeDocument,
     GroupNode,
@@ -14,7 +14,7 @@ import {
 } from '../../../src/core/ast/ast';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
-import { filePathToUri } from '../../../src/features/navigation/navigation-strategy';
+import { filePathToUri } from '../../../src/document/reference-path';
 import { globalSettings } from '../../../src/settings';
 import { FIXTURES_DIR, walkAst } from '../../helpers';
 import { initWorkspace, workspaceFile } from '../../workspace-helper';
@@ -61,7 +61,7 @@ const memberNamePositionIn = (group: GroupNode, member: string): Position => {
 };
 
 const hoverAt = async (doc: AbstractNodeDocument, position: Position): Promise<string> => {
-    const hover = await HoverService.instance.getHover(doc, position, token);
+    const hover = await getHover(doc, position, token);
     if (!hover) return '';
     return (hover.contents as { value: string }).value;
 };

@@ -5,8 +5,8 @@ import { parseFilePath } from '../../utils/ast.utils';
 import { fieldOfValueNode } from '../completion/autocompletion.schema';
 import { isEnglish, keyDeclarationsOf, LocalizationKeyIndex } from '../completion/localization-key.index';
 import { languageOf } from '../completion/localization-key.index';
-import { filePathToUri } from './navigation-strategy';
-import { uriToFsPath } from './workspace-files';
+import { filePathToUri } from '../../document/reference-path';
+import { uriToFsPath } from '../../workspace/workspace-files';
 
 /**
  * Go-to-definition for a localization key (`NameKey = "Parts/Foo"`).

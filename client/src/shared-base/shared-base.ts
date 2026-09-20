@@ -1,8 +1,15 @@
 import * as path from 'path';
 import { commands, ExtensionContext, l10n, ProgressLocation, Uri, window, workspace } from 'vscode';
 import { ExecuteCommandRequest, LanguageClient } from 'vscode-languageclient/node';
-import { DiffPreviewFile, DiffPreviewProvider, showDiffPreview, showPatchPreview } from '../preview/diff-preview';
+import { DiffPreviewProvider, showDiffPreview, showPatchPreview } from '../preview/diff-preview';
 import { ApplyCleanup, openDocumentPaths, saveAndTidy } from './apply-cleanup';
+import {
+    SerializedPlan,
+    SharedBaseApplyResult,
+    SharedBaseFailure,
+    SharedBasePreviewResult,
+    SharedBaseScanResult,
+} from '../../../shared/shared-base.types';
 
 /**
  * Moving fields several files repeat word for word into one base file they all inherit, the way the
@@ -16,71 +23,13 @@ import { ApplyCleanup, openDocumentPaths, saveAndTidy } from './apply-cleanup';
  */
 export const EXTRACT_SHARED_BASE_LOCAL_COMMAND = 'cosmoteer.extractSharedBaseFromAction';
 
-/** Which duplication a plan came from, and so whether it writes a new base file or extends one. */
-type SharedBaseTier = 'sharedBase' | 'cloneFamily' | 'existingBase';
-
-/** Mirror of the server's serialized extraction plan (see server features/refactor/shared-base/plan.types.ts). */
-interface SharedBasePlan {
-    id: string;
-    tier: SharedBaseTier;
-    className: string;
-    groupName: string;
-    fields: string[];
-    participants: Array<{ uri: string; fsPath: string; offset: number }>;
-    donor: { uri: string; fsPath: string; offset: number };
-    baseFsPath: string;
-    inheritedRef?: string;
-    savedBytes: number;
-    /** The server's ready-made one-line description, so both clients word a plan the same way. */
-    label: string;
-}
-
-/** Mirror of the server's sweep answer (see server features/refactor/shared-base/shared-base.command.ts). */
-interface SharedBaseScanResult {
-    kind: 'scan';
-    plans: SharedBasePlan[];
-    filesScanned: number;
-}
-
-/** Mirror of the server's extraction answer (same module). */
-interface SharedBaseApplyResult {
-    kind: 'apply';
-    created: string;
-    /** Every file the workspace edit changed, so they can be saved and tidied away. */
-    changedFiles: string[];
-    tier: SharedBaseTier;
-    files: number;
-    fields: number;
-    removedBytes: number;
-    failure?: SharedBaseFailure;
-}
-
-/** Mirror of the server's preview answer (same module). */
-interface SharedBasePreviewResult {
-    kind: 'preview';
-    diff: string;
-    /** The changed files with their rewritten contents, capped by the server. */
-    changed: DiffPreviewFile[];
-    /** How many changed files did not fit in {@link SharedBasePreviewResult.changed}. */
-    omitted: number;
-    baseFsPath: string;
-    tier: SharedBaseTier;
-    files: number;
-    fields: number;
-    removedBytes: number;
-    failure?: SharedBaseFailure;
-}
-
-/** Why an extraction did not happen, as the server words it. */
-type SharedBaseFailure = 'planStale' | 'baseFileExists' | 'notEditable' | 'editRejected';
-
 /**
  * Offer the sweep's extractions and let the user pick one to look at.
  *
  * @param plans the plans the sweep reported, already ranked by how much duplication each removes.
  * @returns the picked plan, or undefined when the user backed out.
  */
-async function pickSharedBasePlan(plans: SharedBasePlan[]): Promise<SharedBasePlan | undefined> {
+async function pickSharedBasePlan(plans: SerializedPlan[]): Promise<SerializedPlan | undefined> {
     const picked = await window.showQuickPick(
         plans.map((plan) => ({
             label: plan.label,
@@ -112,7 +61,7 @@ async function pickSharedBasePlan(plans: SharedBasePlan[]): Promise<SharedBasePl
  */
 async function previewAndApplySharedBase(
     client: LanguageClient,
-    plan: SharedBasePlan,
+    plan: SerializedPlan,
     provider: DiffPreviewProvider
 ): Promise<void> {
     // Captured before the preview, not after: the diff opens the real file on its left-hand side, so
@@ -311,7 +260,7 @@ export function registerSharedBase(
         }),
         // The command the server's lightbulb refactoring carries. The server does not declare it, so
         // the editor runs this rather than forwarding it, and the rewrite gets a real diff.
-        commands.registerCommand(EXTRACT_SHARED_BASE_LOCAL_COMMAND, async (plan?: SharedBasePlan) => {
+        commands.registerCommand(EXTRACT_SHARED_BASE_LOCAL_COMMAND, async (plan?: SerializedPlan) => {
             if (plan) await previewAndApplySharedBase(client, plan, provider);
         })
     );

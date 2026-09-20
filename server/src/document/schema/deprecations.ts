@@ -68,14 +68,6 @@ const DEPRECATED_DISCRIMINATORS: Readonly<Record<string, Deprecation>> = registr
     AmmoConverter: { replacement: 'ResourceConverter', note: AMMO_TO_RESOURCE },
 });
 
-/**
- * The deprecation for a `Type=` discriminator value, if it is a known renamed type.
- *
- * @param written the discriminator value as written in the file (e.g. `AmmoChange`).
- * @returns the rename (current name + note), or undefined when the value is not a known deprecated type.
- */
-export const deprecatedDiscriminator = (written: string): Deprecation | undefined => DEPRECATED_DISCRIMINATORS[written];
-
 /** A field the game deleted outright (no old spelling left in its code): the migration guidance. */
 interface FieldDeprecation {
     /** FullName of the class that used to read the field. */
@@ -144,20 +136,6 @@ const DEPRECATED_FIELDS: Readonly<Record<string, FieldDeprecation>> = registry({
         version: '0.30.0',
     },
 });
-
-/**
- * The deprecation for a class member, if the named field is a known deleted field of that class.
- *
- * @param className the FullName of the class that declares the field (callers try each ancestor of
- * a derived class, since the registry records the declaring class).
- * @param fieldName the field name as written in the file.
- * @returns the deprecation (migration note), or undefined when the field is not a known deleted field
- * of that class.
- */
-export const deprecatedField = (className: string, fieldName: string): FieldDeprecation | undefined => {
-    const deprecation = DEPRECATED_FIELDS[fieldName.toLowerCase()];
-    return deprecation && deprecation.className === className ? deprecation : undefined;
-};
 
 /** A field rename whose old spelling the game still deserializes: the modern spelling to prefer. */
 interface FieldRename {
@@ -235,23 +213,6 @@ const RENAMED_FIELD_ALIASES: Readonly<Record<string, FieldRename>> = registry({
     },
 });
 
-/**
- * The rename for a class member written under its pre-rename spelling, if it is a known renamed
- * field of that class.
- *
- * @param className the FullName of a class of the resolved group (callers try each ancestor).
- * @param written the field name as written in the file.
- * @returns the rename (modern name + note + version), or undefined when the spelling is not a known
- * renamed alias of that class.
- */
-export const renamedFieldAlias = (className: string, written: string): FieldRename | undefined => {
-    const rename = RENAMED_FIELD_ALIASES[written.toLowerCase()];
-    if (!rename || !rename.classNames.includes(className)) return undefined;
-    // Only the old spelling is deprecated: the map is keyed by it, but guard against a future entry
-    // accidentally keying the modern name.
-    return rename.replacement.toLowerCase() === written.toLowerCase() ? undefined : rename;
-};
-
 /** A field that still works but was superseded by a richer field the game now prefers. */
 interface ObsoleteField {
     /** FullNames of the classes that carry the obsolete field. */
@@ -293,20 +254,6 @@ const OBSOLETE_FIELDS: Readonly<Record<string, ObsoleteField>> = registry({
         version: '0.26.0',
     },
 });
-
-/**
- * The successor for a class member superseded by a richer field, if it is a known obsolete field of
- * that class.
- *
- * @param className the FullName of a class of the resolved group (callers try each ancestor).
- * @param fieldName the field name as written in the file.
- * @returns the obsolete-field entry (successor + note + version), or undefined when the field is not
- * a known obsolete field of that class.
- */
-export const obsoleteField = (className: string, fieldName: string): ObsoleteField | undefined => {
-    const obsolete = OBSOLETE_FIELDS[fieldName.toLowerCase()];
-    return obsolete && obsolete.classNames.includes(className) ? obsolete : undefined;
-};
 
 /**
  * Renamed fields of the mod manifest (`mod.rules`), by lower-cased old spelling. The manifest is not
@@ -365,6 +312,59 @@ interface EnumValueRename extends Deprecation {
  * and dressing it as a recorded rename would give it an authority it has not earned.
  */
 export const DEPRECATED_ENUM_VALUES: Readonly<Record<string, EnumValueRename>> = registry({});
+
+/**
+ * The deprecation for a `Type=` discriminator value, if it is a known renamed type.
+ *
+ * @param written the discriminator value as written in the file (e.g. `AmmoChange`).
+ * @returns the rename (current name + note), or undefined when the value is not a known deprecated type.
+ */
+export const deprecatedDiscriminator = (written: string): Deprecation | undefined => DEPRECATED_DISCRIMINATORS[written];
+
+/**
+ * The deprecation for a class member, if the named field is a known deleted field of that class.
+ *
+ * @param className the FullName of the class that declares the field (callers try each ancestor of
+ * a derived class, since the registry records the declaring class).
+ * @param fieldName the field name as written in the file.
+ * @returns the deprecation (migration note), or undefined when the field is not a known deleted field
+ * of that class.
+ */
+export const deprecatedField = (className: string, fieldName: string): FieldDeprecation | undefined => {
+    const deprecation = DEPRECATED_FIELDS[fieldName.toLowerCase()];
+    return deprecation && deprecation.className === className ? deprecation : undefined;
+};
+
+/**
+ * The rename for a class member written under its pre-rename spelling, if it is a known renamed
+ * field of that class.
+ *
+ * @param className the FullName of a class of the resolved group (callers try each ancestor).
+ * @param written the field name as written in the file.
+ * @returns the rename (modern name + note + version), or undefined when the spelling is not a known
+ * renamed alias of that class.
+ */
+export const renamedFieldAlias = (className: string, written: string): FieldRename | undefined => {
+    const rename = RENAMED_FIELD_ALIASES[written.toLowerCase()];
+    if (!rename || !rename.classNames.includes(className)) return undefined;
+    // Only the old spelling is deprecated: the map is keyed by it, but guard against a future entry
+    // accidentally keying the modern name.
+    return rename.replacement.toLowerCase() === written.toLowerCase() ? undefined : rename;
+};
+
+/**
+ * The successor for a class member superseded by a richer field, if it is a known obsolete field of
+ * that class.
+ *
+ * @param className the FullName of a class of the resolved group (callers try each ancestor).
+ * @param fieldName the field name as written in the file.
+ * @returns the obsolete-field entry (successor + note + version), or undefined when the field is not
+ * a known obsolete field of that class.
+ */
+export const obsoleteField = (className: string, fieldName: string): ObsoleteField | undefined => {
+    const obsolete = OBSOLETE_FIELDS[fieldName.toLowerCase()];
+    return obsolete && obsolete.classNames.includes(className) ? obsolete : undefined;
+};
 
 /**
  * The recorded rename of an enum member, when the value written is one.

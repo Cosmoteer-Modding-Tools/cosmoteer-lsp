@@ -8,9 +8,9 @@ import { parser } from '../../../src/core/parser/parser';
 import { globalSettings } from '../../../src/settings';
 import { CosmoteerWorkspaceService } from '../../../src/workspace/cosmoteer-workspace.service';
 import { aliasRootIndex } from '../../../src/document/schema/alias-root';
-import { ReverseIncludeIndex } from '../../../src/features/navigation/reverse-include.index';
+import { ReverseIncludeIndex } from '../../../src/mod/reverse-include.index';
 import { SchemaIdIndex } from '../../../src/features/completion/schema-id.index';
-import { ParserResultRegistrar } from '../../../src/registrar/parser-result-registrar';
+import { ParserResultRegistrar } from '../../../src/document/parser-result-registrar';
 import { isModRules } from '../../../src/document/document-kind';
 import { buildActionRootingForScan } from '../../scan-rooting-helper';
 import {
@@ -41,11 +41,19 @@ const filesUnder = (root: string, ext: string): string[] => {
     const out: string[] = [];
     const walk = (dir: string): void => {
         let entries: string[];
-        try { entries = readdirSync(dir); } catch { return; }
+        try {
+            entries = readdirSync(dir);
+        } catch {
+            return;
+        }
         for (const entry of entries) {
             const p = join(dir, entry);
             let s;
-            try { s = statSync(p); } catch { continue; }
+            try {
+                s = statSync(p);
+            } catch {
+                continue;
+            }
             if (s.isDirectory()) walk(p);
             else if (entry.endsWith(ext)) out.push(p);
         }
@@ -67,15 +75,32 @@ describe.skipIf(!HAVE)('cross-file id class coverage audit', () => {
             const rel = fileRef.replace(/[<>]/g, '').trim();
             if (!rel) return undefined;
             const withExt = /\.[^/\\.]+$/.test(rel) ? rel : `${rel}.rules`;
-            for (const abs of [join(dirname(fileURLToPath(fromUri)), withExt), join(DATA_DIR, withExt), join(dirname(DATA_DIR), withExt)]) {
-                if (existsSync(abs)) { try { return parseReal(abs); } catch { return undefined; } }
+            for (const abs of [
+                join(dirname(fileURLToPath(fromUri)), withExt),
+                join(DATA_DIR, withExt),
+                join(dirname(DATA_DIR), withExt),
+            ]) {
+                if (existsSync(abs)) {
+                    try {
+                        return parseReal(abs);
+                    } catch {
+                        return undefined;
+                    }
+                }
             }
             return undefined;
         };
         globalSettings.cosmoteerPath = DATA_DIR;
-        const noop: WorkDoneProgressReporter = { begin: () => undefined, report: () => undefined, done: () => undefined };
+        const noop: WorkDoneProgressReporter = {
+            begin: () => undefined,
+            report: () => undefined,
+            done: () => undefined,
+        };
         const svc = CosmoteerWorkspaceService.instance;
-        svc.setConnection({ languages: { diagnostics: { refresh: () => undefined } }, window: { showWarningMessage: () => undefined } } as unknown as Connection);
+        svc.setConnection({
+            languages: { diagnostics: { refresh: () => undefined } },
+            window: { showWarningMessage: () => undefined },
+        } as unknown as Connection);
         await svc.initialize(DATA_DIR, noop);
         aliasRootIndex.invalidate();
         await aliasRootIndex.build(parseReal(join(DATA_DIR, 'cosmoteer.rules')), resolveRef);
@@ -84,7 +109,19 @@ describe.skipIf(!HAVE)('cross-file id class coverage audit', () => {
         const tally = (cls: string): ClassTally => {
             let t = tallies.get(cls);
             if (!t) {
-                t = { refs: 0, verdicts: { 'resolved': 0, 'no-coverage': 0, 'label-field': 0, 'declared-loosely': 0, 'vanilla-leftover': 0, 'dependency-declared': 0, 'unresolved': 0 }, samples: [] };
+                t = {
+                    refs: 0,
+                    verdicts: {
+                        resolved: 0,
+                        'no-coverage': 0,
+                        'label-field': 0,
+                        'declared-loosely': 0,
+                        'vanilla-leftover': 0,
+                        'dependency-declared': 0,
+                        unresolved: 0,
+                    },
+                    samples: [],
+                };
                 tallies.set(cls, t);
             }
             return t;
@@ -94,7 +131,11 @@ describe.skipIf(!HAVE)('cross-file id class coverage audit', () => {
             for (const ext of ['.rules', '.txt']) {
                 for (const file of filesUnder(root, ext)) {
                     let doc;
-                    try { doc = parseReal(file); } catch { continue; }
+                    try {
+                        doc = parseReal(file);
+                    } catch {
+                        continue;
+                    }
                     if (isModRules(doc.uri)) continue;
                     for (const reference of idReferencesOf(doc)) {
                         // A self-keyed map key declares rather than references, so it is no more a
@@ -105,7 +146,9 @@ describe.skipIf(!HAVE)('cross-file id class coverage audit', () => {
                         const verdict = await judgeIdReference(reference, folders, idsByClass, token);
                         t.verdicts[verdict]++;
                         if (verdict === 'unresolved' && t.samples.length < 8) {
-                            t.samples.push(`${label} :: ${file.replace(/\\/g, '/').split('/').slice(-2).join('/')} :: '${reference.value}'`);
+                            t.samples.push(
+                                `${label} :: ${file.replace(/\\/g, '/').split('/').slice(-2).join('/')} :: '${reference.value}'`
+                            );
                         }
                     }
                 }
@@ -117,7 +160,15 @@ describe.skipIf(!HAVE)('cross-file id class coverage audit', () => {
 
         let scannedMods = 0;
         const modDirs = existsSync(MODS_DIR)
-            ? readdirSync(MODS_DIR).map((d) => join(MODS_DIR, d)).filter((p) => { try { return statSync(p).isDirectory(); } catch { return false; } })
+            ? readdirSync(MODS_DIR)
+                  .map((d) => join(MODS_DIR, d))
+                  .filter((p) => {
+                      try {
+                          return statSync(p).isDirectory();
+                      } catch {
+                          return false;
+                      }
+                  })
             : [];
         for (const modDir of modDirs) {
             const modId = modDir.replace(/\\/g, '/').split('/').pop()!;
@@ -138,13 +189,16 @@ describe.skipIf(!HAVE)('cross-file id class coverage audit', () => {
         SchemaIdIndex.instance.reset();
         aliasRootIndex.invalidate();
 
-        const rows = [...tallies.entries()].sort((a, b) => b[1].verdicts.unresolved - a[1].verdicts.unresolved || b[1].refs - a[1].refs);
+        const rows = [...tallies.entries()].sort(
+            (a, b) => b[1].verdicts.unresolved - a[1].verdicts.unresolved || b[1].refs - a[1].refs
+        );
         const lines: string[] = [];
         for (const [cls, t] of rows) {
             const v = t.verdicts;
             const status = !isValidatedIdClass(cls)
                 ? 'component-registry (barred)'
-                : v.resolved + v['declared-loosely'] + v['vanilla-leftover'] + v['dependency-declared'] + v.unresolved > 0
+                : v.resolved + v['declared-loosely'] + v['vanilla-leftover'] + v['dependency-declared'] + v.unresolved >
+                    0
                   ? 'validated'
                   : 'no coverage';
             lines.push(
@@ -159,7 +213,12 @@ describe.skipIf(!HAVE)('cross-file id class coverage audit', () => {
         // vanilla findings fails here and earns the class an exclusion entry (or a harvest fix).
         for (const [cls, t] of tallies) {
             if (!isValidatedIdClass(cls)) continue;
-            expect.soft(t.samples.filter((s) => s.startsWith('vanilla')), cls).toEqual([]);
+            expect
+                .soft(
+                    t.samples.filter((s) => s.startsWith('vanilla')),
+                    cls
+                )
+                .toEqual([]);
             // A class the harvest stops covering answers 'no-coverage' and is then never judged at
             // all, which reads here as a clean class rather than as a silently unvalidated one.
             expect.soft(t.verdicts['no-coverage'], `${cls} lost its declaration coverage`).toBe(0);

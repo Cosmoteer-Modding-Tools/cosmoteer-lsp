@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { CancellationToken } from 'vscode-languageserver';
-import { ReferenceIndex, referenceNodesOf } from '../../../src/features/navigation/reference-index';
+import { findReferences } from '../../../src/features/navigation/reference-index';
+import { referenceNodesOf } from '../../../src/features/navigation/reference-nodes';
 import { AbstractNodeDocument, isAssignmentNode, isGroupNode, isValueNode, GroupNode } from '../../../src/core/ast/ast';
 import { parseFilePath } from '../../../src/utils/ast.utils';
 import { walkAst } from '../../helpers';
@@ -10,7 +11,6 @@ import { initWorkspace, WORKSPACE_DATA_DIR, workspaceFile } from '../../workspac
 // resolves every reference, then a query at a definition (or at a reference) returns the
 // sites bucketed under it. `a.rules` references members of `b.rules`, so b's defs have
 // referrers in a.
-const index = ReferenceIndex.instance;
 const token = CancellationToken.None;
 const FOLDERS = [WORKSPACE_DATA_DIR];
 
@@ -28,7 +28,7 @@ const groupBIdentifier = (b: AbstractNodeDocument) => {
     throw new Error('group B not found');
 };
 
-describe('ReferenceIndex: find-all-references', () => {
+describe('findReferences: find-all-references', () => {
     let bDoc: AbstractNodeDocument;
     let aDoc: AbstractNodeDocument;
 
@@ -39,14 +39,20 @@ describe('ReferenceIndex: find-all-references', () => {
     });
 
     it('from the definition: InnerValue is referenced by a.rules', async () => {
-        const refs = await index.findReferences(bDoc, positionOf(innerValueKey(bDoc).position), false, FOLDERS, token);
+        const refs = await findReferences(bDoc, positionOf(innerValueKey(bDoc).position), false, FOLDERS, token);
 
         expect(refs.length).toBe(1);
         expect(refs[0].uri.endsWith('a.rules')).toBe(true);
     });
 
     it('includeDeclaration adds the definition location', async () => {
-        const withDecl = await index.findReferences(bDoc, positionOf(innerValueKey(bDoc).position), true, FOLDERS, token);
+        const withDecl = await findReferences(
+            bDoc,
+            positionOf(innerValueKey(bDoc).position),
+            true,
+            FOLDERS,
+            token
+        );
 
         expect(withDecl.length).toBe(2);
         expect(withDecl.some((r) => r.uri.endsWith('b.rules'))).toBe(true);
@@ -54,7 +60,13 @@ describe('ReferenceIndex: find-all-references', () => {
     });
 
     it('clicking a group identifier finds references to that group (RefToB → B)', async () => {
-        const refs = await index.findReferences(bDoc, positionOf(groupBIdentifier(bDoc).position), false, FOLDERS, token);
+        const refs = await findReferences(
+            bDoc,
+            positionOf(groupBIdentifier(bDoc).position),
+            false,
+            FOLDERS,
+            token
+        );
 
         // a.rules `RefToB = &<./Data/b.rules>/B` points at the whole B group.
         expect(refs.some((r) => r.uri.endsWith('a.rules'))).toBe(true);
@@ -64,7 +76,7 @@ describe('ReferenceIndex: find-all-references', () => {
         const toB = [...walkAst(aDoc)].find(
             (n) => isValueNode(n) && n.valueType.value === '&<./Data/b.rules>/B/InnerValue'
         )!;
-        const refs = await index.findReferences(aDoc, positionOf(toB.position), true, FOLDERS, token);
+        const refs = await findReferences(aDoc, positionOf(toB.position), true, FOLDERS, token);
 
         expect(refs.some((r) => r.uri.endsWith('a.rules'))).toBe(true); // the reference site
         expect(refs.some((r) => r.uri.endsWith('b.rules'))).toBe(true); // the declaration
@@ -77,7 +89,7 @@ describe('ReferenceIndex: find-all-references', () => {
         const baseObj = [...walkAst(baseDoc)].find(
             (n) => isGroupNode(n) && (n as GroupNode).identifier?.name === 'Base'
         ) as GroupNode;
-        const refs = await index.findReferences(
+        const refs = await findReferences(
             baseDoc,
             positionOf(baseObj.identifier!.position),
             false,
@@ -93,7 +105,7 @@ describe('ReferenceIndex: find-all-references', () => {
         const doc = await parseFilePath(workspaceFile('repeated-refs.rules'));
         const vKey = [...walkAst(doc)].find((n) => isAssignmentNode(n) && n.left.name === 'V')!;
         if (!isAssignmentNode(vKey)) throw new Error('expected assignment node');
-        const refs = await index.findReferences(doc, positionOf(vKey.left.position), false, FOLDERS, token);
+        const refs = await findReferences(doc, positionOf(vKey.left.position), false, FOLDERS, token);
         const sites = refs.filter((r) => r.uri.endsWith('repeated-refs.rules'));
         expect(sites.length).toBe(3);
     });
@@ -120,7 +132,13 @@ describe('ReferenceIndex: find-all-references', () => {
     // a.rules writes `B` once as the endpoint (`RefToB`) and three times mid-path (`…/B/InnerValue`,
     // `…/B/ToC`, `…/B/Nested/Deep/Leaf`). Comparing whole references only ever found the endpoint.
     it('finds the mid-path uses of a name, not only the references that end on it', async () => {
-        const refs = await index.findReferences(bDoc, positionOf(groupBIdentifier(bDoc).position), false, FOLDERS, token);
+        const refs = await findReferences(
+            bDoc,
+            positionOf(groupBIdentifier(bDoc).position),
+            false,
+            FOLDERS,
+            token
+        );
         const sites = refs.filter((r) => r.uri.endsWith('a.rules'));
         expect(sites.length).toBe(4);
         // Each site is the one-character `B` segment rather than the whole path it sits in.
@@ -133,13 +151,12 @@ describe('ReferenceIndex: find-all-references', () => {
         const aliasDoc = await parseFilePath(workspaceFile('repeated-refs.rules'));
         const alias = [...walkAst(aliasDoc)].find((n) => isAssignmentNode(n) && n.left.name === 'AliasedFile')!;
         if (!isAssignmentNode(alias)) throw new Error('expected assignment node');
-        const refs = await index.findReferences(aliasDoc, positionOf(alias.left.position), false, FOLDERS, token);
+        const refs = await findReferences(aliasDoc, positionOf(alias.left.position), false, FOLDERS, token);
         expect(refs.some((r) => r.uri.endsWith('repeated-refs.rules'))).toBe(true);
     });
 
     it('returns [] when the cursor is on nothing referenceable', async () => {
-        const refs = await index.findReferences(bDoc, { line: 99, character: 0 }, true, FOLDERS, token);
+        const refs = await findReferences(bDoc, { line: 99, character: 0 }, true, FOLDERS, token);
         expect(refs).toEqual([]);
     });
-
 });

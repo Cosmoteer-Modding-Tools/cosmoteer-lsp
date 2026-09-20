@@ -38,8 +38,10 @@ async function sleep(ms: number) {
 }
 
 const getDocPath = (p: string) => {
-    // `__dirname` is `out/client/test` (tsc strips the `src` rootDir), so the repo root is three up.
-    return path.resolve(__dirname, '../../../client/testFixture', p);
+    // `__dirname` is `out/client/client/src/test`: tsc's rootDir is the repository root, so that
+    // both projects can compile the shared modules outside either source tree, and nothing is
+    // stripped. The repo root is five levels up.
+    return path.resolve(__dirname, '../../../../../client/testFixture', p);
 };
 export const getDocUri = (p: string) => {
     return vscode.Uri.file(getDocPath(p));

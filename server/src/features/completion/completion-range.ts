@@ -1,5 +1,5 @@
 import { Position, Range } from 'vscode-languageserver';
-import { Completion, CompletionSuggestion } from './autocompletion.service';
+import { Completion, CompletionSuggestion } from './autocompletion.service.types';
 
 /** The run of value characters ending at the cursor. `.` and `/` belong to it: a localization key is
  *  one slash-joined value (`Parts/CannonMed`) and a cross-file id one dotted value

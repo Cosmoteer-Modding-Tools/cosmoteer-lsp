@@ -8,8 +8,8 @@ import { parser } from '../../../src/core/parser/parser';
 import { globalSettings } from '../../../src/settings';
 import { CosmoteerWorkspaceService } from '../../../src/workspace/cosmoteer-workspace.service';
 import { aliasRootIndex } from '../../../src/document/schema/alias-root';
-import { ReverseIncludeIndex } from '../../../src/features/navigation/reverse-include.index';
-import { ParserResultRegistrar } from '../../../src/registrar/parser-result-registrar';
+import { ReverseIncludeIndex } from '../../../src/mod/reverse-include.index';
+import { ParserResultRegistrar } from '../../../src/document/parser-result-registrar';
 import { validatePathValues } from '../../../src/features/diagnostics/validator.path-value';
 import { buildActionRootingForScan, resetActionRootingForScan } from '../../scan-rooting-helper';
 
@@ -74,7 +74,11 @@ describe.skipIf(!HAVE)('path values over installed workshop mods', () => {
             return undefined;
         };
         globalSettings.cosmoteerPath = DATA_DIR;
-        const noop: WorkDoneProgressReporter = { begin: () => undefined, report: () => undefined, done: () => undefined };
+        const noop: WorkDoneProgressReporter = {
+            begin: () => undefined,
+            report: () => undefined,
+            done: () => undefined,
+        };
         const svc = CosmoteerWorkspaceService.instance;
         svc.setConnection({
             languages: { diagnostics: { refresh: () => undefined } },

@@ -115,6 +115,24 @@ const ROOT_REGISTRIES: ReadonlyArray<string> = [
     'Cosmoteer.Simulation.Doodads.DoodadRules',
 ];
 
+/** Minimum fraction of a document's top-level fields that a candidate root class must own. */
+const MIN_ROOT_COVERAGE = 0.5;
+
+/**
+ * The registry a whole-file-root's top-level `Type=` dispatches within, known by the canonical
+ * folder even when the written `Type` is a typo (so completion can offer it and validation can flag
+ * it). Falls back to content when a valid `Type` already names a global root registry's member.
+ * Returns undefined for non-`Type`-dispatched roots (parts, shots, resources, …), so callers stay
+ * conservative. Only the canonical dirs are mapped, so effect files scattered elsewhere simply aren't
+ * covered (no false guidance), matching the low-FP bias of the rest of the seam.
+ */
+const ROOT_REGISTRY_BY_PATH: ReadonlyArray<{ readonly test: RegExp; readonly registry: string }> = [
+    { test: /\/doodads\//i, registry: 'Cosmoteer.Simulation.Doodads.DoodadRules' },
+    { test: /\/common_effects\//i, registry: 'Cosmoteer.Simulation.MediaEffects.MediaEffectRules' },
+    { test: /\/music\//i, registry: 'Cosmoteer.Music.MusicTrackRules' },
+    { test: /\/name_generators\//i, registry: 'Cosmoteer.Generators.Names.NameGenerator' },
+];
+
 /** A top-level named member of the document, if present. The name matches case-insensitively like the game's node lookup. */
 const topLevelField = (document: AbstractNodeDocument, name: string): AbstractNode | undefined => {
     for (const [memberName, value] of namedMembersOf(document)) {
@@ -131,9 +149,6 @@ export const topLevelType = (document: AbstractNodeDocument): string | undefined
     }
     return undefined;
 };
-
-/** Minimum fraction of a document's top-level fields that a candidate root class must own. */
-const MIN_ROOT_COVERAGE = 0.5;
 
 /**
  * Self-validate a candidate root: reject a class that doesn't own a majority of the document's
@@ -227,20 +242,12 @@ export const documentRootClass = (document: AbstractNodeDocument): string | unde
 };
 
 /**
- * The registry a whole-file-root's top-level `Type=` dispatches within, known by the canonical
- * folder even when the written `Type` is a typo (so completion can offer it and validation can flag
- * it). Falls back to content when a valid `Type` already names a global root registry's member.
- * Returns undefined for non-`Type`-dispatched roots (parts, shots, resources, …), so callers stay
- * conservative. Only the canonical dirs are mapped, so effect files scattered elsewhere simply aren't
- * covered (no false guidance), matching the low-FP bias of the rest of the seam.
+ * The registry a whole-file-root document's top-level `Type=` dispatches within, read from
+ * {@link ROOT_REGISTRY_BY_PATH} when the written `Type` matches nothing.
+ *
+ * @param document the parsed document.
+ * @returns the registry, or undefined for a root that is not `Type`-dispatched.
  */
-const ROOT_REGISTRY_BY_PATH: ReadonlyArray<{ readonly test: RegExp; readonly registry: string }> = [
-    { test: /\/doodads\//i, registry: 'Cosmoteer.Simulation.Doodads.DoodadRules' },
-    { test: /\/common_effects\//i, registry: 'Cosmoteer.Simulation.MediaEffects.MediaEffectRules' },
-    { test: /\/music\//i, registry: 'Cosmoteer.Music.MusicTrackRules' },
-    { test: /\/name_generators\//i, registry: 'Cosmoteer.Generators.Names.NameGenerator' },
-];
-
 export const documentRootRegistry = (document: AbstractNodeDocument): SchemaRegistry | undefined => {
     // Content first: a valid top-level `Type` pins the registry exactly (an effect file living under
     // /doodads/ is a MediaEffect, not a DoodadRules). Path is only the fallback for the typo case,

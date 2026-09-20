@@ -1,5 +1,5 @@
 import { CosmoteerSettings, globalSettings, mergeSettings } from '../settings';
-import { hasConfigurationCapability } from './capabilities';
+import { hasConfigurationCapability } from '../capabilities';
 import { connection } from './context';
 
 // Cache the settings of all open documents

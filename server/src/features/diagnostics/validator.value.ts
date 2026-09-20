@@ -1,24 +1,20 @@
 import { CancellationToken } from 'vscode-languageserver';
-import { FullNavigationStrategy } from '../navigation/full.navigation-strategy';
+import { navigate } from '../../semantics/navigate-reference';
 import { resolveAssetPath, suggestAssetFilename } from '../navigation/asset-resolver';
 import { suggestReferenceName } from '../navigation/reference-suggestion';
 import { aliasChainCycles } from '../navigation/explain-reference/reference-trace';
-import { standaloneReferenceValue } from '../navigation/reference-index';
+import { standaloneReferenceValue } from '../navigation/reference-nodes';
 import {
-    AbstractNode,
-    IdentifierNode,
-    isListNode,
-    isDocumentNode,
-    isGroupNode,
-    isValueNode,
-    ValueNode,
-} from '../../core/ast/ast';
-import { FileTree, isFile } from '../../workspace/cosmoteer-workspace.service';
+    hasVirtualInheritanceSegment,
+    inheritanceExtendsMissingMember,
+    isInheritanceInSameFile,
+    isRuntimeRootReference,
+} from '../navigation/reference-shape';
+import { AbstractNode, IdentifierNode, isListNode, isGroupNode, ValueNode } from '../../core/ast/ast';
 import { globalSettings } from '../../settings';
 import { getStartOfAstNode } from '../../utils/ast.utils';
 import { isValidReference } from '../../utils/reference.utils';
-import { Validation, ValidationError } from './validator';
-import { extractSubstrings } from '../navigation/navigation-strategy';
+import { didYouMeanFix, Validation, ValidationError } from './validator';
 import { isActionNameValueNode, isActionTargetValueNode } from '../../mod/action';
 import { findModRoot } from '../../mod/mod-root';
 import { resolveFromModContextOnly } from '../../mod/mod-context';
@@ -26,8 +22,6 @@ import { isStringsFile } from '../../mod/strings-folder';
 import { isIgnoredSchemaField } from './validator.ignored-field';
 import { canonicalWorkshopEscape, intendedWorkshopEscape } from './workshop-escape';
 import * as l10n from '@vscode/l10n';
-
-const rulesNavigationStrategy = new FullNavigationStrategy();
 
 export const ValidationForValue: Validation<ValueNode> = {
     type: 'Value',
@@ -143,7 +137,7 @@ export const checkListElementSeparators = async (node: ValueNode, cancellationTo
             'The game reads this as ONE element, "{0}". Separate the elements with "," or ";", or put each on its own line',
             String(node.valueType.value)
         ),
-        data: { quickFix: { title: l10n.t('Change to "{0}"', separated), newText: separated } },
+        data: { quickFix: { title: l10n.t("Change to '{0}'", separated), newText: separated } },
     };
 };
 
@@ -204,13 +198,92 @@ const checkAssets = async (node: ValueNode, cancellationToken: CancellationToken
             // surface this as a warning + quick-fix rather than a hard error.
             severity: 'warning',
             additionalInfo: suggestion ? `${base} ${l10n.t('Did you mean "{0}"?', suggestion)}` : base,
-            data: suggestion
-                ? { quickFix: { title: l10n.t('Change to "{0}"', suggestion), newText: suggestion } }
-                : undefined,
+            ...didYouMeanFix(suggestion),
         };
     }
 };
 
+/**
+ * The finding for a reference that resolves nowhere: a workshop escape written from the wrong depth
+ * whose game-root form does resolve, a chain that comes back to a link it has already been through,
+ * or a name that is simply not known, with the nearest name offered as a fix.
+ *
+ * @param node the reference value.
+ * @param written the reference path as the author wrote it.
+ * @param startNode the node the path is resolved from.
+ * @param uri the file the reference is written in.
+ * @param cancellationToken cancels the resolution the suggestions need.
+ * @returns the finding.
+ */
+const unresolvedReferenceFinding = async (
+    node: ValueNode,
+    written: string,
+    startNode: AbstractNode,
+    uri: string,
+    cancellationToken: CancellationToken
+): Promise<ValidationError> => {
+    // A `<../../../workshop/...>` written from the wrong depth resolves nowhere, but
+    // its intent is clear. When the game-root form of the same target resolves, offer
+    // that rewrite instead of a name suggestion. Action targets are exempt even outside
+    // mod.rules (manifests include action lists from other files): the game resolves
+    // them against the Data root, where the bare `../` form is already correct.
+    const rewrite = isActionTargetValueNode(node) ? null : intendedWorkshopEscape(written, uri);
+    if (rewrite && (await navigate(rewrite, startNode, uri, cancellationToken).catch(() => null))) {
+        return {
+            message: l10n.t('Reference name is not known'),
+            node: node,
+            severity: 'warning',
+            additionalInfo: l10n.t(
+                'The relative path does not resolve from this file. "{0}" resolves from the game folder and works from any file.',
+                rewrite
+            ),
+            data: { quickFix: { title: l10n.t("Change to '{0}'", rewrite), newText: rewrite } },
+        };
+    }
+    // A chain that comes back to a link it has already been through resolves to nothing
+    // in exactly the way a misspelled name does, so the two are indistinguishable from
+    // the resolver's answer alone. They are not the same mistake: no spelling change
+    // fixes a loop, and the value it stands for can never be computed at all. Asked
+    // only once the reference has already failed, so the walk costs nothing on a file
+    // whose references resolve.
+    if (await aliasChainCycles(node, cancellationToken).catch(() => false)) {
+        return {
+            message: l10n.t('This reference leads back to itself, so its value can never be computed.'),
+            node: node,
+            code: 'reference-cycle',
+            severity: 'error',
+        };
+    }
+    const suggestion = await suggestReferenceName(node, startNode, uri, cancellationToken).catch(() => null);
+    const base = l10n.t('You either reference a non-existing identifier or an identifier that is not in scope');
+    return {
+        message: l10n.t('Reference name is not known'),
+        node: node,
+        // The game tolerates an unresolved reference at load time (it simply contributes
+        // nothing. Vanilla even ships dangling refs like `&<Overlays/overlays.rules>`),
+        // so surface this as a warning + quick-fix rather than a hard error.
+        severity: 'warning',
+        additionalInfo: suggestion ? `${base} ${l10n.t('Did you mean "{0}"?', suggestion.suggestion)}` : base,
+        data: suggestion
+            ? {
+                  quickFix: {
+                      title: l10n.t("Change to '{0}'", suggestion.suggestion),
+                      newText: suggestion.correctedValue,
+                  },
+              }
+            : undefined,
+    };
+};
+
+/**
+ * Judges one reference value: its written shape, whether the game resolves it, and whether a path
+ * that does resolve is a file-relative escape into the workshop folder that will break when the
+ * file moves.
+ *
+ * @param node the value to judge.
+ * @param cancellationToken cancels every resolution.
+ * @returns the finding, or undefined when the reference is fine.
+ */
 const checkReference = async (
     node: ValueNode,
     cancellationToken: CancellationToken
@@ -243,9 +316,9 @@ const checkReference = async (
             const startNode = isInheritanceInSameFile(node)
                 ? ((node.parent as AbstractNode).parent as AbstractNode)
                 : node;
-            const resolved = await rulesNavigationStrategy
-                .navigate(node.valueType.value, startNode, uri, cancellationToken)
-                .catch(() => undefined);
+            const resolved = await navigate(node.valueType.value, startNode, uri, cancellationToken).catch(
+                () => undefined
+            );
             // Not found in vanilla data. Fall back to the mod's own additions (the effective
             // game tree), so mod-added globals like `&/SW_SOUNDS/…` resolve anywhere inside the
             // mod. Uses the mod-context-only resolver since vanilla already failed above.
@@ -265,74 +338,7 @@ const checkReference = async (
                 // already found above and only a genuine miss (a mis-indexed `^/0`) reaches here.
                 !(await inheritanceExtendsMissingMember(node, startNode, uri, cancellationToken))
             ) {
-                // A `<../../../workshop/...>` written from the wrong depth resolves nowhere, but
-                // its intent is clear. When the game-root form of the same target resolves, offer
-                // that rewrite instead of a name suggestion. Action targets are exempt even outside
-                // mod.rules (manifests include action lists from other files): the game resolves
-                // them against the Data root, where the bare `../` form is already correct.
-                const rewrite = isActionTargetValueNode(node)
-                    ? null
-                    : intendedWorkshopEscape(node.valueType.value, uri);
-                if (
-                    rewrite &&
-                    (await rulesNavigationStrategy
-                        .navigate(rewrite, startNode, uri, cancellationToken)
-                        .catch(() => null))
-                ) {
-                    return {
-                        message: l10n.t('Reference name is not known'),
-                        node: node,
-                        severity: 'warning',
-                        additionalInfo: l10n.t(
-                            'The relative path does not resolve from this file. "{0}" resolves from the game folder and works from any file.',
-                            rewrite
-                        ),
-                        data: { quickFix: { title: l10n.t('Change to "{0}"', rewrite), newText: rewrite } },
-                    };
-                }
-                // A chain that comes back to a link it has already been through resolves to nothing
-                // in exactly the way a misspelled name does, so the two are indistinguishable from
-                // the resolver's answer alone. They are not the same mistake: no spelling change
-                // fixes a loop, and the value it stands for can never be computed at all. Asked
-                // only once the reference has already failed, so the walk costs nothing on a file
-                // whose references resolve.
-                if (await aliasChainCycles(node, cancellationToken).catch(() => false)) {
-                    return {
-                        message: l10n.t('This reference leads back to itself, so its value can never be computed.'),
-                        node: node,
-                        code: 'reference-cycle',
-                        severity: 'error',
-                    };
-                }
-                const suggestion = await suggestReferenceName(
-                    node,
-                    startNode,
-                    uri,
-                    rulesNavigationStrategy,
-                    cancellationToken
-                ).catch(() => null);
-                const base = l10n.t(
-                    'You either reference a non-existing identifier or an identifier that is not in scope'
-                );
-                return {
-                    message: l10n.t('Reference name is not known'),
-                    node: node,
-                    // The game tolerates an unresolved reference at load time (it simply contributes
-                    // nothing. Vanilla even ships dangling refs like `&<Overlays/overlays.rules>`),
-                    // so surface this as a warning + quick-fix rather than a hard error.
-                    severity: 'warning',
-                    additionalInfo: suggestion
-                        ? `${base} ${l10n.t('Did you mean "{0}"?', suggestion.suggestion)}`
-                        : base,
-                    data: suggestion
-                        ? {
-                              quickFix: {
-                                  title: l10n.t('Change to "{0}"', suggestion.suggestion),
-                                  newText: suggestion.correctedValue,
-                              },
-                          }
-                        : undefined,
-                };
+                return await unresolvedReferenceFinding(node, node.valueType.value, startNode, uri, cancellationToken);
             }
             // The reference resolves, but a file-relative escape into another workshop mod breaks
             // whenever this file moves to a different depth. Recommend the game-root form, which
@@ -341,10 +347,7 @@ const checkReference = async (
             // from other files): the game resolves them against the Data root, where the bare
             // `../` form is already correct.
             const canonical = isActionTargetValueNode(node) ? null : canonicalWorkshopEscape(node.valueType.value, uri);
-            if (
-                canonical &&
-                (await rulesNavigationStrategy.navigate(canonical, startNode, uri, cancellationToken).catch(() => null))
-            ) {
+            if (canonical && (await navigate(canonical, startNode, uri, cancellationToken).catch(() => null))) {
                 return {
                     message: l10n.t('Fragile relative path into the workshop folder'),
                     node: node,
@@ -353,159 +356,12 @@ const checkReference = async (
                         'This path resolves relative to this file and breaks when the file moves. "{0}" resolves from the game folder and works from any file.',
                         canonical
                     ),
-                    data: { quickFix: { title: l10n.t('Change to "{0}"', canonical), newText: canonical } },
+                    data: { quickFix: { title: l10n.t("Change to '{0}'", canonical), newText: canonical } },
                 };
             }
         }
     }
     return undefined;
-};
-
-/**
- * True for an inheritance reference (`X : ^/0/X [...]`) whose base prefix resolves to a
- * real group/list but whose final member does not exist. Cosmoteer allows inheriting
- * from a base that doesn't define that member (it just contributes nothing), so this is
- * not an error. Only genuine inheritance refs whose base is missing are flagged.
- *
- * Exported so the reference trace can say the same thing about the same reference. Without it the
- * trace would call one of the most common shapes in the game's own files broken.
- *
- * @param node the reference value to classify.
- * @param startNode the navigation origin.
- * @param uri the referring document's uri.
- * @param cancellationToken cancels the navigation.
- * @returns true when the reference extends a base that exists and simply lacks the member.
- */
-export const inheritanceExtendsMissingMember = async (
-    node: ValueNode,
-    startNode: AbstractNode,
-    uri: string,
-    cancellationToken: CancellationToken
-): Promise<boolean> => {
-    const parent = node.parent;
-    if (!parent || !(isListNode(parent) || isGroupNode(parent)) || !parent.inheritance?.includes(node)) return false;
-    const value = String(node.valueType.value);
-    const segments = extractSubstrings(value);
-
-    // `X : ^/<N>/X [extra]` the extend-my-own-member idiom, is valid as long as the
-    // container's Nth inheritance slot exists, even if the base it points at doesn't define
-    // `X`, and even if the slot is itself another extend (a "virtual" base). We require the
-    // final segment to equal the inheriting member's own name so a typo (`^/0/Xtypo`) or an
-    // unrelated missing member is still flagged. `^` is the container (node.parent.parent).
-    if (segments.length >= 3 && segments[0] === '^' && /^\d+$/.test(segments[1])) {
-        const container = node.parent?.parent;
-        return (
-            segments[segments.length - 1] === parent.identifier?.name &&
-            !!container &&
-            (isGroupNode(container) || isListNode(container)) &&
-            !!container.inheritance?.[Number(segments[1])]
-        );
-    }
-
-    // Other inheritance forms: skip if the base prefix (everything before the last segment)
-    // resolves to a real container. The member is just absent on an existing base.
-    return basePrefixResolvesToContainer(value, startNode, uri, cancellationToken);
-};
-
-/**
- * Whether the base prefix of a reference (everything before its final `/segment`) resolves to a real
- * container: a group, a list, a whole-file document, or the file itself. This is what tells "the
- * member is absent on an existing base" (tolerated) apart from "nothing along the path resolves at
- * all" (a genuine dangling reference). The base prefix may itself be a `<file>` (the cross-file
- * extend-own-member idiom `X : <base.rules>/X`), which resolves to that file's Document or the File.
- *
- * @param value the full reference text, e.g. `&<base.rules>/Part/^/0`.
- * @param startNode the navigation origin.
- * @param uri the referring document's uri.
- * @param cancellationToken cancels the navigation.
- * @returns true when the base prefix resolves to a container the missing member could sit on.
- */
-const basePrefixResolvesToContainer = async (
-    value: string,
-    startNode: AbstractNode,
-    uri: string,
-    cancellationToken: CancellationToken
-): Promise<boolean> => {
-    const lastSlash = value.lastIndexOf('/');
-    if (lastSlash <= 0) return false;
-    let base = await rulesNavigationStrategy
-        .navigate(value.slice(0, lastSlash), startNode, uri, cancellationToken)
-        .catch(() => null);
-    if (base && isValueNode(base as AbstractNode) && (base as ValueNode).valueType.type === 'Reference') {
-        base = await rulesNavigationStrategy
-            .navigate(
-                String((base as ValueNode).valueType.value),
-                base as AbstractNode,
-                getStartOfAstNode(base as AbstractNode).uri,
-                cancellationToken
-            )
-            .catch(() => null);
-    }
-    if (!base || typeof base !== 'object') return false;
-    return (
-        isGroupNode(base as AbstractNode) ||
-        isListNode(base as AbstractNode) ||
-        isDocumentNode(base as AbstractNode) ||
-        isFile(base as unknown as FileTree)
-    );
-};
-
-/**
- * Whether a reference is `~`-rooted (`~/…` or `&~/…`). `~` denotes the runtime root of wherever the
- * rule is instantiated, which is not knowable from the static file: a template/library group (e.g. a
- * shared sound inherited into a weapon part, `&~/EMITTER/BeamCount`) reaches members of its consuming
- * part, and parts reach runtime-assembled subtrees (`&~/Part/Components/BulletEmitterBase/Bullet/…`)
- * that simply do not exist statically. We therefore do not statically validate any `~`-rooted
- * reference. Flagging them produced hundreds of false positives on real mods, and the game resolves
- * them at instantiation regardless. (Trade-off: a typo inside a `~` path is no longer caught, but it
- * could never be told apart from a legitimate runtime member.)
- *
- * Exported so the reference trace names this refusal with the validator's own rule rather than
- * deriving a second one, which is what keeps the report and the diagnostics in agreement.
- *
- * @param node the reference value to classify.
- * @returns true when the reference is rooted at the runtime object.
- */
-export const isRuntimeRootReference = (node: ValueNode): boolean => {
-    const value = node.valueType.value;
-    if (typeof value !== 'string') return false;
-    const withoutAmpersand = value.startsWith('&') ? value.substring(1) : value;
-    return withoutAmpersand.startsWith('~');
-};
-
-/**
- * Whether a reference path contains a `:` virtual-inheritance segment (`&:/v_A`, `&../:/v_Group1`).
- * `:` jumps to the most-derived inheritor of the node, which is unknowable statically (the
- * referenced member may exist only in a child), so such references are never validated.
- *
- * Exported for the reference trace, for the same reason as {@link isRuntimeRootReference}.
- *
- * @param value the reference text.
- * @returns true when one of the path's segments is a `:`.
- */
-export const hasVirtualInheritanceSegment = (value: string): boolean => {
-    if (typeof value !== 'string') return false;
-    const withoutAmpersand = value.startsWith('&') ? value.substring(1) : value;
-    return extractSubstrings(withoutAmpersand).some((segment) => segment.trim() === ':');
-};
-
-/**
- * Whether a reference is one of its own group's `..`-relative inheritance entries. Such a reference
- * is written from the inheriting group's container, so it is resolved from there rather than from the
- * value node itself. Exported so the reference trace starts its walk where the validator starts it.
- *
- * @param value the reference value to classify.
- * @returns true when the value is a same-file inheritance entry written with `..`.
- */
-export const isInheritanceInSameFile = (value: ValueNode): boolean => {
-    return !!(
-        value.valueType.type === 'Reference' &&
-        value.valueType.value.startsWith('..') &&
-        value.parent &&
-        (isListNode(value.parent) || isGroupNode(value.parent)) &&
-        value.parent.inheritance &&
-        value.parent.inheritance.some((inheritance) => inheritance === value)
-    );
 };
 
 const ignorePath = (value: string) => {

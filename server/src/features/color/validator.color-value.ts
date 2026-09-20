@@ -1,15 +1,14 @@
 import * as l10n from '@vscode/l10n';
 import {
-    AbstractNode,
     AbstractNodeDocument,
     isAssignmentNode,
     isDocumentNode,
     isGroupNode,
     isValueNode,
+    descendants,
 } from '../../core/ast/ast';
 import { isModRules } from '../../document/document-kind';
 import { memberTypeIn } from '../../document/schema/schema-context';
-import { childNodesOf } from '../../utils/ast.utils';
 import { closestMatch } from '../../utils/did-you-mean';
 import { didYouMeanFix, ValidationError } from '../diagnostics/validator';
 import { NAMED_COLORS, namedColorOf } from '../text-markup/text-markup';
@@ -37,27 +36,22 @@ const COLOR_CLASSES: ReadonlySet<string> = new Set(['Halfling.Graphics.Color', '
 export const validateColorValues = (document: AbstractNodeDocument): ValidationError[] => {
     if (isModRules(document.uri)) return [];
     const errors: ValidationError[] = [];
-    const visit = (node: AbstractNode): void => {
-        if (isAssignmentNode(node) && isValueNode(node.right) && node.right.valueType.type === 'String') {
-            const container = node.parent;
-            const written = String(node.right.valueType.value).trim();
-            if (written && (isGroupNode(container) || isDocumentNode(container))) {
-                const slot = memberTypeIn(container, node.left.name);
-                if (slot?.kind === 'group' && COLOR_CLASSES.has(slot.ref) && !namedColorOf(written)) {
-                    errors.push({
-                        message: l10n.t(
-                            "'{0}' names no colour the game knows, so it refuses to load this file. Write one of its colour names, or the channels as a group or a list.",
-                            written
-                        ),
-                        node: node.right,
-                        severity: 'warning',
-                        ...didYouMeanFix(closestMatch(written, [...NAMED_COLORS.keys()], true)),
-                    });
-                }
-            }
-        }
-        for (const child of childNodesOf(node)) visit(child);
-    };
-    for (const element of document.elements) visit(element);
+    for (const node of descendants(document)) {
+        if (!isAssignmentNode(node) || !isValueNode(node.right) || node.right.valueType.type !== 'String') continue;
+        const container = node.parent;
+        const written = String(node.right.valueType.value).trim();
+        if (!written || !(isGroupNode(container) || isDocumentNode(container))) continue;
+        const slot = memberTypeIn(container, node.left.name);
+        if (slot?.kind !== 'group' || !COLOR_CLASSES.has(slot.ref) || namedColorOf(written)) continue;
+        errors.push({
+            message: l10n.t(
+                "'{0}' names no colour the game knows, so it refuses to load this file. Write one of its colour names, or the channels as a group or a list.",
+                written
+            ),
+            node: node.right,
+            severity: 'warning',
+            ...didYouMeanFix(closestMatch(written, [...NAMED_COLORS.keys()], true)),
+        });
+    }
     return errors;
 };

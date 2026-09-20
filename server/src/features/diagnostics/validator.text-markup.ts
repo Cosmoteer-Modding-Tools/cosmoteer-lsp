@@ -1,7 +1,7 @@
 import * as l10n from '@vscode/l10n';
 import { CancellationToken } from 'vscode-languageserver';
 import { AbstractNodeDocument, isValueNode } from '../../core/ast/ast';
-import { normalizeUri } from '../navigation/reference-location';
+import { normalizeUri } from '../../document/reference-location';
 import { keyDeclarationsOf } from '../completion/localization-key.index';
 import { findModRoot } from '../../mod/mod-root';
 import { markupTextOf, scanMarkup, tagIssues } from '../text-markup/text-markup';

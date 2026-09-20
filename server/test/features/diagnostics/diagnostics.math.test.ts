@@ -3,12 +3,23 @@ import { CancellationToken } from 'vscode-languageserver';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
 import { ValidationForMath } from '../../../src/features/diagnostics/validator.math';
-import { AbstractNode, AstPosition, ExpressionNode, isMathExpressionNode, MathExpressionNode, ValueNode } from '../../../src/core/ast/ast';
+import {
+    AbstractNode,
+    AstPosition,
+    ExpressionNode,
+    isMathExpressionNode,
+    MathExpressionNode,
+    ValueNode,
+} from '../../../src/core/ast/ast';
 import { walkAst } from '../../helpers';
 
 const token = CancellationToken.None;
 const pos = (): AstPosition => ({ line: 0, characterStart: 0, characterEnd: 0, start: 0, end: 0 });
-const op = (t: ExpressionNode['expressionType']): ExpressionNode => ({ type: 'Expression', expressionType: t, position: pos() });
+const op = (t: ExpressionNode['expressionType']): ExpressionNode => ({
+    type: 'Expression',
+    expressionType: t,
+    position: pos(),
+});
 const num = (v: number): ValueNode => ({ type: 'Value', valueType: { type: 'Number', value: v }, position: pos() });
 const ref = (v: string, extra: Partial<ValueNode> = {}): ValueNode => ({
     type: 'Value',
@@ -17,7 +28,11 @@ const ref = (v: string, extra: Partial<ValueNode> = {}): ValueNode => ({
     ...extra,
 });
 const str = (v: string): ValueNode => ({ type: 'Value', valueType: { type: 'String', value: v }, position: pos() });
-const math = (...elements: AbstractNode[]): MathExpressionNode => ({ type: 'MathExpression', elements: elements as MathExpressionNode['elements'], position: pos() });
+const math = (...elements: AbstractNode[]): MathExpressionNode => ({
+    type: 'MathExpression',
+    elements: elements as MathExpressionNode['elements'],
+    position: pos(),
+});
 
 const run = (m: MathExpressionNode) => ValidationForMath.callback(m, token);
 
@@ -37,7 +52,9 @@ describe('math expression diagnostics', () => {
     it('flags a non-number, non-reference operand with its concrete type', async () => {
         const error = await run(math(str('foo'), op('+'), num(3)));
         expect(error?.message).toBe('Invalid argument type, expected Number or Reference. Got String');
-        expect(error?.additionalInfo).toBe('Math expressions can only contain numbers and references ("&"), not a String');
+        expect(error?.additionalInfo).toBe(
+            'Math expressions can only contain numbers and references ("&"), not a String'
+        );
     });
 
     it('accepts a well-formed number/operator/reference expression', async () => {
@@ -98,7 +115,9 @@ describe('math diagnostics reachable from parsed source', () => {
     });
 
     it('flags a string operand written in a real assignment', async () => {
-        expect(await validateSource('X = 5 + "foo"\n')).toContain('Invalid argument type, expected Number or Reference. Got String');
+        expect(await validateSource('X = 5 + "foo"\n')).toContain(
+            'Invalid argument type, expected Number or Reference. Got String'
+        );
     });
 
     it('does not flag a percentage operand in a real assignment (cosmoteer uses % everywhere)', async () => {

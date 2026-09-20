@@ -2,7 +2,7 @@ import { ExtensionContext, Uri, l10n, window, workspace } from 'vscode';
 import { LanguageClient } from 'vscode-languageclient/node';
 import { creationFailureMessage, wiringNotes } from './nebula-wizard';
 import { applyForWizard, scanForWizard, wizardAnchor } from './wizard-client';
-import { escapeHtml, scriptJson, showWizardForm } from './wizard-form';
+import { ID_SUGGESTS_NAME_SCRIPT, escapeHtml, modFolderName, scriptJson, showWizardForm } from './wizard-form';
 import { GalaxySizeForm, NewGalaxySizeApplyResult, NewGalaxySizeScanResult } from './galaxy-size-wizard.types';
 
 /**
@@ -38,7 +38,7 @@ export async function createNewGalaxySize(
         creationFailureMessage
     );
     if (!scan) return;
-    const modName = scan.modRoot.replace(/\\/g, '/').split('/').filter(Boolean).pop() ?? scan.modRoot;
+    const modName = modFolderName(scan.modRoot);
     const form = await showWizardForm<GalaxySizeForm>(context, {
         title: l10n.t('New Galaxy Size'),
         lead: l10n.t(
@@ -75,13 +75,7 @@ export async function createNewGalaxySize(
         submit: l10n.t('Create galaxy size'),
         script: `
     var taken = JSON.parse(strings.taken);
-    var byId = function (id) { return document.getElementById(id); };
-    var nameTouched = false;
-    byId('id').addEventListener('input', function () {
-        if (nameTouched) return;
-        byId('name').value = byId('id').value.trim().split('_').filter(Boolean).map(function (w) { return w.charAt(0).toUpperCase() + w.slice(1); }).join(' ');
-    });
-    byId('name').addEventListener('input', function () { nameTouched = byId('name').value.trim().length > 0; });
+${ID_SUGGESTS_NAME_SCRIPT}
     window.wizard = {
         validate: function () {
             var id = byId('id').value.trim();

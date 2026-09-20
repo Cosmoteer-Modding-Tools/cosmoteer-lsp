@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { decodePng } from '../../../src/utils/png';
+import { decodePng } from '../../../src/features/ships/png';
 import {
     IconPart,
     STASIS_ICON_SIZE,

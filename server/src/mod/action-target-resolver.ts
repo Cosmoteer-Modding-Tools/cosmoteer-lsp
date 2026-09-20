@@ -1,10 +1,8 @@
 import { CancellationToken } from 'vscode-languageserver';
 import { AbstractNode, ValueNode } from '../core/ast/ast';
 import { getStartOfAstNode } from '../utils/ast.utils';
-import { FullNavigationStrategy } from '../features/navigation/full.navigation-strategy';
+import { navigate } from '../semantics/navigate-reference';
 import { FileWithPath } from '../workspace/cosmoteer-workspace.service';
-
-const navigation = new FullNavigationStrategy();
 
 /**
  * Normalize a mod-action target path to the canonical game-root form `<./Data/...>`.
@@ -73,9 +71,9 @@ export const resolveActionTargetMember = async (
     if (!raw.includes('<')) return null;
     const split = splitTargetMember(normalizeTargetPath(raw));
     if (!split) return null;
-    const container = await navigation
-        .navigate(split.container, target, getStartOfAstNode(target).uri, cancellationToken)
-        .catch(() => null);
+    const container = await navigate(split.container, target, getStartOfAstNode(target).uri, cancellationToken).catch(
+        () => null
+    );
     if (!container) return null;
     return { container: container as AbstractNode | FileWithPath, member: split.member };
 };
@@ -92,7 +90,7 @@ export const resolveActionTarget = async (
 ): Promise<AbstractNode | null | FileWithPath> => {
     const raw = String(target.valueType.value);
     if (!raw.includes('<')) return null;
-    return navigation
-        .navigate(normalizeTargetPath(raw), target, getStartOfAstNode(target).uri, cancellationToken)
-        .catch(() => null);
+    return navigate(normalizeTargetPath(raw), target, getStartOfAstNode(target).uri, cancellationToken).catch(
+        () => null
+    );
 };

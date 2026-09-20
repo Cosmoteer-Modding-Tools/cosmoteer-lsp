@@ -1,5 +1,6 @@
 import { commands, ExtensionContext, l10n, Uri, window, workspace } from 'vscode';
 import { ExecuteCommandRequest, LanguageClient } from 'vscode-languageclient/node';
+import { ExtractGroupArgs, ExtractGroupFailure, ExtractGroupResult } from '../../../shared/extract-group.types';
 
 /**
  * Moving a block into a file of its own. The server writes the file and re-expresses every path the
@@ -13,28 +14,21 @@ import { ExecuteCommandRequest, LanguageClient } from 'vscode-languageclient/nod
  */
 export const EXTRACT_GROUP_LOCAL_COMMAND = 'cosmoteer.extractGroupToFileFromAction';
 
-/** Mirror of the server's extract-group arguments (see server features/refactor/extract-group). */
-interface ExtractGroupArgs {
-    uri: string;
-    offset: number;
-    fileName?: string;
-}
-
-/** Mirror of what the server answers with on either round. */
-interface ExtractGroupResult {
-    offer?: { name: string; fileName: string; members: number };
-    written?: { uri: string; reference: string };
-    failure?: string;
-}
-
 /**
- * What to say when a block cannot be moved into a file of its own.
+ * What to say when a block cannot be moved into a file of its own, one message per reason the server
+ * reports, each naming what the author can do about it.
  *
- * @param failure the reason the server gave, absent when it answered with nothing at all.
+ * @param failure the reason the server gave.
  * @returns the message to show.
  */
-function extractGroupFailureMessage(failure: string | undefined): string {
+function extractGroupFailureMessage(failure: ExtractGroupFailure): string {
     switch (failure) {
+        case 'stale':
+            return l10n.t('The block has moved since the offer was made, so nothing was changed.');
+        case 'rootGroup':
+            return l10n.t(
+                'This block is what gives its file a meaning, so moving it would leave the file with nothing the game reads.'
+            );
         case 'notAGroup':
             return l10n.t('Only a named block can be moved into a file of its own.');
         case 'notEditable':
@@ -53,9 +47,19 @@ function extractGroupFailureMessage(failure: string | undefined): string {
             return l10n.t('A file of that name is already there.');
         case 'editRejected':
             return l10n.t('The editor refused the change, so nothing was moved.');
-        default:
-            return l10n.t('The block could not be moved.');
     }
+}
+
+/**
+ * What to say about a round the server answered with nothing usable, which is either a named reason
+ * or no answer at all.
+ *
+ * @param result what the server answered with, null when it answered with nothing.
+ * @returns the message to show.
+ */
+function extractGroupProblemMessage(result: ExtractGroupResult | null): string {
+    if (result && 'failure' in result) return extractGroupFailureMessage(result.failure);
+    return l10n.t('The block could not be moved.');
 }
 
 /**
@@ -76,8 +80,8 @@ export function registerExtractGroup(context: ExtensionContext, client: Language
                     arguments: [{ ...args, fileName }],
                 })) as ExtractGroupResult | null;
             const offered = await run();
-            if (!offered?.offer) {
-                window.showWarningMessage(extractGroupFailureMessage(offered?.failure));
+            if (!offered || !('offer' in offered)) {
+                window.showWarningMessage(extractGroupProblemMessage(offered));
                 return;
             }
             const fileName = await window.showInputBox({
@@ -88,8 +92,8 @@ export function registerExtractGroup(context: ExtensionContext, client: Language
             });
             if (!fileName) return;
             const written = await run(fileName.trim());
-            if (!written?.written) {
-                window.showWarningMessage(extractGroupFailureMessage(written?.failure));
+            if (!written || !('written' in written)) {
+                window.showWarningMessage(extractGroupProblemMessage(written));
                 return;
             }
             const document = await workspace.openTextDocument(Uri.parse(written.written.uri));

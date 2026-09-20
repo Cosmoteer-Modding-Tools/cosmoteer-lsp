@@ -2,6 +2,7 @@ import { statSync } from 'fs';
 import { readFile } from 'fs/promises';
 import { join, resolve } from 'path';
 import { CancellationToken } from 'vscode-languageserver';
+import { CloneTargetRefusal, CloneUnit } from '../../../../../shared/clone-declaration.types';
 import {
     AbstractNode,
     AbstractNodeDocument,
@@ -24,21 +25,6 @@ import { parseText } from '../../../utils/ast.utils';
 import { safeReaddir } from '../../../utils/fs.utils';
 import { isStringsFile } from '../../../mod/strings-folder';
 import { modIdDeclarationsOf } from '../../diagnostics/validator.duplicate-id';
-
-/**
- * How much of the source a clone carries.
- *
- * `directory` is the normal shape for a ship part: the file sits alone in a folder with its sprites
- * and its particle fragments, and the game resolves every one of those paths against that folder, so
- * copying the folder is the only way the copy still finds its own art. `file` is the fallback for a
- * folder holding several declarations, where copying it would duplicate the neighbours' ids too.
- * `listElement` is the whole-collection shape (`Factions [ { ID = … } … ]`), where the copy is another
- * element of the very same list rather than another file.
- */
-export type CloneUnit = 'directory' | 'file' | 'listElement';
-
-/** Why the caret anchors no clone. */
-export type CloneTargetRefusal = 'noDeclaration' | 'inheritedIdentity' | 'unreadableBase' | 'severalIdentities';
 
 /** The identity slot a declaration writes. */
 interface CloneIdentity {
@@ -84,6 +70,12 @@ export interface CloneTarget {
 
 /** What a lookup came to. */
 export type CloneTargetResult = { target: CloneTarget } | { refusal: CloneTargetRefusal };
+
+/** The directories a copy-unit walk never descends into, because none of them is part of the part. */
+const SKIPPED_DIRS = new Set(['.git', '.svn', 'node_modules', '.vs', '.vscode', '.idea']);
+
+/** How many files a copy unit may hold before the whole-directory shape is given up on. */
+const MAX_UNIT_FILES = 4000;
 
 /** The span a container covers in its file, so the innermost one under the caret can be picked. */
 const spanOf = (container: GroupNode | AbstractNodeDocument): { start: number; end: number } => {
@@ -217,12 +209,6 @@ const identityRefusalOf = async (
     const inherited = flattened.members.find((member) => member.name.toLowerCase() === shape.identityKey.toLowerCase());
     return inherited?.origin.inherited ? 'inheritedIdentity' : 'noDeclaration';
 };
-
-/** The directories a copy-unit walk never descends into, because none of them is part of the part. */
-const SKIPPED_DIRS = new Set(['.git', '.svn', 'node_modules', '.vs', '.vscode', '.idea']);
-
-/** How many files a copy unit may hold before the whole-directory shape is given up on. */
-const MAX_UNIT_FILES = 4000;
 
 /** Every file below a directory, with forward slashes, capped so a mistaken root cannot be copied. */
 export const filesUnder = (dir: string): string[] => {

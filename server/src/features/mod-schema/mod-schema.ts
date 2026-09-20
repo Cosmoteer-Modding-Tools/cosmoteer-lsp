@@ -16,12 +16,14 @@ import { readFile, stat, writeFile, mkdir, rename } from 'fs/promises';
 import { dirname, join } from 'path';
 import { readdir } from 'fs/promises';
 import { CancellationToken } from 'vscode-languageserver';
+import { ModSchemaSummary } from '../../../../shared/mod-schema.types';
 import bundle from '../../document/schema/cosmoteer.schema.json';
 import { SchemaBundle } from '../../document/schema/schema.types';
 import { extendSchemaWithMods } from '../../document/schema/schema';
 import { cacheArtifactPath, currentServerBuildId } from '../../workspace/index-cache';
 import { readAssembly } from './dotnet-assembly';
-import { ModSchemaExtension, extractModSchema, gameSchemaView } from './extract';
+import { extractModSchema, gameSchemaView } from './extract';
+import { ModSchemaExtension } from '../../document/schema/schema.types';
 import { XmlDocs, applyModFieldDocs, readXmlDocsFor, xmlDocPathFor } from './xml-docs';
 import { workshopLinkFor } from './workshop-link';
 
@@ -56,28 +58,6 @@ interface AssemblyStamp {
     /** The XML doc file beside it, when the author shipped one. Its prose is part of the extraction,
      *  so a doc file added or edited beside an unchanged assembly must miss the cache too. */
     doc?: { size: number; mtimeMs: number };
-}
-
-/** What a build produced, for the client to report. */
-export interface ModSchemaSummary {
-    /** Assemblies that were read. */
-    assemblies: number;
-    /** Types the mods contribute. */
-    types: number;
-    /** `Type=` discriminators the mods contribute. */
-    discriminators: number;
-    /** True when the result came from the on-disk cache rather than a fresh extraction. */
-    fromCache: boolean;
-    /** Assemblies that carried no readable .NET metadata, reported rather than failed on. */
-    unreadable: string[];
-    /** Fields that picked up the mod author's own doc comment from an assembly's XML doc file. */
-    documented: number;
-    /** Every assembly discovery found, whether or not it was readable. Not reported to the user:
-     *  this is what the file watcher arms itself on, so it never repeats the discovery walk. */
-    assemblyPaths: readonly string[];
-    /** Set when the user turned the feature off (`codeMods.enabled`), so the client can say so
-     *  instead of reporting that no mod was found. Never set by a real build. */
-    disabled?: boolean;
 }
 
 /** The serialized cache file. */

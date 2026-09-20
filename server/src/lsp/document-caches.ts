@@ -1,4 +1,7 @@
 import { CancellationTokenSource, Diagnostic, InlayHint } from 'vscode-languageserver/node';
+import { invalidateComponentIdCache } from '../features/diagnostics/validator.schema-sibling';
+import { invalidateEffectiveChainCache } from '../semantics/effective-group';
+import { invalidateLooseDeclarationCache } from '../features/diagnostics/validator.schema-id-reference';
 
 // The three version-keyed result caches. They live together because almost everything that
 // invalidates one invalidates the others: an edit to another file, a configuration change, a new
@@ -33,3 +36,31 @@ export const inlayHintCache: Map<
  * ask for just the changed slice after an edit, and a range request is served from the same array.
  */
 export const semanticTokensCache: Map<string, { version: number; resultId: string; data: number[] }> = new Map();
+
+/**
+ * Drops everything derived from document content that no document version movement would drop by
+ * itself: the version-keyed diagnostics and inlay results, and the three cross-file memos the
+ * validators build on top of them (component ids, effective chains, loose declarations). Every path
+ * that changes what a validation would produce without changing a document's own version has to
+ * drop the same set, so the set is named in one place here.
+ *
+ * @param exceptUri a document whose own entries survive, for the edit that produced the change. Its
+ * results are recomputed from the fresh AST by the flow that follows the edit, so dropping them
+ * here would only throw away work that is about to be redone.
+ */
+export function invalidateDerivedCaches(exceptUri?: string): void {
+    if (exceptUri === undefined) {
+        diagnosticsCache.clear();
+        inlayHintCache.clear();
+    } else {
+        for (const uri of [...diagnosticsCache.keys()]) {
+            if (uri !== exceptUri) diagnosticsCache.delete(uri);
+        }
+        for (const uri of [...inlayHintCache.keys()]) {
+            if (uri !== exceptUri) inlayHintCache.delete(uri);
+        }
+    }
+    invalidateComponentIdCache();
+    invalidateEffectiveChainCache();
+    invalidateLooseDeclarationCache();
+}

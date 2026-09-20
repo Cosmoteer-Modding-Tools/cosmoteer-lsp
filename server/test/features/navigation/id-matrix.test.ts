@@ -16,10 +16,10 @@ import {
     isValueNode,
     ValueNode,
 } from '../../../src/core/ast/ast';
-import { DefinitionService } from '../../../src/features/navigation/definition.service';
-import { HoverService } from '../../../src/features/hover/hover.service';
-import { ReferenceIndex } from '../../../src/features/navigation/reference-index';
-import { RenameService } from '../../../src/features/navigation/rename.service';
+import { getDefinition } from '../../../src/features/navigation/definition.service';
+import { getHover } from '../../../src/features/hover/hover.service';
+import { findReferences } from '../../../src/features/navigation/reference-index';
+import { rename } from '../../../src/features/navigation/rename.service';
 import { SchemaIdIndex } from '../../../src/features/completion/schema-id.index';
 import { crossFileReferenceTargetAtOffset } from '../../../src/features/completion/autocompletion.schema-fields';
 import { singleLocation } from '../../helpers';
@@ -110,14 +110,14 @@ describe('id shape and feature matrix', () => {
 
         it('goto jumps from the key to the declaring hit effect', async () => {
             const doc = parse(SRC);
-            const location = singleLocation(await DefinitionService.instance.getDefinition(doc, positionOf(SRC, 'fire = 50%'), token, folders));
+            const location = singleLocation(await getDefinition(doc, positionOf(SRC, 'fire = 50%'), token, folders));
             expect(location.uri.toLowerCase()).toContain('effect.rules');
         });
 
         it('find-references finds the usage and the declaration', async () => {
             const src = readFileSync(join(dir, 'effect.rules'), 'utf8');
             const doc = parser(lexer(src), pathToFileURL(join(dir, 'effect.rules')).href).value;
-            const locations = await ReferenceIndex.instance.findReferences(doc, positionOf(src, 'fire', 1), true, folders, token);
+            const locations = await findReferences(doc, positionOf(src, 'fire', 1), true, folders, token);
             expect(locations.length).toBeGreaterThanOrEqual(1);
             expect(locations.some((l) => l.uri.toLowerCase().includes('effect.rules'))).toBe(true);
         });
@@ -129,14 +129,14 @@ describe('id shape and feature matrix', () => {
         it('goto jumps from the nested faction to its declaration', async () => {
             const doc = parse(SRC);
             const location = singleLocation(
-                await DefinitionService.instance.getDefinition(doc, positionOf(SRC, 'monolith'), token, folders)
+                await getDefinition(doc, positionOf(SRC, 'monolith'), token, folders)
             );
             expect(location.uri.toLowerCase()).toContain('factions.rules');
         });
 
         it('hover shows where the nested faction id is defined', async () => {
             const doc = parse(SRC);
-            const hover = await HoverService.instance.getHover(doc, positionOf(SRC, 'monolith'), token, folders);
+            const hover = await getHover(doc, positionOf(SRC, 'monolith'), token, folders);
             const value = typeof hover?.contents === 'object' && 'value' in hover.contents ? hover.contents.value : '';
             expect(value).toContain('factions.rules');
         });
@@ -147,7 +147,7 @@ describe('id shape and feature matrix', () => {
 
         it('hover on the tuple resource id shows the declaring file', async () => {
             const doc = parse(SRC);
-            const hover = await HoverService.instance.getHover(doc, positionOf(SRC, 'battery'), token, folders);
+            const hover = await getHover(doc, positionOf(SRC, 'battery'), token, folders);
             const value = typeof hover?.contents === 'object' && 'value' in hover.contents ? hover.contents.value : '';
             expect(value).toContain('battery.rules');
         });
@@ -157,7 +157,7 @@ describe('id shape and feature matrix', () => {
         it('find-references from the usage finds the declaration and the usage', async () => {
             const src = readFileSync(join(dir, 'parts', 'wedge.rules'), 'utf8');
             const doc = parser(lexer(src), pathToFileURL(join(dir, 'parts', 'wedge.rules')).href).value;
-            const locations = await ReferenceIndex.instance.findReferences(
+            const locations = await findReferences(
                 doc,
                 positionOf(src, '"test.armor"', 2),
                 true,
@@ -172,7 +172,7 @@ describe('id shape and feature matrix', () => {
         it('rename rewrites the declaration and the usage together', async () => {
             const src = readFileSync(join(dir, 'parts', 'wedge.rules'), 'utf8');
             const doc = parser(lexer(src), pathToFileURL(join(dir, 'parts', 'wedge.rules')).href).value;
-            const edit = await RenameService.instance.rename(doc, positionOf(src, '"test.armor"', 2), 'test.plate', folders, token);
+            const edit = await rename(doc, positionOf(src, '"test.armor"', 2), 'test.plate', folders, token);
             expect(edit).not.toBeNull();
             const changed = Object.keys(edit!.changes!).map((u) => u.toLowerCase());
             expect(changed.some((u) => u.includes('armor.rules'))).toBe(true);
@@ -182,7 +182,7 @@ describe('id shape and feature matrix', () => {
         it('hover on a part-id reference shows the declaring file', async () => {
             const src = readFileSync(join(dir, 'parts', 'wedge.rules'), 'utf8');
             const doc = parser(lexer(src), pathToFileURL(join(dir, 'parts', 'wedge.rules')).href).value;
-            const hover = await HoverService.instance.getHover(doc, positionOf(src, '"test.armor"', 2), token, folders);
+            const hover = await getHover(doc, positionOf(src, '"test.armor"', 2), token, folders);
             const value = typeof hover?.contents === 'object' && 'value' in hover.contents ? hover.contents.value : '';
             expect(value).toContain('armor.rules');
         });
@@ -192,7 +192,7 @@ describe('id shape and feature matrix', () => {
         it('find-references on a tag finds the declaration and the reference', async () => {
             const src = readFileSync(join(dir, 'modes', 'sectors', 'sysgen.rules'), 'utf8');
             const doc = parser(lexer(src), pathToFileURL(join(dir, 'modes', 'sectors', 'sysgen.rules')).href).value;
-            const locations = await ReferenceIndex.instance.findReferences(
+            const locations = await findReferences(
                 doc,
                 positionOf(src, 'RootLocationTag = hub_tag', 'RootLocationTag = '.length),
                 true,
@@ -208,7 +208,7 @@ describe('id shape and feature matrix', () => {
             const src = readFileSync(join(dir, 'ships', 'terran.rules'), 'utf8');
             const doc = parser(lexer(src), pathToFileURL(join(dir, 'ships', 'terran.rules')).href).value;
             // The inheriting `["structure"]` list element references the first entry's key.
-            const locations = await ReferenceIndex.instance.findReferences(
+            const locations = await findReferences(
                 doc,
                 positionOf(src, 'Key = "structure"', 'Key = "'.length),
                 true,
@@ -282,13 +282,13 @@ describe('id shape and feature matrix', () => {
 
         it('find-references on the component finds the tuple usages', async () => {
             const doc = parse(SRC);
-            const locations = await ReferenceIndex.instance.findReferences(doc, positionOf(SRC, 'Port_Down {', 2), true, [], token);
+            const locations = await findReferences(doc, positionOf(SRC, 'Port_Down {', 2), true, [], token);
             expect(locations.length).toBeGreaterThanOrEqual(3); // declaration and both tuple slots
         });
 
         it('rename rewrites the component and its tuple usages', async () => {
             const doc = parse(SRC);
-            const edit = await RenameService.instance.rename(doc, positionOf(SRC, 'Port_Down {', 2), 'Port_Up', [], token);
+            const edit = await rename(doc, positionOf(SRC, 'Port_Down {', 2), 'Port_Up', [], token);
             expect(edit).not.toBeNull();
             const edits = Object.values(edit!.changes!)[0];
             expect(edits.length).toBeGreaterThanOrEqual(3);
@@ -297,7 +297,7 @@ describe('id shape and feature matrix', () => {
 
         it('hover on a route endpoint describes the component', async () => {
             const doc = parse(SRC);
-            const hover = await HoverService.instance.getHover(doc, positionOf(SRC, '[Port_Down', 2), token, []);
+            const hover = await getHover(doc, positionOf(SRC, '[Port_Down', 2), token, []);
             const value = typeof hover?.contents === 'object' && 'value' in hover.contents ? hover.contents.value : '';
             expect(value).toContain('Port_Down');
         });
@@ -320,13 +320,13 @@ describe('id shape and feature matrix', () => {
         it('goto jumps from the scalar trigger to the component', async () => {
             const doc = parse(SRC);
             const at = positionOf(SRC, 'FireTrigger = Turret', 'FireTrigger = '.length + 1);
-            const location = singleLocation(await DefinitionService.instance.getDefinition(doc, at, token, []));
+            const location = singleLocation(await getDefinition(doc, at, token, []));
         });
 
         it('hover on the scalar trigger describes the component', async () => {
             const doc = parse(SRC);
             const at = positionOf(SRC, 'FireTrigger = Turret', 'FireTrigger = '.length + 1);
-            const hover = await HoverService.instance.getHover(doc, at, token, []);
+            const hover = await getHover(doc, at, token, []);
             const value = typeof hover?.contents === 'object' && 'value' in hover.contents ? hover.contents.value : '';
             expect(value).toContain('Turret');
         });
@@ -358,13 +358,13 @@ describe('id shape and feature matrix', () => {
 
         it('find-references on the component finds the scalar trigger usage', async () => {
             const doc = parse(SRC);
-            const locations = await ReferenceIndex.instance.findReferences(doc, positionOf(SRC, 'Turret {', 2), true, [], token);
+            const locations = await findReferences(doc, positionOf(SRC, 'Turret {', 2), true, [], token);
             expect(locations.length).toBeGreaterThanOrEqual(2); // the declaration and the FireTrigger value
         });
 
         it('rename rewrites the component and the scalar trigger together', async () => {
             const doc = parse(SRC);
-            const edit = await RenameService.instance.rename(doc, positionOf(SRC, 'Turret {', 2), 'MainTurret', [], token);
+            const edit = await rename(doc, positionOf(SRC, 'Turret {', 2), 'MainTurret', [], token);
             expect(edit).not.toBeNull();
             const edits = Object.values(edit!.changes!)[0];
             expect(edits.length).toBeGreaterThanOrEqual(2);
@@ -394,7 +394,7 @@ describe('id shape and feature matrix', () => {
             const ref = schemaReferenceFieldOf(findValueByText(doc, 'hub_tag')!);
             expect(ref?.targetClass).toBe('Cosmoteer.Generators.Simulation.SimObjectSpawner');
             const location = singleLocation(
-                await DefinitionService.instance.getDefinition(doc, positionOf(src, 'SpawnAtTag = hub_tag', 'SpawnAtTag = '.length + 1), token, folders)
+                await getDefinition(doc, positionOf(src, 'SpawnAtTag = hub_tag', 'SpawnAtTag = '.length + 1), token, folders)
             );
             expect(location.uri.toLowerCase()).toContain('sysgen.rules');
         });
@@ -469,7 +469,7 @@ Part : BasePart
 
         it('hover describes a component declared only in the inherited base', async () => {
             const doc = parse(SRC);
-            const hover = await HoverService.instance.getHover(doc, positionOf(SRC, '= HiddenToggle', 3), token, []);
+            const hover = await getHover(doc, positionOf(SRC, '= HiddenToggle', 3), token, []);
             const value = typeof hover?.contents === 'object' && 'value' in hover.contents ? hover.contents.value : '';
             expect(value).toContain('HiddenToggle');
         });

@@ -2,7 +2,7 @@ import { readFileSync, statSync } from 'fs';
 import { join } from 'path';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { CancellationToken } from 'vscode-languageserver';
-import { MentionIndex } from '../../../src/features/navigation/mention.index';
+import { MentionIndex } from '../../../src/workspace/mention.index';
 import { FIXTURES_DIR } from '../../helpers';
 
 const token = CancellationToken.None;

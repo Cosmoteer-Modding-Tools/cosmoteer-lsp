@@ -261,6 +261,18 @@ export const MARKUP_TAGS: readonly TagSpec[] = [
     })),
 ];
 
+/** A name an element or an attribute can carry, in the shape XML allows, anchored at a position. */
+const NAME_AT = /[A-Za-z_:][A-Za-z0-9_.:-]*/y;
+
+/** A character reference, which is the one thing an `&` is allowed to start. */
+const ENTITY_AT = /&(#\d+|#x[0-9A-Fa-f]+|[A-Za-z_:][A-Za-z0-9_.:-]*);/y;
+
+/** Anything tag-shaped, which is what makes a string one the markup reader's verdict is felt on. */
+const TAG_SHAPED = /<\/?[A-Za-z_:]/;
+
+/** The shape every colour name has, which rules out a whole translated sentence before it is copied. */
+const COLOR_NAME_SHAPED = /^\s*[A-Za-z]{1,32}\s*$/;
+
 /**
  * The specification of a written element name, matched the way the engine matches it.
  *
@@ -286,15 +298,6 @@ export const tagSpecOf = (name: string): TagSpec | undefined => {
     }
     return CUSTOM_TAGS.find((tag) => tag.name === name);
 };
-
-/** A name an element or an attribute can carry, in the shape XML allows, anchored at a position. */
-const NAME_AT = /[A-Za-z_:][A-Za-z0-9_.:-]*/y;
-
-/** A character reference, which is the one thing an `&` is allowed to start. */
-const ENTITY_AT = /&(#\d+|#x[0-9A-Fa-f]+|[A-Za-z_:][A-Za-z0-9_.:-]*);/y;
-
-/** Anything tag-shaped, which is what makes a string one the markup reader's verdict is felt on. */
-const TAG_SHAPED = /<\/?[A-Za-z_:]/;
 
 /**
  * The character a backslash escape stands for. The game's own reader unescapes a value before
@@ -593,9 +596,6 @@ export const isHexColorValue = (value: string): boolean => /^[0-9A-Fa-f]{6}([0-9
 const NAMED_COLORS_LOWERCASE: ReadonlyMap<string, readonly [number, number, number, number]> = new Map(
     [...NAMED_COLORS].map(([name, channels]) => [name.toLowerCase(), channels])
 );
-
-/** The shape every colour name has, which rules out a whole translated sentence before it is copied. */
-const COLOR_NAME_SHAPED = /^\s*[A-Za-z]{1,32}\s*$/;
 
 /** The named colour a value names, matched case-insensitively as `Color.NamedColors` is keyed. */
 export const namedColorOf = (value: string): readonly [number, number, number, number] | undefined =>

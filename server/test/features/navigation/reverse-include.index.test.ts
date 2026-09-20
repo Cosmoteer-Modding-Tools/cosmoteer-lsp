@@ -6,7 +6,7 @@ import { fileURLToPath, pathToFileURL } from 'url';
 import { CancellationToken } from 'vscode-languageserver';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
-import { ReverseIncludeIndex } from '../../../src/features/navigation/reverse-include.index';
+import { ReverseIncludeIndex } from '../../../src/mod/reverse-include.index';
 import { findEnclosingGroup, resolveGroupClass } from '../../../src/document/schema/schema-context';
 import { fieldOf } from '../../../src/document/schema/schema';
 import { documentRootClass } from '../../../src/document/schema/document-root';

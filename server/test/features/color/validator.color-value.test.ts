@@ -10,7 +10,7 @@ import { warmInheritedClasses } from '../../../src/features/completion/inheritan
 import { globalSettings } from '../../../src/settings';
 import { CosmoteerWorkspaceService } from '../../../src/workspace/cosmoteer-workspace.service';
 import { aliasRootIndex } from '../../../src/document/schema/alias-root';
-import { ReverseIncludeIndex } from '../../../src/features/navigation/reverse-include.index';
+import { ReverseIncludeIndex } from '../../../src/mod/reverse-include.index';
 
 const parse = (src: string) => parser(lexer(src), 'file:///c.rules').value;
 

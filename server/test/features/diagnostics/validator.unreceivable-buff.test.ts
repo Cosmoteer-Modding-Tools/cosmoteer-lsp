@@ -11,7 +11,8 @@ const token = CancellationToken.None;
 const parse = (source: string): AbstractNodeDocument => parser(lexer(source), 'file:///inline.rules').value;
 
 /** A part group with the given body lines, written one member per line. */
-const part = (...lines: string[]): string => ['Part', '{', '\tID = test.part', ...lines.map((l) => `\t${l}`), '}', ''].join('\n');
+const part = (...lines: string[]): string =>
+    ['Part', '{', '\tID = test.part', ...lines.map((l) => `\t${l}`), '}', ''].join('\n');
 
 /** A `Modifiers` list holding one modifier group. */
 const modifier = (...members: string[]): string[] => [
@@ -59,7 +60,9 @@ describe('unreceivable buff validator', () => {
 
     it('says nothing when the part lists the buff', async () => {
         expect(
-            await messages(part('ReceivableBuffs = [ Engine, Overclock ]', ...modifier('Type = Buff', 'BuffType = Overclock')))
+            await messages(
+                part('ReceivableBuffs = [ Engine, Overclock ]', ...modifier('Type = Buff', 'BuffType = Overclock'))
+            )
         ).toEqual([]);
     });
 
@@ -132,7 +135,14 @@ describe('unreceivable buff validator', () => {
     it('says nothing about a part that declares no ID of its own', async () => {
         // A template completed by deriving files declares the modifier while the derivers declare
         // the buff set, so judging it in isolation would blame it for what they supply.
-        const source = ['Part', '{', '\tReceivableBuffs = [ Engine ]', ...modifier('Type = Buff', 'BuffType = Overclock').map((l) => `\t${l}`), '}', ''].join('\n');
+        const source = [
+            'Part',
+            '{',
+            '\tReceivableBuffs = [ Engine ]',
+            ...modifier('Type = Buff', 'BuffType = Overclock').map((l) => `\t${l}`),
+            '}',
+            '',
+        ].join('\n');
         expect(await messages(source)).toEqual([]);
     });
 

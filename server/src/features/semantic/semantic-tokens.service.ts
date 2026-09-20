@@ -40,6 +40,13 @@ interface RawToken {
     readonly modifiers: number;
 }
 
+// A bareword that the parser types `String` but that is really a numeric literal: a percentage
+// (`50%`, `-0.6%`), an angle in degrees or radians (`90d`, `1.5r`) or infinity. The parser keeps
+// these `String` so the evaluator can resolve them (percent → /100, degrees → radians), but they
+// read as numbers, and the TextMate grammar colours them numeric, so the semantic overlay has to
+// agree or the colour flips as soon as the server catches up.
+const NUMERIC_LITERAL = /^-?(?:\s*\d*\.?\d+\s*[%dr]|infinity)$/i;
+
 /**
  * Walks the cached AST and produces the document's semantic tokens. A node's {@link AstPosition} is
  * always single-line (the parser records one line per node), so every token fits the LSP one-line
@@ -184,13 +191,6 @@ const collectContainer = (node: GroupNode | ListNode, topLevel: boolean, tokens:
     for (const base of node.inheritance ?? []) pushSpan(base.position, 'type', 0, tokens);
     for (const element of node.elements) collectNode(element, false, tokens);
 };
-
-// A bareword that the parser types `String` but that is really a numeric literal: a percentage
-// (`50%`, `-0.6%`), an angle in degrees or radians (`90d`, `1.5r`) or infinity. The parser keeps
-// these `String` so the evaluator can resolve them (percent → /100, degrees → radians), but they
-// read as numbers, and the TextMate grammar colours them numeric, so the semantic overlay has to
-// agree or the colour flips as soon as the server catches up.
-const NUMERIC_LITERAL = /^-?(?:\s*\d*\.?\d+\s*[%dr]|infinity)$/i;
 
 /** Maps a value node's parsed kind to its token type. */
 const valueTokenType = (node: ValueNode): TokenType => {

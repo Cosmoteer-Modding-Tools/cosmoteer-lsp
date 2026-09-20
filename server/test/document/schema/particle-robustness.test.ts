@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { DocumentSymbol, Range } from 'vscode-languageserver';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
-import { DocumentSymbolService } from '../../../src/features/navigation/document-symbol.service';
+import { getDocumentSymbols } from '../../../src/features/navigation/document-symbol.service';
 import { findNodeAtPosition } from '../../../src/utils/ast.utils';
 
 // Particle/effect files carry constructs that other `.rules` files rarely do: bare keys with no
@@ -46,7 +46,7 @@ const eachSymbol = (symbols: DocumentSymbol[], visit: (s: DocumentSymbol) => voi
 
 describe('particle-file robustness', () => {
     it('builds the outline without throwing and keeps selectionRange within range everywhere', () => {
-        const symbols = DocumentSymbolService.instance.getDocumentSymbols(parse());
+        const symbols = getDocumentSymbols(parse());
         eachSymbol(symbols, (s) => {
             expect(contains(s.range, s.selectionRange), `selectionRange escapes range for ${s.name}`).toBe(true);
             for (const child of s.children ?? []) {
