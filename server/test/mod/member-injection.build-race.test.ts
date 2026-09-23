@@ -40,7 +40,7 @@ describe('a value read before the manifests are indexed', () => {
         const document = await parseFilePath(workspaceFile('action_targets.rules'));
         target = groupOf(document, 'Group');
         const entries = document.elements.find((element) => isListNode(element) && element.identifier?.name === 'Entries');
-        untouched = (entries as { elements: AbstractNode[] }).elements[0] as GroupNode;
+        untouched = (entries as unknown as { elements: AbstractNode[] }).elements[0] as GroupNode;
     });
 
     afterAll(() => {

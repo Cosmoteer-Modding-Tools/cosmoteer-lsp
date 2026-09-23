@@ -16,9 +16,9 @@ import {
 // ranges point into text that has moved writes into the wrong place. The server refuses a request it
 // sees race; this is the last gate before the write, for a change that lands after the server
 // answered.
-const PART = Uri.file('c:/mod/parts/part.rules');
+const PART = Uri.file('c:/mod/parts/part.rules') as never;
 
-const context = (): ExtensionContext => ({ subscriptions: [], extensionUri: Uri.file('c:/ext') }) as never;
+const context = () => ({ subscriptions: [], extensionUri: Uri.file('c:/ext') }) as ExtensionContext as never;
 
 /** A grid payload thin enough to render, with no sprites so nothing reads the disk. */
 const payload = { anchor: { line: 0, character: 0 }, partName: 'Part', sprites: [], dependsOn: [] };
@@ -33,7 +33,7 @@ const clientAnswering = (editResult: unknown): never =>
 
 /** Opens the panel on the part and hands back the webview the test drives. */
 const openPanel = async (editResult: unknown) => {
-    await PartGridEditorPanel.show(context(), clientAnswering(editResult), PART, new Position(0, 0));
+    await PartGridEditorPanel.show(context(), clientAnswering(editResult), PART, new Position(0, 0) as never);
     return createdPanels[createdPanels.length - 1];
 };
 

@@ -6,7 +6,7 @@ import { createdCollections, ExtensionContext, registeredCommands, resetStub, Ur
 // used to empty the panel of everything an earlier import had put there. The two outcomes that never
 // reached the question leave the collection alone; every other outcome is a newer word on this mod's
 // files, so those still clear first. This is the module the campaign shipped without a check.
-const context = (): ExtensionContext => ({ subscriptions: [] });
+const context = () => ({ subscriptions: [] }) as ExtensionContext as never;
 
 /** A language client that answers one canned result, standing in for the server. */
 const clientAnswering = (result: unknown): { sendRequest: () => Promise<unknown> } => ({
