@@ -17,7 +17,7 @@ import { SchemaField } from '../../document/schema/schema.types';
 import { flattenGroup } from '../../semantics/effective-group';
 import { EffectiveMemberEntry, UnreadableBase, UnreadableReason } from '../../semantics/effective-group.types';
 import { getStartOfAstNode } from '../../utils/ast.utils';
-import { navigationDepKey } from '../../workspace/navigation-deps';
+import { normalizeUri } from '../../utils/uri-path';
 import { findEnclosingGroup } from '../../document/schema/schema-context';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
 import { valueAt } from '../completion/inherited-members';
@@ -143,7 +143,7 @@ const memberRow = (member: EffectiveMemberEntry): string => {
  * @returns true when the file sits inside the game's `Data` folder.
  */
 const isGameFile = (uri: string, dataRootKey: string): boolean =>
-    (navigationDepKey(uri) + '/').startsWith(dataRootKey + '/');
+    (normalizeUri(uri) + '/').startsWith(dataRootKey + '/');
 
 /**
  * The rows naming what this chain loads in place of what the game's own files declare.
@@ -159,7 +159,7 @@ const isGameFile = (uri: string, dataRootKey: string): boolean =>
 const changedRows = (members: readonly EffectiveMemberEntry[]): string[] => {
     const dataRoot = CosmoteerWorkspaceService.instance.dataRootPath;
     if (!dataRoot) return [];
-    const dataRootKey = navigationDepKey(dataRoot);
+    const dataRootKey = normalizeUri(dataRoot);
     const rows: string[] = [];
     for (const member of members) {
         if (isGameFile(member.origin.uri, dataRootKey)) continue;

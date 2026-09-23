@@ -1,4 +1,4 @@
-import { Uri, ViewColumn, commands, l10n, languages, window, workspace } from 'vscode';
+import { Uri, ViewColumn, commands, languages, window, workspace } from 'vscode';
 import { VirtualContentProvider } from '../virtual-content-provider';
 
 /** The virtual-document scheme the rewritten file contents are served under. */
@@ -10,17 +10,6 @@ export interface DiffPreviewFile {
     after: string;
     /** True for a file that does not exist yet, which is diffed against nothing and reads as all-added. */
     created: boolean;
-}
-
-/**
- * Serves the rewritten contents of the files a pending rewrite would change, so the editor can put
- * them side by side against what is on disk without anything being written first. Shared by the
- * shared-base extraction and the migration dry run, which both answer with rewritten file contents.
- */
-export class DiffPreviewProvider extends VirtualContentProvider {
-    public constructor() {
-        super(() => l10n.t('This preview is no longer available. Run the command again.'));
-    }
 }
 
 /**
@@ -50,7 +39,7 @@ const rewrittenUri = (planId: string, file: DiffPreviewFile): Uri =>
  * @returns once the diff is open.
  */
 export async function showDiffPreview(
-    provider: DiffPreviewProvider,
+    provider: VirtualContentProvider,
     planId: string,
     changed: readonly DiffPreviewFile[],
     title: string
@@ -86,7 +75,7 @@ export async function showDiffPreview(
  * @param diff the unified diff to show.
  * @returns once the tab is open.
  */
-export async function showPatchPreview(provider: DiffPreviewProvider, planId: string, diff: string): Promise<void> {
+export async function showPatchPreview(provider: VirtualContentProvider, planId: string, diff: string): Promise<void> {
     const uri = Uri.from({ scheme: DIFF_PREVIEW_SCHEME, path: `/${planId}/preview.diff`, query: 'patch' });
     provider.set(uri, diff);
     const document = await workspace.openTextDocument(uri);

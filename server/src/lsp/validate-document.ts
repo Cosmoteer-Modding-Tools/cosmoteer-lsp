@@ -2,7 +2,8 @@ import { CancellationToken, Diagnostic, DiagnosticSeverity, DiagnosticTag } from
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { BlockCommentSpan, lexer } from '../core/lexer/lexer';
 import { parser } from '../core/parser/parser';
-import { findingSpanOf, ValidationError, Validator } from '../features/diagnostics/validator';
+import { findingSpanOf, ValidationError } from '../features/diagnostics/validator';
+import { validate } from '../features/diagnostics/validator.service';
 import { warmInheritedClasses } from '../features/completion/inheritance-resolution';
 import { validateShaderDocument } from '../features/shader/shader-diagnostics';
 import { ModRulesRegistrar } from '../mod/mod-rules.registrar';
@@ -149,10 +150,10 @@ const runValidationPasses = async (
     const { cancelToken, persist } = context;
     let validationErrors: ValidationError[] = [];
     try {
-        // The node-level passes, which the AstType-keyed registry holds and which run per element
+        // The node-level passes, which the AstType-keyed table holds and which run per element
         // rather than over the whole document.
         validationErrors = await timedPass(persist, 'scan.vElementsMs', async () => {
-            const passes = context.document.elements.map((node) => Validator.instance.validate(node, cancelToken));
+            const passes = context.document.elements.map((node) => validate(node, cancelToken));
             return tagged((await Promise.all(passes).catch(() => [])).flat(), 'syntax-and-references');
         });
         for (const pass of DOCUMENT_PASSES) {

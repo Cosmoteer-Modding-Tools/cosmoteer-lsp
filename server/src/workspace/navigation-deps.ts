@@ -14,16 +14,6 @@ import { normalizeUri } from '../utils/uri-path';
 const storage = new AsyncLocalStorage<Set<string>>();
 
 /**
- * The canonical dependency key of a file, matching for `file://` URIs and OS paths of the same
- * file regardless of encoding, slash direction, or case. The shared {@link normalizeUri} form,
- * so a dependency key and a reference-index key agree on what counts as the same file.
- *
- * @param uriOrPath the file's uri or OS path.
- * @returns the canonical key.
- */
-export const navigationDepKey = (uriOrPath: string): string => normalizeUri(uriOrPath);
-
-/**
  * Records that the currently running resolution read the given file. A no-op when no resolution
  * is collecting, which keeps the call safe (and cheap) on hot paths.
  *
@@ -31,7 +21,7 @@ export const navigationDepKey = (uriOrPath: string): string => normalizeUri(uriO
  */
 export const recordNavigationDep = (uriOrPath: string): void => {
     const store = storage.getStore();
-    if (store) store.add(navigationDepKey(uriOrPath));
+    if (store) store.add(normalizeUri(uriOrPath));
 };
 
 /**

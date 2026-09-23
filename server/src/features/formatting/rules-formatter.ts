@@ -19,6 +19,7 @@
  * comments), otherwise the formatter returns null and the document is left untouched.
  */
 import { lexer, Token, TOKEN_TYPES } from '../../core/lexer/lexer';
+import { lineEndingOf } from '../refactor/command-host';
 
 interface RulesFormattingOptions {
     tabSize: number;
@@ -399,7 +400,7 @@ export const formatRulesDocument = (text: string, options: RulesFormattingOption
     const spans = collectSpans(text, tokens);
     if (!spans) return null;
 
-    const eol = text.includes('\r\n') ? '\r\n' : '\n';
+    const eol = lineEndingOf(text);
     const ctx: RenderContext = {
         text,
         tokens,

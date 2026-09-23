@@ -1,6 +1,7 @@
 import { copyFile, lstat, readlink, realpath, rename, stat, symlink, writeFile } from 'fs/promises';
 import { basename, dirname, join, resolve } from 'path';
 import { RunGameArgs, RunGameRefusal, RunGameResult } from '../../../../shared/run-game.types';
+import { isUnder } from '../../utils/relative-path';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
 import { foldPathCase } from '../../workspace/fs-cache';
 import { localModDirs, workshopContentDir } from '../../workspace/workshop-dir';
@@ -37,13 +38,6 @@ export interface RunGameHost {
     /** Reports a launch failure that happens after the command has already answered. */
     reportError(message: string): void;
 }
-
-/** Whether `child` is the same folder as `parent` or sits under it, case-folded like the game's compare. */
-const isUnder = (child: string, parent: string): boolean => {
-    const a = foldPathCase(resolve(child));
-    const b = foldPathCase(resolve(parent));
-    return a === b || a.startsWith(b.endsWith('/') || b.endsWith('\\') ? b : `${b}/`) || a.startsWith(`${b}\\`);
-};
 
 /**
  * Whether the game already discovers this folder, in which case nothing is linked.

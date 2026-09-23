@@ -1,21 +1,18 @@
 import { Token, TOKEN_TYPES } from '../lexer/lexer';
-import { AbstractNode, AbstractNodeDocument, GroupNode, ListNode, isIdentifierNode, isValueNode } from '../ast/ast';
+import { walk } from './parser';
+import {
+    AbstractNode,
+    AbstractNodeDocument,
+    GroupNode,
+    ListNode,
+    isIdentifierNode,
+    isListNode,
+    isValueNode,
+} from '../ast/ast';
 import * as l10n from '@vscode/l10n';
 import { ParserError, ParserState } from './parser.types';
 import { continueMathExpression } from './parse-expression';
 import { reportOrphanTerminator } from './parse-terminator';
-
-/**
- * True when an identifier read in `parent` is a list element. The game never names list
- * children: an identifier there is its own element (a text value, or a reference node for
- * `&…`), and a following `{`/`[`/`:` opens a separate anonymous element. The parser must
- * therefore neither turn a list identifier into the head of the next container nor let that
- * container pick it up as its name.
- *
- * @param parent the container the identifier was read in.
- * @returns whether identifiers in this container stand alone.
- */
-export const isListElementIdentifier = (parent: AbstractNode | undefined): boolean => parent?.type === 'List';
 
 /**
  * Reads a `[ … ]` list body. The opening bracket has already been seen, so the elements are
@@ -38,8 +35,7 @@ export const parseList = (
     const node = {
         type: 'List',
         parent,
-        identifier:
-            _lastNode && isIdentifierNode(_lastNode) && !isListElementIdentifier(parent) ? _lastNode : undefined,
+        identifier: _lastNode && isIdentifierNode(_lastNode) && !isListNode(parent) ? _lastNode : undefined,
         elements: [],
         position: {
             line: token.lineNumber,
@@ -62,7 +58,7 @@ export const parseList = (
         // belongs to the element it follows: the game reads `[255*.45, 255*.45]` as two
         // elements. Folding the run into one node here is what keeps every index in the list
         // the index the game sees, which positional fields and `…/1` references depend on.
-        const nextNode = continueMathExpression(state, state.walk(state, lastNode, node), node);
+        const nextNode = continueMathExpression(state, walk(state, lastNode, node), node);
         if (nextNode === null) {
             break;
         }

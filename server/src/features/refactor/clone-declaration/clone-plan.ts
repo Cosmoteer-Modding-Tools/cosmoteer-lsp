@@ -13,12 +13,14 @@ import {
 import { hasId, sameId } from '../../../document/schema/entity-schema';
 import { findModRoot } from '../../../mod/mod-root';
 import { parseText } from '../../../utils/ast.utils';
+import { isUnder } from '../../../utils/relative-path';
 import { indentOfLineAt } from '../../../utils/text.utils';
 import { foldPathCase } from '../../../workspace/fs-cache';
 import { modStringsFiles } from '../../diagnostics/localization-key-insert';
 import { filePathToUri } from '../../../document/reference-path';
 import { definitionLocationOf } from '../../../document/reference-location';
 import { idReferenceSites, IdSymbol } from '../../navigation/schema-id-symbol';
+import { lineEndingOf } from '../command-host';
 import { editableModRootOf } from '../shared-base/shared-base.analysis-entry';
 import { CloneKey, deriveCloneKey, localizationKeyFieldsOf, stringsInsertsFor } from './clone-localization';
 import {
@@ -31,7 +33,7 @@ import {
 } from './clone-target';
 import { ClonePlanContext, ClonePlanFile, ClonePlanResult } from './clone.types';
 import { CloneFailure } from '../../../../../shared/clone-declaration.types';
-import { isUnder, rebaseUnitFile, slashed, UnitRebaseContext } from './unit-rebase';
+import { rebaseUnitFile, slashed, UnitRebaseContext } from './unit-rebase';
 
 /**
  * The refusals that come from a single path inside a copied file, as against the ones that describe
@@ -246,7 +248,7 @@ const duplicateListElement = (
         text.slice(start, end),
         edits.map((edit) => ({ ...edit, start: edit.start - start, end: edit.end - start }))
     );
-    const lineEnding = text.includes('\r\n') ? '\r\n' : '\n';
+    const lineEnding = lineEndingOf(text);
     const insert = `${lineEnding}${indentOfLineAt(text, start)}${copy}`;
     return { text: `${text.slice(0, end)}${insert}${text.slice(end)}`, dropped: removal.dropped };
 };

@@ -12,7 +12,7 @@ import {
     isValueNode,
     ListNode,
     ValueNode,
-    childNodesOf,
+    descendants,
 } from '../../core/ast/ast';
 import {
     documentScopeClass,
@@ -607,14 +607,15 @@ const checkDiscriminator = (ctx: SchemaCheckContext, group: GroupNode): void => 
 };
 
 /**
- * Walks a node and its children, running the synchronous class-resolved checks on every group.
+ * Runs the synchronous class-resolved checks on every group at or below a node.
  *
  * @param ctx the findings and resolved containers of the run.
- * @param node the node to walk.
+ * @param root the node to walk.
  */
-const visit = (ctx: SchemaCheckContext, node: AbstractNode): void => {
-    if (ctx.cancellationToken.isCancellationRequested) return;
-    if (isGroupNode(node)) {
+const visit = (ctx: SchemaCheckContext, root: AbstractNode): void => {
+    for (const node of descendants(root)) {
+        if (ctx.cancellationToken.isCancellationRequested) return;
+        if (!isGroupNode(node)) continue;
         // A group's class comes from its slot (which disambiguates a `Type=` collision via the
         // container's field type). Only skip when the discriminator is ambiguous and the
         // container gives no hint, where we can't trust the class, so we'd risk a false positive.
@@ -635,8 +636,6 @@ const visit = (ctx: SchemaCheckContext, node: AbstractNode): void => {
         // not read it, so it must still surface the rename hint.
         if (disc && (!cls || cls === slotRegistry || deprecatedDiscriminator(disc))) checkDiscriminator(ctx, node);
     }
-    const children = childNodesOf(node);
-    for (const child of children) visit(ctx, child);
 };
 
 /**
@@ -1019,7 +1018,7 @@ const checkResolvedContainers = async (ctx: SchemaCheckContext): Promise<void> =
 };
 
 /**
- * Whole-document schema validation. Runs as a separate pass (the {@link Validator} allows one
+ * Whole-document schema validation. Runs as a separate pass (the AstType-keyed validate allows one
  * callback per AstType, and `Assignment` is taken). Deliberately conservative: every check is built
  * to have no false positives on partially-modelled / custom-deserialized classes, unlike unknown-field
  * checks. It flags:
@@ -1070,4 +1069,3 @@ export const validateSchema = async (
     await checkResolvedContainers(ctx);
     return ctx.errors;
 };
- 

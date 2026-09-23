@@ -21,7 +21,7 @@ export type ValueType =
            */
           groupForm?: string;
       }
-    | { kind: 'enum'; ref: string; name: string; enumLike?: boolean }
+    | { kind: 'enum'; ref: string; name: string }
     | { kind: 'reference'; target: string; targetName: string }
     | {
           kind: 'group' | 'polymorphicGroup';
@@ -176,7 +176,6 @@ export interface SchemaRegistry {
     name: string;
     /** The field that selects the concrete type (default `Type`). */
     typeField: string;
-    valueField: string;
     /** discriminator value -> member class FullName. */
     members: Record<string, string>;
     /**
@@ -190,7 +189,6 @@ export interface SchemaRegistry {
 export interface SchemaEnum {
     name: string;
     members: string[];
-    enumLike?: boolean;
 }
 
 export interface SchemaBundle {

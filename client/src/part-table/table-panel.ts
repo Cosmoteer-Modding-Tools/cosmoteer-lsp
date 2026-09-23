@@ -11,8 +11,8 @@ import {
     workspace,
 } from 'vscode';
 import { LanguageClient } from 'vscode-languageclient/node';
-import { createCosmoteerPanel, disposeAll, stringsScript, webviewShell } from '../webview-util';
-import { partTableStrings } from '../webview-strings';
+import { createCosmoteerPanel, disposeAll, panelHtml, postWhenReady, webviewShell } from '../webview-util';
+import { webviewStrings } from '../webview-strings';
 import {
     PanelMessage,
     PartTableData,
@@ -66,14 +66,12 @@ export class PartTablePanel {
     private readonly disposables: Disposable[] = [];
     /** The document the table is scoped to, re-queried when the page asks for a rebuild. */
     private tracked: Uri | undefined;
-    /** True once the page has said it is listening, so nothing is posted into the void. */
-    private ready = false;
+    /** Holds a payload back until the page has said it is listening. */
+    private readonly gate: ReturnType<typeof postWhenReady>;
     /** True while a table request is out, which is when the server's progress is worth relaying. */
     private waiting = false;
     /** Whether the page keeps its table on screen through the current wait. */
     private quietWait = false;
-    /** The payload posted before the page was listening. */
-    private queued: { table: PartTableData; columns?: string[]; pendingFormula?: string } | undefined;
     /**
      * What the page last asked for, which a request the panel makes itself asks for again. The page
      * owns the column pick and the narrowing, and an answer carrying neither is read as a table of
@@ -89,6 +87,7 @@ export class PartTablePanel {
         private readonly client: LanguageClient
     ) {
         this.panel = createCosmoteerPanel(context, 'cosmoteerPartTable', l10n.t('Part Table'), ViewColumn.Active);
+        this.gate = postWhenReady(this.panel.webview);
         this.panel.onDidDispose(() => this.dispose());
         this.panel.webview.onDidReceiveMessage((message) => void this.onMessage(message as PanelMessage));
         this.panel.webview.html = this.html();
@@ -124,7 +123,7 @@ export class PartTablePanel {
      */
     public static notifyChanged(): void {
         const panel = PartTablePanel.current;
-        if (!panel || !panel.ready) return;
+        if (!panel || !panel.gate.listening) return;
         void panel.panel.webview.postMessage({ type: 'changed' });
     }
 
@@ -137,7 +136,7 @@ export class PartTablePanel {
      */
     public static notifyProgress(done: number, total: number): void {
         const panel = PartTablePanel.current;
-        if (!panel || !panel.ready || !panel.waiting) return;
+        if (!panel || !panel.gate.listening || !panel.waiting) return;
         void panel.panel.webview.postMessage({
             type: 'loading',
             text: l10n.t('Reading part {0} of {1}…', done, total),
@@ -169,7 +168,7 @@ export class PartTablePanel {
         // The page says it is waiting rather than sitting on a stale table with nothing happening.
         // The first build walks every part of the install, which is seconds rather than an instant.
         this.quietWait = !!quiet;
-        if (this.ready) {
+        if (this.gate.listening) {
             await this.panel.webview.postMessage({
                 type: 'loading',
                 text: l10n.t('Reading the parts…'),
@@ -197,7 +196,7 @@ export class PartTablePanel {
             void window.showWarningMessage(l10n.t('The parts could not be read.'));
             // The page is waiting on this answer, so it is told there is none rather than left
             // spinning over a table that never arrives.
-            if (this.ready) await this.panel.webview.postMessage({ type: 'table' });
+            if (this.gate.listening) await this.panel.webview.postMessage({ type: 'table' });
             return;
         }
         if (table.emptyReason === 'noGamePath') {
@@ -205,20 +204,7 @@ export class PartTablePanel {
                 l10n.t('Set the path to the game data before comparing parts: cosmoteerLSPRules.cosmoteerPath.')
             );
         }
-        await this.post({ table, columns, pendingFormula });
-    }
-
-    /**
-     * Posts a payload, holding it back until the page says it is listening.
-     *
-     * @param payload the table with the columns it was built for.
-     */
-    private async post(payload: { table: PartTableData; columns?: string[]; pendingFormula?: string }): Promise<void> {
-        if (!this.ready) {
-            this.queued = payload;
-            return;
-        }
-        await this.panel.webview.postMessage({ type: 'table', ...payload });
+        await this.gate.post({ type: 'table', table, columns, pendingFormula });
     }
 
     /**
@@ -230,12 +216,7 @@ export class PartTablePanel {
     private async onMessage(message: PanelMessage): Promise<void> {
         switch (message.type) {
             case 'ready': {
-                this.ready = true;
-                if (this.queued) {
-                    const queued = this.queued;
-                    this.queued = undefined;
-                    await this.post(queued);
-                }
+                await this.gate.ready();
                 return;
             }
             case 'openLocation': {
@@ -435,18 +416,12 @@ export class PartTablePanel {
      * @returns the page's HTML.
      */
     private html(): string {
-        const { nonce, asset, csp } = webviewShell(this.panel.webview, this.context.extensionUri);
-        return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta http-equiv="Content-Security-Policy" content="${csp}" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<link rel="stylesheet" href="${asset('part-table.css')}" />
-<title>Part Table</title>
-</head>
-<body>
-<div id="page">
+        return panelHtml(webviewShell(this.panel.webview, this.context.extensionUri), {
+            title: 'Part Table',
+            css: 'part-table.css',
+            script: 'part-table.js',
+            strings: webviewStrings(),
+            body: `<div id="page">
 <div id="toolbar">
 <input id="search" type="search" />
 <select id="category"></select>
@@ -511,10 +486,7 @@ export class PartTablePanel {
 <button id="formula-apply" type="button">${l10n.t('Add column')}</button>
 </div>
 </div>
-</div>
-${stringsScript(nonce, partTableStrings())}
-<script nonce="${nonce}" src="${asset('dist', 'part-table.js')}"></script>
-</body>
-</html>`;
+</div>`,
+        });
     }
 }

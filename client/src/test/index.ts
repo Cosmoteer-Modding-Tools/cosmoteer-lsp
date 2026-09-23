@@ -3,8 +3,8 @@
  * Licensed under the MIT License. See License.txt in the project root for license information.
  * ------------------------------------------------------------------------------------------ */
 import path from 'path';
+import { readdirSync } from 'fs';
 import Mocha from 'mocha';
-import { glob } from 'glob';
 
 export async function run(): Promise<void> {
     const mocha = new Mocha({
@@ -15,7 +15,8 @@ export async function run(): Promise<void> {
 
     const testsRoot = __dirname;
 
-    const files = await glob('**.test.js', { cwd: testsRoot });
+    // The suites sit flat in this folder, so a directory listing is the whole search.
+    const files = readdirSync(testsRoot).filter((f) => f.endsWith('.test.js'));
     files.forEach((f) => mocha.addFile(path.resolve(testsRoot, f)));
 
     await new Promise<void>((resolve, reject) => {

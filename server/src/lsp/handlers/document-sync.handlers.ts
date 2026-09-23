@@ -85,27 +85,23 @@ export function register(): void {
         });
     });
 
-    documents.onDidChangeContent(
-        (e) => {
-            try {
-                // Parse and publish the AST immediately, completion/hover/navigation read it between
-                // keystrokes. Validation is scheduled separately below.
-                registerOpenDocument(e.document);
-            } catch (err) {
-                traceFailure(err);
-            }
-            // A pull-capable client requests `textDocument/diagnostic` itself after the change. Pushing
-            // here as well would run the whole validation twice per edit.
-            if (hasPullDiagnosticsCapability) return;
-            schedulePushValidation(e.document);
-            // The other open documents were judged against this buffer (an inherited base, a strings
-            // file, a component provider) and the edit just dropped their cached results. A client
-            // that can pull asks for them again on its own; this one has to be told.
-            refreshDependentOpenDocuments(e.document.uri);
-        },
-        null,
-        [tokenSourceManager]
-    );
+    documents.onDidChangeContent((e) => {
+        try {
+            // Parse and publish the AST immediately, completion/hover/navigation read it between
+            // keystrokes. Validation is scheduled separately below.
+            registerOpenDocument(e.document);
+        } catch (err) {
+            traceFailure(err);
+        }
+        // A pull-capable client requests `textDocument/diagnostic` itself after the change. Pushing
+        // here as well would run the whole validation twice per edit.
+        if (hasPullDiagnosticsCapability) return;
+        schedulePushValidation(e.document);
+        // The other open documents were judged against this buffer (an inherited base, a strings
+        // file, a component provider) and the edit just dropped their cached results. A client
+        // that can pull asks for them again on its own; this one has to be told.
+        refreshDependentOpenDocuments(e.document.uri);
+    });
 
     connection.languages.diagnostics.on(async (params, cancelToken) => {
         const document = documents.get(params.textDocument.uri);

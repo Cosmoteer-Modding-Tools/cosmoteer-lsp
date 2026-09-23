@@ -3,7 +3,8 @@ import { CancellationToken } from 'vscode-languageserver';
 import { navigate } from '../../src/semantics/navigate-reference';
 import { ValidationForValue } from '../../src/features/diagnostics/validator.value';
 import { AbstractNode, isGroupNode, isListNode, ValueNode } from '../../src/core/ast/ast';
-import { parseFilePath, findNodeByIdentifier } from '../../src/utils/ast.utils';
+import { parseFilePath } from '../../src/utils/ast.utils';
+import { findNodeByIdentifier } from '../helpers';
 import { globalSettings } from '../../src/settings';
 import { initWorkspace, valueOf, workspaceFile, WORKSPACE_DATA_DIR } from '../workspace-helper';
 

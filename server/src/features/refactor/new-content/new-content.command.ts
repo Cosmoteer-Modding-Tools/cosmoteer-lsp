@@ -18,7 +18,8 @@ import { documentFor, lineEndingOf, openBuffers } from '../command-host';
 import { relativeRulesReference } from '../shared-base/base-file.emitter';
 import { dirOf, readRulesFile } from '../shared-base/base-index';
 import { editableModRootOf } from '../shared-base/shared-base.analysis-entry';
-import { addManyActionText, manifestActionInsert, overridesActionText } from '../register-part/manifest-action.emitter';
+import { overridesActionText } from '../override-in-mod/overrides-action.emitter';
+import { addManyActionText, manifestActionInsert } from '../register-part/manifest-action.emitter';
 import { registerPartInShip } from '../register-part/register-part.command';
 import { RegisterPartHost } from '../register-part/register-part.types';
 import { ShipClassEntry, shipClassesFor, shipPartsListOf } from '../register-part/ship-registry';
@@ -602,15 +603,21 @@ const registerPart = async (
     if (result.kind !== 'apply') {
         return { route: 'ship', registeredIn: '', changedFiles: [], failure: result.failure ?? 'stale' };
     }
-    // The manifest route changes the manifest, the ship route changes the ship's own file, so what
-    // "registered in" names is whichever of the two was actually written.
-    const registeredIn = result.via === 'modAction' ? (result.changedFiles[0] ?? '') : result.shipFsPath;
+    if (result.failure) {
+        return {
+            route: 'ship',
+            registeredIn: '',
+            changedFiles: [],
+            failure: result.failure,
+            manifests: result.manifests,
+        };
+    }
     return {
         route: 'ship',
-        registeredIn: result.failure ? '' : registeredIn,
+        // The manifest route changes the manifest, the ship route changes the ship's own file, so what
+        // "registered in" names is whichever of the two was actually written.
+        registeredIn: result.via === 'modAction' ? (result.changedFiles[0] ?? '') : result.shipFsPath,
         changedFiles: result.changedFiles,
-        failure: result.failure,
-        manifests: result.manifests,
     };
 };
 
@@ -832,7 +839,7 @@ const registerBuff = async (target: Target, host: NewContentHost): Promise<Regis
         (manifestDir, indent, lineEnding) =>
             overridesActionText(
                 registryTarget,
-                `&${relativeRulesReference(manifestDir, target.fsPath)}`,
+                { kind: 'reference', reference: `&${relativeRulesReference(manifestDir, target.fsPath)}` },
                 indent,
                 lineEnding
             )

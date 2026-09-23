@@ -10,9 +10,12 @@ import { filePathToUri } from '../../../src/document/reference-path';
 import { clearBaseFileCache } from '../../../src/features/refactor/shared-base/base-index';
 import { tradeGood } from '../../../src/features/ships/trade-good.command';
 import {
+    TradeGoodApply,
     TradeGoodApplyResult,
     TradeGoodArgs,
     TradeGoodHost,
+    TradeGoodFailure,
+    TradeGoodScan,
     TradeGoodScanResult,
 } from '../../../src/features/ships/trade-good.types';
 import { clearModRootCache } from '../../../src/mod/mod-root';
@@ -24,7 +27,7 @@ import {
     FileWithPath,
 } from '../../../src/workspace/cosmoteer-workspace.service';
 import { clearFsCaches } from '../../../src/workspace/fs-cache';
-import { FIXTURES_DIR } from '../../helpers';
+import { Answer, FIXTURES_DIR } from '../../helpers';
 
 // The trade wizard against the stand-in install the ship commands share, whose career file has the
 // trade ship template and whose basic sector has the station stock list. The mod declares a
@@ -66,17 +69,20 @@ const makeHost = (): TestHost => ({
 });
 
 /** The scan round, asserting it answered as one. */
-const scan = async (host: TradeGoodHost): Promise<TradeGoodScanResult> => {
+const scan = async (host: TradeGoodHost): Promise<Answer<TradeGoodScan, TradeGoodFailure>> => {
     const result = await tradeGood({ uri: filePathToUri(MOD_DIR) }, host, token);
     if (result.kind !== 'scan') throw new Error('expected the scan round');
-    return result;
+    return result as Answer<TradeGoodScan, TradeGoodFailure>;
 };
 
 /** The apply round, asserting it answered as one. */
-const apply = async (args: Omit<TradeGoodArgs, 'uri'>, host: TradeGoodHost): Promise<TradeGoodApplyResult> => {
+const apply = async (
+    args: Omit<TradeGoodArgs, 'uri'>,
+    host: TradeGoodHost
+): Promise<Answer<TradeGoodApply, TradeGoodFailure>> => {
     const result = await tradeGood({ uri: filePathToUri(MOD_DIR), ...args }, host, token);
     if (result.kind !== 'apply') throw new Error('expected the apply round');
-    return result;
+    return result as Answer<TradeGoodApply, TradeGoodFailure>;
 };
 
 /** The one edit the host captured for the manifest. */

@@ -148,9 +148,7 @@ export const walk = (
  * @returns the document tree and every parse error found while building it.
  */
 export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => {
-    // `walk` travels on the state rather than being imported by each branch module, so the seven
-    // parse-* modules stay one-directional instead of every one of them cycling with this file.
-    const state: ParserState = { tokens, current: 0, errors: [], uri, walk };
+    const state: ParserState = { tokens, current: 0, errors: [], uri };
 
     const ast: AbstractNodeDocument = {
         type: 'Document',

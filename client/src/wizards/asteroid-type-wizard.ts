@@ -2,7 +2,7 @@ import { ExtensionContext, Uri, l10n, window, workspace } from 'vscode';
 import { LanguageClient } from 'vscode-languageclient/node';
 import { creationFailureMessage, wiringNotes } from './nebula-wizard';
 import { applyForWizard, scanForWizard, wizardAnchor } from './wizard-client';
-import { ID_SUGGESTS_NAME_SCRIPT, escapeHtml, modFolderName, scriptJson, showWizardForm } from './wizard-form';
+import { ID_SUGGESTS_NAME_SCRIPT, escapeHtml, field, modFolderName, scriptJson, showWizardForm } from './wizard-form';
 import {
     AsteroidResource,
     AsteroidSize,
@@ -191,32 +191,12 @@ const showAsteroidTypeForm = (
         resource.name ? `${resource.name} (${resource.id})` : resource.id;
     const fieldsHtml = `
 <div class="row">
-<div class="field">
-<label for="id">${escapeHtml(l10n.t('Asteroid type id'))}</label>
-<input id="id" type="text" autocomplete="off" spellcheck="false" />
-<div class="hint">${escapeHtml(l10n.t('One word: letters, digits and underscores. Every asteroid and deposit id is built around it, as {0}.asteroid_<id>_s.', scan.authorPrefix))}</div>
-</div>
-<div class="field">
-<label for="name">${escapeHtml(l10n.t('Display name'))}</label>
-<input id="name" type="text" autocomplete="off" />
-<div class="hint">${escapeHtml(l10n.t('The name of its asteroids and deposits, written to every language file.'))}</div>
-</div>
+${field('id', l10n.t('Asteroid type id'), l10n.t('One word: letters, digits and underscores. Every asteroid and deposit id is built around it, as {0}.asteroid_<id>_s.', scan.authorPrefix), '<input id="id" type="text" autocomplete="off" spellcheck="false" />')}
+${field('name', l10n.t('Display name'), l10n.t('The name of its asteroids and deposits, written to every language file.'), '<input id="name" type="text" autocomplete="off" />')}
 </div>
 <div class="row">
-<div class="field">
-<label for="resource">${escapeHtml(l10n.t('Resource'))}</label>
-<select id="resource">
-${scan.resources.map((resource) => `<option value="${escapeHtml(resource.id)}">${escapeHtml(resourceCaption(resource))}</option>`).join('')}
-</select>
-<div class="hint">${escapeHtml(l10n.t('What mining a deposit yields.'))}</div>
-</div>
-<div class="field">
-<label for="look">${escapeHtml(l10n.t('Look'))}</label>
-<select id="look">
-${scan.looks.map((look) => `<option value="${escapeHtml(look.id)}">${escapeHtml(look.label)}</option>`).join('')}
-</select>
-<div class="hint">${escapeHtml(l10n.t("One of the game's own deposits, whose textures and palette icons are borrowed until you draw your own."))}</div>
-</div>
+${field('resource', l10n.t('Resource'), l10n.t('What mining a deposit yields.'), `<select id="resource">${scan.resources.map((resource) => `<option value="${escapeHtml(resource.id)}">${escapeHtml(resourceCaption(resource))}</option>`).join('')}</select>`)}
+${field('look', l10n.t('Look'), l10n.t("One of the game's own deposits, whose textures and palette icons are borrowed until you draw your own."), `<select id="look">${scan.looks.map((look) => `<option value="${escapeHtml(look.id)}">${escapeHtml(look.label)}</option>`).join('')}</select>`)}
 </div>
 <div class="field">
 <label>${escapeHtml(l10n.t('Rarity'))}</label>
@@ -230,16 +210,8 @@ ${SIZES.map((size) => `<label class="inline"><input type="checkbox" class="size"
 <div class="hint">${escapeHtml(l10n.t('One recipe per size. The rare and sun lists only place the large sizes.'))}</div>
 </div>
 <div class="row">
-<div class="field">
-<label for="weight">${escapeHtml(l10n.t('Weight'))}</label>
-<input id="weight" type="number" min="0.001" step="any" value="1" />
-<div class="hint">${escapeHtml(l10n.t("A factor on the game's own spawn weights, relative rather than a percentage. 1 is as often as iron."))}</div>
-</div>
-<div class="field">
-<label for="density">${escapeHtml(l10n.t('Deposit density'))}</label>
-<input id="density" type="number" min="0.001" step="any" placeholder="${escapeHtml(l10n.t("the resource's own"))}" />
-<div class="hint">${escapeHtml(l10n.t('How much of an asteroid is deposit. Leave it empty to follow the resource, 1 is as dense as iron.'))}</div>
-</div>
+${field('weight', l10n.t('Weight'), l10n.t("A factor on the game's own spawn weights, relative rather than a percentage. 1 is as often as iron."), '<input id="weight" type="number" min="0.001" step="any" value="1" />')}
+${field('density', l10n.t('Deposit density'), l10n.t('How much of an asteroid is deposit. Leave it empty to follow the resource, 1 is as dense as iron.'), `<input id="density" type="number" min="0.001" step="any" placeholder="${escapeHtml(l10n.t("the resource's own"))}" />`)}
 </div>
 <div class="field">
 <label class="inline"><input id="hard" type="checkbox" checked /> ${escapeHtml(l10n.t('Hard tiles towards the middle, needing a mining laser'))}</label>

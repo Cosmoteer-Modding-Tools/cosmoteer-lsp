@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { pathToFileURL } from 'url';
 import { CancellationToken } from 'vscode-languageserver';
 import { ValidationForIdentifier, ValidationForValue } from '../../../src/features/diagnostics/validator.value';
-import { Validator } from '../../../src/features/diagnostics/validator';
+import { validate } from '../../../src/features/diagnostics/validator.service';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
 import { AstPosition, IdentifierNode, ValueNode } from '../../../src/core/ast/ast';
@@ -286,9 +286,8 @@ describe('identifier diagnostics: bare super-path list elements against the fixt
 // validator's own descent into the operands.
 describe('a reference standing as one operand of an expression', () => {
     const findings = async (src: string) => {
-        Validator.instance.registerValidation(ValidationForValue);
         const document = parser(lexer(src), 'file:///operands.rules').value;
-        return (await Validator.instance.validate(document, token)).map((error) => error.message);
+        return (await validate(document, token)).map((error) => error.message);
     };
 
     it('flags a broken reference an operator follows', async () => {
@@ -314,9 +313,11 @@ describe('a reference standing as one operand of an expression', () => {
     });
 
     it('says nothing about the value checks that read an operand as a list member', async () => {
-        // A parenthesised string operand is the math validator's to judge, so the value checks that
-        // ask where a value sits say nothing about it.
+        // A parenthesised string operand is the math validator's to judge, so the only finding is
+        // the one it reports and the value checks that ask where a value sits add nothing to it.
         await initWorkspace();
-        expect(await findings('Root = 1\nX = 2 * (3 4)\n')).toEqual([]);
+        expect(await findings('Root = 1\nX = 2 * (3 4)\n')).toEqual([
+            'Invalid argument type, expected Number or Reference. Got String',
+        ]);
     });
 });

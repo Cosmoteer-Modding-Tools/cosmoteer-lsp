@@ -1,6 +1,7 @@
 import { Dirent } from 'fs';
 import { join } from 'path';
 import { isRulesFileName } from './document-kind';
+import { uriToFsPath } from '../utils/uri-path';
 
 // The same file uris and paths are converted over and over (every reference resolution and memo
 // key derivation goes through here), so the pure computation is memoized. Bounded by wholesale
@@ -13,16 +14,12 @@ export const filePathToDirectoryPath = (path: string) => {
     if (cached !== undefined) return cached;
     let result: string;
     if (path.startsWith('file://')) {
-        let cleaned = path.slice('file://'.length);
-        try {
-            cleaned = decodeURIComponent(cleaned);
-        } catch {
-            /* malformed escape sequence, fall back to the raw remainder */
-        }
-        // `file:///C:/x` decodes to `/C:/x`. Drop the slash before a drive letter so it is a real
-        // OS path, and upper-case the drive for consistency with the rest of the code base.
-        const drive = cleaned.match(/^\/([a-zA-Z]):/);
-        if (drive) cleaned = drive[1].toUpperCase() + cleaned.slice(2);
+        // `uriToFsPath` already decodes the escapes and drops the slash in front of a drive letter.
+        // What the reference resolver keys by on top of that is forward slashes, an upper-cased
+        // drive for consistency with the rest of the code base, and a trailing separator.
+        const cleaned = uriToFsPath(path)
+            .replace(/\\/g, '/')
+            .replace(/^([a-z]):/, (_match, drive: string) => `${drive.toUpperCase()}:`);
         result = cleaned.substring(0, cleaned.lastIndexOf('/') + 1);
     } else if (isRulesFileName(path)) {
         result = path.substring(0, (path.includes('/') ? path.lastIndexOf('/') : path.lastIndexOf('\\') - 1) + 1);
@@ -55,25 +52,13 @@ export const filePathToUri = (path: string): string => {
     return 'file://' + (forward.startsWith('//') ? encoded.slice(2) : encoded);
 };
 
-export const extractSubstrings = (input: string): string[] => {
-    // A manual scan of the slash-separated segments. The previous matchAll form allocated a
-    // regex iterator and match arrays per call, and this runs for every reference and asset
-    // path a scan resolves.
-    const out: string[] = [];
-    let start = -1;
-    for (let i = 0; i < input.length; i++) {
-        if (input.charCodeAt(i) === 47) {
-            if (start !== -1) {
-                out.push(input.slice(start, i));
-                start = -1;
-            }
-        } else if (start === -1) {
-            start = i;
-        }
-    }
-    if (start !== -1) out.push(input.slice(start));
-    return out;
-};
+/**
+ * Split a reference or asset path into its non-empty `/`-separated segments.
+ *
+ * @param input the raw path text.
+ * @returns the segments, in the order they are written.
+ */
+export const extractSubstrings = (input: string): string[] => input.split('/').filter(Boolean);
 
 /** A `/`-delimited path segment of a reference value, and where it sits inside that value. */
 export interface SegmentSpan {

@@ -2,7 +2,8 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { CancellationToken } from 'vscode-languageserver';
 import { resolveAssetPath, suggestAssetFilename } from '../../../src/features/navigation/asset-resolver';
 import { AbstractNode, AbstractNodeDocument, ValueNode } from '../../../src/core/ast/ast';
-import { findNodeByIdentifier, parseFilePath } from '../../../src/utils/ast.utils';
+import { parseFilePath } from '../../../src/utils/ast.utils';
+import { findNodeByIdentifier } from '../../helpers';
 import { initWorkspace, workspaceFile } from '../../workspace-helper';
 
 const token = CancellationToken.None;
@@ -21,7 +22,7 @@ describe('asset resolution follows the game', () => {
         ).elements.find((e) => e.type === 'Assignment' && e.left?.name === 'Sound')!.right as ValueNode;
     });
 
-    it('does not find an asset in the folder of an inherited base, only in the declaring file\'s own folder', async () => {
+    it("does not find an asset in the folder of an inherited base, only in the declaring file's own folder", async () => {
         // Data/sounds/fx/beep.wav exists beside the base and Data/effects/fx/beep.wav does not. The
         // game combines the path with the declaring file's directory and looks nowhere else.
         expect(await resolveAssetPath(soundNode, doc.uri, token)).toBeNull();

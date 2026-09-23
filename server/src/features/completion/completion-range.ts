@@ -99,6 +99,24 @@ export interface SegmentSpan {
 /** The text a suggestion writes, which decides whether it carries a segment's delimiter itself. */
 const insertedTextOf = (suggestion: CompletionSuggestion): string => suggestion.insertText ?? suggestion.label;
 
+/** A completion as a suggestion object the taggers can write on, copied so a shared suggestion the
+ *  caller still holds keeps the range it came with. */
+const asSuggestion = (completion: Completion): CompletionSuggestion =>
+    typeof completion === 'string' ? { label: completion } : { ...completion };
+
+/** Writes the range a suggestion replaces and the insert range that pairs with it, which is left off
+ *  when the caret does not fall inside the replaced span. */
+const applyRange = (
+    suggestion: CompletionSuggestion,
+    replace: Range,
+    caret: Position | undefined
+): CompletionSuggestion => {
+    suggestion.range = replace;
+    const insertRange = caret && insertRangeWithin(replace, caret);
+    if (insertRange) suggestion.insertRange = insertRange;
+    return suggestion;
+};
+
 /**
  * Tags single-segment completions with the segment they replace. A label that spells out the
  * segment's delimiter (a folder's `terran/`, a file's `base_part.rules>`) replaces that delimiter as
@@ -113,17 +131,10 @@ export const withSegmentEdit = (completions: Completion[], span: SegmentSpan | u
     if (!span) return completions;
     const start = { line: span.line, character: span.start };
     return completions.map((completion) => {
-        const suggestion: CompletionSuggestion =
-            typeof completion === 'string' ? { label: completion } : { ...completion };
+        const suggestion = asSuggestion(completion);
         const carriesDelimiter = !!span.delimiter && insertedTextOf(suggestion).endsWith(span.delimiter);
-        const replace: Range = {
-            start,
-            end: { line: span.line, character: span.end + (carriesDelimiter ? 1 : 0) },
-        };
-        suggestion.range = replace;
-        const insertRange = insertRangeWithin(replace, { line: span.line, character: span.caret });
-        if (insertRange) suggestion.insertRange = insertRange;
-        return suggestion;
+        const end = { line: span.line, character: span.end + (carriesDelimiter ? 1 : 0) };
+        return applyRange(suggestion, { start, end }, { line: span.line, character: span.caret });
     });
 };
 
@@ -154,14 +165,7 @@ export const caretInValue = (node: ValueNode, cursorOffset?: number): Position |
  */
 export const withValueEdit = (completions: Completion[], range: Range | undefined, caret?: Position): Completion[] => {
     if (!range) return completions;
-    const insertRange = caret && insertRangeWithin(range, caret);
-    return completions.map((completion) => {
-        const suggestion: CompletionSuggestion =
-            typeof completion === 'string' ? { label: completion } : { ...completion };
-        suggestion.range = range;
-        if (insertRange) suggestion.insertRange = insertRange;
-        return suggestion;
-    });
+    return completions.map((completion) => applyRange(asSuggestion(completion), range, caret));
 };
 
 /**
@@ -194,8 +198,7 @@ export const openQuoteSuffix = (linePrefix: string, lineSuffix: string): string 
  */
 export const withReplaceRange = (completions: Completion[], range: Range, suffix = ''): Completion[] =>
     completions.map((completion) => {
-        const suggestion: CompletionSuggestion =
-            typeof completion === 'string' ? { label: completion } : { ...completion };
+        const suggestion = asSuggestion(completion);
         suggestion.range = suggestion.range ?? range;
         const insertRange = suggestion.insertRange ?? insertRangeWithin(suggestion.range, range.end);
         if (insertRange) suggestion.insertRange = insertRange;

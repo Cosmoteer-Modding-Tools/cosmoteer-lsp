@@ -5,6 +5,7 @@ import { CancellationToken, Diagnostic, DiagnosticSeverity, Range } from 'vscode
 import { AbstractNode } from '../../core/ast/ast';
 import { findModRoot } from '../../mod/mod-root';
 import { stepIntoNode } from '../../document/reference-resolver';
+import { isUnder } from '../../utils/relative-path';
 import { identityOfMod } from '../mod-report/mod-dependencies';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
 import { cachedParseFilePath } from '../../workspace/fs-cache';
@@ -113,13 +114,6 @@ const expandLoggedPath = (written: string): string[] => {
  * @returns the home folder that folder was built from.
  */
 export const homeOfLogFolder = (folder: string): string => resolve(folder, '..', '..', '..', '..');
-
-/** Whether a path sits inside a folder, compared the way the game compares paths. */
-const isUnder = (path: string, folder: string): boolean => {
-    const a = foldPathCase(resolve(path));
-    const b = foldPathCase(resolve(folder));
-    return a === b || a.startsWith(`${b}/`) || a.startsWith(`${b}\\`);
-};
 
 /**
  * The path a finding names, respelled with the casing the disk holds below `modRoot`.

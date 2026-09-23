@@ -21,14 +21,13 @@ import { dirOf, readRulesFile } from '../refactor/shared-base/base-index';
 import { LineEnding } from './builtin-ships.types';
 import { alreadyWired, appendManifestActions, modRootFor, openManifest, registrationLineEnding } from './mod-wiring';
 import {
+    NewTechApply,
     NewTechApplyResult,
     NewTechArgs,
     NewTechEntry,
-    NewTechFailure,
     NewTechHost,
     NewTechPart,
     NewTechResult,
-    NewTechScanResult,
     PartGroupField,
 } from './new-tech.types';
 
@@ -68,29 +67,6 @@ const TECH_ID = /^[A-Za-z0-9_.-]+$/;
 
 /** The `<file>` and member path of a reference, sigil or not. */
 const REFERENCE = /^\s*&?\s*<([^<>]+)>(.*)$/;
-
-/** A scan result carrying nothing but the reason there is nothing to report. */
-const scanFailed = (failure: NewTechFailure): NewTechScanResult => ({
-    kind: 'scan',
-    modRoot: '',
-    modId: '',
-    parts: [],
-    techs: [],
-    takenIds: [],
-    failure,
-});
-
-/** An apply result carrying nothing but the reason nothing was created. */
-const applyFailed = (id: string, failure: NewTechFailure): NewTechApplyResult => ({
-    kind: 'apply',
-    id,
-    file: '',
-    manifest: '',
-    wiring: { techs: 'noTarget' },
-    createdFiles: [],
-    changedFiles: [],
-    failure,
-});
 
 /** A part of the mod, with what the tech needs to know about its file. */
 interface ModPart extends NewTechPart {
@@ -369,20 +345,20 @@ const applyRound = async (
         (candidate) => candidate.id.toLowerCase() === wantedPart
     );
     const id = (args.id ?? part?.id ?? '').trim();
-    if (!part) return applyFailed(id, 'unknownPart');
-    if (!TECH_ID.test(id)) return applyFailed(id, 'invalidId');
+    if (!part) return { kind: 'apply', failure: 'unknownPart' };
+    if (!TECH_ID.test(id)) return { kind: 'apply', failure: 'invalidId' };
     const dataRoot = host.dataRoot();
     const root = await host.gameRoot().catch(() => undefined);
     const rootDocument = (root?.content as { parsedDocument?: AbstractNodeDocument } | undefined)?.parsedDocument;
-    if (!dataRoot || !root?.path) return applyFailed(id, 'noGameRoot');
+    if (!dataRoot || !root?.path) return { kind: 'apply', failure: 'noGameRoot' };
     const target = await techsTargetOf(rootDocument, root.path, dataRoot);
-    if (!target) return applyFailed(id, 'noGameRoot');
+    if (!target) return { kind: 'apply', failure: 'noGameRoot' };
 
     const techDir = `${modRoot}/${TECHS_FOLDER}`;
     const file = `${techDir}/${techSegment(id)}.rules`;
-    if (existsSync(file)) return applyFailed(id, 'pathTaken');
+    if (existsSync(file)) return { kind: 'apply', failure: 'pathTaken' };
     const catalog = await techCatalog(modRoot, dataRoot, host, cancellationToken);
-    if (catalog.taken.has(id.toLowerCase())) return applyFailed(id, 'idTaken');
+    if (catalog.taken.has(id.toLowerCase())) return { kind: 'apply', failure: 'idTaken' };
 
     const cost = Number.isInteger(args.cost) && (args.cost as number) > 0 ? (args.cost as number) : DEFAULT_COST;
     const prerequisites = [
@@ -402,11 +378,11 @@ const applyRound = async (
         });
         created.push(file);
     } catch {
-        return applyFailed(id, existsSync(file) ? 'pathTaken' : 'writeFailed');
+        return { kind: 'apply', failure: existsSync(file) ? 'pathTaken' : 'writeFailed' };
     }
     host.filesChanged(created);
 
-    const wiring: NewTechApplyResult['wiring'] = { techs: 'noTarget' };
+    const wiring: NewTechApply['wiring'] = { techs: 'noTarget' };
     let manifestPath = '';
     let manifests: string[] | undefined;
     const changed = [...created];
@@ -464,13 +440,13 @@ export const newTech = async (
     const scanning = args.part === undefined;
     const located = modRootFor(args.uri, host.dataRoot());
     if ('failure' in located)
-        return scanning ? scanFailed(located.failure) : applyFailed(args.id ?? '', located.failure);
+        return scanning ? { kind: 'scan', failure: located.failure } : { kind: 'apply', failure: located.failure };
     if (scanning) {
         const dataRoot = host.dataRoot();
-        if (!dataRoot) return scanFailed('noGameRoot');
+        if (!dataRoot) return { kind: 'scan', failure: 'noGameRoot' };
         const identity = await identityOfMod(located.modRoot).catch((): ModIdentity => ({ root: located.modRoot }));
         const parts = await modPartsOf(located.modRoot, host, cancellationToken);
-        if (parts.length === 0) return scanFailed('noParts');
+        if (parts.length === 0) return { kind: 'scan', failure: 'noParts' };
         const catalog = await techCatalog(located.modRoot, dataRoot, host, cancellationToken);
         return {
             kind: 'scan',

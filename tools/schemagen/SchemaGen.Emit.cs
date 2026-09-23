@@ -41,7 +41,6 @@ internal sealed partial class SchemaGen
             {
                 ["name"] = t.Name,
                 ["typeField"] = (Named(ba, "TypeFieldName") as string) ?? "Type",
-                ["valueField"] = (Named(ba, "ValueFieldName") as string) ?? "Value",
                 ["members"] = members
             };
         }

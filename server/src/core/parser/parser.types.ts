@@ -1,6 +1,6 @@
 import { DocumentUri } from 'vscode-languageserver';
 import { Token } from '../lexer/lexer';
-import { AbstractNode, AbstractNodeDocument, GroupNode, ListNode } from '../ast/ast';
+import { AbstractNode, AbstractNodeDocument } from '../ast/ast';
 
 /** One parse error, with the token it was reported on and any follow-up notes for the reader. */
 export type ParserError = {
@@ -43,19 +43,4 @@ export interface ParserState {
      * own, so the dangling-`=` check needs to know that the game never reaches that member.
      */
     swallowedValueLine?: number;
-    /**
-     * The dispatcher, handed to every branch rather than imported by it. Each parse module needs
-     * to recurse back into the top of the parse, and importing the dispatcher would make all seven
-     * of them cycle with parser.ts. Passing it on the state keeps the modules one-directional.
-     *
-     * @param state the parse state, which is this object.
-     * @param lastNode the node built immediately before this one, where a branch reads it.
-     * @param parent the container the produced node belongs to.
-     * @returns the node the next token produces, or null at the end of the stream.
-     */
-    walk(
-        state: ParserState,
-        lastNode?: AbstractNode,
-        parent?: GroupNode | ListNode | AbstractNodeDocument
-    ): AbstractNode | null;
 }

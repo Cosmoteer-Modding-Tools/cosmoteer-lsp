@@ -3,9 +3,9 @@ import { CancellationToken } from 'vscode-languageserver';
 import { getDefinition } from '../../../src/features/navigation/definition.service';
 import { navigate } from '../../../src/semantics/navigate-reference';
 import { AbstractNode, AbstractNodeDocument } from '../../../src/core/ast/ast';
-import { findNodeByIdentifier, parseFilePath } from '../../../src/utils/ast.utils';
+import { parseFilePath } from '../../../src/utils/ast.utils';
+import { findNodeByIdentifier, findReferenceNode, parseFixture, singleLocation, valueOf } from '../../helpers';
 import { isAssignmentNode } from '../../../src/core/ast/ast';
-import { findReferenceNode, parseFixture, singleLocation, valueOf } from '../../helpers';
 import { initWorkspace, workspaceFile } from '../../workspace-helper';
 
 // End-to-end go-to-definition: cursor position -> reference node -> navigated target

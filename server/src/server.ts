@@ -12,9 +12,6 @@ import * as navigationHandlers from './lsp/handlers/navigation.handlers';
 import * as presentationHandlers from './lsp/handlers/presentation.handlers';
 import * as watchedFilesHandlers from './lsp/handlers/watched-files.handlers';
 
-// Re-exported for backwards compatibility with modules that imported these from './server'.
-export { MAX_NUMBER_OF_PROBLEMS, globalSettings } from './settings';
-
 if (process.env['EXTENSION_BUNDLE_PATH']) {
     l10n.config({
         fsPath: process.env['EXTENSION_BUNDLE_PATH'],

@@ -1,4 +1,5 @@
 import { Token, TOKEN_TYPES } from '../lexer/lexer';
+import { walk } from './parser';
 import {
     AbstractNode,
     AbstractNodeDocument,
@@ -113,7 +114,7 @@ const callWithArguments = (
         // newline, so an unclosed `(`/call must not consume the next line's field.
         !tokens[state.current].precededByNewline
     ) {
-        const nextNode = state.walk(state, state.lastNode, parent);
+        const nextNode = walk(state, state.lastNode, parent);
         if (!nextNode) {
             break;
         }
@@ -308,7 +309,7 @@ const parenMathChain = (
         // newline, so an unclosed `(`/call must not consume the next line's field.
         !tokens[state.current].precededByNewline
     ) {
-        const nextNode = state.walk(state, lastNode, parent);
+        const nextNode = walk(state, lastNode, parent);
         if (!nextNode) {
             break;
         }
@@ -380,7 +381,7 @@ export const parseParenGroup = (
         state.current++;
         return null;
     }
-    const node = state.walk(state, _lastNode, parent) as ValueNode;
+    const node = walk(state, _lastNode, parent) as ValueNode;
     if (!node) {
         errors.push({
             message: l10n.t('Expected value after left paren'),

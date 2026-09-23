@@ -33,6 +33,7 @@ import {
     openManifest,
     registrationLineEnding,
     resolveGameRoot,
+    takenIdsOf,
 } from './mod-wiring';
 import {
     ASTEROID_SIZES,
@@ -40,12 +41,12 @@ import {
     AsteroidRarity,
     AsteroidResource,
     AsteroidSize,
+    NewAsteroidTypeApply,
     NewAsteroidTypeApplyResult,
     NewAsteroidTypeArgs,
     NewAsteroidTypeFailure,
     NewAsteroidTypeHost,
     NewAsteroidTypeResult,
-    NewAsteroidTypeScanResult,
     RARITIES,
 } from './new-asteroid-type.types';
 
@@ -153,33 +154,6 @@ const EDITOR_GROUPS_FILE = 'gui/game/designer/editor_groups.rules';
 
 /** The group the game files its plain rock tiles under, the one every install has. */
 const DEFAULT_EDITOR_GROUP = 'Rock';
-
-/** A scan result carrying nothing but the reason there is nothing to report. */
-const scanFailed = (failure: NewAsteroidTypeFailure): NewAsteroidTypeScanResult => ({
-    kind: 'scan',
-    modRoot: '',
-    modId: '',
-    resources: [],
-    looks: [],
-    takenIds: [],
-    authorPrefix: '',
-    failure,
-});
-
-/** An apply result carrying nothing but the reason nothing was created. */
-const applyFailed = (id: string, failure: NewAsteroidTypeFailure): NewAsteroidTypeApplyResult => ({
-    kind: 'apply',
-    id,
-    folder: '',
-    files: [],
-    manifest: '',
-    wiring: { parts: 'noTarget', conversions: 'noTarget', doodads: 'noTarget', types: 'noTarget' },
-    localizationKeys: [],
-    localizationFiles: [],
-    createdFiles: [],
-    changedFiles: [],
-    failure,
-});
 
 /**
  * A named member of a document or group, matched the way the game matches member names.
@@ -410,23 +384,19 @@ const asteroidPartIdsOf = async (dataRoot: string): Promise<Set<string>> => {
  * @param cancellationToken cancels the lookups.
  * @returns the ids.
  */
-const takenIdsOf = async (
+const takenAsteroidIdsOf = async (
     rootDocument: AbstractNodeDocument,
     rootFsPath: string,
     dataRoot: string,
     host: NewAsteroidTypeHost,
     cancellationToken: CancellationToken
-): Promise<Set<string>> => {
-    const taken = new Set<string>([
-        ...(await gameDoodadIdsOf(rootDocument, rootFsPath)),
-        ...(await asteroidPartIdsOf(dataRoot)),
-    ]);
-    for (const cls of [DOODAD_CLASS, PART_CLASS]) {
-        const declared = await host.existingIds?.(cls, cancellationToken).catch((): ReadonlySet<string> => new Set());
-        for (const id of declared ?? []) taken.add(id.toLowerCase());
-    }
-    return taken;
-};
+): Promise<Set<string>> =>
+    await takenIdsOf(
+        [...(await gameDoodadIdsOf(rootDocument, rootFsPath)), ...(await asteroidPartIdsOf(dataRoot))],
+        [DOODAD_CLASS, PART_CLASS],
+        host,
+        cancellationToken
+    );
 
 /** The ids a type is made of: one recipe per size and one tile per deposit size, hard or soft. */
 interface TypeIds {
@@ -971,7 +941,7 @@ const localizationEntriesOf = (plan: TypePlan): LocalizationEntry[] => {
 
 /** One manifest action to write, and how to tell it is already there. */
 interface Wiring {
-    readonly key: keyof NewAsteroidTypeApplyResult['wiring'];
+    readonly key: keyof NewAsteroidTypeApply['wiring'];
     /** The action target, or undefined when the game names no such list. */
     readonly target: string | undefined;
     /** The files the action adds, each with the `&` reference the manifest names it by. */
@@ -1064,7 +1034,7 @@ const prepareType = async (
 
     const segment = factionSegment(id);
     const ids = typeIdsOf(prefix, segment);
-    const taken = await takenIdsOf(rootDocument, rootPath, dataRoot, host, cancellationToken);
+    const taken = await takenAsteroidIdsOf(rootDocument, rootPath, dataRoot, host, cancellationToken);
     if (allTypeIds(ids).some((candidate) => taken.has(candidate))) return { failure: 'idTaken' };
 
     const wantedResource = (args.resource ?? '').trim().toLowerCase();
@@ -1209,7 +1179,7 @@ const wireTypeIntoManifest = async (
     manifestFsPath: string,
     modRoot: string,
     prepared: PreparedType,
-    wiring: NewAsteroidTypeApplyResult['wiring'],
+    wiring: NewAsteroidTypeApply['wiring'],
     host: NewAsteroidTypeHost
 ): Promise<boolean> => {
     const manifest = await openManifest(manifestFsPath, host);
@@ -1260,14 +1230,14 @@ const applyRound = async (
     cancellationToken: CancellationToken
 ): Promise<NewAsteroidTypeApplyResult> => {
     const id = (args.id ?? '').trim();
-    if (!BARE_RULES_ID.test(id)) return applyFailed(id, 'invalidId');
+    if (!BARE_RULES_ID.test(id)) return { kind: 'apply', failure: 'invalidId' };
     const prepared = await prepareType(id, args, modRoot, host, cancellationToken);
-    if ('failure' in prepared) return applyFailed(id, prepared.failure);
+    if ('failure' in prepared) return { kind: 'apply', failure: prepared.failure };
     const { plan, files } = prepared;
 
     const { choice, lineEnding } = await registrationLineEnding(modRoot);
     const created = await writeTypeFiles(prepared, lineEnding);
-    if (!created) return applyFailed(id, 'writeFailed');
+    if (!created) return { kind: 'apply', failure: 'writeFailed' };
     host.filesChanged(created);
 
     const entries = localizationEntriesOf(plan);
@@ -1281,7 +1251,7 @@ const applyRound = async (
         files: [],
     }));
 
-    const wiring: NewAsteroidTypeApplyResult['wiring'] = {
+    const wiring: NewAsteroidTypeApply['wiring'] = {
         parts: 'noTarget',
         conversions: plan.hard ? 'noTarget' : 'skipped',
         doodads: 'noTarget',
@@ -1333,18 +1303,18 @@ export const newAsteroidType = async (
     const scanning = args.id === undefined;
     const located = modRootFor(args.uri, host.dataRoot());
     if ('failure' in located)
-        return scanning ? scanFailed(located.failure) : applyFailed(args.id ?? '', located.failure);
+        return scanning ? { kind: 'scan', failure: located.failure } : { kind: 'apply', failure: located.failure };
     if (scanning) {
         const identity = await identityOfMod(located.modRoot).catch((): ModIdentity => ({ root: located.modRoot }));
         const dataRoot = host.dataRoot()?.replace(/\\/g, '/').replace(/\/+$/, '');
         const root = await host.gameRoot().catch(() => undefined);
         const rootDocument = (root?.content as { parsedDocument?: AbstractNodeDocument } | undefined)?.parsedDocument;
-        if (!dataRoot || !root?.path || !rootDocument) return scanFailed('noGameRoot');
+        if (!dataRoot || !root?.path || !rootDocument) return { kind: 'scan', failure: 'noGameRoot' };
         const looks = looksOf(dataRoot);
-        if (looks.length === 0) return scanFailed('noGameRoot');
+        if (looks.length === 0) return { kind: 'scan', failure: 'noGameRoot' };
         const resources = await resourcesOf(rootDocument, root.path, host, cancellationToken);
         const prefix = authorPrefixOf(identity.manifestId) ?? '';
-        const taken = await takenIdsOf(rootDocument, root.path, dataRoot, host, cancellationToken);
+        const taken = await takenAsteroidIdsOf(rootDocument, root.path, dataRoot, host, cancellationToken);
         return {
             kind: 'scan',
             modRoot: located.modRoot,

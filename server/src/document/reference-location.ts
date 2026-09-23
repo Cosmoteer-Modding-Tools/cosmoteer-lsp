@@ -1,4 +1,5 @@
 import { Location, Range } from 'vscode-languageserver';
+import { TextDocument } from 'vscode-languageserver-textdocument';
 import { AbstractNode, AbstractNodeDocument, isListNode, isDocumentNode, isGroupNode } from '../core/ast/ast';
 import { assignmentKeyIn, getStartOfAstNode } from '../utils/ast.utils';
 import { normalizeUri } from '../utils/uri-path';
@@ -9,10 +10,10 @@ import { filePathToUri } from './reference-path';
 // keyed like it reach for it next to the location helpers below.
 export { normalizeUri };
 
-/** The text a parsed document was produced from, plus the line starts counted in it once. Keyed by
- *  the document node, which ties the text to the exact parse it came from: a re-parse brings its
- *  own entry and the old one dies with its tree. */
-const documentSources: WeakMap<AbstractNodeDocument, { text: string; starts?: number[] }> = new WeakMap();
+/** The text a parsed document was produced from, held as a {@link TextDocument} so it counts and
+ *  caches its own line starts. Keyed by the document node, which ties the text to the exact parse
+ *  it came from: a re-parse brings its own entry and the old one dies with its tree. */
+const documentSources: WeakMap<AbstractNodeDocument, TextDocument> = new WeakMap();
 
 /**
  * Records the text a parsed document came from, so the ranges below can be placed on the lines
@@ -23,7 +24,7 @@ const documentSources: WeakMap<AbstractNodeDocument, { text: string; starts?: nu
  * @param text the text it was parsed from.
  */
 export const noteDocumentSource = (document: AbstractNodeDocument, text: string): void => {
-    documentSources.set(document, { text });
+    documentSources.set(document, TextDocument.create(document.uri, 'rules', 0, text));
 };
 
 /**
@@ -48,21 +49,8 @@ const placed = (
     character: number
 ): { line: number; character: number } => {
     const source = documentSources.get(getStartOfAstNode(node));
-    if (!source || offset < 0 || offset > source.text.length) return { line, character };
-    if (!source.starts) {
-        const starts = [0];
-        for (let at = source.text.indexOf('\n'); at >= 0; at = source.text.indexOf('\n', at + 1)) starts.push(at + 1);
-        source.starts = starts;
-    }
-    const starts = source.starts;
-    let low = 0;
-    let high = starts.length - 1;
-    while (low < high) {
-        const middle = Math.ceil((low + high) / 2);
-        if (starts[middle] <= offset) low = middle;
-        else high = middle - 1;
-    }
-    return { line: low, character: offset - starts[low] };
+    if (!source || offset < 0 || offset > source.getText().length) return { line, character };
+    return source.positionAt(offset);
 };
 
 /** The span of one node, both ends placed in the file's own text ({@link placed}). */

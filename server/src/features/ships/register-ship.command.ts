@@ -146,29 +146,6 @@ const ICON_ROLES: ReadonlySet<ShipRole> = new Set(['trade_station', 'military_st
 /** The career mode's list of the ships a player may begin with. */
 const STARTER_SHIPS_MEMBER = 'StarterShips';
 
-/** A scan result carrying nothing but the reason there is nothing to report. */
-const scanFailed = (failure: RegisterShipFailure): RegisterShipScanResult => ({
-    kind: 'scan',
-    modRoot: '',
-    modId: '',
-    factions: [],
-    ships: [],
-    balanceFallback: true,
-    partsTruncated: false,
-    failure,
-});
-
-/** An apply result carrying nothing but the reason nothing was registered. */
-const applyFailed = (failure: RegisterShipFailure, faction = ''): RegisterShipApplyResult => ({
-    kind: 'apply',
-    faction,
-    ships: [],
-    manifest: '',
-    createdFiles: [],
-    changedFiles: [],
-    failure,
-});
-
 /** The comparison key of a path, folded the way the filesystem matches it. */
 const pathKey = (fsPath: string): string => foldPathCase(fsPath.replace(/\\/g, '/'));
 
@@ -1062,9 +1039,9 @@ const applyRound = async (
     cancellationToken: CancellationToken
 ): Promise<RegisterShipApplyResult> => {
     const factionId = args.faction?.trim() ?? '';
-    if (!factionId) return applyFailed('unknownFaction');
+    if (!factionId) return { kind: 'apply', failure: 'unknownFaction' };
     const choices = (args.ships ?? []).filter((choice) => choice && typeof choice.fsPath === 'string');
-    if (choices.length === 0) return applyFailed('noBlueprints', factionId);
+    if (choices.length === 0) return { kind: 'apply', failure: 'noBlueprints' };
 
     const figures = await judging(modRoot, host, cancellationToken);
     const root = await host.gameRoot().catch(() => undefined);
@@ -1181,10 +1158,11 @@ export const registerShip = async (
 ): Promise<RegisterShipResult> => {
     const scanning = !args.ships;
     const located = modRootFor(args.uri, host.dataRoot());
-    if ('failure' in located) return scanning ? scanFailed(located.failure) : applyFailed(located.failure);
+    if ('failure' in located)
+        return scanning ? { kind: 'scan', failure: located.failure } : { kind: 'apply', failure: located.failure };
     if (scanning) {
         const files = await blueprintFiles(args.blueprints ?? []);
-        if (files.length === 0) return scanFailed('noBlueprints');
+        if (files.length === 0) return { kind: 'scan', failure: 'noBlueprints' };
         return await scanRound(files, located.modRoot, host, cancellationToken);
     }
     return await applyRound(args, located.modRoot, host, cancellationToken);

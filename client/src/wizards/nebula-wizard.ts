@@ -1,7 +1,7 @@
 import { ExtensionContext, Uri, l10n, window, workspace } from 'vscode';
 import { LanguageClient } from 'vscode-languageclient/node';
 import { applyForWizard, scanForWizard, wizardAnchor } from './wizard-client';
-import { ID_SUGGESTS_NAME_SCRIPT, escapeHtml, modFolderName, scriptJson, showWizardForm } from './wizard-form';
+import { ID_SUGGESTS_NAME_SCRIPT, escapeHtml, field, modFolderName, scriptJson, showWizardForm } from './wizard-form';
 import { NebulaForm, NewNebulaApplyResult, NewNebulaScanResult, Rgb } from './nebula-wizard.types';
 
 /**
@@ -122,55 +122,23 @@ const showNebulaForm = (context: ExtensionContext, scan: NewNebulaScanResult): P
     const first = scan.bases[0];
     const fieldsHtml = `
 <div class="row">
-<div class="field">
-<label for="id">${escapeHtml(l10n.t('Nebula id'))}</label>
-<input id="id" type="text" autocomplete="off" spellcheck="false" />
-<div class="hint">${escapeHtml(l10n.t('How the spawner and the doodad name it. One word: letters, digits and underscores.'))}</div>
+${field('id', l10n.t('Nebula id'), l10n.t('How the spawner and the doodad name it. One word: letters, digits and underscores.'), '<input id="id" type="text" autocomplete="off" spellcheck="false" />')}
+${field('name', l10n.t('Display name'), l10n.t('The name in its tooltip and on the HUD, written to every language file.'), '<input id="name" type="text" autocomplete="off" />')}
 </div>
-<div class="field">
-<label for="name">${escapeHtml(l10n.t('Display name'))}</label>
-<input id="name" type="text" autocomplete="off" />
-<div class="hint">${escapeHtml(l10n.t('The name in its tooltip and on the HUD, written to every language file.'))}</div>
-</div>
-</div>
-<div class="field">
-<label for="base">${escapeHtml(l10n.t('Look and behaviour'))}</label>
-<select id="base">
-${scan.bases.map((base) => `<option value="${escapeHtml(base.id)}">${escapeHtml(base.id)}</option>`).join('')}
-</select>
-<div class="hint">${escapeHtml(l10n.t("One of the game's own nebulas, inherited whole: its shaders, its effects on ships and its sounds. The colours below replace its own."))}</div>
-</div>
+${field('base', l10n.t('Look and behaviour'), l10n.t("One of the game's own nebulas, inherited whole: its shaders, its effects on ships and its sounds. The colours below replace its own."), `<select id="base">${scan.bases.map((base) => `<option value="${escapeHtml(base.id)}">${escapeHtml(base.id)}</option>`).join('')}</select>`)}
 <div class="row">
 <div class="field"><label for="color1">${escapeHtml(l10n.t('Colour 1'))}</label><input id="color1" type="color" value="${hex(first.colors[0])}" /></div>
 <div class="field"><label for="color2">${escapeHtml(l10n.t('Colour 2'))}</label><input id="color2" type="color" value="${hex(first.colors[1])}" /></div>
 <div class="field"><label for="color3">${escapeHtml(l10n.t('Colour 3'))}</label><input id="color3" type="color" value="${hex(first.colors[2])}" /></div>
 </div>
 <div class="row">
-<div class="field">
-<label for="radius">${escapeHtml(l10n.t('Radius'))}</label>
-<input id="radius" type="number" min="1000" max="1000000" step="1000" value="100000" />
-<div class="hint">${escapeHtml(l10n.t("In world units. The game's clouds span 25000 to 100000."))}</div>
-</div>
-<div class="field">
-<label for="countMax">${escapeHtml(l10n.t('At most per sector'))}</label>
-<input id="countMax" type="number" min="1" max="20" value="2" />
-<div class="hint">${escapeHtml(l10n.t('A sector rolls between none and this many.'))}</div>
-</div>
-<div class="field">
-<label for="chance">${escapeHtml(l10n.t('Chance per sector'))}</label>
-<input id="chance" type="number" min="1" max="100" value="100" />
-<div class="hint">${escapeHtml(l10n.t('In percent.'))}</div>
-</div>
+${field('radius', l10n.t('Radius'), l10n.t("In world units. The game's clouds span 25000 to 100000."), '<input id="radius" type="number" min="1000" max="1000000" step="1000" value="100000" />')}
+${field('countMax', l10n.t('At most per sector'), l10n.t('A sector rolls between none and this many.'), '<input id="countMax" type="number" min="1" max="20" value="2" />')}
+${field('chance', l10n.t('Chance per sector'), l10n.t('In percent.'), '<input id="chance" type="number" min="1" max="100" value="100" />')}
 </div>
 <div class="row">
-<div class="field">
-<label for="distanceMin">${escapeHtml(l10n.t('Nearest to the centre'))}</label>
-<input id="distanceMin" type="number" min="0" max="1000000" step="1000" value="10000" />
-</div>
-<div class="field">
-<label for="distanceMax">${escapeHtml(l10n.t('Farthest from the centre'))}</label>
-<input id="distanceMax" type="number" min="0" max="1000000" step="1000" value="25000" />
-</div>
+${field('distanceMin', l10n.t('Nearest to the centre'), '', '<input id="distanceMin" type="number" min="0" max="1000000" step="1000" value="10000" />')}
+${field('distanceMax', l10n.t('Farthest from the centre'), '', '<input id="distanceMax" type="number" min="0" max="1000000" step="1000" value="25000" />')}
 </div>
 <div class="field">
 <label class="inline"><input id="avoidStart" type="checkbox" checked /> ${escapeHtml(l10n.t('Keep it out of the starting sector'))}</label>

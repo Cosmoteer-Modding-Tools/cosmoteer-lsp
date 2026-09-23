@@ -1,11 +1,4 @@
-import { CancellationToken, CodeLens, CodeLensProvider, Position, Range, TextDocument, Uri, l10n } from 'vscode';
-import { LanguageClient } from 'vscode-languageclient/node';
-import { showCaretReport } from '../caret-report';
-import { VirtualContentProvider } from '../virtual-content-provider';
-import { COSMOTEER_METHOD } from '../../../shared/lsp-methods';
-
-/** The virtual-document scheme the rendered wiring markdown is served under. */
-export const PART_WIRING_SCHEME = 'cosmoteer-part-wiring';
+import { CancellationToken, CodeLens, CodeLensProvider, Position, Range, TextDocument, l10n } from 'vscode';
 
 /**
  * Places a "Show part wiring" CodeLens above each root-level `Part` group, next to the grid editor
@@ -42,42 +35,3 @@ export class PartWiringCodeLensProvider implements CodeLensProvider {
         return lenses;
     }
 }
-
-/**
- * Serves the generated wiring markdown as a read-only virtual document, so the built-in markdown
- * preview can render it without writing a file into the user's mod.
- */
-export class PartWiringContentProvider extends VirtualContentProvider {
-    public constructor() {
-        super(() => l10n.t('The part wiring report is no longer available. Run the command again.'));
-    }
-}
-
-/**
- * Requests the wiring report for the part at a position from the server and opens it in the
- * markdown preview. Bound to the `cosmoteer.showPartWiring` command, where the CodeLens passes the
- * part's line and the palette falls back to the active editor's cursor.
- *
- * @param client the running language client the request is sent through.
- * @param provider the content provider the rendered markdown is served from.
- * @param uri the part file's uri, or undefined to use the active editor.
- * @param position a position inside the part group, or undefined to use the cursor.
- */
-export const showPartWiring = (
-    client: LanguageClient,
-    provider: PartWiringContentProvider,
-    uri?: Uri,
-    position?: Position
-): Promise<void> =>
-    showCaretReport(
-        client,
-        provider,
-        {
-            method: COSMOTEER_METHOD.partWiring,
-            scheme: PART_WIRING_SCHEME,
-            documentName: 'Part Wiring.md',
-            missing: l10n.t('No part wiring available: the cursor is not inside a part.'),
-        },
-        uri,
-        position
-    );

@@ -4,8 +4,8 @@ import { COSMOTEER_METHOD } from '../../shared/lsp-methods';
 
 import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind } from 'vscode-languageclient/node';
 import { SharedDiagnosticCollectionProvider } from './diagnostic-collection';
-import { DIFF_PREVIEW_SCHEME, DiffPreviewProvider } from './preview/diff-preview';
-import { setPreviewScheme } from './shared-base/apply-cleanup';
+import { DIFF_PREVIEW_SCHEME } from './preview/diff-preview';
+import { VirtualContentProvider } from './virtual-content-provider';
 import { registerWorkspaceValidation } from './workspace-validation/workspace-validation';
 import { registerNewContent } from './new-content/new-content';
 import { registerNewMod } from './new-mod/new-mod';
@@ -22,16 +22,12 @@ import { registerOverrideInMod } from './override-in-mod/override-in-mod';
 import { registerCloneDeclaration } from './clone-declaration/clone-declaration';
 import { registerShaderPreview } from './shader-preview/shader-preview';
 import { registerPartEditor } from './part-editor/part-editor';
-import { registerModOverview } from './mod-overview/mod-overview.registrar';
-import { registerPartWiring } from './part-wiring/part-wiring.registrar';
-import { registerEffectiveGroup } from './effective-group/effective-group.registrar';
-import { registerBaseDiff } from './base-diff/base-diff.registrar';
-import { registerShipBlueprint } from './ships/ship-blueprint.registrar';
+import { registerCaretReports } from './caret-report';
+import { registerShipBlueprint } from './ships/ship-blueprint';
 import { registerWizards } from './wizards/wizards.registrar';
 import { registerDiagrams } from './diagram/diagram.registrar';
 import { registerPartTable } from './part-table/part-table.registrar';
-import { registerReferenceTrace } from './reference-trace/reference-trace.registrar';
-import { registerSchemaSearch } from './schema-search/schema-search.registrar';
+import { registerSchemaSearch } from './schema-search/schema-search';
 let client: LanguageClient;
 
 export async function activate(context: ExtensionContext) {
@@ -124,23 +120,20 @@ export async function activate(context: ExtensionContext) {
     // table asks for its rows again.
     // The side-by-side diff a refactoring shows before it rewrites anything, served from one provider
     // the shared-base extraction, the migration and the clone all write into.
-    const diffPreviewProvider = new DiffPreviewProvider();
-    setPreviewScheme(DIFF_PREVIEW_SCHEME);
+    const diffPreviewProvider = new VirtualContentProvider(() =>
+        l10n.t('This preview is no longer available. Run the command again.')
+    );
     context.subscriptions.push(workspace.registerTextDocumentContentProvider(DIFF_PREVIEW_SCHEME, diffPreviewProvider));
 
     // Every command that asks the author something before the server writes anything lives in a
     // module of its own, and each registers what it contributes.
     registerShaderPreview(context, client);
     registerPartEditor(context, client);
-    registerModOverview(context, client);
-    registerPartWiring(context, client);
-    registerEffectiveGroup(context, client);
-    registerBaseDiff(context, client);
+    registerCaretReports(context, client);
     registerShipBlueprint(context, client);
     registerWizards(context, client);
     registerDiagrams(context, client);
     registerPartTable(context, client);
-    registerReferenceTrace(context, client);
     registerSchemaSearch(context, client);
     registerNewContent(context, client);
     registerNewMod(context, client);

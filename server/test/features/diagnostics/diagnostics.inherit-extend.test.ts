@@ -2,7 +2,8 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { CancellationToken } from 'vscode-languageserver';
 import { ValidationForValue } from '../../../src/features/diagnostics/validator.value';
 import { AbstractNode, isAssignmentNode, isListNode, isGroupNode, ValueNode } from '../../../src/core/ast/ast';
-import { parseFilePath, findNodeByIdentifier } from '../../../src/utils/ast.utils';
+import { parseFilePath } from '../../../src/utils/ast.utils';
+import { findNodeByIdentifier } from '../../helpers';
 import { globalSettings } from '../../../src/settings';
 import { initWorkspace, workspaceFile, WORKSPACE_DATA_DIR } from '../../workspace-helper';
 

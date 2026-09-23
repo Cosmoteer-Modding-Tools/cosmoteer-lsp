@@ -1,10 +1,21 @@
-import { Position, QuickInputButton, QuickPickItem, ThemeIcon, Uri, commands, l10n, window } from 'vscode';
+import {
+    ExtensionContext,
+    Position,
+    QuickInputButton,
+    QuickPickItem,
+    ThemeIcon,
+    Uri,
+    commands,
+    l10n,
+    window,
+    workspace,
+} from 'vscode';
 import { ExecuteCommandRequest, LanguageClient } from 'vscode-languageclient/node';
 import { VirtualContentProvider } from '../virtual-content-provider';
 import { COSMOTEER_METHOD } from '../../../shared/lsp-methods';
 
 /** The virtual-document scheme the rendered schema documentation is served under. */
-export const SCHEMA_DOC_SCHEME = 'cosmoteer-schema-doc';
+const SCHEMA_DOC_SCHEME = 'cosmoteer-schema-doc';
 
 /** The server command that scaffolds a found field at the caret. */
 const INSERT_SCHEMA_FIELD_COMMAND = 'cosmoteer.insertSchemaField';
@@ -54,16 +65,6 @@ interface CaretContext {
     version: number;
 }
 
-/**
- * Serves the schema documentation of a picked hit as a read-only virtual document, so the built-in
- * markdown preview renders it without writing a file into the user's mod.
- */
-export class SchemaDocContentProvider extends VirtualContentProvider {
-    public constructor() {
-        super(() => l10n.t('This documentation is no longer available. Run the command again.'));
-    }
-}
-
 /** Why an insert did nothing, in a sentence the user can act on. */
 const insertFailureMessage = (failure: string | undefined, label: string): string => {
     switch (failure) {
@@ -108,7 +109,7 @@ const toItem = (hit: SchemaSearchHit, insertButton: QuickInputButton): SchemaQui
  * @param provider the content provider the rendered documentation is served from.
  * @returns a promise that settles when the picker is closed.
  */
-export async function showSchemaSearch(client: LanguageClient, provider: SchemaDocContentProvider): Promise<void> {
+async function showSchemaSearch(client: LanguageClient, provider: VirtualContentProvider): Promise<void> {
     const editor = window.activeTextEditor;
     // Read the caret once. The position rides along only on the first request, so no keystroke ever
     // waits on the workspace index the caret's class resolution needs.
@@ -227,4 +228,29 @@ export async function showSchemaSearch(client: LanguageClient, provider: SchemaD
             resolve();
         });
     });
+}
+
+/**
+ * Registers the schema search: one command that searches every schema type, field, enum member and
+ * `Type=` registry plus the field documentation, opens a hit's documentation as a markdown preview,
+ * and can write a found field straight into the group the cursor is in.
+ *
+ * The palette id deliberately differs from the server's executeCommand id
+ * `cosmoteer.insertSchemaField`, because the language client auto-registers that one as a plain
+ * no-feedback forwarder.
+ *
+ * @param context the extension context the registrations are disposed with.
+ * @param client the language client the search runs against.
+ * @returns nothing.
+ */
+export function registerSchemaSearch(context: ExtensionContext, client: LanguageClient): void {
+    const provider = new VirtualContentProvider(() =>
+        l10n.t('This documentation is no longer available. Run the command again.')
+    );
+    context.subscriptions.push(
+        workspace.registerTextDocumentContentProvider(SCHEMA_DOC_SCHEME, provider),
+        commands.registerCommand('cosmoteer.searchSchema', async () => {
+            await showSchemaSearch(client, provider);
+        })
+    );
 }

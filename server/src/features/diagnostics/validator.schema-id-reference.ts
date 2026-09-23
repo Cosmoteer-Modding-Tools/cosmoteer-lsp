@@ -10,7 +10,7 @@ import {
     isGroupNode,
     isListNode,
     isValueNode,
-    childNodesOf,
+    descendants,
 } from '../../core/ast/ast';
 import { isModRules, isRulesFileName } from '../../document/document-kind';
 import { fieldOf, registryOf, typeDef } from '../../document/schema/schema';
@@ -413,23 +413,16 @@ const declaredInUnwalkedInclude = async (id: string, cancellationToken: Cancella
  * @returns true when some entry key writes the id.
  */
 const writesMapEntryKey = (document: AbstractNodeDocument, id: string): boolean => {
-    let found = false;
-    const visit = (node: AbstractNode): void => {
-        if (found) return;
+    for (const node of descendants(document)) {
         if (
             isAssignmentNode(node) &&
             node.left.name.toLowerCase() === 'key' &&
             isValueNode(node.right) &&
             sameId(String(node.right.valueType.value), id)
-        ) {
-            found = true;
-            return;
-        }
-        const children = childNodesOf(node);
-        for (const child of children) visit(child);
-    };
-    for (const element of document.elements) visit(element);
-    return found;
+        )
+            return true;
+    }
+    return false;
 };
 
 /**
@@ -462,36 +455,20 @@ const declaresOwnId = (node: AssignmentNode): boolean => {
  * their relation.
  */
 const looseDeclarationIn = (document: AbstractNodeDocument, id: string): boolean => {
-    let found = false;
-    const visit = (node: AbstractNode): void => {
-        if (found) return;
+    for (const node of descendants(document)) {
         if (isAssignmentNode(node) && isValueNode(node.right)) {
             if (
                 node.left.name.toLowerCase() === 'id' &&
                 sameId(String(node.right.valueType.value), id) &&
                 declaresOwnId(node)
-            ) {
-                found = true;
-                return;
-            }
-            if (sameId(node.left.name, id) && node.right.valueType.type === 'Reference') {
-                found = true;
-                return;
-            }
-            if (sameId(String(node.right.valueType.value), id) && declaresSelfKeyedEntry(node)) {
-                found = true;
-                return;
-            }
+            )
+                return true;
+            if (sameId(node.left.name, id) && node.right.valueType.type === 'Reference') return true;
+            if (sameId(String(node.right.valueType.value), id) && declaresSelfKeyedEntry(node)) return true;
         }
-        if ((isGroupNode(node) || isListNode(node)) && node.identifier && sameId(node.identifier.name, id)) {
-            found = true;
-            return;
-        }
-        const children = childNodesOf(node);
-        for (const child of children) visit(child);
-    };
-    for (const element of document.elements) visit(element);
-    return found;
+        if ((isGroupNode(node) || isListNode(node)) && node.identifier && sameId(node.identifier.name, id)) return true;
+    }
+    return false;
 };
 
 /** True when a slot type is a self-keyed map (`map<reference X, group X>`), the shape whose keys are

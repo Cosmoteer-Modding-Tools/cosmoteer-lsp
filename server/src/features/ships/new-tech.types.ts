@@ -55,7 +55,7 @@ export interface NewTechEntry {
 }
 
 /** What could be created in this mod. */
-export interface NewTechScanResult {
+export interface NewTechScan {
     kind: 'scan';
     modRoot: string;
     modId: string;
@@ -65,11 +65,12 @@ export interface NewTechScanResult {
     techs: NewTechEntry[];
     /** Every tech id in use, folded. */
     takenIds: string[];
-    failure?: NewTechFailure;
+    /** Never set here, the field that tells a report from a refusal. */
+    failure?: undefined;
 }
 
 /** What creating the tech did. */
-export interface NewTechApplyResult {
+export interface NewTechApply {
     kind: 'apply';
     id: string;
     /** The file the tech is declared in, empty when nothing was written. */
@@ -82,8 +83,15 @@ export interface NewTechApplyResult {
     manifests?: string[];
     createdFiles: string[];
     changedFiles: string[];
-    failure?: NewTechFailure;
+    /** Never set here, the field that tells a report from a refusal. */
+    failure?: undefined;
 }
+
+/** What the scan round answers: the report, or nothing but the reason there is none. */
+export type NewTechScanResult = NewTechScan | { kind: 'scan'; failure: NewTechFailure };
+
+/** What the apply round answers: what was made, or nothing but the reason nothing was. */
+export type NewTechApplyResult = NewTechApply | { kind: 'apply'; failure: NewTechFailure };
 
 export type NewTechResult = NewTechScanResult | NewTechApplyResult;
 

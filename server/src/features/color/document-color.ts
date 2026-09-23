@@ -21,6 +21,7 @@ import { shaderConstants } from '../shader/shader-index';
 import { materialConstants, materialShaderNode } from '../shader/shader-reference';
 import { shaderVariantSiblings } from '../diagnostics/validator.shader-constants';
 import { NAMED_COLORS, namedColorOf } from '../text-markup/text-markup';
+import { lineEndingOf } from '../refactor/command-host';
 import { valueSpan } from '../refactor/rules-edit';
 
 /**
@@ -331,9 +332,6 @@ const spliceChannels = (source: string, spanStart: number, edits: readonly Chann
     }
     return out + tail;
 };
-
-/** The line ending a document is written with, so appended text keeps the file's own shape. */
-const lineEndingOf = (source: string): string => (source.includes('\r\n') ? '\r\n' : '\n');
 
 /** The leading whitespace of the line a node sits on, so an appended component lines up with it. */
 const indentOf = (source: string, node: ValueNode): string => {

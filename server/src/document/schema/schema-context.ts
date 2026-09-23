@@ -367,22 +367,20 @@ export const registryHintFromContainer = (group: GroupNode, depth = 0): string |
     return expected?.kind === 'polymorphicGroup' ? expected.ref : undefined;
 };
 
-// Per-node memo of the resolved discriminator, keyed by the lower-cased type-field name (a registry
-// can name its own). Nodes are rebuilt wholesale on every parse, so a WeakMap keyed by the node needs
-// no invalidation. Worth caching because the callers ask per member of a group they judge, and each
-// call otherwise rebuilds the whole named-member list: the ignored-field and default-value passes
-// alone made this the hottest function of a workspace scan, allocating a member array per member.
-const discriminatorMemo = new WeakMap<GroupNode | AbstractNodeDocument, Map<string, string | undefined>>();
+// Per-node memo of the resolved discriminator. Nodes are rebuilt wholesale on every parse, so a
+// WeakMap keyed by the node needs no invalidation. Worth caching because the callers ask per member
+// of a group they judge, and each call otherwise rebuilds the whole named-member list: the
+// ignored-field and default-value passes alone made this the hottest function of a workspace scan,
+// allocating a member array per member.
+const discriminatorMemo = new WeakMap<GroupNode | AbstractNodeDocument, string | undefined>();
 
 /** The `Type=` discriminator value written in a group (or at a fragment document's top level), if
  *  any. The field name matches case-insensitively like the game's node lookup. */
-export const groupDiscriminator = (group: GroupNode | AbstractNodeDocument, typeField = 'Type'): string | undefined => {
-    const wanted = typeField.toLowerCase();
-    const memo = discriminatorMemo.get(group);
-    if (memo?.has(wanted)) return memo.get(wanted);
+export const groupDiscriminator = (group: GroupNode | AbstractNodeDocument): string | undefined => {
+    if (discriminatorMemo.has(group)) return discriminatorMemo.get(group);
     let found: string | undefined;
     for (const [name, value] of namedMembersOf(group)) {
-        if (name.toLowerCase() !== wanted) continue;
+        if (name.toLowerCase() !== 'type') continue;
         // `value` can be null for an in-progress empty `Type = ` assignment.
         if (
             value &&
@@ -393,8 +391,7 @@ export const groupDiscriminator = (group: GroupNode | AbstractNodeDocument, type
             break;
         }
     }
-    if (memo) memo.set(wanted, found);
-    else discriminatorMemo.set(group, new Map([[wanted, found]]));
+    discriminatorMemo.set(group, found);
     return found;
 };
 

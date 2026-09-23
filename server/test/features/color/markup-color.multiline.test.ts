@@ -1,11 +1,28 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Position, TextEdit } from 'vscode-languageserver';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
 import { markupColors, markupColorPresentations } from '../../../src/features/color/markup-color';
-import { useMarkupSourceReader } from '../../../src/features/text-markup/markup-source';
 
 const STRINGS = 'file:///c%3A/mod/strings/en.rules';
+
+/** The text of the one open buffer the markup layer reads through, or undefined for none. */
+let buffer: string | undefined;
+
+vi.mock('../../../src/lsp/context', () => ({
+    connection: {
+        console: { error: () => undefined, warn: () => undefined, info: () => undefined, log: () => undefined },
+        languages: { diagnostics: { refresh: () => undefined } },
+    },
+    documents: {
+        all: () => [],
+        get: (uri: string) => (uri === STRINGS && buffer !== undefined ? { getText: () => buffer } : undefined),
+        onDidChangeContent: () => undefined,
+        onDidClose: () => undefined,
+    },
+    tokenSourceManager: { cancel: () => undefined },
+    initServerContext: () => undefined,
+}));
 
 /** The colour the picker is dragged to, which the tags below are all rewritten to. */
 const PICKED = { red: 0.25, green: 0.5, blue: 0.75, alpha: 1 };
@@ -17,7 +34,7 @@ const PICKED = { red: 0.25, green: 0.5, blue: 0.75, alpha: 1 };
  * @returns the parsed document.
  */
 const openFile = (source: string) => {
-    useMarkupSourceReader((uri) => (uri === STRINGS ? source : undefined));
+    buffer = source;
     return parser(lexer(source), STRINGS).value;
 };
 
@@ -64,7 +81,7 @@ const afterPicking = (source: string): string => {
 // value is written over a line continuation or as a verbatim string, and the picker rewrites the
 // file itself, so what the edit does to the file is the only thing worth asserting.
 describe('the colour picker on a value that spans lines', () => {
-    afterEach(() => useMarkupSourceReader(undefined));
+    afterEach(() => (buffer = undefined));
 
     it('rewrites the tag of a value written on one line', () => {
         const source = ['__Name = English', `Parts/Thing = "first line with <color hex='FF0000'>red</color>"`, ''].join(

@@ -54,17 +54,18 @@ export interface TradeGoodHost extends NewContentHost {
 }
 
 /** What could be traded from this mod. */
-export interface TradeGoodScanResult {
+export interface TradeGoodScan {
     kind: 'scan';
     modRoot: string;
     modId: string;
     /** The resources, the mod's own first, then the game's, each in registry order. */
     resources: TradeResource[];
-    failure?: TradeGoodFailure;
+    /** Never set here, the field that tells a report from a refusal. */
+    failure?: undefined;
 }
 
 /** What wiring the resource did. */
-export interface TradeGoodApplyResult {
+export interface TradeGoodApply {
     kind: 'apply';
     resource: string;
     /** The manifest the actions went into, empty when none did. */
@@ -74,7 +75,14 @@ export interface TradeGoodApplyResult {
     /** The manifest names to choose between, only set when a wiring is `ambiguousManifest`. */
     manifests?: string[];
     changedFiles: string[];
-    failure?: TradeGoodFailure;
+    /** Never set here, the field that tells a report from a refusal. */
+    failure?: undefined;
 }
+
+/** What the scan round answers: the report, or nothing but the reason there is none. */
+export type TradeGoodScanResult = TradeGoodScan | { kind: 'scan'; failure: TradeGoodFailure };
+
+/** What the apply round answers: what was made, or nothing but the reason nothing was. */
+export type TradeGoodApplyResult = TradeGoodApply | { kind: 'apply'; failure: TradeGoodFailure };
 
 export type TradeGoodResult = TradeGoodScanResult | TradeGoodApplyResult;

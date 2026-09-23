@@ -1,4 +1,5 @@
 import { Uri, window, workspace } from 'vscode';
+import { DIFF_PREVIEW_SCHEME } from '../preview/diff-preview';
 
 /** What the tidy-up did, so the summary can say it out loud. */
 export interface ApplyCleanup {
@@ -67,7 +68,7 @@ export const saveAndTidy = async (
             const uris = urisOf(tab.input);
             if (uris.length === 0) return false;
             return uris.every(
-                (uri) => uri.scheme === previewScheme || (uri.scheme === 'file' && closable.has(key(uri.fsPath)))
+                (uri) => uri.scheme === DIFF_PREVIEW_SCHEME || (uri.scheme === 'file' && closable.has(key(uri.fsPath)))
             );
         });
     if (tabs.length > 0) {
@@ -75,19 +76,6 @@ export const saveAndTidy = async (
         cleanup.closed = tabs.length;
     }
     return cleanup;
-};
-
-/** The scheme the extraction's own preview documents are served under, which is ours to close. */
-let previewScheme = '';
-
-/**
- * Tell the tidy-up which scheme the preview it opened uses, so that tab is closed with the rest once
- * the rewrite it was describing has happened.
- *
- * @param scheme the virtual-document scheme of the preview.
- */
-export const setPreviewScheme = (scheme: string): void => {
-    previewScheme = scheme;
 };
 
 /** Every uri a tab input names, whatever shape that input is. */

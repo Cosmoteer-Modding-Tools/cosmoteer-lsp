@@ -2,7 +2,8 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { CancellationToken } from 'vscode-languageserver';
 import { navigate as navigateReference } from '../../../src/semantics/navigate-reference';
 import { AbstractNode, AbstractNodeDocument } from '../../../src/core/ast/ast';
-import { findNodeByIdentifier, parseFilePath } from '../../../src/utils/ast.utils';
+import { parseFilePath } from '../../../src/utils/ast.utils';
+import { findNodeByIdentifier } from '../../helpers';
 import { initWorkspace, valueOf, workspaceFile } from '../../workspace-helper';
 
 // Cross-file reference navigation. Unlike navigation.in-file.test.ts (which never
@@ -114,8 +115,12 @@ describe('navigate: cross-file references', () => {
             const resolvedComp = await navigateReference(compInh.valueType.value, compInh, derived.uri, token);
             const resolvedIso = await navigateReference(isoInh.valueType.value, isoInh, derived.uri, token);
 
-            expect(resolvedComp && 'identifier' in resolvedComp && (resolvedComp.identifier as { name?: string })?.name).toBe('Components');
-            expect(resolvedIso && 'identifier' in resolvedIso && (resolvedIso.identifier as { name?: string })?.name).toBe('IsOperational');
+            expect(
+                resolvedComp && 'identifier' in resolvedComp && (resolvedComp.identifier as { name?: string })?.name
+            ).toBe('Components');
+            expect(
+                resolvedIso && 'identifier' in resolvedIso && (resolvedIso.identifier as { name?: string })?.name
+            ).toBe('IsOperational');
         });
 
         it('reaches a member defined only on the cross-file base through nested inheritance', async () => {
@@ -138,8 +143,11 @@ describe('navigate: cross-file references', () => {
             const part = findNodeByIdentifier(derived, 'Part')!;
             const components = findNodeByIdentifier(part, 'Components')!;
             const heatProducer = findNodeByIdentifier(components, 'HeatProducer')!;
-            const valueNode = (heatProducer as unknown as { elements: { type: string; left?: { name: string }; right: AbstractNode }[] })
-                .elements.find((e) => e.type === 'Assignment' && e.left?.name === 'ResourceStorage')!.right;
+            const valueNode = (
+                heatProducer as unknown as {
+                    elements: { type: string; left?: { name: string }; right: AbstractNode }[];
+                }
+            ).elements.find((e) => e.type === 'Assignment' && e.left?.name === 'ResourceStorage')!.right;
 
             const result = await navigateReference('&~/Part/^/0/HeatTarget', valueNode, derived.uri, token);
             expect(valueOf(result)).toBe('HeatStorageDistribution');

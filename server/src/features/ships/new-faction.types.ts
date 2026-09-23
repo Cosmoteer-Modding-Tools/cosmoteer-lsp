@@ -31,7 +31,7 @@ export interface NewFactionArgs {
 }
 
 /** What could be created in this mod. */
-export interface NewFactionScanResult {
+export interface NewFactionScan {
     kind: 'scan';
     modRoot: string;
     modId: string;
@@ -41,13 +41,14 @@ export interface NewFactionScanResult {
     takenPlayerIndexes: number[];
     /** The military index a new faction would get, the civilian one being the next number. */
     suggestedPlayerIndex: number;
-    failure?: NewFactionFailure;
+    /** Never set here, the field that tells a report from a refusal. */
+    failure?: undefined;
 }
 
 export type { WiringOutcome } from './mod-wiring';
 
 /** What creating the faction did. */
-export interface NewFactionApplyResult {
+export interface NewFactionApply {
     kind: 'apply';
     id: string;
     /** The file the faction is declared in, empty when nothing was written. */
@@ -81,8 +82,15 @@ export interface NewFactionApplyResult {
     civilianPlayerIndex: number;
     createdFiles: string[];
     changedFiles: string[];
-    failure?: NewFactionFailure;
+    /** Never set here, the field that tells a report from a refusal. */
+    failure?: undefined;
 }
+
+/** What the scan round answers: the report, or nothing but the reason there is none. */
+export type NewFactionScanResult = NewFactionScan | { kind: 'scan'; failure: NewFactionFailure };
+
+/** What the apply round answers: what was made, or nothing but the reason nothing was. */
+export type NewFactionApplyResult = NewFactionApply | { kind: 'apply'; failure: NewFactionFailure };
 
 export type NewFactionResult = NewFactionScanResult | NewFactionApplyResult;
 

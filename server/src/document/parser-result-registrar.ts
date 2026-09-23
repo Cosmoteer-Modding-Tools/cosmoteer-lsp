@@ -1,5 +1,6 @@
 import { DocumentUri } from 'vscode-languageserver';
 import { AbstractNodeDocument } from '../core/ast/ast';
+import { parseFilePath } from '../utils/ast.utils';
 import { normalizeUri } from './reference-location';
 
 export class ParserResultRegistrar {
@@ -51,14 +52,6 @@ export class ParserResultRegistrar {
         const normalized = normalizeUri(uri);
         if (this.byNormalizedPath.get(normalized) !== removed) return;
         this.byNormalizedPath.delete(normalized);
-        // The same file can be registered under another uri spelling. Re-point the path entry at
-        // that surviving document so path lookups keep finding it.
-        for (const [otherUri, document] of this.results) {
-            if (normalizeUri(otherUri) === normalized) {
-                this.byNormalizedPath.set(normalized, document);
-                return;
-            }
-        }
     }
 
     public clear(): void {
@@ -66,3 +59,12 @@ export class ParserResultRegistrar {
         this.byNormalizedPath.clear();
     }
 }
+
+/**
+ * The parsed document for a path, preferring the live editor buffer over the file on disk.
+ *
+ * @param fsPath the file to read.
+ * @returns the parsed document, or null when it cannot be read.
+ */
+export const documentForPath = async (fsPath: string): Promise<AbstractNodeDocument | null> =>
+    ParserResultRegistrar.instance.getResultByPath(fsPath) ?? (await parseFilePath(fsPath).catch(() => null));

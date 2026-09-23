@@ -11,8 +11,8 @@ import {
     workspace,
 } from 'vscode';
 import { LanguageClient } from 'vscode-languageclient/node';
-import { createCosmoteerPanel, disposeAll, stringsScript, webviewShell } from '../webview-util';
-import { diagramViewStrings } from '../webview-strings';
+import { createCosmoteerPanel, disposeAll, panelHtml, postWhenReady, webviewShell } from '../webview-util';
+import { webviewStrings } from '../webview-strings';
 import { DiagramPanelMessage } from './diagram-panel.types';
 
 /** The payload shape the server's diagram requests return. */
@@ -49,16 +49,15 @@ export class DiagramPanel {
     private tracked: { request: DiagramRequest; uri: Uri; position: Position } | undefined;
     /** Debounce timer so a burst of keystrokes coalesces into one rebuild. */
     private refreshTimer: ReturnType<typeof setTimeout> | undefined;
-    /** Set once the page reports it is listening, since a payload posted earlier is dropped. */
-    private ready = false;
-    /** The payload posted before the page was ready, sent as soon as it is. */
-    private queued: DiagramData | undefined;
+    /** Holds a payload back until the page reports it is listening. */
+    private readonly gate: ReturnType<typeof postWhenReady>;
 
     private constructor(
         private readonly context: ExtensionContext,
         private readonly client: LanguageClient
     ) {
         this.panel = createCosmoteerPanel(context, 'cosmoteerDiagram', l10n.t('Diagram'), ViewColumn.Beside);
+        this.gate = postWhenReady(this.panel.webview);
         this.panel.onDidDispose(() => this.dispose());
         this.panel.webview.onDidReceiveMessage((message) => this.onMessage(message));
         this.disposables.push(workspace.onDidChangeTextDocument((event) => this.onDocumentChanged(event.document.uri)));
@@ -127,20 +126,7 @@ export class DiagramPanel {
             return;
         }
         this.panel.title = request.title;
-        await this.post(data);
-    }
-
-    /**
-     * Posts a payload, holding it back until the page says it is listening.
-     *
-     * @param data the diagram.
-     */
-    private async post(data: DiagramData): Promise<void> {
-        if (!this.ready) {
-            this.queued = data;
-            return;
-        }
-        await this.panel.webview.postMessage({ type: 'diagram', diagram: data });
+        await this.gate.post({ type: 'diagram', diagram: data });
     }
 
     /**
@@ -150,12 +136,7 @@ export class DiagramPanel {
      */
     private async onMessage(message: DiagramPanelMessage): Promise<void> {
         if (message.type === 'ready') {
-            this.ready = true;
-            if (this.queued) {
-                const queued = this.queued;
-                this.queued = undefined;
-                await this.post(queued);
-            }
+            await this.gate.ready();
         } else if (message.type === 'openLocation' && message.uri) {
             await commands.executeCommand('vscode.open', Uri.parse(message.uri), {
                 selection: message.range,
@@ -169,18 +150,12 @@ export class DiagramPanel {
      * @returns the page's HTML.
      */
     private html(): string {
-        const { nonce, asset, csp } = webviewShell(this.panel.webview, this.context.extensionUri);
-        return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta http-equiv="Content-Security-Policy" content="${csp}" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<link rel="stylesheet" href="${asset('diagram-view.css')}" />
-<title>Diagram</title>
-</head>
-<body>
-<div id="page">
+        return panelHtml(webviewShell(this.panel.webview, this.context.extensionUri), {
+            title: 'Diagram',
+            css: 'diagram-view.css',
+            script: 'diagram-view.js',
+            strings: webviewStrings(),
+            body: `<div id="page">
 <div id="header">
 <div id="title"></div>
 <div id="subtitle" hidden></div>
@@ -192,10 +167,7 @@ export class DiagramPanel {
 </div>
 <div id="stage"><svg id="canvas"></svg><div id="empty"></div></div>
 <ul id="notes" hidden></ul>
-</div>
-${stringsScript(nonce, diagramViewStrings())}
-<script nonce="${nonce}" src="${asset('dist', 'diagram-view.js')}"></script>
-</body>
-</html>`;
+</div>`,
+        });
     }
 }

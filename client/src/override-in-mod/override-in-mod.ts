@@ -20,7 +20,7 @@ import {
  * The command the server's "override this in my mod" refactoring carries. The server does not
  * claim it, so the editor runs this instead and the author picks the mod first.
  */
-export const OVERRIDE_IN_MOD_LOCAL_COMMAND = 'cosmoteer.overrideInModFromAction';
+const OVERRIDE_IN_MOD_LOCAL_COMMAND = 'cosmoteer.overrideInModFromAction';
 
 /**
  * Offer the mods the override can go into and let the user pick one.

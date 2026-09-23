@@ -12,8 +12,11 @@ import { uriToFsPath } from '../../../src/workspace/workspace-files';
 import { clearBaseFileCache } from '../../../src/features/refactor/shared-base/base-index';
 import { newAsteroidType } from '../../../src/features/ships/new-asteroid-type.command';
 import {
+    NewAsteroidTypeApply,
     NewAsteroidTypeApplyResult,
     NewAsteroidTypeHost,
+    NewAsteroidTypeFailure,
+    NewAsteroidTypeScan,
     NewAsteroidTypeScanResult,
 } from '../../../src/features/ships/new-asteroid-type.types';
 import { clearModRootCache } from '../../../src/mod/mod-root';
@@ -25,7 +28,7 @@ import {
     FileWithPath,
 } from '../../../src/workspace/cosmoteer-workspace.service';
 import { clearFsCaches } from '../../../src/workspace/fs-cache';
-import { FIXTURES_DIR } from '../../helpers';
+import { Answer, FIXTURES_DIR } from '../../helpers';
 
 // The command against the stand-in install the ship commands share, mirrored into a scratch copy
 // first because the command writes files. The manifest edits the host is handed are applied to disk
@@ -81,10 +84,13 @@ const makeHost = (): TestHost => ({
 });
 
 /** The scan round, asserting it answered as one. */
-const scan = async (host: TestHost = makeHost(), uri = filePathToUri(MOD_DIR)): Promise<NewAsteroidTypeScanResult> => {
+const scan = async (
+    host: TestHost = makeHost(),
+    uri = filePathToUri(MOD_DIR)
+): Promise<Answer<NewAsteroidTypeScan, NewAsteroidTypeFailure>> => {
     const result = await newAsteroidType({ uri }, host, token);
     if (result.kind !== 'scan') throw new Error('expected the scan round');
-    return result;
+    return result as Answer<NewAsteroidTypeScan, NewAsteroidTypeFailure>;
 };
 
 /** The apply round, asserting it answered as one. */
@@ -92,10 +98,10 @@ const apply = async (
     args: Omit<Parameters<typeof newAsteroidType>[0], 'uri'>,
     host: TestHost = makeHost(),
     uri = filePathToUri(MOD_DIR)
-): Promise<NewAsteroidTypeApplyResult> => {
+): Promise<Answer<NewAsteroidTypeApply, NewAsteroidTypeFailure>> => {
     const result = await newAsteroidType({ uri, id: 'x', ...args }, host, token);
     if (result.kind !== 'apply') throw new Error('expected the apply round');
-    return result;
+    return result as Answer<NewAsteroidTypeApply, NewAsteroidTypeFailure>;
 };
 
 /** A digest of every file under a folder, so a refusal can be shown to have written nothing. */

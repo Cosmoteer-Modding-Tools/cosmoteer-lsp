@@ -148,7 +148,7 @@ declare const __CACHE_BUILD_ID__: string | undefined;
  *
  * @returns the build identity string, or '' when it can't be determined (cache then disabled).
  */
-const serverBuildId = (): string => {
+export const serverBuildId = (): string => {
     if (serverBuildIdMemo === undefined) {
         try {
             serverBuildIdMemo =
@@ -176,9 +176,6 @@ export const cacheArtifactPath = (dataRoot: string, name: string): string => {
     const base = process.env.LOCALAPPDATA ?? tmpdir();
     return join(base, 'cosmoteer-lsp', `${name}-${key}.json`);
 };
-
-/** The running server build's identity, for cache invalidation across rebuilds. */
-export const currentServerBuildId = (): string => serverBuildId();
 
 /** Whether this process already pruned the cache directory (once per session is plenty). */
 let pruned = false;

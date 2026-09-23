@@ -5,15 +5,9 @@ import { fileURLToPath, pathToFileURL } from 'url';
 import { CancellationToken, Connection, WorkDoneProgressReporter } from 'vscode-languageserver';
 import { lexer } from '../src/core/lexer/lexer';
 import { parser } from '../src/core/parser/parser';
-import { Validator, ValidationError } from '../src/features/diagnostics/validator';
-import { ValidationForIdentifier, ValidationForValue } from '../src/features/diagnostics/validator.value';
-import { ValidationForFunctionCall } from '../src/features/diagnostics/validator.functioncall';
-import { ValidationForAssignment } from '../src/features/diagnostics/validator.assignment';
-import { ValidationForMath } from '../src/features/diagnostics/validator.math';
-import {
-    ValidationForDocumentDuplicates,
-    ValidationForGroupDuplicates,
-} from '../src/features/diagnostics/validator.duplicate-key';
+import { ValidationError } from '../src/features/diagnostics/validator';
+import { validate } from '../src/features/diagnostics/validator.service';
+import { ValidationForDocumentDuplicates } from '../src/features/diagnostics/validator.duplicate-key';
 import { validateInheritanceCycles } from '../src/features/diagnostics/validator.inheritance-cycle';
 import { validateAnonymousBlocks } from '../src/features/diagnostics/validator.anonymous-block';
 import { validateMissingSeparators, validateUnbracketedValueList } from '../src/features/diagnostics/validator.separator';
@@ -124,13 +118,6 @@ describe.skipIf(!HAVE)('full validation scan over a local mod', () => {
             .baseNames([DATA_DIR, MOD_DIR], token)
             .catch(() => undefined);
 
-        Validator.instance.registerValidation(ValidationForValue);
-        Validator.instance.registerValidation(ValidationForIdentifier);
-        Validator.instance.registerValidation(ValidationForFunctionCall);
-        Validator.instance.registerValidation(ValidationForAssignment);
-        Validator.instance.registerValidation(ValidationForMath);
-        Validator.instance.registerValidation(ValidationForGroupDuplicates);
-
         // Register the mod manifest first so the effective-tree context exists for every file.
         const manifestPath = join(MOD_DIR, 'mod.rules');
         if (existsSync(manifestPath)) {
@@ -178,7 +165,7 @@ describe.skipIf(!HAVE)('full validation scan over a local mod', () => {
                 try {
                     const promises: Promise<ValidationError[]>[] = [];
                     for (const node of parserResult.value.elements) {
-                        promises.push(Validator.instance.validate(node, token));
+                        promises.push(validate(node, token));
                     }
                     validationErrors = (await Promise.all(promises).catch(() => [])).flat();
                     const documentDuplicate = await ValidationForDocumentDuplicates.callback(parserResult.value, token).catch(

@@ -20,7 +20,7 @@ import { ModSchemaSummary } from '../../../../shared/mod-schema.types';
 import bundle from '../../document/schema/cosmoteer.schema.json';
 import { SchemaBundle } from '../../document/schema/schema.types';
 import { extendSchemaWithMods } from '../../document/schema/schema';
-import { cacheArtifactPath, currentServerBuildId } from '../../workspace/index-cache';
+import { cacheArtifactPath, serverBuildId } from '../../workspace/index-cache';
 import { readAssembly } from './dotnet-assembly';
 import { extractModSchema, gameSchemaView } from './extract';
 import { ModSchemaExtension } from '../../document/schema/schema.types';
@@ -208,7 +208,7 @@ const loadCache = async (
     try {
         const cache = JSON.parse(await readFile(cachePath(dataRoot), 'utf8')) as ModSchemaCache;
         if (cache.version !== CACHE_FORMAT_VERSION) return undefined;
-        if (cache.serverBuildId !== currentServerBuildId()) return undefined;
+        if (cache.serverBuildId !== serverBuildId()) return undefined;
         if (!sameAssemblies(cache.assemblies, stamps)) return undefined;
         return cache.extension;
     } catch {
@@ -231,7 +231,7 @@ const saveCache = async (
 ): Promise<void> => {
     const cache: ModSchemaCache = {
         version: CACHE_FORMAT_VERSION,
-        serverBuildId: currentServerBuildId(),
+        serverBuildId: serverBuildId(),
         assemblies: [...stamps],
         extension,
     };

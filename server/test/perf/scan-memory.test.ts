@@ -3,11 +3,7 @@ import { runInNewContext } from 'vm';
 import { describe, expect, it } from 'vitest';
 import { lexer } from '../../src/core/lexer/lexer';
 import { parser } from '../../src/core/parser/parser';
-import { Validator } from '../../src/features/diagnostics/validator';
-import { ValidationForValue } from '../../src/features/diagnostics/validator.value';
-import { ValidationForAssignment } from '../../src/features/diagnostics/validator.assignment';
-import { ValidationForMath } from '../../src/features/diagnostics/validator.math';
-import { ValidationForGroupDuplicates } from '../../src/features/diagnostics/validator.duplicate-key';
+import { validate } from '../../src/features/diagnostics/validator.service';
 import { CancellationToken } from 'vscode-languageserver';
 
 // The whole-workspace scan validates thousands of files whose ASTs must be discarded after their
@@ -74,15 +70,10 @@ const syntheticDocument = (index: number): string => {
 describe('scan memory', () => {
     // The generous timeout covers CPU contention when the whole suite runs in parallel workers.
     it('does not retain the ASTs of scanned documents', { timeout: 60_000 }, async () => {
-        Validator.instance.registerValidation(ValidationForValue);
-        Validator.instance.registerValidation(ValidationForAssignment);
-        Validator.instance.registerValidation(ValidationForMath);
-        Validator.instance.registerValidation(ValidationForGroupDuplicates);
-
         const scanOne = async (index: number): Promise<void> => {
             const parserResult = parser(lexer(syntheticDocument(index)), `file:///scan-mem/f${index}.rules`);
             for (const node of parserResult.value.elements) {
-                await Validator.instance.validate(node, CancellationToken.None);
+                await validate(node, CancellationToken.None);
             }
         };
 

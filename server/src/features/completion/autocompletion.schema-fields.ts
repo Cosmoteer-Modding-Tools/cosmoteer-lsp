@@ -9,7 +9,6 @@ import {
     isListNode,
 } from '../../core/ast/ast';
 import { namedMembersOf } from '../../utils/ast.utils';
-import { idiomCompletions } from './idioms';
 import {
     findEnclosingContainer,
     documentScopeClass,
@@ -284,7 +283,32 @@ export const schemaFieldNameCompletions = async (
         sortText: `${field.optional ? '1' : '0'}_${fieldUsageRank(owner, field.name)}_${field.name}`,
     }));
 
-    completions.push(...idiomCompletions(classes, present));
+    // The field list comes out of the game's own classes, so the schema can say a part has an
+    // `AIValueFactor`, but never that writing zero is the technique that keeps the shipped armour
+    // out of the enemy's target scoring. The whole assignment is offered, so the technique arrives
+    // complete rather than as a name the author then has to guess a value for.
+    if (classes.includes('Cosmoteer.Ships.Parts.PartRules') && !present.has('aivaluefactor')) {
+        completions.push({
+            label: 'AIValueFactor = 0',
+            kind: CompletionItemKind.Snippet,
+            detail: 'the AI stops picking this part as a target',
+            documentation: [
+                'The AI scores a target part by `AIValueFactor` times `Cost`, and only ever scores a part',
+                'whose factor is above zero. Writing zero is how the shipped armour parts keep the enemy',
+                'aiming at something behind them.',
+                '',
+                'It does not make the part untargetable. A ship the AI finds no positive part on has one of',
+                'its remaining parts picked at random, so zero means the part is never chosen on purpose',
+                'rather than never shot at.',
+            ].join('\n'),
+            insertText: 'AIValueFactor = 0',
+            // The popup filters on what the author has typed, and they reach for the field name rather
+            // than the whole assignment, so the field name is what the typed letters are matched against.
+            filterText: 'AIValueFactor',
+            // Below the field it writes, which stays the way to reach any other value of it.
+            sortText: '1_zz_AIValueFactor',
+        });
+    }
 
     const scaffold = requiredFieldsScaffold(missing, inherited);
     if (scaffold) completions.unshift(scaffold);

@@ -1,4 +1,5 @@
 import { Token, TOKEN_TYPES } from '../lexer/lexer';
+import { walk } from './parser';
 import {
     AbstractNode,
     AbstractNodeDocument,
@@ -157,7 +158,7 @@ const negatedParenGroup = (
             start: token.start,
         },
     } as ExpressionNode;
-    const operand = state.walk(state, undefined, parent);
+    const operand = walk(state, undefined, parent);
     // Nothing to negate (e.g. an empty `()` already reported). Leave the bare sign rather than
     // fabricate an operand.
     if (!operand) return signNode;
@@ -534,7 +535,7 @@ export const continueMathExpression = (
             // unreported. Leaving it here is what lets the math check name the real mistake.
             break;
         } else {
-            operand = state.walk(state, undefined, parent);
+            operand = walk(state, undefined, parent);
         }
         if (!operand) break;
         mathNode.elements.push(operand as ValueNode | MathExpressionNode | ExpressionNode);

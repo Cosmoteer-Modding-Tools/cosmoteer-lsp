@@ -11,6 +11,7 @@ import {
     ValueNode,
     isValueNode,
     childNodesOf,
+    descendants,
 } from '../../core/ast/ast';
 import type { ValueType } from '../../document/schema/schema.types';
 import { isModRules } from '../../document/document-kind';
@@ -478,17 +479,17 @@ const checkTupleList = (ctx: SiblingCheckContext, list: ListNode): void => {
 };
 
 /**
- * Walks a node and its children, judging every group and tuple list on the way.
+ * Judges every group and tuple list below a node.
  *
  * @param ctx the findings and the part-wide ids of the run.
- * @param node the node to walk.
+ * @param root the node to walk.
  */
-const visitForSiblings = (ctx: SiblingCheckContext, node: AbstractNode): void => {
-    if (ctx.cancellationToken.isCancellationRequested) return;
-    if (isGroupNode(node)) checkGroup(ctx, node);
-    if (isListNode(node)) checkTupleList(ctx, node);
-    const children = childNodesOf(node);
-    for (const child of children) visitForSiblings(ctx, child);
+const visitForSiblings = (ctx: SiblingCheckContext, root: AbstractNode): void => {
+    for (const node of descendants(root)) {
+        if (ctx.cancellationToken.isCancellationRequested) return;
+        if (isGroupNode(node)) checkGroup(ctx, node);
+        if (isListNode(node)) checkTupleList(ctx, node);
+    }
 };
 
 /**
@@ -848,33 +849,22 @@ function* componentFieldValuesOf(group: GroupNode, cls: string, registry: string
  *  or any list holds a plain-id string in a component tuple slot. The cheap pre-pass that keeps the
  *  cross-file id collection off the files that have no component reference at all. */
 const hasCandidateSiblingReference = (document: AbstractNodeDocument, registry: string): boolean => {
-    let found = false;
-    const visit = (node: AbstractNode): void => {
-        if (found) return;
+    for (const node of descendants(document)) {
         if (isListNode(node) && !node.inheritance?.length) {
             for (const [index, element] of node.elements.entries()) {
                 if (!isValueNode(element) || element.valueType.type !== 'String') continue;
                 if (!PLAIN_ID.test(String(element.valueType.value))) continue;
-                if (tupleComponentTargetAt(node, index)) {
-                    found = true;
-                    return;
-                }
+                if (tupleComponentTargetAt(node, index)) return true;
             }
         }
         if (isGroupNode(node)) {
             const cls = classOfPartGroup(node);
             if (cls) {
                 for (const [, value] of componentFieldValuesOf(node, cls, registry)) {
-                    if (PLAIN_ID.test(String(value.valueType.value))) {
-                        found = true;
-                        return;
-                    }
+                    if (PLAIN_ID.test(String(value.valueType.value))) return true;
                 }
             }
         }
-        const children = childNodesOf(node);
-        for (const child of children) visit(child);
-    };
-    for (const element of document.elements) visit(element);
-    return found;
+    }
+    return false;
 };

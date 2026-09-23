@@ -58,6 +58,3 @@ export const COSMOTEER_METHOD = {
     /** The server's own timing counters, for the perf benches. */
     perfStats: 'cosmoteer/perfStats',
 } as const;
-
-/** One of the method names above. */
-export type CosmoteerMethod = (typeof COSMOTEER_METHOD)[keyof typeof COSMOTEER_METHOD];

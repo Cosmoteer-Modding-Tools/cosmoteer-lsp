@@ -6,7 +6,6 @@ import { isValueNode, ValueNode } from '../../../src/core/ast/ast';
 import { keyDeclarationsOf } from '../../../src/features/completion/localization-key.index';
 import { validateTextMarkup } from '../../../src/features/diagnostics/validator.text-markup';
 import { markupTextOf } from '../../../src/features/text-markup/text-markup';
-import { useMarkupSourceReader } from '../../../src/features/text-markup/markup-source';
 
 vi.mock('../../../src/mod/mod-root', () => ({
     findModRoot: () => 'mod',
@@ -15,6 +14,24 @@ vi.mock('../../../src/mod/mod-root', () => ({
 const STRINGS = 'file:///c%3A/mod/strings/en.rules';
 const token = CancellationToken.None;
 
+/** The text of the one open buffer the markup layer reads through, or undefined for none. */
+let buffer: string | undefined;
+
+vi.mock('../../../src/lsp/context', () => ({
+    connection: {
+        console: { error: () => undefined, warn: () => undefined, info: () => undefined, log: () => undefined },
+        languages: { diagnostics: { refresh: () => undefined } },
+    },
+    documents: {
+        all: () => [],
+        get: (uri: string) => (uri === STRINGS && buffer !== undefined ? { getText: () => buffer } : undefined),
+        onDidChangeContent: () => undefined,
+        onDidClose: () => undefined,
+    },
+    tokenSourceManager: { cancel: () => undefined },
+    initServerContext: () => undefined,
+}));
+
 /**
  * Parses a language file and hands its text to the markup layer, the way an open buffer does.
  *
@@ -22,7 +39,7 @@ const token = CancellationToken.None;
  * @returns the parsed document.
  */
 const openFile = (source: string) => {
-    useMarkupSourceReader((uri) => (uri === STRINGS ? source : undefined));
+    buffer = source;
     return parser(lexer(source), STRINGS).value;
 };
 
@@ -53,7 +70,7 @@ const valueOf = (source: string): ValueNode | undefined => {
 // Every offset the markup layer reports is an offset of the file, so what the file actually holds
 // at that offset is what the tests read.
 describe('markup offsets in a value that spans lines', () => {
-    afterEach(() => useMarkupSourceReader(undefined));
+    afterEach(() => (buffer = undefined));
 
     it('squiggles the tag name and nothing else in a value carried on by a backslash', async () => {
         const source = [
@@ -87,7 +104,7 @@ describe('markup offsets in a value that spans lines', () => {
             `\t"<color hex='FF0000'>red</color>"`,
             '',
         ].join('\n');
-        useMarkupSourceReader((uri) => (uri === STRINGS ? source : undefined));
+        buffer = source;
         const span = markupTextOf(valueOf(source)!)!;
         expect(source.slice(span.offset, span.offset + span.text.length)).toBe(span.text);
         expect(span.text).toBe(`"first line with "\\\n\t"<color hex='FF0000'>red</color>"`);
@@ -100,13 +117,13 @@ describe('markup offsets in a value that spans lines', () => {
             `\t"<color hex='FF0000'>red</color>"`,
             '',
         ].join('\n');
-        useMarkupSourceReader(() => undefined);
+        buffer = undefined;
         expect(markupTextOf(valueOf(source)!)).toBeUndefined();
     });
 
     it('measures a single-segment value without the file, since the lexer kept it as written', () => {
         const source = ['__Name = English', `Parts/Thing = "<color hex='FF0000'>red</color>"`, ''].join('\n');
-        useMarkupSourceReader(() => undefined);
+        buffer = undefined;
         const span = markupTextOf(valueOf(source)!)!;
         expect(source.slice(span.offset, span.offset + span.text.length)).toBe(span.text);
     });

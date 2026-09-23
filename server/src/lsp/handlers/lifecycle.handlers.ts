@@ -12,12 +12,6 @@ import {
     RenameFilesParams,
     TextDocumentSyncKind,
 } from 'vscode-languageserver/node';
-import { Validator } from '../../features/diagnostics/validator';
-import { ValidationForIdentifier, ValidationForValue } from '../../features/diagnostics/validator.value';
-import { ValidationForFunctionCall } from '../../features/diagnostics/validator.functioncall';
-import { ValidationForAssignment } from '../../features/diagnostics/validator.assignment';
-import { ValidationForMath } from '../../features/diagnostics/validator.math';
-import { ValidationForGroupDuplicates } from '../../features/diagnostics/validator.duplicate-key';
 import { clearSharedBaseScanCache } from '../../features/refactor/shared-base/mod-scan';
 import { referenceRepairEdit } from '../../features/refactor/rename-file-references';
 import { uriToFsPath } from '../../workspace/workspace-files';
@@ -264,19 +258,12 @@ const loadGameTree = async (scopeUri: string): Promise<void> => {
 };
 
 /**
- * Everything the server does once the client has confirmed initialization: the validator
- * registry, the game install, the schema of a code mod, the client registrations, and the first
- * workspace pass.
+ * Everything the server does once the client has confirmed initialization: the game install, the
+ * schema of a code mod, the client registrations, and the first workspace pass.
  *
  * @returns when the startup has run as far as it can get.
  */
 const startUpServer = async (): Promise<void> => {
-    Validator.instance.registerValidation(ValidationForValue);
-    Validator.instance.registerValidation(ValidationForIdentifier);
-    Validator.instance.registerValidation(ValidationForFunctionCall);
-    Validator.instance.registerValidation(ValidationForAssignment);
-    Validator.instance.registerValidation(ValidationForMath);
-    Validator.instance.registerValidation(ValidationForGroupDuplicates);
     // A client with no folder open is free to answer the folder pull with an empty array rather
     // than with null, so the two answers have to mean the same thing here.
     const folders = await getWorkspaceFoldersCached();

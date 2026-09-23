@@ -12,7 +12,8 @@ import { completeAssetPath } from '../../../src/features/completion/autocompleti
 import { AutoCompletionAsset } from '../../../src/features/completion/autocompletion.asset';
 import { Completion } from '../../../src/features/completion/autocompletion.service.types';
 import { globalSettings } from '../../../src/settings';
-import { findNodeByIdentifier, parseFilePath } from '../../../src/utils/ast.utils';
+import { parseFilePath } from '../../../src/utils/ast.utils';
+import { findNodeByIdentifier } from '../../helpers';
 import { initWorkspace, WORKSPACE_DATA_DIR, workspaceFile } from '../../workspace-helper';
 
 const token = CancellationToken.None;
@@ -61,7 +62,10 @@ describe('completeAssetPath', () => {
     });
 
     it('resolves directories under the ./Data/ root', async () => {
-        const result = await completeAssetPath({ node: assetValue('./Data/sounds/fx/', 'Sound'), cancellationToken: token });
+        const result = await completeAssetPath({
+            node: assetValue('./Data/sounds/fx/', 'Sound'),
+            cancellationToken: token,
+        });
         expect(labels(result)).toContain('beep.wav');
     });
 

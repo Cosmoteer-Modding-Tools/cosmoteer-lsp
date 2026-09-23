@@ -16,7 +16,7 @@ import {
  * The command the server's "extract text into a localization key" refactoring carries. The server
  * does not claim it, so the editor runs this instead and the author gets to name the key first.
  */
-export const EXTRACT_LOCALIZATION_KEY_LOCAL_COMMAND = 'cosmoteer.extractLocalizationKeyFromAction';
+const EXTRACT_LOCALIZATION_KEY_LOCAL_COMMAND = 'cosmoteer.extractLocalizationKeyFromAction';
 
 /** A key path as a strings file declares one, which is what the input box accepts. */
 const LOCALIZATION_KEY_PATH = /^[A-Za-z0-9_.-]+(\/[A-Za-z0-9_.-]+)*$/;

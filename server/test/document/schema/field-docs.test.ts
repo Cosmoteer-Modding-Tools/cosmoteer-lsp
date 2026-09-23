@@ -52,7 +52,7 @@ describe('applyFieldDocs class summaries', () => {
 
     it('attaches the same summary to a registry of that name, which may have no type entry', () => {
         const bundle = bundleWith([{ name: 'Foo' }]);
-        bundle.registries['X.Slot'] = { name: 'Slot', typeField: 'Type', valueField: 'Value', members: {} };
+        bundle.registries['X.Slot'] = { name: 'Slot', typeField: 'Type', members: {} };
         applyFieldDocs(bundle, { 'X.Slot': { [CLASS_DOC_KEY]: 'what goes in the slot' } });
         expect(bundle.registries['X.Slot'].description).toBe('what goes in the slot');
     });

@@ -9,7 +9,7 @@ import {
     isListNode,
     isValueNode,
     ValueNode,
-    childNodesOf,
+    descendants,
 } from '../../core/ast/ast';
 import { isModRules } from '../../document/document-kind';
 import { namedMembersOf, getStartOfAstNode } from '../../utils/ast.utils';
@@ -96,7 +96,7 @@ export const validateRequiredFields = async (
     // {@link isInheritanceBase}). The optional `workspaceBaseNames` opens the same question for the
     // cross-file bases a single file cannot see.
     const localBaseReferences = new Map<string, ValueNode[]>();
-    const collect = (node: AbstractNode): void => {
+    for (const node of descendants(document)) {
         if (isGroupNode(node) || isListNode(node)) {
             for (const reference of node.inheritance ?? []) {
                 if (!isValueNode(reference) || reference.valueType.type !== 'Reference') continue;
@@ -123,10 +123,7 @@ export const validateRequiredFields = async (
                 groups.push(node);
             }
         }
-        const children = childNodesOf(node);
-        for (const child of children) collect(child);
-    };
-    for (const element of document.elements) collect(element);
+    }
 
     /**
      * Whether some group really inherits from this very node, which makes it a template rather than an

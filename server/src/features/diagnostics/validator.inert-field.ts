@@ -6,7 +6,6 @@ import {
     GroupNode,
     isAssignmentNode,
     isGroupNode,
-    isListNode,
     isValueNode,
     descendants,
 } from '../../core/ast/ast';
@@ -14,20 +13,9 @@ import { isModRules } from '../../document/document-kind';
 import { inertCondition, InertCondition } from '../../document/schema/inert-fields';
 import { fieldOf } from '../../document/schema/schema';
 import { resolveGroupClass } from '../../document/schema/schema-context';
+import { memberValueNamed } from '../../utils/ast.utils';
 import { referencedSegments } from './validator.ignored-field';
 import { ValidationError } from './validator';
-
-/** The member written under `name` in the group, in the assignment and the named-block spellings. */
-const memberOf = (group: GroupNode, name: string): AbstractNode | undefined => {
-    const folded = name.toLowerCase();
-    for (const element of group.elements) {
-        if (isAssignmentNode(element) && element.left.name.toLowerCase() === folded) return element.right ?? undefined;
-        if ((isGroupNode(element) || isListNode(element)) && element.identifier?.name.toLowerCase() === folded) {
-            return element;
-        }
-    }
-    return undefined;
-};
 
 /** The boolean a value node spells, or undefined when it spells something else. */
 const booleanOf = (node: AbstractNode | undefined): boolean | undefined => {
@@ -54,7 +42,7 @@ const numberOf = (node: AbstractNode | undefined): number | undefined => {
  * @returns true when the game provably stops reading the field.
  */
 const isInert = (group: GroupNode, condition: InertCondition): boolean => {
-    const sibling = memberOf(group, condition.sibling);
+    const sibling = memberValueNamed(group, condition.sibling);
     switch (condition.kind) {
         case 'siblingPresent':
             return sibling !== undefined;

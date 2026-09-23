@@ -237,29 +237,6 @@ const coversPosition = (node: AbstractNode, position: Position): boolean => {
 };
 
 /**
- * A named child of a group/document/list, by member name or list index. Like the game's node
- * lookup (and {@link stepIntoNode}) the name matches case-insensitively, with an exact-case match
- * preferred so two members differing only by case still resolve precisely.
- */
-export const findNodeByIdentifier = (node: AbstractNode, identifier: string): AbstractNode | undefined => {
-    if (!isGroupNode(node) && !isDocumentNode(node) && !isListNode(node)) return undefined;
-    const lower = identifier.toLowerCase();
-    let caseInsensitiveMatch: AbstractNode | undefined;
-    for (const [i, element] of node.elements.entries()) {
-        const name =
-            (isListNode(element) || isGroupNode(element)) && element.identifier
-                ? element.identifier.name
-                : isAssignmentNode(element)
-                  ? element.left.name
-                  : undefined;
-        if (name === identifier) return element;
-        if (isListNode(node) && i.toString() === identifier) return element;
-        if (!caseInsensitiveMatch && name?.toLowerCase() === lower) caseInsensitiveMatch = element;
-    }
-    return caseInsensitiveMatch;
-};
-
-/**
  * The document a node belongs to, by walking its parent chain. Unlike `getStartOfAstNode`, a node
  * from a detached subtree whose chain never reaches a document yields undefined instead of a
  * mis-cast top node, so callers can tell a rooted node from a loose one.

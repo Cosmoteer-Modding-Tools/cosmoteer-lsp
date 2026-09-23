@@ -4,9 +4,9 @@ import { findActionsList, parseModActions } from '../../../../src/mod/action-par
 import {
     addManyActionText,
     manifestActionInsert,
-    overridesActionText,
     shipPartsTargetPath,
 } from '../../../../src/features/refactor/register-part/manifest-action.emitter';
+import { overridesActionText } from '../../../../src/features/refactor/override-in-mod/overrides-action.emitter';
 import { parseText } from '../../../../src/utils/ast.utils';
 
 // What a mod writes when it may not edit the ship itself. The entry has to round-trip through the
@@ -25,9 +25,13 @@ describe('the manifest action emitter', () => {
     });
 
     it('emits an entry the action parser reads back as one AddMany with its target and list source', () => {
-        const text = ['Actions', '[', addManyActionText('<a.rules>/A/Parts', '&<parts/x.rules>/Part', '\t'), ']', ''].join(
-            '\n'
-        );
+        const text = [
+            'Actions',
+            '[',
+            addManyActionText('<a.rules>/A/Parts', '&<parts/x.rules>/Part', '\t'),
+            ']',
+            '',
+        ].join('\n');
         const actions = parseModActions(parseText(text, MANIFEST));
         expect(actions).toHaveLength(1);
         expect(actions[0].type).toBe('AddMany');
@@ -42,7 +46,12 @@ describe('the manifest action emitter', () => {
     it('emits an Overrides entry the action parser reads back with its group target and reference source', () => {
         // A map-shaped registry takes Overrides, since AddMany throws on a group, and its source is
         // the referenced group itself rather than a list of entries.
-        const entry = overridesActionText('<buffs/buffs.rules>', '&<buffs/phase_engine.rules>', '\t', '\r\n');
+        const entry = overridesActionText(
+            '<buffs/buffs.rules>',
+            { kind: 'reference', reference: '&<buffs/phase_engine.rules>' },
+            '\t',
+            '\r\n'
+        );
         expect(entry).toBe(
             [
                 '\t{',
@@ -84,7 +93,11 @@ describe('the manifest action emitter', () => {
         const text = 'Actions\n[\n]\n';
         const insert = manifestActionInsert(text, parseText(text, MANIFEST));
         if (insert.kind === 'unusable') throw new Error('an empty list should have been appendable');
-        const rewritten = applied(text, insert, addManyActionText('<a.rules>/A/Parts', '&<x.rules>/Part', insert.indent));
+        const rewritten = applied(
+            text,
+            insert,
+            addManyActionText('<a.rules>/A/Parts', '&<x.rules>/Part', insert.indent)
+        );
         expect(parseModActions(parseText(rewritten, MANIFEST))).toHaveLength(1);
     });
 
@@ -93,7 +106,11 @@ describe('the manifest action emitter', () => {
         const insert = manifestActionInsert(text, parseText(text, MANIFEST));
         expect(insert.kind).toBe('createList');
         if (insert.kind === 'unusable') throw new Error('a manifest without Actions should get one');
-        const rewritten = applied(text, insert, addManyActionText('<a.rules>/A/Parts', '&<x.rules>/Part', insert.indent));
+        const rewritten = applied(
+            text,
+            insert,
+            addManyActionText('<a.rules>/A/Parts', '&<x.rules>/Part', insert.indent)
+        );
         const document = parseText(rewritten, MANIFEST);
         expect(findActionsList(document)).toBeDefined();
         expect(parseModActions(document)).toHaveLength(1);

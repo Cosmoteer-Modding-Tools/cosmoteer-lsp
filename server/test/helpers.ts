@@ -57,6 +57,33 @@ export const parseFixture = (name: string, uri = `file:///${name}`): AbstractNod
     parser(lexer(readFixture(name)), uri).value;
 
 /**
+ * A named child of a group/document/list, by member name or list index. Like the game's node
+ * lookup (and `stepIntoNode`) the name matches case-insensitively, with an exact-case match
+ * preferred so two members differing only by case still resolve precisely.
+ *
+ * @param node the container to look in.
+ * @param identifier the member name, or the list index as a string.
+ * @returns the member, or undefined when the container has none under that name.
+ */
+export const findNodeByIdentifier = (node: AbstractNode, identifier: string): AbstractNode | undefined => {
+    if (!isGroupNode(node) && !isDocumentNode(node) && !isListNode(node)) return undefined;
+    const lower = identifier.toLowerCase();
+    let caseInsensitiveMatch: AbstractNode | undefined;
+    for (const [i, element] of node.elements.entries()) {
+        const name =
+            (isListNode(element) || isGroupNode(element)) && element.identifier
+                ? element.identifier.name
+                : isAssignmentNode(element)
+                  ? element.left.name
+                  : undefined;
+        if (name === identifier) return element;
+        if (isListNode(node) && i.toString() === identifier) return element;
+        if (!caseInsensitiveMatch && name?.toLowerCase() === lower) caseInsensitiveMatch = element;
+    }
+    return caseInsensitiveMatch;
+};
+
+/**
  * Depth-first walk over every node in the AST (elements, inheritance, assignment sides, args).
  *
  * A bare key (`X` with no `=` value) has a null `right`, which is a legitimate parse result. Skipping
@@ -127,3 +154,10 @@ export const stripParents = <T>(value: T): T => {
     };
     return walk(value) as T;
 };
+
+/**
+ * A wizard round as its tests read it: the fields the round carries when it succeeded, plus the
+ * reason a refusal gives instead of them. A refusal answers with nothing but the reason, so a test
+ * that reads a field has asserted there is no failure first.
+ */
+export type Answer<T extends { failure?: undefined }, F extends string> = Omit<T, 'failure'> & { failure?: F };

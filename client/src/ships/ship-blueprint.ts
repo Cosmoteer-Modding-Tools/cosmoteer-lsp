@@ -1,20 +1,10 @@
-import { Uri, commands, l10n, window } from 'vscode';
+import { ExtensionContext, Uri, commands, l10n, window, workspace } from 'vscode';
 import { LanguageClient } from 'vscode-languageclient/node';
 import { VirtualContentProvider } from '../virtual-content-provider';
 import { COSMOTEER_METHOD } from '../../../shared/lsp-methods';
 
 /** The virtual-document scheme the rendered blueprint report is served under. */
-export const SHIP_BLUEPRINT_SCHEME = 'cosmoteer-ship-blueprint';
-
-/**
- * Serves the generated report as a read-only virtual document, so the built-in markdown preview can
- * render it without writing a file into the user's mod.
- */
-export class ShipBlueprintContentProvider extends VirtualContentProvider {
-    public constructor() {
-        super(() => l10n.t('The blueprint report is no longer available. Run the command again.'));
-    }
-}
+const SHIP_BLUEPRINT_SCHEME = 'cosmoteer-ship-blueprint';
 
 /**
  * Asks for the blueprint to read, for the reader who ran the command with something else in front of
@@ -55,11 +45,7 @@ const activeResourceUri = (): Uri | undefined => {
  * @param provider the content provider the rendered markdown is served from.
  * @param uri the blueprint's uri, or undefined to use the active editor.
  */
-export async function showShipBlueprint(
-    client: LanguageClient,
-    provider: ShipBlueprintContentProvider,
-    uri?: Uri
-): Promise<void> {
+async function showShipBlueprint(client: LanguageClient, provider: VirtualContentProvider, uri?: Uri): Promise<void> {
     const active = uri ?? activeResourceUri();
     const targetUri = active?.path.toLowerCase().endsWith('.ship.png') ? active : await pickBlueprint();
     if (!targetUri) return;
@@ -77,4 +63,24 @@ export async function showShipBlueprint(
     });
     provider.set(reportUri, markdown);
     await commands.executeCommand('markdown.showPreview', reportUri);
+}
+
+/**
+ * Registers the ship blueprint report: what a `.ship.png` places, read out of the low bits of the
+ * picture.
+ *
+ * @param context the extension context the registrations are disposed with.
+ * @param client the language client the blueprint is read by.
+ * @returns nothing.
+ */
+export function registerShipBlueprint(context: ExtensionContext, client: LanguageClient): void {
+    const provider = new VirtualContentProvider(() =>
+        l10n.t('The blueprint report is no longer available. Run the command again.')
+    );
+    context.subscriptions.push(
+        workspace.registerTextDocumentContentProvider(SHIP_BLUEPRINT_SCHEME, provider),
+        commands.registerCommand('cosmoteer.showShipBlueprint', async (uri?: Uri) => {
+            await showShipBlueprint(client, provider, uri);
+        })
+    );
 }

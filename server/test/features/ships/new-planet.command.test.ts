@@ -10,9 +10,12 @@ import { filePathToUri } from '../../../src/document/reference-path';
 import { clearBaseFileCache } from '../../../src/features/refactor/shared-base/base-index';
 import { newPlanet } from '../../../src/features/ships/new-planet.command';
 import {
+    NewPlanetApply,
     NewPlanetApplyResult,
     NewPlanetArgs,
     NewPlanetHost,
+    NewPlanetFailure,
+    NewPlanetScan,
     NewPlanetScanResult,
 } from '../../../src/features/ships/new-planet.types';
 import { clearModRootCache } from '../../../src/mod/mod-root';
@@ -24,7 +27,7 @@ import {
     FileWithPath,
 } from '../../../src/workspace/cosmoteer-workspace.service';
 import { clearFsCaches } from '../../../src/workspace/fs-cache';
-import { FIXTURES_DIR } from '../../helpers';
+import { Answer, FIXTURES_DIR } from '../../helpers';
 
 // The planet wizard against the stand-in install the ship commands share, whose doodad registry
 // lists a rocky and a gas planet and whose career spawner has the four lists a placement names.
@@ -69,10 +72,13 @@ const makeHost = (taken: string[] = []): TestHost => ({
 });
 
 /** The scan round, asserting it answered as one. */
-const scan = async (host: NewPlanetHost, uri = filePathToUri(MOD_DIR)): Promise<NewPlanetScanResult> => {
+const scan = async (
+    host: NewPlanetHost,
+    uri = filePathToUri(MOD_DIR)
+): Promise<Answer<NewPlanetScan, NewPlanetFailure>> => {
     const result = await newPlanet({ uri }, host, token);
     if (result.kind !== 'scan') throw new Error('expected the scan round');
-    return result;
+    return result as Answer<NewPlanetScan, NewPlanetFailure>;
 };
 
 /** The apply round, asserting it answered as one. */
@@ -80,10 +86,10 @@ const apply = async (
     args: Omit<NewPlanetArgs, 'uri'>,
     host: NewPlanetHost,
     uri = filePathToUri(MOD_DIR)
-): Promise<NewPlanetApplyResult> => {
+): Promise<Answer<NewPlanetApply, NewPlanetFailure>> => {
     const result = await newPlanet({ uri, ...args }, host, token);
     if (result.kind !== 'apply') throw new Error('expected the apply round');
-    return result;
+    return result as Answer<NewPlanetApply, NewPlanetFailure>;
 };
 
 /** The one edit the host captured for the manifest. */
@@ -293,7 +299,6 @@ describe('creating a planet', () => {
         expect(existsSync(`${PLAIN_MOD_DIR}/doodads`)).toBe(false);
         const odd = await apply({ id: 'my planet', name: 'x' }, makeHost());
         expect(odd.failure).toBe('invalidId');
-        for (const result of [taken, path, plain, odd]) expect(result.createdFiles).toEqual([]);
         expect(read(`${MOD_DIR}/mod.rules`)).toBe(before);
         expect(Object.keys(plainHost.changes)).toEqual([]);
     });

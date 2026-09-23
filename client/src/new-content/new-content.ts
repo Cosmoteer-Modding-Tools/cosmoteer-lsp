@@ -23,7 +23,7 @@ import {
  * `cosmoteer.newContent`, because the language client auto-registers that one as a plain
  * no-feedback forwarder and the questions have to be asked here.
  */
-export const NEW_CONTENT_LOCAL_COMMAND = 'cosmoteer.newContentFile';
+const NEW_CONTENT_LOCAL_COMMAND = 'cosmoteer.newContentFile';
 
 /**
  * Create a new content file: ask what to create, what to call it and where to register it, then let

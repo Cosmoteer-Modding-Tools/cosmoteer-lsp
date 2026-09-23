@@ -11,8 +11,8 @@ import {
     workspace,
 } from 'vscode';
 import { LanguageClient } from 'vscode-languageclient/node';
-import { createCosmoteerPanel, disposeAll, imageDataUri, stringsScript, webviewShell } from '../webview-util';
-import { partGridEditorStrings } from '../webview-strings';
+import { createCosmoteerPanel, disposeAll, imageDataUri, panelHtml, webviewShell } from '../webview-util';
+import { webviewStrings } from '../webview-strings';
 import { EditMessage, PartGridData, PartGridEditResult } from './editor-panel.types';
 import { PartGridPanelMessage } from './editor-panel.types';
 import { COSMOTEER_METHOD } from '../../../shared/lsp-methods';
@@ -206,24 +206,15 @@ export class PartGridEditorPanel {
 
     /** The webview shell HTML, wiring in the bundled script and stylesheet by webview URI. */
     private html(): string {
-        const { nonce, asset, csp } = webviewShell(this.panel.webview, this.context.extensionUri);
-        return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta http-equiv="Content-Security-Policy" content="${csp}" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<link rel="stylesheet" href="${asset('part-grid-editor.css')}" />
-<title>Part Grid Editor</title>
-</head>
-<body>
-<div id="editor">
+        return panelHtml(webviewShell(this.panel.webview, this.context.extensionUri), {
+            title: 'Part Grid Editor',
+            css: 'part-grid-editor.css',
+            script: 'part-grid-editor.js',
+            strings: webviewStrings(),
+            body: `<div id="editor">
 <div id="stage"><canvas id="grid"></canvas><div id="status"></div></div>
 <div id="sidebar"></div>
-</div>
-${stringsScript(nonce, partGridEditorStrings())}
-<script nonce="${nonce}" src="${asset('dist', 'part-grid-editor.js')}"></script>
-</body>
-</html>`;
+</div>`,
+        });
     }
 }

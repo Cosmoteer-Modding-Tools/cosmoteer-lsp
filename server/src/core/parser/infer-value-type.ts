@@ -25,7 +25,7 @@ const IS_SOUND = new RegExp(ALLOWED_AUDIO_EXTENSIONS.join('|').replaceAll('.', '
  */
 export function inferValueType(token: Token): ValueNodeTypes {
     if (typeof token.value === 'undefined') throw new Error('Token value is undefined');
-    let value: ValueNodeTypes['value'] = token.value;
+    const value: ValueNodeTypes['value'] = token.value;
     let valueType: ValueNodeTypes['type'] = IS_NUMBER.test(token.value) ? 'Number' : 'String';
     // Every asset form below contains a dot, so one indexOf spares most strings the two regex
     // tests and the suffix check. Hot: this runs for every string value of every parse.
@@ -35,13 +35,10 @@ export function inferValueType(token: Token): ValueNodeTypes {
     const lower = hasDot ? token.value.toLowerCase() : token.value;
     if (valueType === 'String' && hasDot && lower.includes('.png')) {
         valueType = 'Sprite';
-        value = value as string;
     } else if (valueType === 'String' && hasDot && IS_SOUND.test(token.value)) {
         valueType = 'Sound';
-        value = value as string;
     } else if (valueType === 'String' && hasDot && lower.endsWith('.shader')) {
         valueType = 'Shader';
-        value = value as string;
     } else if (
         // A reference sigil must be followed by a path/name: a lone `~`, `/`, `^`, `&`, or `..`
         // (no member) is not a resolvable reference, it is a literal value (the keyboard key-name

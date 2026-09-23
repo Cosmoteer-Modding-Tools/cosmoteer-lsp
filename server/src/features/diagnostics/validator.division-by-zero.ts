@@ -11,6 +11,7 @@ import {
     isMathExpressionNode,
     isValueNode,
     childNodesOf,
+    descendants,
 } from '../../core/ast/ast';
 import { resolveGroupClass } from '../../document/schema/schema-context';
 import { fieldOf, typeDef } from '../../document/schema/schema';
@@ -160,16 +161,13 @@ export const validateDivisionByZero = async (
 ): Promise<ValidationError[]> => {
     const errors: ValidationError[] = [];
     const candidates: Candidate[] = [];
-    const collect = (node: AbstractNode): void => {
-        if (isAssignmentNode(node) && node.right && couldDivide(node.right)) {
-            const parent = node.parent;
-            const cls = parent && isGroupNode(parent) ? resolveGroupClass(parent) : undefined;
-            const field = cls ? fieldOf(cls, node.left.name) : undefined;
-            if (field) candidates.push(...candidatesOf(node.right, field.valueType, node.left.name));
-        }
-        for (const child of childNodesOf(node)) collect(child);
-    };
-    for (const element of document.elements) collect(element);
+    for (const node of descendants(document)) {
+        if (!isAssignmentNode(node) || !node.right || !couldDivide(node.right)) continue;
+        const parent = node.parent;
+        const cls = parent && isGroupNode(parent) ? resolveGroupClass(parent) : undefined;
+        const field = cls ? fieldOf(cls, node.left.name) : undefined;
+        if (field) candidates.push(...candidatesOf(node.right, field.valueType, node.left.name));
+    }
 
     for (const candidate of candidates) {
         if (cancellationToken.isCancellationRequested) return errors;

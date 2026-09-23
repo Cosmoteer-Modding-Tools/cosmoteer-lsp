@@ -5,7 +5,7 @@ import { CancellationToken } from 'vscode-languageserver';
 import { CancellationError } from '../utils/cancellation';
 import { stringLiteralEnd } from '../utils/text.utils';
 import { CosmoteerWorkspaceService } from './cosmoteer-workspace.service';
-import { cacheArtifactPath, currentServerBuildId, sweepRulesFiles } from './index-cache';
+import { cacheArtifactPath, serverBuildId, sweepRulesFiles } from './index-cache';
 import { normalizeUri } from '../document/reference-location';
 import { uriToFsPath } from '../utils/uri-path';
 import { readFilesAhead } from './rules-file-walk';
@@ -670,7 +670,7 @@ export class MentionIndex {
      */
     private async trySeedFromCache(folderPaths: string[]): Promise<void> {
         const dataRoot = CosmoteerWorkspaceService.instance.dataRootPath;
-        const buildId = currentServerBuildId();
+        const buildId = serverBuildId();
         if (!dataRoot || !buildId) return;
         try {
             const raw = await readFile(cacheArtifactPath(dataRoot, this.cacheNameFor(folderPaths)), {
@@ -713,7 +713,7 @@ export class MentionIndex {
      */
     private async trySaveCache(folderPaths: string[]): Promise<void> {
         const dataRoot = CosmoteerWorkspaceService.instance.dataRootPath;
-        const buildId = currentServerBuildId();
+        const buildId = serverBuildId();
         if (!dataRoot || !buildId) return;
         const words: string[] = [];
         const idByWord = new Map<string, number>();

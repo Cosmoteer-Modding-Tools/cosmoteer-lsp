@@ -29,7 +29,6 @@ import {
 import {
     RegisterPartApplyResult,
     RegisterPartArgs,
-    RegisterPartFailure,
     RegisterPartScanResult,
     ShipBlocker,
     ShipCandidate,
@@ -229,30 +228,9 @@ const scanRound = async (
             blocked: route.blocked ?? partsBlocker,
         });
     }
-    return {
-        kind: 'scan',
-        partId: part.id,
-        partGroupName: part.groupName,
-        candidates,
-        failure: entries.length === 0 ? 'noShipClasses' : undefined,
-    };
+    if (entries.length === 0) return { kind: 'scan', failure: 'noShipClasses' };
+    return { kind: 'scan', partId: part.id, partGroupName: part.groupName, candidates };
 };
-
-/** An apply result carrying nothing but the reason nothing happened. */
-const applyFailed = (
-    failure: RegisterPartFailure,
-    via: 'shipFile' | 'modAction' = 'shipFile',
-    shipFsPath = '',
-    manifests?: string[]
-): RegisterPartApplyResult => ({
-    kind: 'apply',
-    shipFsPath,
-    via,
-    changedFiles: [],
-    reference: '',
-    failure,
-    manifests,
-});
 
 /**
  * Append the part to a ship's own `Parts [ … ]`, against the buffer the edit will be applied to so an
@@ -269,25 +247,25 @@ const applyToShipFile = async (
     host: RegisterPartHost
 ): Promise<RegisterPartApplyResult> => {
     const document = await documentFor(entry.fsPath, openBuffers(host));
-    if (!document) return applyFailed('notEditable', 'shipFile', entry.fsPath);
+    if (!document) return { kind: 'apply', failure: 'notEditable' };
     const text = document.getText();
     const ship = shipPartsIn(text, parseText(text, entry.fsPath), entry.groupName);
     const blocker = partsBlockerOf(ship);
     if (blocker || !ship?.partsList) {
-        return applyFailed(blocker === 'partsInherited' ? 'partsInherited' : 'noPartsList', 'shipFile', entry.fsPath);
+        return { kind: 'apply', failure: blocker === 'partsInherited' ? 'partsInherited' : 'noPartsList' };
     }
     const declaringDir = dirOf(entry.fsPath);
     if (partsListRegisters(ship.partsList.elements, declaringDir, part.fsPath, part.groupName)) {
-        return applyFailed('alreadyRegistered', 'shipFile', entry.fsPath);
+        return { kind: 'apply', failure: 'alreadyRegistered' };
     }
     // `relativeRulesReference` was written for inheritance references and emits no sigil, which a
     // `Parts` element needs.
     const reference = `&${relativeRulesReference(declaringDir, part.fsPath, part.groupName)}`;
     const outcome = appendElementEdit(text, ship.partsList, reference);
-    if (isError(outcome)) return applyFailed('notEditable', 'shipFile', entry.fsPath);
+    if (isError(outcome)) return { kind: 'apply', failure: 'notEditable' };
 
     const applied = await host.applyEdit({ [document.uri]: outcome }).catch(() => false);
-    if (!applied) return applyFailed('editRejected', 'shipFile', entry.fsPath);
+    if (!applied) return { kind: 'apply', failure: 'editRejected' };
     host.filesChanged([entry.fsPath]);
     return {
         kind: 'apply',
@@ -318,36 +296,36 @@ const applyToManifest = async (
     host: RegisterPartHost
 ): Promise<RegisterPartApplyResult> => {
     const manifests = manifestsIn(modRoot);
-    if (manifests.length === 0) return applyFailed('noModRoot', 'modAction', entry.fsPath);
+    if (manifests.length === 0) return { kind: 'apply', failure: 'noModRoot' };
     // A version-split mod (`mod_0.30.rules` beside `mod_0.29.rules`) needs the author to say which
     // variants get the part, so it is refused rather than guessed at.
     const manifestFsPath = manifestToWrite(manifests);
     if (!manifestFsPath) {
-        return applyFailed('ambiguousManifest', 'modAction', entry.fsPath, manifests.map(basenameOf));
+        return { kind: 'apply', failure: 'ambiguousManifest', manifests: manifests.map(basenameOf) };
     }
 
     const target = shipPartsTargetPath(dataRoot, entry.fsPath, entry.groupName);
     if (await manifestAlreadyRegisters(modRoot, target, part.fsPath, part.groupName)) {
-        return applyFailed('alreadyRegistered', 'modAction', entry.fsPath);
+        return { kind: 'apply', failure: 'alreadyRegistered' };
     }
     const ship = await shipPartsListOf(entry.fsPath, entry.groupName);
     const blocker = partsBlockerOf(ship);
     if (blocker) {
-        return applyFailed(blocker === 'partsInherited' ? 'partsInherited' : 'noPartsList', 'modAction', entry.fsPath);
+        return { kind: 'apply', failure: blocker === 'partsInherited' ? 'partsInherited' : 'noPartsList' };
     }
     if (
         ship?.partsList &&
         partsListRegisters(ship.partsList.elements, dirOf(entry.fsPath), part.fsPath, part.groupName)
     ) {
-        return applyFailed('alreadyRegistered', 'modAction', entry.fsPath);
+        return { kind: 'apply', failure: 'alreadyRegistered' };
     }
 
     const document = await documentFor(manifestFsPath, openBuffers(host));
-    if (!document) return applyFailed('notEditable', 'modAction', entry.fsPath);
+    if (!document) return { kind: 'apply', failure: 'notEditable' };
     const text = document.getText();
     const lineEnding = lineEndingOf(text);
     const insert = manifestActionInsert(text, parseText(text, manifestFsPath), lineEnding);
-    if (insert.kind === 'unusable') return applyFailed('notEditable', 'modAction', entry.fsPath);
+    if (insert.kind === 'unusable') return { kind: 'apply', failure: 'notEditable' };
 
     // A mod action's source references resolve against the file the action is written in, never
     // against the game root its target names.
@@ -359,7 +337,7 @@ const applyToManifest = async (
     ];
 
     const applied = await host.applyEdit({ [document.uri]: edits }).catch(() => false);
-    if (!applied) return applyFailed('editRejected', 'modAction', entry.fsPath);
+    if (!applied) return { kind: 'apply', failure: 'editRejected' };
     host.filesChanged([manifestFsPath]);
     return {
         kind: 'apply',
@@ -386,23 +364,21 @@ export const registerPartInShip = async (
     cancellationToken: CancellationToken
 ): Promise<RegisterPartScanResult | RegisterPartApplyResult> => {
     const part = await resolvePart(args, host, cancellationToken);
-    if (!part) {
-        return args.ship ? applyFailed('stale') : { kind: 'scan', partGroupName: '', candidates: [], failure: 'stale' };
-    }
+    if (!part) return args.ship ? { kind: 'apply', failure: 'stale' } : { kind: 'scan', failure: 'stale' };
     const entries = await shipClassesFor(host, cancellationToken);
     if (!args.ship) return await scanRound(part, entries, host);
 
     // The registry is rebuilt rather than trusted from the scan: the files it was read from may have
     // been edited since, and a ship that has moved must not be written to at a remembered offset.
     const entry = entries.find((candidate) => candidate.key === args.ship);
-    if (!entry) return applyFailed('unknownShip');
+    if (!entry) return { kind: 'apply', failure: 'unknownShip' };
     const dataRoot = host.dataRoot();
     const route = routeFor(entry.fsPath, part.fsPath, dataRoot);
     if (route.blocked) {
-        return applyFailed(route.blocked === 'notEditable' ? 'notEditable' : 'noModRoot', route.via, entry.fsPath);
+        return { kind: 'apply', failure: route.blocked === 'notEditable' ? 'notEditable' : 'noModRoot' };
     }
     if (route.via === 'modAction') {
-        if (!route.modRoot || !dataRoot) return applyFailed('noModRoot', 'modAction', entry.fsPath);
+        if (!route.modRoot || !dataRoot) return { kind: 'apply', failure: 'noModRoot' };
         return await applyToManifest(part, entry, route.modRoot, dataRoot, host);
     }
     return await applyToShipFile(part, entry, host);

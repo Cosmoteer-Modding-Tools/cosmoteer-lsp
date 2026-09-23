@@ -1,17 +1,8 @@
 import { readFile } from 'fs/promises';
 import { dirname, isAbsolute, relative, resolve } from 'path';
 import { CancellationToken, TextEdit, WorkspaceEdit } from 'vscode-languageserver';
-import {
-    AbstractNode,
-    AbstractNodeDocument,
-    ValueNode,
-    isGroupNode,
-    isListNode,
-    isValueNode,
-    childNodesOf,
-} from '../../core/ast/ast';
-import { parseFilePath } from '../../utils/ast.utils';
-import { ParserResultRegistrar } from '../../document/parser-result-registrar';
+import { AbstractNode, ValueNode, isGroupNode, isListNode, isValueNode, childNodesOf } from '../../core/ast/ast';
+import { documentForPath } from '../../document/parser-result-registrar';
 import { filePathToUri } from '../../document/reference-path';
 import { writableChanges, writeRefusalFor } from '../../mod/write-gate';
 import { cachedPathExists } from '../../workspace/fs-cache';
@@ -217,15 +208,6 @@ const rebasedAsset = (written: string, ownDir: string, newDir: string): string |
 };
 
 /**
- * The parsed document for a path, preferring the live editor buffer over the file on disk.
- *
- * @param path the file to read.
- * @returns the parsed document, or null when it cannot be read.
- */
-const documentFor = async (path: string): Promise<AbstractNodeDocument | null> =>
-    ParserResultRegistrar.instance.getResultByPath(path) ?? (await parseFilePath(path).catch(() => null));
-
-/**
  * The text of a file, which every edit's offsets are measured in.
  *
  * The file on disk is what is read, while an open buffer may have moved on. That costs nothing,
@@ -280,7 +262,7 @@ export const referenceRepairEdit = async (
         // Both ends are asked, because the edit is applied at the old path while the file is meant
         // to end up at the new one, so either being somebody else's tree is a refusal.
         if (writeRefusalFor(path) || writeRefusalFor(writtenPath)) return;
-        const document = await documentFor(path);
+        const document = await documentForPath(path);
         if (!document) return;
         const text = await textFor(path);
         if (text === null) return;

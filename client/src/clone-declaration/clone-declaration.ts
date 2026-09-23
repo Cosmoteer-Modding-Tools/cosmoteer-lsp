@@ -1,7 +1,8 @@
 import * as path from 'path';
 import { commands, ExtensionContext, l10n, ProgressLocation, Uri, window, workspace } from 'vscode';
 import { ExecuteCommandRequest, LanguageClient } from 'vscode-languageclient/node';
-import { DiffPreviewProvider, showDiffPreview, showPatchPreview } from '../preview/diff-preview';
+import { showDiffPreview, showPatchPreview } from '../preview/diff-preview';
+import { VirtualContentProvider } from '../virtual-content-provider';
 import { openDocumentPaths, saveAndTidy } from '../shared-base/apply-cleanup';
 import {
     CloneApplyResult,
@@ -22,7 +23,7 @@ import {
  * it, so the editor runs this instead: the new id is a name only the author can give, and the copy
  * writes files that have to be read before they are written.
  */
-export const CLONE_DECLARATION_LOCAL_COMMAND = 'cosmoteer.cloneDeclarationFromAction';
+const CLONE_DECLARATION_LOCAL_COMMAND = 'cosmoteer.cloneDeclarationFromAction';
 
 /** What an id may be spelled with, the same set the server and the rename refactoring enforce. */
 const VALID_CLONE_ID = /^[A-Za-z0-9_.]+$/;
@@ -103,7 +104,7 @@ function cloneFailureMessage(failure: CloneFailure, detail?: string[]): string {
 async function cloneDeclarationFlow(
     client: LanguageClient,
     args: CloneDeclarationArgs,
-    provider: DiffPreviewProvider
+    provider: VirtualContentProvider
 ): Promise<void> {
     const scan = (await client.sendRequest(ExecuteCommandRequest.type, {
         command: 'cosmoteer.cloneDeclaration',
@@ -240,7 +241,7 @@ async function showCloneSummary(result: CloneApplyResult): Promise<void> {
 export function registerCloneDeclaration(
     context: ExtensionContext,
     client: LanguageClient,
-    provider: DiffPreviewProvider
+    provider: VirtualContentProvider
 ): void {
     context.subscriptions.push(
         // The command the server's clone refactoring carries. The server does not claim it, so the

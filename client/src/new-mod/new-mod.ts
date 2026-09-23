@@ -12,7 +12,7 @@ import { NewModApplyResult, NewModFailure, NewModScanResult } from '../../../sha
  * the server's `cosmoteer.newMod`, since where the mod goes and what it is called are questions only
  * the editor can ask.
  */
-export const NEW_MOD_LOCAL_COMMAND = 'cosmoteer.newMod.create';
+const NEW_MOD_LOCAL_COMMAND = 'cosmoteer.newMod.create';
 
 /**
  * Create a whole mod: ask where it goes, what it is called and who wrote it, let the server write

@@ -18,14 +18,14 @@ import { InsertSnippetArgs } from '../../../shared/snippet-action.types';
  * claim it, so the editor runs this instead: which kind of component the author meant cannot be read
  * off the reference, and only they know it.
  */
-export const CREATE_COMPONENT_LOCAL_COMMAND = 'cosmoteer.createComponentFromAction';
+const CREATE_COMPONENT_LOCAL_COMMAND = 'cosmoteer.createComponentFromAction';
 
 /**
  * The command the server's snippet-bearing code actions carry. The server does not claim it, and it
  * cannot: a `WorkspaceEdit` has no way to carry a tab stop, so the text is written here, where the
  * editor can leave the caret where the author has to type next.
  */
-export const INSERT_SNIPPET_LOCAL_COMMAND = 'cosmoteer.insertSnippetFromAction';
+const INSERT_SNIPPET_LOCAL_COMMAND = 'cosmoteer.insertSnippetFromAction';
 
 /**
  * What to say when no component can be declared, one message per reason the server reports.

@@ -2,7 +2,8 @@ import { CancellationToken, Location, Range } from 'vscode-languageserver';
 import { AbstractNode, AbstractNodeDocument, isValueNode, ValueNode } from '../../core/ast/ast';
 import { getStartOfAstNode } from '../../utils/ast.utils';
 import { FileTree, FileWithPath, isFile } from '../../workspace/cosmoteer-workspace.service';
-import { navigate, isInheritanceMember } from '../../semantics/navigate-reference';
+import { navigate } from '../../semantics/navigate-reference';
+import { isInheritanceEntry } from '../../document/reference-resolver';
 import { filePathToUri } from '../../document/reference-path';
 import { definitionLocationOf } from '../../document/reference-location';
 import { isModRules } from '../../document/document-kind';
@@ -67,7 +68,7 @@ const resolveWithPrefixFallback = async (
     }
     // The mod's effective tree has already been tried above, so an unresolved reference that is
     // not an inheritance base is simply broken and answers nothing.
-    if (!target && !isInheritanceMember(node)) return null;
+    if (!target && !isInheritanceEntry(node)) return null;
     let path = value;
     while (!target) {
         const lastSlash = path.lastIndexOf('/');

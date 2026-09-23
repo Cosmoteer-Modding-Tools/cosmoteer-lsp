@@ -55,7 +55,7 @@ export interface ShipCandidate {
 }
 
 /** The ship classes the part could be registered in. */
-export interface RegisterPartScanResult {
+export interface RegisterPartScan {
     kind: 'scan';
     /** The part's own id, read locally or through its bases, absent when it declares none anywhere. */
     partId?: string;
@@ -63,12 +63,12 @@ export interface RegisterPartScanResult {
     partGroupName: string;
     /** The candidates in registry order, mod-added ships last. */
     candidates: ShipCandidate[];
-    /** Why the candidates could not be worked out, absent on success. */
-    failure?: RegisterPartFailure;
+    /** Never set here, the field that tells a report from a refusal. */
+    failure?: undefined;
 }
 
-/** What a registration did, or why it did nothing. */
-export interface RegisterPartApplyResult {
+/** What a registration did. */
+export interface RegisterPartApply {
     kind: 'apply';
     /** The ship file the part was registered in, empty when nothing was written. */
     shipFsPath: string;
@@ -80,8 +80,21 @@ export interface RegisterPartApplyResult {
     reference: string;
     /** Something worth saying that did not stop the registration. */
     warning?: RegisterPartWarning;
-    /** Why nothing was written, absent on success. */
-    failure?: RegisterPartFailure;
     /** The manifest names to choose between, only set for `ambiguousManifest`. */
     manifests?: string[];
+    /** Never set here, the field that tells a report from a refusal. */
+    failure?: undefined;
 }
+
+/** The ship classes the part could be registered in, or nothing but the reason there are none. */
+export type RegisterPartScanResult = RegisterPartScan | { kind: 'scan'; failure: RegisterPartFailure };
+
+/** What a registration did, or nothing but the reason it did nothing. */
+export type RegisterPartApplyResult =
+    | RegisterPartApply
+    | {
+          kind: 'apply';
+          failure: RegisterPartFailure;
+          /** The manifest names to choose between, only set for `ambiguousManifest`. */
+          manifests?: string[];
+      };

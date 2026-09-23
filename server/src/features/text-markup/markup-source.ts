@@ -2,7 +2,7 @@ import { DocumentUri } from 'vscode-languageserver';
 import { documents } from '../../lsp/context';
 
 /**
- * Where the markup layer reads a file's own text from, and how it counts positions in it.
+ * The text of a file as the markup layer reads it, out of the client's open buffers.
  *
  * A value's written form and the text the parser hands on are two different strings. ObjectText
  * reads `"one" \` and the `"two"` below it as a single string, and the quote, the backslash and the
@@ -13,33 +13,13 @@ import { documents } from '../../lsp/context';
  *
  * The outline reads through here too, for the same reason: a value carried across a continuation
  * ends on a line only the file's own text can name.
- */
-export type MarkupSourceReader = (uri: DocumentUri) => string | undefined;
-
-/** The client's open buffers, which hold the current text of every file being edited. */
-const openBuffers: MarkupSourceReader = (uri) => documents.get(uri)?.getText();
-
-let readSource: MarkupSourceReader = openBuffers;
-
-/**
- * Points the markup layer at another set of buffers, for a host that keeps its own.
- *
- * @param reader the reader to ask, or undefined to go back to the client's open buffers.
- * @returns nothing.
- */
-export const useMarkupSourceReader = (reader: MarkupSourceReader | undefined): void => {
-    readSource = reader ?? openBuffers;
-};
-
-/**
- * The text of a file, as far as the markup layer can reach it.
  *
  * @param uri the file to read.
- * @returns its text, or undefined when nothing in reach holds it.
+ * @returns its text, or undefined when no open buffer holds it.
  */
 export const markupSourceOf = (uri: DocumentUri): string | undefined => {
     try {
-        return readSource(uri);
+        return documents.get(uri)?.getText();
     } catch {
         return undefined;
     }

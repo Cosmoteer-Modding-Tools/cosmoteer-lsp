@@ -4,7 +4,6 @@ import {
     AbstractNode,
     AbstractNodeDocument,
     GroupNode,
-    isAssignmentNode,
     isGroupNode,
     isListNode,
     isValueNode,
@@ -14,25 +13,8 @@ import {
 import { resolveGroupClass } from '../../document/schema/schema-context';
 import { classAncestry } from '../../document/schema/schema';
 import { RefusalConsequence, REFUSED_ENUM_RULES, RefusedEnumRule } from '../../document/schema/refused-enum-values';
+import { memberValueNamed } from '../../utils/ast.utils';
 import { ValidationError } from './validator';
-
-/**
- * The member written under `name` in a group, in both spellings the format allows.
- *
- * @param group the group to read.
- * @param name the member name, matched the case-insensitive way the game matches it.
- * @returns the member's value, or undefined when the group does not write it.
- */
-const memberOf = (group: GroupNode, name: string): AbstractNode | undefined => {
-    const wanted = name.toLowerCase();
-    for (const element of group.elements) {
-        if (isAssignmentNode(element) && element.left.name.toLowerCase() === wanted) return element.right ?? undefined;
-        if ((isGroupNode(element) || isListNode(element)) && element.identifier?.name.toLowerCase() === wanted) {
-            return element;
-        }
-    }
-    return undefined;
-};
 
 /**
  * The node a rule's member path leads to, walking group by group from the class that owns the read.
@@ -45,7 +27,7 @@ const memberAtPath = (group: GroupNode, path: readonly string[]): AbstractNode |
     let current: AbstractNode | undefined = group;
     for (const segment of path) {
         if (!current || !isGroupNode(current)) return undefined;
-        current = memberOf(current, segment);
+        current = memberValueNamed(current, segment);
     }
     return current;
 };

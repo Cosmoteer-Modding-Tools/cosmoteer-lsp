@@ -1,5 +1,6 @@
 import { Disposable, ExtensionContext, Uri, ViewColumn, Webview, WebviewPanel, window } from 'vscode';
 import { readFileSync, statSync } from 'fs';
+import { randomUUID } from 'crypto';
 
 /**
  * A scripted webview panel that keeps its page alive while hidden and may load the bundled `media`
@@ -80,20 +81,23 @@ export const imageDataUri = (fileUri: string | null): string | null => {
  * @param strings the localized text, keyed by its English source.
  * @returns a script element assigning the strings to the page's `cosmoteerStrings` global.
  */
-export const stringsScript = (nonce: string, strings: Record<string, string>): string =>
+const stringsScript = (nonce: string, strings: Record<string, string>): string =>
     `<script nonce="${nonce}">window.cosmoteerStrings = ${JSON.stringify(strings).replace(/</g, '\\u003c')};</script>`;
 
-/**
- * A random nonce for a webview content-security-policy script allowance.
- *
- * @returns a 32-character alphanumeric nonce.
- */
-const nonceString = (): string => {
-    let text = '';
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    for (let i = 0; i < 32; i++) text += chars.charAt(Math.floor(Math.random() * chars.length));
-    return text;
-};
+/** The shell pieces a panel's HTML is built from. */
+export interface WebviewShell {
+    /** The content-security-policy nonce, which also cache-busts the asset URIs. */
+    nonce: string;
+    /**
+     * The URI of a bundled asset.
+     *
+     * @param parts the path parts under `media`.
+     * @returns the webview URI to write into the page.
+     */
+    asset: (...parts: string[]) => string;
+    /** The content-security-policy admitting the bundled assets and the nonced scripts. */
+    csp: string;
+}
 
 /**
  * The shell pieces a panel's HTML is built from: a fresh nonce, a builder for the URIs of the
@@ -103,11 +107,9 @@ const nonceString = (): string => {
  * @param extensionUri the extension root, under which the bundled `media` folder lives.
  * @returns the nonce, an asset URI builder taking the path parts under `media`, and the policy.
  */
-export const webviewShell = (
-    webview: Webview,
-    extensionUri: Uri
-): { nonce: string; asset: (...parts: string[]) => string; csp: string } => {
-    const nonce = nonceString();
+export const webviewShell = (webview: Webview, extensionUri: Uri): WebviewShell => {
+    // 32 alphanumeric characters for the script allowance, which is all the nonce is read as.
+    const nonce = randomUUID().replaceAll('-', '');
     // A per-panel cache-buster so a rebuilt media script is fetched fresh, not served from the
     // webview's resource cache.
     const asset = (...parts: string[]): string =>
@@ -116,4 +118,64 @@ export const webviewShell = (
         `default-src 'none'; img-src ${webview.cspSource} blob: data:; ` +
         `style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';`;
     return { nonce, asset, csp };
+};
+
+/**
+ * The page of a panel that shows one of the bundled webviews: the document around its stylesheet,
+ * its body and its script, with the localized text written in ahead of the script.
+ *
+ * @param shell the panel's nonce, asset URI builder and content-security-policy.
+ * @param page the tab title, the stylesheet and the script under `media`, the localized text keyed
+ * by its English source, and the body's HTML.
+ * @returns the page's HTML.
+ */
+export const panelHtml = (
+    shell: WebviewShell,
+    page: { title: string; css: string; script: string; strings: Record<string, string>; body: string }
+): string => `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta http-equiv="Content-Security-Policy" content="${shell.csp}" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="stylesheet" href="${shell.asset(page.css)}" />
+<title>${page.title}</title>
+</head>
+<body>
+${page.body}
+${stringsScript(shell.nonce, page.strings)}
+<script nonce="${shell.nonce}" src="${shell.asset('dist', page.script)}"></script>
+</body>
+</html>`;
+
+/**
+ * The gate a panel posts its payloads through. A page that has not loaded its script yet drops
+ * whatever is posted to it, so the payload waits here until the page says it is listening, and the
+ * handshake sends the last one held. `listening` says whether a message the panel would rather drop
+ * than hold, such as a progress note, is worth posting at all.
+ *
+ * @param webview the panel's webview.
+ * @returns the gate: its readiness, `post` to send or hold a payload, and `ready` for the handshake.
+ */
+export const postWhenReady = (
+    webview: Webview
+): { listening: boolean; post: (message: unknown) => Promise<void>; ready: () => Promise<void> } => {
+    let held: unknown;
+    const gate = {
+        listening: false,
+        post: async (message: unknown): Promise<void> => {
+            if (!gate.listening) {
+                held = message;
+                return;
+            }
+            await webview.postMessage(message);
+        },
+        ready: async (): Promise<void> => {
+            gate.listening = true;
+            const message = held;
+            held = undefined;
+            if (message) await gate.post(message);
+        },
+    };
+    return gate;
 };

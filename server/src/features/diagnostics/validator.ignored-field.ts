@@ -15,7 +15,7 @@ import {
     IdentifierNode,
     ListNode,
     ValueNode,
-    childNodesOf,
+    descendants,
 } from '../../core/ast/ast';
 import {
     groupClassCandidates,
@@ -700,14 +700,15 @@ const report = async (
 };
 
 /**
- * Walks a node and its children, reporting every member of a group that the game ignores.
+ * Reports every member of a group below a node that the game ignores.
  *
  * @param ctx the findings, the document and the cancellation of the run.
- * @param node the node to walk.
+ * @param root the node to walk.
  */
-const visit = async (ctx: IgnoredFieldContext, node: AbstractNode): Promise<void> => {
-    if (ctx.cancellationToken.isCancellationRequested) return;
-    if (isGroupNode(node)) {
+const reportIgnoredBelow = async (ctx: IgnoredFieldContext, root: AbstractNode): Promise<void> => {
+    for (const node of descendants(root)) {
+        if (ctx.cancellationToken.isCancellationRequested) return;
+        if (!isGroupNode(node)) continue;
         for (const element of node.elements) {
             const member = namedMember(element);
             if (!member) continue;
@@ -716,8 +717,6 @@ const visit = async (ctx: IgnoredFieldContext, node: AbstractNode): Promise<void
             if (cls) await report(ctx, node, member, cls);
         }
     }
-    const children = childNodesOf(node);
-    for (const child of children) if (child) await visit(ctx, child);
 };
 
 /**
@@ -759,6 +758,6 @@ export const validateIgnoredFields = async (
         const cls = deadDeclaredIn(rootClass, memberIdentifier(member)!.name, document);
         if (cls) await report(ctx, document, member, cls);
     }
-    for (const element of document.elements) await visit(ctx, element);
+    for (const element of document.elements) await reportIgnoredBelow(ctx, element);
     return ctx.errors;
 };

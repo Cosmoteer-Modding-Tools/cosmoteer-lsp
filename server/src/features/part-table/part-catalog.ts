@@ -11,6 +11,7 @@ import {
 import { parseModActions } from '../../mod/action-parser';
 import { resolveGroupClass } from '../../document/schema/schema-context';
 import { effectiveMember } from '../../semantics/effective-member';
+import { isUnder } from '../../utils/relative-path';
 import { cachedParseFilePath, foldPathCase } from '../../workspace/fs-cache';
 import { PART_RULES_CLASS } from '../part-editor/part-fields';
 import { dirOf, locationOf, readRulesFile } from '../refactor/shared-base/base-index';
@@ -130,19 +131,6 @@ export interface PartCatalog {
     /** True when the part cap stopped the walk. */
     readonly truncated: boolean;
 }
-
-/**
- * Whether a path sits inside a directory, compared the way the filesystem matches it.
- *
- * @param path the file's path.
- * @param dir the directory to test against.
- * @returns true when the file is that directory or sits under it.
- */
-const isUnder = (path: string, dir: string): boolean => {
-    const file = foldPathCase(path.replace(/\\/g, '/'));
-    const root = foldPathCase(dir.replace(/\\/g, '/').replace(/\/+$/, ''));
-    return file === root || file.startsWith(`${root}/`);
-};
 
 /**
  * The part groups a list of `Parts` entries names, resolved against the directory the list is

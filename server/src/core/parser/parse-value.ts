@@ -1,4 +1,5 @@
 import { Token, TOKEN_TYPES } from '../lexer/lexer';
+import { walk } from './parser';
 import {
     AbstractNode,
     AstPosition,
@@ -9,12 +10,12 @@ import {
     ListNode,
     ValueNode,
     ValueNodeTypes,
+    isListNode,
     isValueNode,
 } from '../ast/ast';
 import * as l10n from '@vscode/l10n';
 import { inferValueType, IS_NUMBER } from './infer-value-type';
 import { ParserError, ParserState } from './parser.types';
-import { isListElementIdentifier } from './parse-list';
 import { continueMathExpression } from './parse-expression';
 
 /**
@@ -326,7 +327,7 @@ const parseAssignment = (
             parent,
             position: tokenPosition(token),
         } as IdentifierNode,
-        right: valueIsEmpty ? null : continueMathExpression(state, state.walk(state, _lastNode, parent), parent),
+        right: valueIsEmpty ? null : continueMathExpression(state, walk(state, _lastNode, parent), parent),
     } as AssignmentNode;
 };
 
@@ -421,10 +422,10 @@ export const parseValue = (
             // identifier element: the identifier stays its own element and the `{`/`:`
             // opens a separate anonymous element, so keep it standalone instead of making
             // it a head.
-            if (isListElementIdentifier(parent)) {
+            if (isListNode(parent)) {
                 return node;
             }
-            return state.walk(state, node, parent);
+            return walk(state, node, parent);
         }
     }
     return node;
@@ -489,7 +490,7 @@ export const parseStrayRightParen = (
 ): AbstractNode | null => {
     if (_lastNode?.type === 'Value') {
         state.current++;
-        return state.walk(state, _lastNode, parent);
+        return walk(state, _lastNode, parent);
     }
     const previous = _lastNode?.type === 'Assignment' ? (_lastNode as AssignmentNode).right : undefined;
     if (previous && isValueNode(previous) && previous.position.line === token.lineNumber && !previous.quoted) {
@@ -500,7 +501,7 @@ export const parseStrayRightParen = (
         previous.position.characterEnd = token.lineOffset + 1;
         previous.position.end = token.end ?? previous.position.end;
         state.current++;
-        return state.walk(state, _lastNode, parent);
+        return walk(state, _lastNode, parent);
     }
     state.current++;
     return {

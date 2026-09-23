@@ -1,5 +1,6 @@
 import { existsSync } from 'fs';
 import { isAbsolute, relative, resolve } from 'path';
+import { isUnder } from '../../../utils/relative-path';
 import { foldPathCase } from '../../../workspace/fs-cache';
 import { isGameRootPath, looksLikeAssetPath, PATH_TOKEN } from '../shared-base/reference-safety';
 
@@ -38,13 +39,6 @@ type FileRebase = { rebases: UnitRebase[] } | { refusal: PathRefusal; path: stri
 
 /** A path with forward slashes, so every comparison and every emitted path reads the same on every OS. */
 export const slashed = (path: string): string => path.replace(/\\/g, '/');
-
-/** Whether a path sits inside a directory, folding case the way the filesystem matches it. */
-export const isUnder = (path: string, root: string): boolean => {
-    const folded = foldPathCase(slashed(path));
-    const prefix = foldPathCase(slashed(root).replace(/\/+$/, ''));
-    return folded === prefix || folded.startsWith(`${prefix}/`);
-};
 
 /**
  * Re-express one path so the copy still names the file the original named.

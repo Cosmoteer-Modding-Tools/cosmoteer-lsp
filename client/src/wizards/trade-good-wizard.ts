@@ -2,7 +2,7 @@ import { ExtensionContext, Uri, l10n, window, workspace } from 'vscode';
 import { LanguageClient } from 'vscode-languageclient/node';
 import { creationFailureMessage, wiringNotes } from './nebula-wizard';
 import { applyForWizard, scanForWizard, wizardAnchor } from './wizard-client';
-import { escapeHtml, modFolderName, scriptJson, showWizardForm } from './wizard-form';
+import { escapeHtml, field, modFolderName, scriptJson, showWizardForm } from './wizard-form';
 import { TradeGoodApplyResult, TradeGoodForm, TradeGoodScanResult, TradeResource } from './trade-good-wizard.types';
 
 /**
@@ -131,13 +131,7 @@ const showTradeGoodForm = (
         ['rare', l10n.t('Rare'), l10n.t('Weight 5 and half a hold, as diamonds and gold. Stations keep only a trace.')],
     ];
     const fieldsHtml = `
-<div class="field">
-<label for="resource">${escapeHtml(l10n.t('Resource'))}</label>
-<select id="resource">
-${offered.map(option).join('')}
-</select>
-<div class="hint">${escapeHtml(l10n.t("Your mod's resources first, then the game's own. A game resource the game does not trade can be made tradeable here."))}</div>
-</div>
+${field('resource', l10n.t('Resource'), l10n.t("Your mod's resources first, then the game's own. A game resource the game does not trade can be made tradeable here."), `<select id="resource">${offered.map(option).join('')}</select>`)}
 <div class="field">
 <label>${escapeHtml(l10n.t('How common it is'))}</label>
 ${rarities

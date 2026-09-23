@@ -12,8 +12,8 @@ import {
 import { isModRules } from '../../document/document-kind';
 import { resolveGroupClass } from '../../document/schema/schema-context';
 import { flattenGroup } from '../../semantics/effective-group';
-import { getStartOfAstNode } from '../../utils/ast.utils';
-import { memberOf, partComponentGroupsIn } from './part-component-graph';
+import { getStartOfAstNode, memberValueNamed } from '../../utils/ast.utils';
+import { partComponentGroupsIn } from './part-component-graph';
 import { PLAIN_ID } from './validator.schema-sibling';
 import { ValidationError } from './validator';
 
@@ -88,8 +88,8 @@ const plainIdsOf = (written: AbstractNode | undefined): ValueNode[] => {
  */
 const readsOf = (group: GroupNode): ValueNode[] => {
     const cls = resolveGroupClass(group);
-    if (cls === MULTI_STORAGE_CLASS) return plainIdsOf(memberOf(group, RESOURCE_STORAGES));
-    if (cls === INLINE_CONVERTER_CLASS) return plainIdsOf(memberOf(group, FROM_STORAGE));
+    if (cls === MULTI_STORAGE_CLASS) return plainIdsOf(memberValueNamed(group, RESOURCE_STORAGES));
+    if (cls === INLINE_CONVERTER_CLASS) return plainIdsOf(memberValueNamed(group, FROM_STORAGE));
     return [];
 };
 

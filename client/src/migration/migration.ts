@@ -1,6 +1,7 @@
 import { commands, ExtensionContext, l10n, Uri, window, workspace } from 'vscode';
 import { ExecuteCommandRequest, LanguageClient } from 'vscode-languageclient/node';
-import { DiffPreviewFile, DiffPreviewProvider, showDiffPreview, showPatchPreview } from '../preview/diff-preview';
+import { DiffPreviewFile, showDiffPreview, showPatchPreview } from '../preview/diff-preview';
+import { VirtualContentProvider } from '../virtual-content-provider';
 import { MigrateSymbolArgs, MigrationSummary } from '../../../shared/migration.types';
 
 /**
@@ -13,7 +14,7 @@ import { MigrateSymbolArgs, MigrationSummary } from '../../../shared/migration.t
  * The command the server's "apply this deprecation to the whole mod" fix carries. The server does not
  * claim it, so the editor runs this instead and the rewrite is shown as a diff before it happens.
  */
-export const MIGRATE_SYMBOL_LOCAL_COMMAND = 'cosmoteer.migrateSymbolFromAction';
+const MIGRATE_SYMBOL_LOCAL_COMMAND = 'cosmoteer.migrateSymbolFromAction';
 
 /**
  * Show what a migration would do without doing it: the editor's own side-by-side diff over the files
@@ -29,7 +30,7 @@ export const MIGRATE_SYMBOL_LOCAL_COMMAND = 'cosmoteer.migrateSymbolFromAction';
  */
 async function showMigrationPreview(
     summary: MigrationSummary,
-    provider: DiffPreviewProvider,
+    provider: VirtualContentProvider,
     apply?: () => Promise<void>
 ): Promise<void> {
     const preview = summary.preview;
@@ -124,7 +125,7 @@ function migrationReport(summary: MigrationSummary): string {
 export function registerMigration(
     context: ExtensionContext,
     client: LanguageClient,
-    provider: DiffPreviewProvider
+    provider: VirtualContentProvider
 ): void {
     // Workspace migration: one command that upgrades every rules file to the current game version
     // (deprecation-registry renames, deletions, and rewrites). The server computes and applies the

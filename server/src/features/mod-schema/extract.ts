@@ -404,7 +404,6 @@ class ModSchemaExtractor {
             this.out.registries[type.fullName] = {
                 name: type.name,
                 typeField: (named(declared, 'TypeFieldName') as string) ?? 'Type',
-                valueField: (named(declared, 'ValueFieldName') as string) ?? 'Value',
                 members: {},
             };
         }
@@ -926,11 +925,7 @@ class ModSchemaExtractor {
             if (localMapped) return localMapped;
         } else {
             const enumeration = this.game.enumeration(fullName);
-            if (enumeration) {
-                const mapped: ValueType = { kind: 'enum', ref: fullName, name: enumeration.name };
-                if (enumeration.enumLike) mapped.enumLike = true;
-                return mapped;
-            }
+            if (enumeration) return { kind: 'enum', ref: fullName, name: enumeration.name };
             if (this.game.registry(fullName)) {
                 return { kind: 'polymorphicGroup', ref: fullName, name: shortName };
             }
@@ -954,7 +949,7 @@ class ModSchemaExtractor {
      */
     private mapLocalNamed(type: TypeInfo, fullName: string): ValueType | undefined {
         if (type.isEnum) {
-            this.registerEnum(fullName, type, enumMemberNames(type), false);
+            this.registerEnum(fullName, type, enumMemberNames(type));
             return { kind: 'enum', ref: fullName, name: type.name };
         }
         if (attrOf(type.attributes, BASETYPE)) return { kind: 'polymorphicGroup', ref: fullName, name: type.name };
@@ -975,10 +970,9 @@ class ModSchemaExtractor {
             this.registerEnum(
                 fullName,
                 type,
-                constants.map((f) => f.name),
-                true
+                constants.map((f) => f.name)
             );
-            return { kind: 'enum', ref: fullName, name: type.name, enumLike: true };
+            return { kind: 'enum', ref: fullName, name: type.name };
         }
         const constructor = type.methods.find(
             (m) =>
@@ -997,11 +991,9 @@ class ModSchemaExtractor {
     }
 
     /** Record a mod enum the first time a field references it. */
-    private registerEnum(fullName: string, type: TypeInfo, members: string[], enumLike: boolean): void {
+    private registerEnum(fullName: string, type: TypeInfo, members: string[]): void {
         if (this.out.enums[fullName]) return;
-        const def: SchemaEnum = { name: type.name, members };
-        if (enumLike) def.enumLike = true;
-        this.out.enums[fullName] = def;
+        this.out.enums[fullName] = { name: type.name, members };
     }
 }
 

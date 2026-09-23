@@ -12,6 +12,7 @@ import { classAncestry } from '../../document/schema/schema';
 import { fieldSnippet } from '../completion/autocompletion.schema-fields';
 import { memberIndentAt, placeholderValue } from '../diagnostics/required-field-insert';
 import { memberNameOf } from '../../document/reference-resolver';
+import { lineEndingOf } from '../refactor/command-host';
 import { memberSpanOf } from '../refactor/shared-base/member-record';
 import { closerOffset, memberIndentOf, openerOffset, pastTrailingRun } from '../refactor/rules-edit';
 import { resolveSchemaSearchContext } from './schema-search';
@@ -176,7 +177,7 @@ export const buildInsertSchemaFieldEdit = async (
         entry.field.valueType,
         placeholderValue(entry.field.valueType) ?? ''
     );
-    const lineEnding = text.includes('\r\n') ? '\r\n' : '\n';
+    const lineEnding = lineEndingOf(text);
     const body = snippet
         .split('\n')
         .map((line) => `${placement.indent}${line}`)

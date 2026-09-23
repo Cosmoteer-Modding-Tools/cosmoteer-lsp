@@ -4,9 +4,9 @@ import { findReferences } from '../../../src/features/navigation/reference-index
 import { rename } from '../../../src/features/navigation/rename.service';
 import { getDefinition } from '../../../src/features/navigation/definition.service';
 import { AbstractNode, AbstractNodeDocument, isAssignmentNode, isMathExpressionNode } from '../../../src/core/ast/ast';
-import { parseFilePath, findNodeByIdentifier } from '../../../src/utils/ast.utils';
+import { parseFilePath } from '../../../src/utils/ast.utils';
+import { findNodeByIdentifier, singleLocation } from '../../helpers';
 import { initWorkspace, WORKSPACE_DATA_DIR, workspaceFile } from '../../workspace-helper';
-import { singleLocation } from '../../helpers';
 
 // A `&`-reference embedded in a math expression (`Doubled = (&Base) * 2`) must be a first-class
 // reference for navigation, references and rename, not invisible because the RHS is an expression.
@@ -24,7 +24,9 @@ const firstEmbeddedBase = (doc: AbstractNodeDocument): AbstractNode => {
     const doubled = calc.elements.find((e) => isAssignmentNode(e) && e.left.name === 'Doubled');
     const expr = isAssignmentNode(doubled!) ? doubled!.right : doubled!;
     const ref = isMathExpressionNode(expr)
-        ? expr.elements.find((el) => 'valueType' in el && (el as { valueType: { value: unknown } }).valueType.value === '&Base')
+        ? expr.elements.find(
+              (el) => 'valueType' in el && (el as { valueType: { value: unknown } }).valueType.value === '&Base'
+          )
         : undefined;
     return ref as AbstractNode;
 };

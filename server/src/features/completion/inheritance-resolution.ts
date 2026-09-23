@@ -4,10 +4,9 @@ import {
     AbstractNodeDocument,
     GroupNode,
     ValueNode,
-    isAssignmentNode,
+    descendants,
     isDocumentNode,
     isGroupNode,
-    isListNode,
 } from '../../core/ast/ast';
 import { getStartOfAstNode } from '../../utils/ast.utils';
 import {
@@ -195,14 +194,6 @@ export const warmInheritedClasses = async (
  */
 const derivingGroupsOf = (document: AbstractNodeDocument): GroupNode[] => {
     const found: GroupNode[] = [];
-    const visit = (node: AbstractNode): void => {
-        if (isGroupNode(node) && node.inheritance?.length) found.push(node);
-        const children = isGroupNode(node) || isListNode(node) || isDocumentNode(node) ? node.elements : [];
-        for (const child of children) {
-            const container = isAssignmentNode(child) ? child.right : child;
-            if (container) visit(container);
-        }
-    };
-    visit(document);
+    for (const node of descendants(document)) if (isGroupNode(node) && node.inheritance?.length) found.push(node);
     return found;
 };

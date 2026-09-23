@@ -174,21 +174,11 @@ export class CosmoteerWorkspaceService {
      * @returns the verified Cosmoteer `Data` path, or `undefined` when detection fails.
      */
     private async detectCosmoteerPath(): Promise<string | undefined> {
-        for (const steamInstallPath of await this.getSteamInstallPaths()) {
+        for (const steamInstallPath of await steamInstallPaths()) {
             const dataPath = await findCosmoteerDataPath(steamInstallPath);
             if (dataPath) return dataPath;
         }
         return undefined;
-    }
-
-    /**
-     * Resolves the Steam client install dir candidates for the current platform. On Windows this
-     * is the registry's `InstallPath` value, elsewhere the conventional install locations.
-     *
-     * @returns the candidate Steam client dirs, empty when none could be resolved.
-     */
-    private async getSteamInstallPaths(): Promise<string[]> {
-        return steamInstallPaths();
     }
 
     /**
