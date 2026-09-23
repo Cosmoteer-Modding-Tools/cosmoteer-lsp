@@ -166,7 +166,7 @@ const actionLines = (action: ActionVerdict): string[] => {
 const disclosureLines = (disclosures: readonly Disclosure[]): string[] => {
     const lines = ['  What this check could not see here'];
     if (disclosures.length === 0) {
-        lines.push('    Nothing. Every action was judged.', '');
+        lines.push('    Nothing. Every action was judged, and so was every file it adds content from.', '');
         return lines;
     }
     const byReason = new Map<string, Disclosure[]>();

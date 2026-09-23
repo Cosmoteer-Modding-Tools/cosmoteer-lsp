@@ -29,4 +29,18 @@ Actions : &<fragment_actions.rules>/FragmentActions
 		Name = SWAddedIndicator
 		ToAdd = "logo.png"
 	}
+	// The two-step namespace idiom: an Add creates the global from a whole file, then an Overrides
+	// merges the real content into it. The game applies both in order over one merged file, so the
+	// override's members land in the file the Add named.
+	{
+		Action = Add
+		AddTo = <cosmoteer.rules>
+		Name = TWOSTEP
+		ToAdd = &<twostep_ns.rules>
+	}
+	{
+		Action = Overrides
+		OverrideIn = <cosmoteer.rules>/TWOSTEP
+		Overrides = &<twostep_members.rules>
+	}
 ]

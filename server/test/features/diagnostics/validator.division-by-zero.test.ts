@@ -70,6 +70,38 @@ describe('division by zero', () => {
         expect(await findings('Density = &~/Missing / &~/AlsoMissing')).toEqual([]);
     });
 
+    it('reads a field whose class binds the whole value to a number', async () => {
+        // `ConstructionSwapDelay` is a `Halfling.Timing.Time`, whose scalar shorthand is the only
+        // spelling anyone writes, and the class reads it into a double.
+        expect(await findings('ConstructionSwapDelay = 1 / 0')).toEqual([
+            "This value divides by zero, so the game stores NaN in 'ConstructionSwapDelay' instead of a number.",
+        ]);
+        expect(await severities('ConstructionSwapDelay = 1 / 0')).toEqual(['warning']);
+    });
+
+    it('says nothing about the same field when the division works out', async () => {
+        expect(await findings('ConstructionSwapDelay = 1 / 4')).toEqual([]);
+    });
+
+    it('says nothing about a time written on the clock, which the evaluator reads as no number', async () => {
+        // `Time`'s own deserializer splits a value carrying a colon and parses each part on its
+        // own, so a division written beside the colon never reaches the game's arithmetic at all.
+        // Every clock spelling reaches this pass, since the slot is numeric and the text divides.
+        // The evaluator is what answers no number, and these pin that.
+        expect(await findings('ConstructionSwapDelay = 1:30/0')).toEqual([]);
+        expect(await findings('ConstructionSwapDelay = 1:30 / 0')).toEqual([]);
+        expect(await findings('ConstructionSwapDelay = 0:0/0')).toEqual([]);
+        expect(await findings('ConstructionSwapDelay = 1:2:30/0')).toEqual([]);
+        expect(await findings('ConstructionSwapDelay = 1:30 # 0')).toEqual([]);
+        expect(await findings('ConstructionSwapDelay = 1:30/(2-2)')).toEqual([]);
+    });
+
+    it('says nothing about a class the schema states no numeric value form for', async () => {
+        // `DirectionalCrewSpeeds` reads a bare value too, but the schema does not yet say what it
+        // reads it into, and a guess there would word the finding about the wrong thing.
+        expect(await findings('CrewSpeedFactor = 1 / 0')).toEqual([]);
+    });
+
     it('says nothing about a field that reads text', async () => {
         expect(await findings('Name = 10/0')).toEqual([]);
     });

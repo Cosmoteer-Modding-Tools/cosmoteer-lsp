@@ -1,6 +1,20 @@
 import { CancellationToken } from 'vscode-languageserver';
-import { AbstractNode, AbstractNodeDocument, GroupNode, isGroupNode } from '../../../core/ast/ast';
-import { registryOf, requiredFieldsOf } from '../../../document/schema/schema';
+import {
+    AbstractNode,
+    AbstractNodeDocument,
+    GroupNode,
+    isAssignmentNode,
+    isGroupNode,
+    isListNode,
+} from '../../../core/ast/ast';
+import {
+    componentSatisfiesKind,
+    fieldOf,
+    registryOf,
+    requiredFieldsOf,
+    scalarPayloadFieldOf,
+} from '../../../document/schema/schema';
+import { classOfGroup, registryForContainer, resolveGroupClass } from '../../../document/schema/schema-context';
 import { findModRoot } from '../../../mod/mod-root';
 import { globalSettings } from '../../../settings';
 import { parseText } from '../../../utils/ast.utils';
@@ -138,6 +152,68 @@ const declares = (container: AbstractNodeDocument | GroupNode, name: string): bo
     });
 
 /**
+ * The field a reference is written for: the name of the member the offset sits in, whichever shape
+ * the member takes, and the group writing it.
+ *
+ * @param document the parsed document.
+ * @param offset the byte offset the reference sits at.
+ * @returns the group and the field name, or undefined when the offset is in no named member.
+ */
+const slotAt = (document: AbstractNodeDocument, offset: number): { group: GroupNode; field: string } | undefined => {
+    const chain = groupChain(document, offset);
+    const group = chain[chain.length - 1];
+    if (!group) return undefined;
+    for (const element of group.elements) {
+        const span = memberSpanOf(element);
+        if (!span || offset < span.start || offset >= span.end) continue;
+        if (isAssignmentNode(element)) return { group, field: element.left.name };
+        // A brace-form list (`ResourceCheckEmitters [ A, B ]`) names components exactly like the
+        // assignment form does, and the engine reads the same field for it.
+        if (isListNode(element) && element.identifier) return { group, field: element.identifier.name };
+        return undefined;
+    }
+    return undefined;
+};
+
+/**
+ * The runtime kind the component a field names has to be, whichever shape the field is written in:
+ * stated on the field itself, or on the member a scalar-form group reads the bare value into.
+ *
+ * @param cls the declaring class FullName.
+ * @param field the field the reference is written for.
+ * @returns the kind index, or undefined for a field whose kind the schema does not state.
+ */
+const expectedKindOf = (cls: string, field: string): number | undefined => {
+    const declared = fieldOf(cls, field);
+    if (!declared) return undefined;
+    if (declared.expectedComponent) return declared.expectedComponent.kind;
+    return declared.valueType.kind === 'group'
+        ? scalarPayloadFieldOf(declared.valueType.ref)?.expectedComponent?.kind
+        : undefined;
+};
+
+/**
+ * The kind the slot the reference sits in requires, which is what narrows two hundred component
+ * kinds down to the ones the game will accept there.
+ *
+ * The part throws while it is being built when the component a slot names is of the wrong kind
+ * (`Part.GetComponent<T>` casts and refuses), so a kind the slot cannot take is not a choice, it is
+ * a crash the author has not reached yet.
+ *
+ * @param document the parsed document.
+ * @param offset the byte offset the reference sits at.
+ * @returns the kind index, or undefined when the slot states none and every kind stays on offer.
+ */
+const slotKindAt = (document: AbstractNodeDocument, offset: number): number | undefined => {
+    const slot = slotAt(document, offset);
+    if (!slot) return undefined;
+    const container = slot.group.parent;
+    const registry = container && isGroupNode(container) ? registryForContainer(container) : undefined;
+    const cls = (registry ? classOfGroup(slot.group, registry.name) : undefined) ?? resolveGroupClass(slot.group);
+    return cls ? expectedKindOf(cls, slot.field) : undefined;
+};
+
+/**
  * The declaration to write for one component kind: its `Type`, then every field the game throws
  * without, each carrying a tab stop so the author walks them in order.
  *
@@ -204,7 +280,12 @@ export const createComponent = async (
     if (!registry) return { failure: 'noOwner' };
 
     if (!args.type) {
+        const kind = slotKindAt(document, args.offset);
         const choices = Object.entries(registry.members)
+            // A kind the bundle cannot judge stays on offer, the eight classes it records no
+            // capabilities for and every class a code mod brings. Hiding those would refuse a
+            // declaration the game accepts, which is worse than offering one it does not.
+            .filter(([, cls]) => kind === undefined || componentSatisfiesKind(cls, kind) !== false)
             .map(([type, cls]) => ({ type, detail: cls }))
             .sort((left, right) => left.type.localeCompare(right.type));
         return { choices };

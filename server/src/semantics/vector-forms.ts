@@ -57,16 +57,33 @@ export const numberOf = (node: AbstractNode | null | undefined): number | null =
 
 /**
  * A direct child of a group by member name: an assignment's value or an identified group/list.
+ *
+ * `OTGroupNode` keys its children with `StringComparer.InvariantCultureIgnoreCase`, so the game
+ * reads vanilla's `OffSet` as `Offset`. The match here folds case the same way `stepIntoNode` does,
+ * exact spelling first so two members differing only by case still resolve precisely.
+ *
  * @param group the group to look in.
- * @param name the member name (exact match, the forms the editor writes are case-preserving).
+ * @param name the member name.
  * @returns the member's value node, or null.
  */
 export const childNamed = (group: GroupNode, name: string): AbstractNode | null => {
+    let folded: AbstractNode | null = null;
+    const lower = name.toLowerCase();
     for (const element of group.elements) {
-        if (isAssignmentNode(element) && element.left.name === name && element.right) return element.right;
-        if ((isGroupNode(element) || isListNode(element)) && element.identifier?.name === name) return element;
+        let written: string | undefined;
+        let value: AbstractNode | null = null;
+        if (isAssignmentNode(element)) {
+            written = element.left.name;
+            value = element.right;
+        } else if (isGroupNode(element) || isListNode(element)) {
+            written = element.identifier?.name;
+            value = element;
+        }
+        if (written === undefined || !value) continue;
+        if (written === name) return value;
+        if (folded === null && written.toLowerCase() === lower) folded = value;
     }
-    return null;
+    return folded;
 };
 
 /**

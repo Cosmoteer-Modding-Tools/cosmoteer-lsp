@@ -51,6 +51,7 @@ import {
     schemaReferenceFieldOf,
 } from './schema-id-reference.navigation';
 import { resolveSchemaSiblingReference, stringValueNodesOf, valueTextRange } from './schema-reference.navigation';
+import { componentDeclarationAt, componentDeclarationIdOf, componentIdSites } from './rename-component-id';
 
 /** A cross-file id under the cursor: the written id and the class the cursor's site names. */
 interface CrossFileIdCursor {
@@ -80,6 +81,10 @@ interface HighlightSymbol {
      * occurrence, and the one the reader is looking at, so it is always part of the answer.
      */
     readonly cursorRange?: Range;
+    /** The id this symbol is named by part-wide, when it is a component declaration of this file. */
+    readonly componentId?: string;
+    /** The declaring node itself, which bounds the part the component slots are looked for in. */
+    readonly declarationNode?: AbstractNode;
 }
 
 /** The highlights computed for one document version, keyed by the cursor position that asked for them. */
@@ -218,9 +223,14 @@ const channelHighlights = (document: AbstractNodeDocument, channel: ChannelOccur
  *
  * @param document the parsed document to search.
  * @param cursor the id under the cursor and the class its site names.
+ * @param cursorNode the node the cursor resolves to, the part a component declaration is looked for in.
  * @returns the doc-local sites, uses as reads and the declaration as a write.
  */
-const idHighlights = (document: AbstractNodeDocument, cursor: CrossFileIdCursor): DocumentHighlight[] => {
+const idHighlights = (
+    document: AbstractNodeDocument,
+    cursor: CrossFileIdCursor,
+    cursorNode: AbstractNode | null
+): DocumentHighlight[] => {
     const highlights: DocumentHighlight[] = [];
     for (const value of stringValueNodesOf(document)) {
         const reference = schemaReferenceFieldOf(value);
@@ -241,6 +251,11 @@ const idHighlights = (document: AbstractNodeDocument, cursor: CrossFileIdCursor)
             highlights.push({ range: rangeOf(declaration.node), kind: DocumentHighlightKind.Write });
         }
     }
+    // A part component is declared as a named member of the part rather than by an `ID` field, so
+    // the declaration the uses name is not among the ones collected above. Without it the reader
+    // clicking a component id sees every use of it and never the component itself.
+    const component = componentDeclarationAt(cursorNode);
+    if (component) highlights.push({ range: declarationNameRange(component), kind: DocumentHighlightKind.Write });
     return dedupeHighlights(highlights);
 };
 
@@ -274,7 +289,7 @@ const resolveHighlightSymbol = async (
         target = resolved;
         cursorRange = segmentNameRange(cursorNode, span);
     } else {
-        target = resolveSchemaSiblingReference(cursorNode) ?? cursorNode;
+        target = resolveSchemaSiblingReference(cursorNode) ?? componentDeclarationAt(cursorNode) ?? cursorNode;
     }
 
     const name = definitionNameOf(target);
@@ -286,6 +301,8 @@ const resolveHighlightSymbol = async (
         name,
         declarationRange: inThisDocument ? declarationNameRange(target) : undefined,
         cursorRange,
+        componentId: componentDeclarationIdOf(target),
+        declarationNode: target,
     };
 };
 
@@ -339,6 +356,14 @@ const referenceHighlights = async (
         }
     }
 
+    // Every slot of the part naming this component, from the other side: the reader clicked the
+    // declaration, and the sibling resolution above types only some of the slots that name it.
+    if (symbol.componentId !== undefined && symbol.declarationNode) {
+        for (const site of componentIdSites(symbol.declarationNode, symbol.componentId)) {
+            highlights.push({ range: valueTextRange(site), kind: DocumentHighlightKind.Read });
+        }
+    }
+
     if (symbol.cursorRange) {
         highlights.push({ range: symbol.cursorRange, kind: DocumentHighlightKind.Read });
     }
@@ -366,7 +391,7 @@ const computeHighlights = async (
     // class alone, so the answer needs neither the project scan nor any disk access.
     const idCursor = crossFileIdAt(document, position, cursorNode);
     if (idCursor) {
-        const highlights = idHighlights(document, idCursor);
+        const highlights = idHighlights(document, idCursor, cursorNode);
         return highlights.length ? highlights : null;
     }
 

@@ -4,6 +4,8 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
 import { collectFileMigration } from '../../../src/features/migration/migrate-workspace';
+import { filePathToUri } from '../../../src/document/reference-path';
+import { initWorkspace, workspaceFile } from '../../workspace-helper';
 
 // The workspace migration's per-file collector: migration-tagged findings become text edits (the
 // exact same fixes the interactive quick fixes offer), fix-less findings become manual-review
@@ -102,5 +104,18 @@ describe('collectFileMigration', () => {
         expect(applied).toContain('UnderlyingPartPerTile = cosmoteer.structure');
         expect(applied).toContain('Type = ResourceConsumer');
         expect(Object.values(result.byVersion).reduce((a, b) => a + b, 0)).toBe(3);
+    });
+
+    // The class of this group is written nowhere in its own file: it is only known once the base in
+    // the other file has been read. The editor reports that rename there, so a migration that says it
+    // has finished has to have written it.
+    it('migrates a group whose class comes only from a base in another file', async () => {
+        await initWorkspace();
+        const uri = filePathToUri(workspaceFile('parts', 'inherited_probe.rules'));
+        const before = ['Shot : &<./Data/parts/base_part.rules>/Part', '{', '\tCreatePartWhenDestroyed = x', '}', ''];
+        const after = ['Shot : &<./Data/parts/base_part.rules>/Part', '{', '\tUnderlyingPart = x', '}', ''];
+        const { result, applied } = await migrate(before.join('\n'), uri);
+        expect(applied).toBe(after.join('\n'));
+        expect(result.byVersion['0.23.0']).toBe(1);
     });
 });

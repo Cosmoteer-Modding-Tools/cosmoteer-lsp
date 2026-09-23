@@ -5,6 +5,7 @@ import { isAssetValue, resolveAssetPath } from '../navigation/asset-resolver';
 import { filePathToUri } from '../../document/reference-path';
 import { findReferenceTargetAtPosition } from '../navigation/reference-index';
 import { resolveSchemaSiblingReference } from '../navigation/schema-reference.navigation';
+import { componentDeclarationAt } from '../navigation/rename-component-id';
 import { resolvePartComponentDeclaration } from '../diagnostics/validator.schema-sibling';
 import { resolveSchemaIdReference } from '../navigation/schema-id-reference.navigation';
 import { evaluateNumericValueTraced } from '../../semantics/value-evaluator';
@@ -83,6 +84,7 @@ export const getHover = async (
         // cross-file whole-file root. Surface where it resolves, just like a `&`-reference.
         const sibling =
             resolveSchemaSiblingReference(node) ??
+            componentDeclarationAt(node) ??
             (await resolvePartComponentDeclaration(node, cancellationToken).catch(() => undefined));
         if (sibling) {
             const described = describeTarget(sibling);

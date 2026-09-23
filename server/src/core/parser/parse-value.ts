@@ -40,6 +40,14 @@ const NAME_FOLLOWERS: ReadonlySet<TOKEN_TYPES> = new Set([
 const HAS_WHITESPACE = /\s/;
 
 /**
+ * Matches the punctuation that reads as ordinary text inside a value and that the game's tokenizer
+ * refuses where a member name belongs. Its name text is `[0-9A-Za-z_.]`, and running `A#B = 1`,
+ * `A@B = 1` and `A?B = 1` through the shipped HalflingCore parser answers `Unexpected "#"`,
+ * `Unexpected "@"` and `Unexpected "?"`, each of which drops the whole file.
+ */
+const REFUSED_IN_NAME = /[#@$?|`]/;
+
+/**
  * The span a single-token node covers, as the token's own extent.
  *
  * @param token the token the node is built from.
@@ -52,6 +60,66 @@ const tokenPosition = (token: Token): AstPosition => ({
     line: token.lineNumber,
     start: token.start,
 });
+
+/**
+ * The tokens that make the value token in front of them the head of a member rather than a word of
+ * the value before it. The game does fold such a member into the value it follows, which is a typo
+ * the parser refuses to reproduce: the member would disappear from the tree and the mistake would
+ * be reported on a line the author never touched.
+ */
+const MEMBER_HEAD_FOLLOWERS: ReadonlySet<TOKEN_TYPES> = new Set([
+    TOKEN_TYPES.EQUALS,
+    TOKEN_TYPES.COLON,
+    TOKEN_TYPES.LEFT_BRACE,
+    TOKEN_TYPES.LEFT_BRACKET,
+]);
+
+/**
+ * Joins the value tokens that carry on the one the cursor sits on. A value runs to the end of its
+ * line, and two things split it without ending it: a `\`, which the game reads as spacing and which
+ * suppresses the line break after it, and a block comment between two words. The game joins the
+ * pieces into one value separated by a single space, so `A = 1 \ <newline> 2` and `A = 1 /* c *\/ 2`
+ * are both the value `1 2`, and inside a list they are one element rather than two.
+ *
+ * @param state the parse state, positioned one past the first value token.
+ * @param token the value token the run starts on.
+ * @returns the joined text and the last token the run consumed.
+ */
+const joinContinuedValue = (state: ParserState, token: Token): { text: string; last: Token } => {
+    const { tokens } = state;
+    let text = token.value as string;
+    let last = token;
+    for (;;) {
+        const next = tokens[state.current];
+        if (!next || next.type !== TOKEN_TYPES.VALUE || next.precededByNewline) break;
+        const following = tokens[state.current + 1];
+        if (following && MEMBER_HEAD_FOLLOWERS.has(following.type)) break;
+        text += ` ${next.value as string}`;
+        last = next;
+        state.current++;
+    }
+    return { text, last };
+};
+
+/**
+ * The span of a value assembled from a run of tokens, from the first token's start to the last
+ * one's end. The joined text is shorter than the span it covers, the same way a concatenated
+ * quoted value is, since the `\` and the comment between the pieces are spacing.
+ *
+ * @param token the first token of the run.
+ * @param last the last token of the run.
+ * @returns the node position.
+ */
+const runPosition = (token: Token, last: Token): AstPosition => {
+    const end = last.end ?? last.start;
+    return {
+        characterEnd: token.lineOffset + (end - token.start),
+        characterStart: token.lineOffset,
+        end,
+        line: token.lineNumber,
+        start: token.start,
+    };
+};
 
 /**
  * Whether the token continues the previous line through a `\`, which suppresses the newline. The
@@ -91,7 +159,40 @@ const reportInvalidMemberName = (
     // A `\` continuation glues the next line onto this value, so nothing in the run is a name.
     if (continuesPreviousLine(token, previous)) return;
     const { errors } = state;
+    if (token.invisibleChar !== undefined) {
+        const at = token.invisibleCharStart ?? token.start;
+        errors.push({
+            message: l10n.t(
+                'The invisible character {0} stands where a member name belongs',
+                `U+${token.invisibleChar.toString(16).toUpperCase().padStart(4, '0')}`
+            ),
+            token: { ...token, start: at, end: at + 1 },
+            additionalInfo: [
+                {
+                    message: l10n.t(
+                        'The game reads only a tab, a space and a line break as spacing, so it stops on this character and fails to load the whole file. Delete it, or replace it with a plain space.'
+                    ),
+                },
+            ],
+        } as ParserError);
+        return;
+    }
     const name = typeof token.value === 'string' ? token.value : '';
+    const refused = REFUSED_IN_NAME.exec(name);
+    if (refused) {
+        errors.push({
+            message: l10n.t('Unexpected "{0}"', refused[0]),
+            token,
+            additionalInfo: [
+                {
+                    message: l10n.t(
+                        'The game reads only letters, digits, "_" and "." in a member name, so it stops on this character and fails to load the whole file. It reads the same character as ordinary text on the right of an "=".'
+                    ),
+                },
+            ],
+        } as ParserError);
+        return;
+    }
     if (!numbersAllowed && IS_NUMBER.test(name)) {
         errors.push({
             message: l10n.t('A number cannot name a member'),
@@ -153,7 +254,16 @@ const parseAssignment = (
     const { tokens, errors } = state;
     // A name with a space in it is one the game refuses, whatever follows it. `Foo Bar {}` was
     // already reported and `Foo Bar = 1` was not, although the game stops on both.
-    reportInvalidMemberName(state, token, tokens[state.current], tokens[state.current - 2], true);
+    //
+    // A number may name the left side of an `=` only inside a `[ … ]` list, where the game reads
+    // the whole line as one text element and `0 = 2` is simply the text `"0 = 2"`. In a group or at
+    // the document top level it is a hard parse failure: the game's identifier may not start with a
+    // digit, and running `G { 0 = 2 }` through the shipped HalflingCore parser answers
+    // `Unexpected "0" at position Line=3,Char=2`. That is what makes a list-typed slot written as
+    // `Resources { 0 = [steel, 32] }` and a vector written as `Size { 0 = 2; 1 = 2 }` unreadable,
+    // whatever their schema slot says.
+    reportInvalidMemberName(state, token, tokens[state.current], tokens[state.current - 2], parent?.type === 'List');
+    const equals = tokens[state.current];
     state.current++;
     if (state.current >= tokens.length) {
         errors.push({
@@ -184,6 +294,28 @@ const parseAssignment = (
         next.type === TOKEN_TYPES.RIGHT_BRACKET ||
         next.type === TOKEN_TYPES.SEMICOLON ||
         next.type === TOKEN_TYPES.COMMA;
+    // The game hunts for the value past the line break and takes whatever it finds first, so a `}`
+    // standing there becomes the value and the group never closes. Running the shipped HalflingCore
+    // parser over `G { A = }` answers `Unexpected EOF`, and the same shape with one more `}` below
+    // it loads with `A` holding `"}"`. Our parse leaves the slot empty instead, so the file keeps
+    // its shape while the report says the game will not read it. A `]` is not the same case: inside
+    // a list there is no assignment to leave dangling and the game reads the whole line as one
+    // element, so only the brace is reported. A member on a line an earlier empty `=` already
+    // swallowed is not reported either, since the game never reads it as a member at all.
+    if (next.type === TOKEN_TYPES.RIGHT_BRACE && state.swallowedValueLine !== token.lineNumber) {
+        errors.push({
+            message: l10n.t('This "=" has no value, so the game reads the closing brace as one'),
+            token: equals,
+            additionalInfo: [
+                {
+                    message: l10n.t(
+                        'The value slot takes the next thing the game finds, which here is the "}" that closes the group. The group then never closes and the whole file fails to load. Write the value, or delete the "=".'
+                    ),
+                },
+            ],
+        } as ParserError);
+    }
+    state.swallowedValueLine = nextStartsNewMember ? next.lineNumber : undefined;
     return {
         type: 'Assignment',
         assignmentType: 'Equals',
@@ -244,11 +376,13 @@ export const parseValue = (
                 tokens[state.current]?.type !== TOKEN_TYPES.LEFT_BRACKET &&
                 tokens[state.current]?.type !== TOKEN_TYPES.COLON))
     ) {
+        const run = joinContinuedValue(state, token);
+        const joined = run.last === token ? token : ({ ...token, value: run.text, end: run.last.end } as Token);
         node = {
             type: 'Value',
-            valueType: inferValueType(token),
+            valueType: inferValueType(joined),
             parent,
-            position: tokenPosition(token),
+            position: run.last === token ? tokenPosition(token) : runPosition(token, run.last),
         } as ValueNode;
     } else {
         node = {

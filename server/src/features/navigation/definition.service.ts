@@ -11,6 +11,7 @@ import { dedupeLocations, definitionLocationOf } from '../../document/reference-
 import { splitVirtualColon } from '../../utils/reference.utils';
 import { resolveVirtualInheritanceTargets } from '../../semantics/inheritor-resolver';
 import { resolveSchemaSiblingReference } from './schema-reference.navigation';
+import { componentDeclarationAt } from './rename-component-id';
 import { resolvePartComponentDeclaration } from '../diagnostics/validator.schema-sibling';
 import {
     resolveSchemaIdReference,
@@ -60,6 +61,11 @@ export const getDefinition = async (
     // identifier, not a `&`-reference. Resolve it via the schema to the sibling component group.
     const sibling = resolveSchemaSiblingReference(node);
     if (sibling) return definitionLocationOf(sibling);
+    // The same id written in a slot the sibling resolution does not type: a field of the `Part` group
+    // itself, a bare list element, a group written as a list element. The engine resolves all of them
+    // part-wide, so the declaration is looked for in the part the slot sits in.
+    const component = componentDeclarationAt(node);
+    if (component) return definitionLocationOf(component);
     // The same-file search missed: a component declared in an inherited base part, an include or
     // an override target still resolves through the part-wide walk validation and completion use.
     const partWide = await resolvePartComponentDeclaration(node, cancellationToken).catch(() => undefined);

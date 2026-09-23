@@ -19,7 +19,7 @@
  * `Texture` (the only dual-form image type in the engine). See `resolveGroupClass` in
  * `schema-context.ts`. So no per-field rewrite of the (many) `Texture`-typed fields is needed.
  */
-import { SchemaBundle, SchemaEnum, SchemaField, SchemaTypeDef } from './schema.types';
+import { SchemaBundle, SchemaEnum, SchemaField, SchemaTypeDef, ValueType } from './schema.types';
 
 /** The class an image-asset slot resolves to when it is written as a group rather than a bare path. */
 export const TEXTURE_GROUP_CLASS = 'Halfling.Graphics.Texture';
@@ -103,6 +103,11 @@ const OVERLAY_TYPES: Record<string, SchemaTypeDef> = {
         namespace: 'Halfling.Graphics',
         // Transcribed from Halfling.Graphics.Texture's ObjectText deserializer (the `Read` path):
         // every field is read via `TryReadFromPath`, so all are optional.
+        // Twelve keys, and `PreMultiplyByAlpha` is deliberately not one of them: 30 vanilla files and
+        // 148 Star Wars mod files write it, but `TextureFactory` reads `MultiplyByAlpha` and the other
+        // name appears nowhere in either assembly, so it was modelled from the data rather than from
+        // the reader. Offering a key the game discards is worse than not recognizing one, and the
+        // sprite copy of the same name is already recorded as dead further down.
         fields: [
             { name: 'File', valueType: { kind: 'asset', assetKind: 'image' }, optional: true },
             // Either an integer count or the literal `max`, hence a permissive scalar (not `int`).
@@ -114,7 +119,6 @@ const OVERLAY_TYPES: Record<string, SchemaTypeDef> = {
             },
             { name: 'FixTransparentColors', valueType: { kind: 'bool' }, optional: true },
             { name: 'MultiplyByAlpha', valueType: { kind: 'bool' }, optional: true },
-            { name: 'PreMultiplyByAlpha', valueType: { kind: 'bool' }, optional: true },
             {
                 name: 'Compression',
                 valueType: { kind: 'enum', ref: 'Halfling.Graphics.CompressionFormat', name: 'CompressionFormat' },
@@ -173,6 +177,19 @@ const OVERLAY_FIELD_ADDITIONS: Record<string, SchemaField[]> = {
             optional: true,
         },
         { name: 'Db', valueType: { kind: 'range', element: { kind: 'float' } }, optional: true },
+    ],
+    // A widget's `Children` group holds the child widgets under `Widgets`, read by the non-generic
+    // `TryReadContentFromPath("Widgets", this, typeof(IList<TChild>))` in `WidgetChildren`1`'s
+    // `ReadContentFrom`, a call shape schemagen's read scan does not recognize. The class is marked
+    // purely reflective, so without the member a gui mod writing the one key that holds the children
+    // was told the game ignores it. Opaque because the list elements are widgets selected by a full
+    // C# type name rather than by a registry discriminator, which no modelled type stands for.
+    'Halfling.Gui.Components.Children.WidgetChildren`1': [
+        {
+            name: 'Widgets',
+            valueType: { kind: 'opaque', type: 'IList<Widget>' },
+            optional: true,
+        },
     ],
     // `IntColor` reflects its byte `R`/`G`/`B`/`A`, but its content deserializer also reads float
     // `Rf`/`Gf`/`Bf`/`Af` (0..1) and `H`/`S`/`V`, the spelling vanilla overwhelmingly uses.
@@ -460,6 +477,25 @@ const OVERLAY_REQUIRED_FIELDS: Record<string, string[]> = {
 };
 
 /**
+ * Slots schemagen typed from the C# member while the game's own deserializer reads the group as
+ * something wider, so the extracted type is a subset of what the file may write.
+ *
+ * Unlike the additions above this overwrites, so each entry needs the read traced in the decompile.
+ */
+const OVERLAY_FIELD_TYPES: Record<string, Record<string, ValueType>> = {
+    // `ShipSpawner`'s custom read builds one `AIInfo` out of three reads of the same `AI` group:
+    // `ReadFromPath<ID<ShipAIRules>>("AI/Type")`, `ReadFromPath<AIParameters>("AI")` and
+    // `ReadOptionalFromPath<SpawnedObjectSearch>("AI/PatrolOriginTag")`. schemagen recorded the
+    // middle one as the member's type and the other two as the unwritable names `AI/Type` and
+    // `AI/PatrolOriginTag` (dropped below), which left `Type = Wandrer` unchecked as an AI id and
+    // `PatrolOriginTag` out of completion. `AIInfo` is the class the engine assembles and it inlines
+    // `AIParameters`, so it stands for the whole group, exactly as the `AIByTag` map's value already does.
+    'Cosmoteer.Generators.Simulation.ShipSpawner': {
+        AI: { kind: 'group', ref: 'Cosmoteer.Generators.Simulation.ShipSpawner/AIInfo', name: 'AIInfo' },
+    },
+};
+
+/**
  * Merge the hand-authored corrections into a freshly-loaded bundle. Additive only: an entry already
  * present in the extracted bundle is left untouched, so the overlay self-retires as schemagen
  * improves. Mutates and returns `bundle`.
@@ -476,6 +512,23 @@ export const applySchemaOverlay = (bundle: SchemaBundle): SchemaBundle => {
         if (!type) continue;
         const present = new Set(type.fields.map((f) => f.name));
         for (const field of extra) if (!present.has(field.name)) type.fields.push(field);
+    }
+    for (const [fullName, slots] of Object.entries(OVERLAY_FIELD_TYPES)) {
+        const type = bundle.types[fullName];
+        if (!type) continue;
+        for (const [name, valueType] of Object.entries(slots)) {
+            const field = type.fields.find((f) => f.name === name);
+            if (field) field.valueType = valueType;
+        }
+    }
+    // A name carrying a `/` is a path the deserializer reads from the group, not a member name: the
+    // game reads `AI/Type` out of the `AI` group, and a file writing the name as spelled is read by
+    // nothing. Offering one in completion writes a key the game discards, so they are dropped and
+    // the group they belong to is typed by the class that owns them instead.
+    for (const type of Object.values(bundle.types)) {
+        if (type.fields.some((f) => f.name.includes('/'))) {
+            type.fields = type.fields.filter((f) => !f.name.includes('/'));
+        }
     }
     for (const [fullName, names] of Object.entries(OVERLAY_DEAD_FIELDS)) {
         const type = bundle.types[fullName];

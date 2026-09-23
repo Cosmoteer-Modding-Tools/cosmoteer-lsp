@@ -124,10 +124,20 @@ describe('validateRequiredFields', () => {
             expect(await validateRequiredFields(parse(effects('', ' : &<other.rules>/Part')), token)).toHaveLength(0);
         });
 
-        it('does not flag a class the game also reads in another write form', async () => {
-            // `Size { X … Y … }` is one spelling of an IntVector2, which the engine also reads
-            // positionally, so an absent member is not an absent value.
+        it('flags a struct group that leaves out a key the reader takes by name', async () => {
+            // `IntVector2.ReadContentFrom` branches on the node it is handed: `X` and `Y` out of an
+            // `OTGroupNode`, `0` and `1` out of an `OTListNode`. Inside a group the positional
+            // spelling is not a candidate, so an absent `Y` is an absent value and the game throws.
             const src = 'Part\n{\n\tSize\n\t{\n\t\tX = 1\n\t}\n}';
+            const errors = await validateRequiredFields(parse(src), token);
+            expect(errors).toHaveLength(1);
+            expect(errors[0].message).toContain("'Y'");
+        });
+
+        it('does not flag a class the game also reads in another write form', async () => {
+            // A `Color` takes a scalar (`Color = white`), so an absent member says nothing about the
+            // write being incomplete.
+            const src = 'Part\n{\n\tComponents\n\t{\n\t\tS\n\t\t{\n\t\t\tType = Sprite\n\t\t\tLayer = 0\n\t\t\tColor\n\t\t\t{\n\t\t\t\tRf = 1\n\t\t\t}\n\t\t}\n\t}\n}';
             expect(await validateRequiredFields(parse(src), token)).toHaveLength(0);
         });
 
@@ -178,6 +188,46 @@ describe('validateRequiredFields', () => {
                 'Other\n{\n\tX\n\t{\n\t\tType = MultiToggle\n\t\tMode = All\n\t}\n}\n' +
                 component('Real : <other.rules>/Other/X', '');
             expect(await validateBase(await buildWorkspace({ 'base.rules': BASE, 'other.rules': elsewhere }))).toBe(1);
+        });
+    });
+
+    // A vector, a point or an arc written as a `{ … }` group has exactly one named spelling, and the
+    // reader takes it apart key by key: `IntVector2.ReadContentFrom` reads `X` and `Y` out of an
+    // `OTGroupNode` and `0` and `1` out of an `OTListNode`, so the positional members are not a
+    // candidate spelling inside a group and a missing `Y` is simply missing. `GetSourceAtPath` throws
+    // a `DeserializeException` on it and the file does not load. A class that does carry a second
+    // named spelling, such as `IntRect` with its `Left`/`Right`/`Top`/`Bottom` set, stays out.
+    describe('a struct written in group form', () => {
+        const cell = (body: string) =>
+            'Part\n{\n\tComponents\n\t{\n\t\tD\n\t\t{\n\t\t\tType = DoorPresenceToggle\n' +
+            `\t\t\tAdjacentCell\n\t\t\t{\n${body}\n\t\t\t}\n\t\t}\n\t}\n}`;
+
+        it('flags the key it leaves out', async () => {
+            const errors = await validateRequiredFields(parse(cell('\t\t\t\tX = 1')), token);
+            expect(errors).toHaveLength(1);
+            expect(errors[0].message).toContain("'Y'");
+            expect(errors[0].message).toContain('IntVector2');
+        });
+
+        it('says nothing when both keys are written', async () => {
+            const src = cell('\t\t\t\tX = 1\n\t\t\t\tY = 2');
+            expect(await validateRequiredFields(parse(src), token)).toHaveLength(0);
+        });
+
+        it('says nothing about the positional spelling, which is a list', async () => {
+            const src =
+                'Part\n{\n\tComponents\n\t{\n\t\tD\n\t\t{\n\t\t\tType = DoorPresenceToggle\n' +
+                '\t\t\tAdjacentCell [ 1, 2 ]\n\t\t}\n\t}\n}';
+            expect(await validateRequiredFields(parse(src), token)).toHaveLength(0);
+        });
+
+        it('says nothing about a class with a second named spelling', async () => {
+            // `IntRect` takes `X`/`Y`/`Width`/`Height`, or `Left`/`Right`/`Top`/`Bottom`, or
+            // `Location`/`Size`, and vanilla's own `gui/loading_screen.rules` writes the second set.
+            const src =
+                'Part\n{\n\tComponents\n\t{\n\t\tS\n\t\t{\n\t\t\tType = Sprite\n\t\t\tLayer = 0\n\t\t\tSourceRect\n\t\t\t{\n' +
+                '\t\t\t\tLeft = 0\n\t\t\t\tRight = 2\n\t\t\t\tTop = 0\n\t\t\t\tBottom = 2\n\t\t\t}\n\t\t}\n\t}\n}';
+            expect(await validateRequiredFields(parse(src), token)).toHaveLength(0);
         });
     });
 

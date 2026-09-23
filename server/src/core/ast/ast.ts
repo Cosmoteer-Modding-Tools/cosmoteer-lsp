@@ -133,8 +133,11 @@ export interface AssignmentNode extends AbstractNode {
     type: 'Assignment';
     assignmentType: 'Equals' | 'Colon';
     left: IdentifierNode;
-    /** Null for an in-progress empty value (`Type = ` with nothing before the newline), which the
-     *  OT grammar reads as an empty field rather than consuming the next line as the value. */
+    /** Null for an in-progress empty value (`Type = ` with nothing before the newline). The game
+     *  hunts past the line break and takes the next member as the value, which the parser refuses
+     *  to reproduce: the member below a line the author is still typing would vanish from the tree
+     *  and take hover, completion, navigation and validation on it away. At the end of the file the
+     *  game binds the empty string, which is where the two answers meet. */
     right: ListNode | ValueNode | GroupNode | FunctionCallNode | MathExpressionNode | null;
 }
 

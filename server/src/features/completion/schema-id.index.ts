@@ -11,6 +11,7 @@ import { schemaReferenceFieldOf, isSameOrSubclass } from '../navigation/schema-i
 import { aliasRootIndex } from '../../document/schema/alias-root';
 import { ActionRootingIndex } from '../../mod/action-rooting.index';
 import { Completion } from './autocompletion.service.types';
+import { withValueEdit, writtenValueRange } from './completion-range';
 
 /**
  * The fields that borrow an id type in the C# without the engine ever resolving their value to an
@@ -300,7 +301,10 @@ export class SchemaIdIndex extends WatchedDocumentIndex {
         // every id the project already has is exactly the set the user must not pick here.
         if (!ref || isIdDeclarationField(ref.ownerClass, ref.fieldName, ref.targetClass)) return [];
         if (isLabelField(ref.fieldName)) return [];
-        return this.idCompletionsForClass(ref.targetClass, folderPaths, cancellationToken);
+        const ids = await this.idCompletionsForClass(ref.targetClass, folderPaths, cancellationToken);
+        // An id is one dotted value, so the pick replaces the whole written one. A caret parked
+        // inside `Part = cosmoteer.can|non_med` would otherwise leave the tail standing.
+        return isValueNode(node) ? withValueEdit(ids, writtenValueRange(node)) : ids;
     }
 
     /** Completions for every project id whose declaring file's root class is `targetClass` (or a subclass). */

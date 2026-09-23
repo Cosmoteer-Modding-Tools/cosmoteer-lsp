@@ -43,6 +43,27 @@ describe('unspaced arithmetic in a single value token', () => {
         expect(await evaluated('10*-2')).toBe(-20);
     });
 
+    it('reads the sign of the first operand too, which is how a negative offset is written', async () => {
+        // `Location = [-0.14+0.03, -0.38-0.015]` in vanilla's cannon turret sprites.
+        expect(await evaluated('-0.38-0.015')).toBeCloseTo(-0.395, 10);
+        expect(await evaluated('-0.14+0.03')).toBeCloseTo(-0.11, 10);
+        expect(await evaluated('-5*2')).toBe(-10);
+    });
+
+    it('reads a decimal written without its leading zero, which is not a relative path', async () => {
+        // `Location = [.5-8/64, 0.5+2/64]` in vanilla's factory resource sprites.
+        expect(await evaluated('.5-8/64')).toBeCloseTo(0.375, 10);
+        expect(await evaluated('.5+6/64')).toBeCloseTo(0.59375, 10);
+    });
+
+    it('leaves a relative path a path, and a lone signed number the literal it already was', async () => {
+        // The negative control for the two above: `.` still opens a path when no digit follows it,
+        // and a single signed term stays the plain literal it is read as, not a folded expression.
+        expect(await evaluated('../factory_he/factory_he.rules')).toBeNull();
+        expect(await evaluated('./Data/ships/terran')).toBeNull();
+        expect(await evaluated('-0.38')).toBe(-0.38);
+    });
+
     it('leaves everything that is not a numeric run alone', async () => {
         expect(await evaluated('"10-3.4"')).toBeNull(); // quoted, a real string
         expect(await evaluated('some-name')).toBeNull();

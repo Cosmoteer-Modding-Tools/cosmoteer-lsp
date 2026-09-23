@@ -8,13 +8,34 @@ import { aliasRootIndex } from '../document/schema/alias-root';
 import { basenameOf, isModRules, isShaderDocument } from '../document/document-kind';
 import { invalidateModContext } from '../mod/mod-context';
 import { clearNavigationMemo, invalidateNavigationMemoForFile } from '../semantics/navigate-reference';
-import { normalizeUri } from '../document/reference-location';
+import { noteDocumentSource, normalizeUri } from '../document/reference-location';
 import { uriToFsPath } from '../workspace/workspace-files';
 import { collectIncludeText } from '../features/shader/shader-index';
 import { documents } from './context';
 import { invalidateDerivedCaches } from './document-caches';
 import { PROJECT_INDEXES } from './project-indexes';
 import { bumpWorkspaceScanEpoch } from './scan-epoch';
+
+/**
+ * The parse of one document, or undefined when the parser ran out of stack on it.
+ *
+ * The parser is recursive descent, so a document nested about 1300 `{` deep overflows the call
+ * stack. Nothing in the game's own data comes near that (the deepest file is twelve levels), but a
+ * generated or truncated file can, and the `RangeError` used to travel out of every request that
+ * reads the AST, which the editor shows as a failed request rather than as a file it cannot read.
+ * Caught here, at the one place every such request parses through, they all answer empty instead.
+ *
+ * @param tokens the document's tokens.
+ * @param uri the document's uri, which the parser stamps onto every node.
+ * @returns the parse, or undefined when it overflowed.
+ */
+export function parseWithinStack(tokens: ReturnType<typeof lexer>, uri: string): ReturnType<typeof parser> | undefined {
+    try {
+        return parser(tokens, uri);
+    } catch {
+        return undefined;
+    }
+}
 
 /**
  * The parsed AST for an open document, parsing the live buffer on demand when the validation
@@ -34,9 +55,12 @@ export function ensureParserResult(uri: string): AbstractNodeDocument | undefine
     if (cached) return cached;
     const document = documents.get(uri);
     if (!document) return undefined;
-    const result = parser(lexer(document.getText()), uri).value;
-    ParserResultRegistrar.instance.setResult(uri, result);
-    return result;
+    const text = document.getText();
+    const parsed = parseWithinStack(lexer(text), uri);
+    if (!parsed) return undefined;
+    ParserResultRegistrar.instance.setResult(uri, parsed.value);
+    noteDocumentSource(parsed.value, text);
+    return parsed.value;
 }
 
 /**
@@ -101,15 +125,27 @@ export function markProjectIndexesDirty(uri: string): void {
  * @param document the open document to parse and register.
  */
 export function registerOpenDocument(document: TextDocument): void {
-    // `.shader` files are HLSL, the rules lexer/parser would flag every line.
-    if (isShaderDocument(document.uri)) return;
+    // `.shader` files are HLSL, the rules lexer/parser would flag every line. They still feed the
+    // rules documents that name them: the shader-constant check reads the uniforms the shader
+    // declares, so an edit to an open shader leaves every such document's version-keyed results
+    // computed against the previous uniform set, with no version of their own moving to drop them.
+    if (isShaderDocument(document.uri)) {
+        invalidateDerivedCaches(document.uri);
+        return;
+    }
     const cached = openParseCache.get(document.uri);
     if (cached && cached.version === document.version) return;
     const blockComments: BlockCommentSpan[] = [];
     const tokens = lexer(document.getText(), blockComments);
-    const parserResult = parser(tokens, document.uri);
+    const parserResult = parseWithinStack(tokens, document.uri);
+    // A buffer the parser cannot read publishes nothing, which leaves every consumer on the last
+    // parse that worked rather than on half of this one.
+    if (!parserResult) return;
     openParseCache.set(document.uri, { version: document.version, tokens, blockComments, parserResult });
     ParserResultRegistrar.instance.setResult(document.uri, parserResult.value);
+    // Keep the buffer this parse came from beside it, so a range over a value that runs across a
+    // continuation or a verbatim string is placed on the lines it really covers.
+    noteDocumentSource(parserResult.value, document.getText());
     // The edit changes what references touching this file resolve to, and the disk watcher never
     // sees open-buffer edits, so drop the navigation memo entries whose resolution read this file.
     // Entries that never read it (the vanilla-tree bulk) survive the keystroke.

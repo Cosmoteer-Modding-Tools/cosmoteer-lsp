@@ -1,31 +1,34 @@
 import { existsSync } from 'fs';
+import { readdir } from 'fs/promises';
+import { basename, dirname, join, relative } from 'path';
 import { Diagnostic, DiagnosticSeverity, Position, Range } from 'vscode-languageserver';
 import * as l10n from '@vscode/l10n';
-import { parseShader, parseShaderSignatures } from './shader-parser';
-import { ShaderFunctionSignature } from './shader-parser.types';
-import { resolveInclude } from './shader-source';
+import { parseShader, parseShaderSignatures, parseShaderTypes } from './shader-parser';
+import { ParsedShader, ShaderFunctionSignature } from './shader-parser.types';
+import { GAME_ANCHORED_INCLUDE_RE, resolveInclude } from './shader-source';
 import { readIncludeChain, ReadOverride, ENGINE_BOUND_NAMES } from './shader-index';
-import { HLSL_INTRINSIC_NAMES, ENGINE_UNIFORMS, TEXTURE_METHODS } from './shader-intrinsics';
+import { HLSL_INTRINSICS, HLSL_INTRINSIC_NAMES, ENGINE_UNIFORMS, TEXTURE_METHODS } from './shader-intrinsics';
 import { HLSL_TYPES, HLSL_KEYWORDS, lineStarts, positionOf } from '../semantic/shader-semantic-tokens';
+import { closestMatch } from '../../utils/did-you-mean';
+import type { ValidationErrorData } from '../diagnostics/validator';
 
 /**
  * Conservative diagnostics for a `.shader` file itself, on by default (not the `_`-constants a `.rules`
  * material sets, which {@link file://./../diagnostics/validator.shader-constants.ts} handles). It is a
  * lexical check, not an HLSL type-checker, and is built to stay false-positive-free:
  *
- * - an `#include` whose target does not exist is flagged (skipped for a root-anchored `./Data/…` include
+ * - an `#include` whose target does not exist is flagged (skipped for a game-anchored `./Data/…` include
  *   when the game path is unknown, since it cannot be resolved then),
  * - a `_`-prefixed uniform read that no file in the include chain declares and the engine does not bind
  *   is flagged as a probable typo,
  * - a call to a function that is neither an HLSL intrinsic, a builtin constructor, a `#define`d macro,
- *   nor a function the shader or its includes define is flagged.
+ *   nor a function the shader or its includes define is flagged,
+ * - a call whose argument count does not fit the one signature the name has, or the fixed shape of the
+ *   HLSL intrinsic it names, is flagged.
  *
  * The last two run only when the whole include chain was readable. A missing include means the symbol
  * set is partial, so any "undeclared" verdict could be wrong and the check is skipped entirely.
  */
-
-/** Recognizes a root-anchored (`./Data/…`) include, which needs the game data path to resolve. */
-const ROOTED_RE = /^\.?[\\/]?[Dd]ata[\\/]/;
 
 // One master tokenizer: block comment, line comment, string, preprocessor keyword, number, identifier.
 // Matching (and discarding) comments and strings keeps the scan from reading a `_name` or call inside
@@ -116,12 +119,25 @@ const componentsOf = (type: string): number | null => {
 };
 
 /**
+ * Stamps the shader findings with the rule id the table advertises for them. The rules passes are
+ * tagged by their caller, which returns this check's findings untouched, so they carried no id at
+ * all and any report grouped them under the untagged bucket.
+ *
+ * @param diagnostics the findings to stamp.
+ * @returns the same findings.
+ */
+const withRuleId = (diagnostics: Diagnostic[]): Diagnostic[] => {
+    for (const diagnostic of diagnostics) diagnostic.code = 'validateShaderCode';
+    return diagnostics;
+};
+
+/**
  * Produces the in-shader diagnostics for a `.shader` file. Reads the include chain (open buffers
  * preferred) to learn the full symbol set before judging any name as undeclared.
  *
  * @param text the source of the shader being edited.
  * @param entryPath the absolute path of that shader.
- * @param dataDir the game `Data` directory, for root-anchored includes (empty when unknown).
+ * @param dataDir the game `Data` directory, for game-anchored includes (empty when unknown).
  * @param readOverride prefers an open buffer's text over disk for an included file.
  * @returns the diagnostics, empty when nothing is wrong.
  */
@@ -138,7 +154,7 @@ export const validateShaderDocument = async (
         return Range.create(Position.create(from.line, from.char), Position.create(from.line, from.char + length));
     };
 
-    reportUnresolvedIncludes(text, entryPath, dataDir, rangeAt, diagnostics, readOverride);
+    await reportUnresolvedIncludes(text, entryPath, dataDir, rangeAt, diagnostics, readOverride);
 
     const chain = await readIncludeChain(text, entryPath, dataDir, readOverride).catch(() => ({
         text: '',
@@ -146,11 +162,15 @@ export const validateShaderDocument = async (
     }));
     // A partial include chain means an unknown symbol might simply live in the file we could not read.
     // Skip the undeclared checks entirely rather than risk a false positive.
-    if (!chain.complete) return diagnostics;
+    if (!chain.complete) return withRuleId(diagnostics);
 
     const scope = chain.text ? `${text}\n${chain.text}` : text;
     const parsed = parseShader(scope);
-    const structNames = collectGroup(scope, /\bstruct\s+(\w+)/g);
+    const declared = parseShaderTypes(scope);
+    const structNames = new Set<string>([
+        ...declared.structs.map((s) => s.name),
+        ...declared.typeAliases.map((a) => a.name),
+    ]);
     const defines = collectGroup(scope, /#\s*define\s+(\w+)/g);
 
     // Function signatures for argument-count and return-type checks. A name defined more than once is
@@ -178,14 +198,22 @@ export const validateShaderDocument = async (
         ...PREPROCESSOR_CALLS,
     ]);
 
-    checkTokenUses(text, knownUniforms, knownFunctions, signatures, rangeAt, diagnostics);
+    checkTokenUses(
+        text,
+        knownUniforms,
+        knownFunctions,
+        signatures,
+        intrinsicArity(parsed, nameCounts, defines, structNames),
+        rangeAt,
+        diagnostics
+    );
     validateDeclarations(text, signatures, rangeAt, diagnostics);
-    return diagnostics;
+    return withRuleId(diagnostics);
 };
 
 /**
  * Reports every `#include` in the file whose target cannot be read. An include is judged only when it
- * can actually be resolved, so a root-anchored (`./Data/…`) path with no known game directory is left
+ * can actually be resolved, so a game-anchored (`./Data/…`) path with no known game directory is left
  * alone rather than guessed at.
  *
  * @param text the source of the shader being edited.
@@ -195,40 +223,157 @@ export const validateShaderDocument = async (
  * @param diagnostics the list to append to.
  * @param readOverride prefers an open buffer's text over disk for an included file.
  */
-const reportUnresolvedIncludes = (
+const reportUnresolvedIncludes = async (
     text: string,
     entryPath: string,
     dataDir: string,
     rangeAt: (offset: number, length: number) => Range,
     diagnostics: Diagnostic[],
     readOverride?: ReadOverride
-): void => {
+): Promise<void> => {
     const includeScan = /#\s*include\s+"([^"]+)"/g;
     for (let m = includeScan.exec(text); m !== null; m = includeScan.exec(text)) {
         const includePath = m[1];
-        if (ROOTED_RE.test(includePath) && !dataDir) continue; // cannot resolve without the game path
+        // A game-anchored (`./…`) include cannot be resolved without the game path.
+        if (GAME_ANCHORED_INCLUDE_RE.test(includePath) && !dataDir) continue;
         const target = resolveInclude(entryPath, includePath, dataDir);
         const readable = readOverride?.(target) !== undefined || existsSync(target);
         if (readable) continue;
         const quoteStart = m.index + m[0].indexOf('"') + 1;
+        const suggestion = await includeSuggestion(entryPath, includePath, dataDir);
         diagnostics.push({
             message: l10n.t("Cannot resolve include '{0}'.", includePath),
             range: rangeAt(quoteStart, includePath.length),
             severity: DiagnosticSeverity.Warning,
             source: 'cosmoteer-shader',
+            ...didYouMeanData(suggestion),
         });
     }
+};
+
+/** The did-you-mean quick fix a finding carries, or nothing when no close candidate was found. */
+const didYouMeanData = (suggestion: string | null): { data?: ValidationErrorData } =>
+    suggestion ? { data: { quickFix: { title: l10n.t("Change to '{0}'", suggestion), newText: suggestion } } } : {};
+
+/** Cache of shader file paths by lowercased file name, keyed by the root that was walked. */
+const shaderTreeCache = new Map<string, Map<string, string[]>>();
+
+/**
+ * Every `.shader` file under a directory tree, grouped by lowercased file name. The result is cached
+ * per root, since it is only ever built to answer an unresolved include.
+ *
+ * @param root the directory to walk.
+ * @returns the absolute paths of the shaders found, keyed by lowercased file name.
+ */
+const shaderTreeIndex = async (root: string): Promise<ReadonlyMap<string, string[]>> => {
+    const cached = shaderTreeCache.get(root);
+    if (cached) return cached;
+    const byName = new Map<string, string[]>();
+    const walk = async (dir: string): Promise<void> => {
+        let entries;
+        try {
+            entries = await readdir(dir, { withFileTypes: true });
+        } catch {
+            return;
+        }
+        for (const entry of entries) {
+            const full = join(dir, entry.name);
+            if (entry.isDirectory()) await walk(full);
+            else if (entry.name.toLowerCase().endsWith('.shader')) {
+                const key = entry.name.toLowerCase();
+                byName.set(key, [...(byName.get(key) ?? []), full]);
+            }
+        }
+    };
+    await walk(root);
+    shaderTreeCache.set(root, byName);
+    return byName;
+};
+
+/** The mod folder a file belongs to (the nearest ancestor holding a `mod.rules`), or null. */
+const modRootOf = (from: string): string | null => {
+    let dir = from;
+    for (let depth = 0; depth < 12; depth++) {
+        if (existsSync(join(dir, 'mod.rules'))) return dir;
+        const parent = dirname(dir);
+        if (parent === dir) return null;
+        dir = parent;
+    }
+    return null;
+};
+
+/**
+ * A path that would make an unresolvable `#include` resolve: the one file of that name inside the
+ * mod, written relative to the including file, else the one file of that name in the game data tree,
+ * written in the game-anchored `./Data/…` form the engine needs for that. The mod's own copy wins, so
+ * the fix never quietly repoints a mod at the vanilla file. Nothing is offered when the name is
+ * ambiguous, since picking one of several files is the author's choice.
+ *
+ * @param entryPath the absolute path of the shader holding the include.
+ * @param includePath the path as written in the directive.
+ * @param dataDir the game `Data` directory (empty when unknown).
+ * @returns the path to write instead, or null when there is no single obvious candidate.
+ */
+const includeSuggestion = async (entryPath: string, includePath: string, dataDir: string): Promise<string | null> => {
+    const wanted = basename(includePath).toLowerCase();
+    if (!wanted.endsWith('.shader')) return null;
+    const fromDir = dirname(entryPath);
+
+    const modRoot = modRootOf(fromDir);
+    if (modRoot) {
+        const local = (await shaderTreeIndex(modRoot)).get(wanted) ?? [];
+        // A file-relative include must not carry a `./` prefix, which anchors it at the game folder.
+        if (local.length === 1 && local[0] !== entryPath) {
+            const written = relative(fromDir, local[0]).split('\\').join('/');
+            if (written && written !== includePath) return written;
+        }
+    }
+
+    if (!dataDir) return null;
+    const vanilla = (await shaderTreeIndex(dataDir)).get(wanted) ?? [];
+    if (vanilla.length !== 1) return null;
+    const written = `./Data/${relative(dataDir, vanilla[0]).split('\\').join('/')}`;
+    return written === includePath ? null : written;
+};
+
+/**
+ * The argument count each documented HLSL intrinsic takes, for the intrinsics this shader can be
+ * judged against. An intrinsic whose name the shader or one of its includes also declares is left
+ * out, so a shader that defines its own `lerp` overloads is checked against its own definitions and
+ * never against the table. The genuinely multi-form intrinsics are left out by the table itself.
+ *
+ * @param parsed the scanner's view of the shader plus its includes.
+ * @param nameCounts how often each name is defined as a function in scope, overloads included.
+ * @param defines the macro names in scope, any of which can stand in for a call.
+ * @param structNames the struct and alias type names in scope.
+ * @returns the fixed arity of every intrinsic the shader does not shadow, keyed by name.
+ */
+const intrinsicArity = (
+    parsed: ParsedShader,
+    nameCounts: ReadonlyMap<string, number>,
+    defines: ReadonlySet<string>,
+    structNames: ReadonlySet<string>
+): ReadonlyMap<string, number> => {
+    const shadowed = new Set<string>([...parsed.functions, ...nameCounts.keys(), ...defines, ...structNames]);
+    const arity = new Map<string, number>();
+    for (const [name, intrinsic] of Object.entries(HLSL_INTRINSICS)) {
+        if (intrinsic.multiForm || shadowed.has(name)) continue;
+        arity.set(name, intrinsic.params.length);
+    }
+    return arity;
 };
 
 /**
  * Scans the current file token by token and judges each name against the symbol set the whole include
  * chain declares: a `_`-prefixed read nothing declares, a call to a function nothing defines, and a
- * call whose argument count does not fit the one signature that name has.
+ * call whose argument count does not fit the one signature that name has or the fixed arity of the
+ * HLSL intrinsic it names.
  *
  * @param text the current file source.
  * @param knownUniforms every `_`-name in scope, declared or engine-bound.
  * @param knownFunctions every callable name in scope, including types, keywords and macros.
  * @param signatures the file-and-include function signatures, keyed by name.
+ * @param intrinsics the fixed argument count of every intrinsic this shader does not shadow.
  * @param rangeAt builds a document range from an offset and length.
  * @param diagnostics the list to append to.
  */
@@ -237,6 +382,7 @@ const checkTokenUses = (
     knownUniforms: ReadonlySet<string>,
     knownFunctions: ReadonlySet<string>,
     signatures: ReadonlyMap<string, ShaderFunctionSignature>,
+    intrinsics: ReadonlyMap<string, number>,
     rangeAt: (offset: number, length: number) => Range,
     diagnostics: Diagnostic[]
 ): void => {
@@ -269,6 +415,7 @@ const checkTokenUses = (
                     range: rangeAt(m.index, token.length),
                     severity: DiagnosticSeverity.Warning,
                     source: 'cosmoteer-shader',
+                    ...didYouMeanData(closestMatch(token, knownUniforms)),
                 });
             }
             continue;
@@ -282,7 +429,22 @@ const checkTokenUses = (
                 range: rangeAt(m.index, token.length),
                 severity: DiagnosticSeverity.Warning,
                 source: 'cosmoteer-shader',
+                ...didYouMeanData(closestMatch(token, knownFunctions)),
             });
+            continue;
+        }
+        // A call to an HLSL intrinsic of one fixed shape: the compiler rejects any other count.
+        const fixedArity = isCall && !signatures.has(token) ? intrinsics.get(token) : undefined;
+        if (fixedArity !== undefined) {
+            const argCount = countArguments(text, afterIndex);
+            if (argCount !== null && argCount !== fixedArity) {
+                diagnostics.push({
+                    message: l10n.t("Function '{0}' expects {1} argument(s) but got {2}.", token, fixedArity, argCount),
+                    range: rangeAt(m.index, token.length),
+                    severity: DiagnosticSeverity.Warning,
+                    source: 'cosmoteer-shader',
+                });
+            }
             continue;
         }
         // A call to a function we have the signature of: check the argument count. Parameters with a

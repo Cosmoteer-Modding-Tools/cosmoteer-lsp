@@ -249,6 +249,13 @@ export const diagramViewStrings = (): Record<string, string> => ({
  */
 export const partTableStrings = (): Record<string, string> => ({
     'Filter parts': l10n.t('Filter parts'),
+    '1 typed value belongs to a part this table is not showing, and was left alone.': l10n.t(
+        '1 typed value belongs to a part this table is not showing, and was left alone.'
+    ),
+    '{0} typed values belong to parts this table is not showing, and were left alone.': l10n.t(
+        '{0} typed values belong to parts this table is not showing, and were left alone.'
+    ),
+    'The parts could not be read.': l10n.t('The parts could not be read.'),
     'Search columns': l10n.t('Search columns'),
     'Column name': l10n.t('Column name'),
     '[MaxHealth] / [@Tiles]': l10n.t('[MaxHealth] / [@Tiles]'),
@@ -346,6 +353,9 @@ export const partTableStrings = (): Record<string, string> => ({
     Everywhere: l10n.t('Everywhere'),
     'Compare with nothing': l10n.t('Compare with nothing'),
     'No parts found.': l10n.t('No parts found.'),
+    'No part is left in the part of the tree you picked.': l10n.t(
+        'No part is left in the part of the tree you picked.'
+    ),
     'No part matches the filter.': l10n.t('No part matches the filter.'),
     'No column matches.': l10n.t('No column matches.'),
     'Click to open the declaration.': l10n.t('Click to open the declaration.'),

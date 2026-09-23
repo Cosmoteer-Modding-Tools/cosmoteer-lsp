@@ -29,7 +29,7 @@ import {
     isListNode,
     isValueNode,
 } from '../../core/ast/ast';
-import { fieldOf, schema } from './schema';
+import { classInRegistry, fieldOf, schema } from './schema';
 import { classFitsDocument, topLevelType } from './document-root';
 import { ValueType } from './schema.types';
 import { normalizeUri } from '../reference-location';
@@ -392,6 +392,28 @@ export const registerAliasFallbackSource = (source: AliasMemberSource | undefine
 };
 
 /**
+ * The class a fragment rooted to a polymorphic slot stands for, dispatched from the file's own
+ * top-level `Type=` inside that slot's registry family.
+ *
+ * A mod wires a whole spawner file into a sector's `Spawners` list, which is `list<SimSpawner>`, so
+ * the slot names a registry rather than a class and the file itself says which member of it this is.
+ * The dispatch stays inside the registry family (see {@link classInRegistry}) and is then checked by
+ * {@link classFitsDocument}, the same majority-fit guard every other root passes, so a file whose
+ * `Type` belongs to some other registry, or whose fields do not match the dispatched class, roots to
+ * nothing rather than to a guess.
+ *
+ * @param root the schema type the file was recorded as.
+ * @param document the fragment document.
+ * @returns the dispatched class FullName, or undefined when the file does not dispatch there.
+ */
+const polymorphicRootClass = (root: ValueType | undefined, document: AbstractNodeDocument): string | undefined => {
+    if (root?.kind !== 'polymorphicGroup') return undefined;
+    const type = topLevelType(document);
+    const cls = type ? classInRegistry(type, root.ref) : undefined;
+    return cls && classFitsDocument(cls, document) ? cls : undefined;
+};
+
+/**
  * The schema type expected at top-level `memberName` of the unrooted document, derived from how the file
  * is aliased into the game root. That is an explicit member alias, or for a whole-file map or group alias
  * the map's value type or the group field's type. The forward alias walk is tried first, then the
@@ -413,6 +435,11 @@ export const aliasedMemberType = (document: AbstractNodeDocument, memberName: st
     if (root?.kind === 'map') return root.value;
     if (root?.kind === 'group') {
         const declared = fieldOf(root.ref, memberName)?.valueType;
+        if (declared) return declared;
+    }
+    const dispatched = polymorphicRootClass(root, document);
+    if (dispatched) {
+        const declared = fieldOf(dispatched, memberName)?.valueType;
         if (declared) return declared;
     }
     for (const fallback of aliasFallbacks) {
@@ -440,7 +467,9 @@ export const aliasedMemberType = (document: AbstractNodeDocument, memberName: st
  * or a manifest action pulls the file in as one `group<C>` value: a codex page appended to the lore
  * codex, a doodad appended to the doodad list, a base appended by `AddBase`. The forward walk answers
  * first, then the fallbacks in their registration order, the same precedence {@link aliasedMemberType}
- * gives them. A file rooted as a map or a list has no class of its own and answers nothing.
+ * gives them. A file pulled into a polymorphic slot names its own class through its top-level `Type=`
+ * (see {@link polymorphicRootClass}). A file rooted as a map or a list has no class of its own and
+ * answers nothing.
  *
  * @param document the unrooted fragment document.
  * @returns the class FullName the file's top-level members are read through, or undefined.
@@ -448,7 +477,8 @@ export const aliasedMemberType = (document: AbstractNodeDocument, memberName: st
 export const aliasedRootClass = (document: AbstractNodeDocument): string | undefined => {
     let root = aliasRootIndex.rootType(document.uri);
     for (const fallback of aliasFallbacks) root ??= fallback.rootType(document.uri);
-    return root?.kind === 'group' ? root.ref : undefined;
+    if (root?.kind === 'group') return root.ref;
+    return polymorphicRootClass(root, document);
 };
 
 /**

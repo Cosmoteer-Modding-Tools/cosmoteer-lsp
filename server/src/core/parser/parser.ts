@@ -12,6 +12,7 @@ import { parseCallOrParenGroup } from './parse-function-call';
 import { parseBoolean, parseStrayRightParen, parseValue } from './parse-value';
 import { parseInheritance } from './parse-inheritance';
 import { tokenDisplayText } from './token-display';
+import { reportOrphanTerminator } from './parse-terminator';
 
 // A file this broken carries no usable tree past this point, so parsing stops to bound the work.
 // Deliberately not the user's `maxNumberOfProblems`: the parse result is cached and persisted by
@@ -170,6 +171,7 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
         // `lastNode` so the completed entry is not bound to whatever follows, e.g. a void `Foo;`
         // must not become the identifier of a subsequent `Bar { … }` group.
         if (tokens[state.current].type === TOKEN_TYPES.SEMICOLON || tokens[state.current].type === TOKEN_TYPES.COMMA) {
+            reportOrphanTerminator(state, state.current);
             state.current++;
             state.lastNode = undefined;
             continue;

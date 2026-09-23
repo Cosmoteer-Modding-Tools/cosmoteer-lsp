@@ -1,6 +1,5 @@
 import { CancellationToken } from 'vscode-languageserver';
 import { AbstractNodeDocument, ValueNode } from '../../core/ast/ast';
-import { isModRules } from '../../document/document-kind';
 import { isLocalizationKeyType, localizationKeyFieldNames } from '../../document/schema/schema';
 import { fieldOfValueNode } from '../completion/autocompletion.schema';
 import { LocalizationKeyIndex } from '../completion/localization-key.index';
@@ -21,7 +20,11 @@ let suggestionMemo: { revision: number; byKey: Map<string, string | null> } | un
  * Validates literal localization-key values (a `KeyString` field such as `NameKey = "Parts/Foo"`),
  * flagging a key that no language strings file in the project declares (a typo, or a key the mod
  * forgot to add). Reference-valued keys (`NameKey = &<…>/NameKey`) are skipped here (they are
- * validated as references), as are empty values, mod.rules, and strings files themselves.
+ * validated as references), as are empty values and strings files themselves.
+ *
+ * A manifest is judged like any other document. An inline `ToAdd`/`ManyToAdd` payload types from
+ * the slot its action targets, so a key written there is the same field it would be in a data file
+ * and the game renders the bare key text just the same when nothing declares it.
  *
  * Conservative, to stay false-positive-free: an unknown value is only flagged when the project's
  * strings index is non-empty (otherwise there is no coverage to judge against), and offers a
@@ -37,7 +40,6 @@ export const validateLocalizationKeys = async (
     folderPaths: string[],
     cancellationToken: CancellationToken
 ): Promise<ValidationError[]> => {
-    if (isModRules(document.uri)) return [];
     // A strings file's own leaves are the declarations, not `KeyString` references. Never flag them.
     if (await isStringsFile(document.uri, cancellationToken).catch(() => false)) return [];
 

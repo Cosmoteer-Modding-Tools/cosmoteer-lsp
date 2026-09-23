@@ -6,6 +6,7 @@ import { AbstractNodeDocument } from '../core/ast/ast';
 import { lexer } from '../core/lexer/lexer';
 import { parser } from '../core/parser/parser';
 import { ParserResultRegistrar } from '../document/parser-result-registrar';
+import { noteDocumentSource } from '../document/reference-location';
 import { CancellationError } from '../utils/cancellation';
 import { recordNavigationDep } from './navigation-deps';
 import { perfCount } from '../utils/perf-counters';
@@ -268,6 +269,7 @@ export const cachedParseFilePath = async (
     const text = await readFile(fsPath, { encoding: 'utf-8' });
     if (cancellationToken?.isCancellationRequested) throw new CancellationError();
     const document = parser(lexer(text), fsPath).value;
+    noteDocumentSource(document, text);
     // A cached entry that no longer matches the file means it changed with no watcher event behind
     // it, which is what a game update installed mid session looks like. Everything worked out from
     // the old text is stale too, so the caches derived from resolution are told, the same way a

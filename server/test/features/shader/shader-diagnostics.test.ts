@@ -22,6 +22,18 @@ describe('shader diagnostics', () => {
         expect(await messages(src)).toEqual([]);
     });
 
+    // Every finding carries the rule id the table advertises. Without it a report groups the shader
+    // findings under its untagged bucket instead of under `validateShaderCode`.
+    it('stamps every finding with its rule id', async () => {
+        // An unreadable include ends the run early, an undeclared read goes the whole way, so both
+        // exits are covered.
+        for (const src of ['#include "no_such_include.hlsl"', 'float4 pix() { return _gloww; }']) {
+            const found = await validate(src);
+            expect(found.length).toBe(1);
+            expect(found[0].code).toBe('validateShaderCode');
+        }
+    });
+
     it('flags a `_`-uniform read that nothing declares', async () => {
         const src = 'float _glow;\nfloat4 pix() { return _gloww * _glow; }';
         const msgs = await messages(src);
@@ -147,5 +159,134 @@ describe('shader include resolution', () => {
             platformPath('/game/Data')
         );
         expect(resolved.replace(/\\/g, '/')).toBe(platformPath('/game/Data/base.shader'));
+    });
+});
+
+describe('game-anchored include resolution', () => {
+    it('resolves a bare Data/ include next to the including file, as the engine does', () => {
+        // `FilePath.IsExplicitCurrentDirectory` is true only for a `./` or `.\` prefix, so a bare
+        // `Data/…` is an ordinary relative path and names a Data folder beside the shader.
+        const resolved = resolveInclude(
+            platformPath('/mods/my_mod/effects/fire.shader'),
+            'Data/base.shader',
+            platformPath('/game/Data')
+        );
+        expect(resolved.replace(/\\/g, '/')).toBe(platformPath('/mods/my_mod/effects/Data/base.shader'));
+    });
+
+    it('resolves an explicit ./ include against the game folder, not the including file', () => {
+        const resolved = resolveInclude(
+            platformPath('/mods/my_mod/effects/fire.shader'),
+            './base.shader',
+            platformPath('/game/Data')
+        );
+        expect(resolved.replace(/\\/g, '/')).toBe(platformPath('/game/base.shader'));
+    });
+
+    it('flags a bare Data/ include that has no folder beside the shader, and stays quiet on a real one', async () => {
+        const { mkdtemp, mkdir, writeFile, rm } = await import('fs/promises');
+        const { tmpdir } = await import('os');
+        const { join } = await import('path');
+        const dir = await mkdtemp(join(tmpdir(), 'shader-anchor-'));
+        try {
+            await mkdir(join(dir, 'Data'));
+            await writeFile(join(dir, 'Data', 'helper.shader'), 'float4 _fromHelper;\n');
+            const entry = join(dir, 'main.shader');
+            const good = await validateShaderDocument('#include "Data/helper.shader"\n', entry, join(dir, 'game'));
+            expect(good.map((d) => d.message)).toEqual([]);
+            const bad = await validateShaderDocument('#include "Data/missing.shader"\n', entry, join(dir, 'game'));
+            expect(bad.map((d) => d.message)).toEqual(["Cannot resolve include 'Data/missing.shader'."]);
+        } finally {
+            await rm(dir, { recursive: true, force: true });
+        }
+    });
+});
+
+describe('intrinsic argument counts', () => {
+    it('flags a call to an intrinsic with the wrong number of arguments', async () => {
+        const msgs = await messages('float4 pix() { return lerp(1.0); }');
+        expect(msgs).toEqual(["Function 'lerp' expects 3 argument(s) but got 1."]);
+    });
+
+    it('stays quiet on the right number of arguments and on a multi-form intrinsic', async () => {
+        const src = 'float4 pix() {\n    return lerp(tex2D(s, uv), clamp(1.0, 0.0, 2.0), saturate(_time));\n}';
+        expect(await messages(src)).toEqual([]);
+    });
+
+    it('never judges an intrinsic name the shader defines itself', async () => {
+        // `base.shader` really does define four `lerp` overloads, so the table must not win there.
+        const src = [
+            'float lerp(float a, float b) { return a + b; }',
+            'float lerp(float a, float b, float t, float u) { return a; }',
+            'float4 pix() { return lerp(1.0, 2.0); }',
+        ].join('\n');
+        expect(await messages(src)).toEqual([]);
+    });
+});
+
+describe('shader quick fixes', () => {
+    it('offers the declared uniform whose name is one edit away', async () => {
+        const src = 'float _litReflectiveStrength;\nfloat4 pix() { return _litReflectiveStrangth; }';
+        const [diagnostic] = await validate(src);
+        expect(diagnostic.data).toEqual({
+            quickFix: { title: "Change to '_litReflectiveStrength'", newText: '_litReflectiveStrength' },
+        });
+    });
+
+    it('carries no fix when nothing in scope is close', async () => {
+        const src = 'float _glow;\nfloat4 pix() { return _qqzzxwv; }';
+        const [diagnostic] = await validate(src);
+        expect(diagnostic.data).toBeUndefined();
+    });
+
+    it('offers the mod file of that name for an include the mod itself ships', async () => {
+        const { mkdtemp, mkdir, writeFile, rm } = await import('fs/promises');
+        const { tmpdir } = await import('os');
+        const { join } = await import('path');
+        const dir = await mkdtemp(join(tmpdir(), 'shader-fix-'));
+        try {
+            await writeFile(join(dir, 'mod.rules'), '');
+            await mkdir(join(dir, 'shaders'), { recursive: true });
+            await mkdir(join(dir, 'effects'), { recursive: true });
+            await writeFile(join(dir, 'shaders', 'base_particle.shader'), 'float4 _x;\n');
+            const entry = join(dir, 'effects', 'fire.shader');
+            const [diagnostic] = await validateShaderDocument('#include "base_particle.shader"\n', entry, '');
+            expect(diagnostic.data).toEqual({
+                quickFix: {
+                    title: "Change to '../shaders/base_particle.shader'",
+                    newText: '../shaders/base_particle.shader',
+                },
+            });
+        } finally {
+            await rm(dir, { recursive: true, force: true });
+        }
+    });
+
+    it('offers the game-anchored path for an include only the game tree has', async () => {
+        const { mkdtemp, mkdir, writeFile, rm } = await import('fs/promises');
+        const { tmpdir } = await import('os');
+        const { join } = await import('path');
+        const dir = await mkdtemp(join(tmpdir(), 'shader-fix-'));
+        try {
+            const data = join(dir, 'game', 'Data', 'common_effects');
+            await mkdir(data, { recursive: true });
+            await writeFile(join(data, 'base_beam.shader'), 'float4 _x;\n');
+            await mkdir(join(dir, 'mod'), { recursive: true });
+            await writeFile(join(dir, 'mod', 'mod.rules'), '');
+            const entry = join(dir, 'mod', 'beam.shader');
+            const [diagnostic] = await validateShaderDocument(
+                '#include "base_beam.shader"\n',
+                entry,
+                join(dir, 'game', 'Data')
+            );
+            expect(diagnostic.data).toEqual({
+                quickFix: {
+                    title: "Change to './Data/common_effects/base_beam.shader'",
+                    newText: './Data/common_effects/base_beam.shader',
+                },
+            });
+        } finally {
+            await rm(dir, { recursive: true, force: true });
+        }
     });
 });

@@ -18,7 +18,7 @@ import { perfCount } from '../utils/perf-counters';
 import { hasDiagnosticRelatedInformationCapability } from '../capabilities';
 import { getDocumentSettings } from './document-settings';
 import { ensureFragmentRooting } from './fragment-rooting';
-import { openBufferReadOverride, openParseCache, registerOpenDocument } from './open-documents';
+import { openBufferReadOverride, openParseCache, parseWithinStack, registerOpenDocument } from './open-documents';
 import { shipLayerContext } from './ship-layers';
 import { reachableFileFilter } from './validation-scope';
 import { gameIndexAvailable, searchFolderPaths, searchFolderUris } from './workspace-folders';
@@ -116,7 +116,8 @@ const parseForValidation = async (
     const blockComments: BlockCommentSpan[] = [];
     const tokens = lexer(textDocument.getText(), blockComments);
     if (cancelToken.isCancellationRequested) return undefined;
-    const parserResult = parser(tokens, textDocument.uri);
+    const parserResult = parseWithinStack(tokens, textDocument.uri);
+    if (!parserResult) return undefined;
     perfCount('scan.parseMs', Date.now() - parseStarted);
     // Seed the fs parse cache with this parse, so other scanned files resolving references
     // into this one hit the cache instead of re-reading and re-parsing it from disk.

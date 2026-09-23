@@ -37,10 +37,13 @@ export interface ModConflict {
     readonly theirVerb: ActionVerb;
     /** What this mod does to it. */
     readonly ownVerb: ActionVerb;
-    /** The claimed path: a target node, or one member written into it. */
-    readonly key: string;
     /** The target this mod's action writes, as it is written. */
     readonly target: string;
+    /**
+     * The member written into that target, as it is written. Absent for a verb that claims the
+     * whole target, which names no member.
+     */
+    readonly member?: string;
     /** Whether this mod is the one the game applies last. */
     readonly ownsLastWord: boolean;
     /** The manifest the action is written in. */
@@ -109,8 +112,11 @@ export const modConflicts = async (modRoot: string, token: CancellationToken): P
                         modId: mod.id,
                         theirVerb,
                         ownVerb: action.type,
-                        key: claim.key,
-                        target: String(anchor.valueType.value),
+                        // Quoted as this manifest spells it. The claim's own key is folded to lower
+                        // case and stripped of the target's path so two mods compare equal, which
+                        // is not a path the author would recognise in their own file.
+                        target: claim.target,
+                        member: claim.written,
                         // The game sorts by manifest id, ordinal, so the higher id writes last.
                         ownsLastWord: ownId > mod.id,
                         file: manifestPath,

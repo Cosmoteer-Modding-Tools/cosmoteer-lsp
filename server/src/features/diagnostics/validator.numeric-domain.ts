@@ -71,7 +71,7 @@ const effectiveNumber = async (
  * @param value the number the chain supplies.
  * @returns the finding's message.
  */
-const messageFor = (rule: NumericDomainRule, value: number): string => {
+export const messageFor = (rule: NumericDomainRule, value: number): string => {
     if (rule.effect === 'hangs') {
         return l10n.t(
             "'{0}' is the step a continuous beam advances its damage clock by, and at {1} the clock never moves, so the game stops responding the first time the beam fires. A beam whose Duration is above zero has to write one above zero.",
@@ -79,10 +79,19 @@ const messageFor = (rule: NumericDomainRule, value: number): string => {
             value
         );
     }
+    // A rule whose floor is the smallest number the format holds asks for any positive value, not
+    // for the 1 a printed floor would suggest: the game ships .75 for one of these fields itself.
+    if (rule.atLeast === Number.MIN_VALUE) {
+        return l10n.t(
+            "'{0}' has to be above zero, and the game divides by the {1} this chain supplies the first time it reads the component.",
+            rule.field,
+            value
+        );
+    }
     return l10n.t(
         "'{0}' has to be at least {1}, and the game divides by the {2} this chain supplies the first time it reads the component.",
         rule.field,
-        rule.atLeast === Number.MIN_VALUE ? 1 : rule.atLeast,
+        rule.atLeast,
         value
     );
 };

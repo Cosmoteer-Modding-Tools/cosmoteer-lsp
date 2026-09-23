@@ -9,11 +9,14 @@ import {
     isMathExpressionNode,
     isValueNode,
     ListNode,
+    ValueNode,
 } from '../../core/ast/ast';
 import { basenameOf, isModRules } from '../../document/document-kind';
 import { flattenGroup, flattenList } from '../../semantics/effective-group';
 import { MemberOrigin } from '../../semantics/effective-group.types';
+import { navigate } from '../../semantics/navigate-reference';
 import { evaluateNumericValue } from '../../semantics/value-evaluator';
+import { getStartOfAstNode } from '../../utils/ast.utils';
 import { formatWithUnit, unitForValue } from '../value-units';
 import { foldPathCase } from '../../workspace/fs-cache';
 import { filePathToUri } from '../../document/reference-path';
@@ -72,6 +75,13 @@ const WALK_CONCURRENCY = 8;
 /** How long after the last file change the view is told, so a run of keystrokes is one rebuild. */
 const CHANGE_NOTICE_DELAY_MS = 400;
 
+/**
+ * How many files a change may name while a walk is running before the walk it produces is thrown
+ * away rather than repaired. A bound on the set is what keeps a walk that never finishes from
+ * holding on to every file the reader touched meanwhile.
+ */
+const MAX_PENDING_CHANGES = 4000;
+
 /** The member holding the part's category tags, one filter axis of the view. */
 const CATEGORIES_MEMBER = 'typecategories';
 
@@ -98,9 +108,6 @@ const SIZE_PATHS = ['Size/0', 'Size/1'] as const;
 const DPS_PATH = 'StatsByCategory/0/Stats/DamagePerSecond';
 const DAMAGE_PER_SHOT_PATH = 'StatsByCategory/0/Stats/DamagePerShot';
 const ROF_PATH = 'StatsByCategory/0/Stats/ROF';
-
-/** The last path segment a mod writes its barrel count under, whichever component holds it. */
-const BARRELS_SEGMENT = 'barrels';
 
 /** A value the walk reached, before anything is computed from it. */
 export interface ReachedValue {
@@ -286,20 +293,55 @@ const cellValue = async (
 };
 
 /**
- * Whether a list is a table of key and value pairs, the shape `Resources [ [steel, 40] ]` uses. Such
- * a list is addressed by its keys rather than by index, so `Resources/steel` is a column that means
- * the same thing on every part instead of one that means whatever sits second on this one.
+ * The name a pair's first element stands for, which is what the column is keyed by.
+ *
+ * The game reads such an element as a value like any other, so a mod that keeps its resource id in
+ * one place and writes `[&~/DefaultResource, 40]` names the same resource as one that writes the id
+ * out. Only a reference is resolved, and the written text is kept where it resolves to nothing, so
+ * a part whose keys are all written out pays for no navigation at all.
+ *
+ * @param key the pair's first element.
+ * @param token cancels the resolution.
+ * @returns the name, or null when the element stands for a number and the list is positional.
+ */
+const pairKeyOf = async (key: ValueNode, token: CancellationToken): Promise<string | null> => {
+    if (key.valueType.type === 'Number') return null;
+    const written = String(key.valueType.value);
+    if (key.valueType.type !== 'Reference') return written;
+    const resolved = await navigate(written, key, getStartOfAstNode(key).uri, token).catch(() => null);
+    const target = resolved as AbstractNode | null;
+    if (!target || !isValueNode(target)) return written;
+    // A reference standing for a number is an index or a coordinate rather than a name, which is
+    // what the vertices of a collider are written as, so the list is read by position instead.
+    return target.valueType.type === 'Number' ? null : String(target.valueType.value);
+};
+
+/**
+ * The keys of a list read as a table of key and value pairs, the shape `Resources [ [steel, 40] ]`
+ * uses. Such a list is addressed by its keys rather than by index, so `Resources/steel` is a column
+ * that means the same thing on every part instead of one that means whatever sits second on this
+ * one.
  *
  * @param entries the list's flattened entries.
- * @returns true when every entry is a two-element list starting with a name.
+ * @param token cancels the resolution of a key written as a reference.
+ * @returns the keys in entry order, or null when the list is not a table of pairs.
  */
-const isKeyedPairList = (entries: readonly { readonly value: AbstractNode }[]): boolean =>
-    entries.length > 0 &&
-    entries.every((entry) => {
-        if (!isListNode(entry.value) || entry.value.elements.length !== 2) return false;
-        const key = entry.value.elements[0];
-        return isValueNode(key) && key.valueType.type !== 'Number';
-    });
+const pairKeysOf = async (
+    entries: readonly { readonly value: AbstractNode }[],
+    token: CancellationToken
+): Promise<string[] | null> => {
+    if (entries.length === 0) return null;
+    const keys: string[] = [];
+    for (const entry of entries) {
+        if (!isListNode(entry.value) || entry.value.elements.length !== 2) return null;
+        const first = entry.value.elements[0];
+        if (!isValueNode(first)) return null;
+        const key = await pairKeyOf(first, token);
+        if (key === null) return null;
+        keys.push(key);
+    }
+    return keys;
+};
 
 /** The state one part's walk carries. */
 interface PartWalk {
@@ -375,20 +417,12 @@ const walkContainer = async (
 
     const flattened = await flattenList(container, walk.token).catch(() => null);
     if (!flattened) return;
-    if (isKeyedPairList(flattened.entries)) {
-        for (const entry of flattened.entries) {
+    const keys = await pairKeysOf(flattened.entries, walk.token);
+    if (keys) {
+        for (let index = 0; index < flattened.entries.length; index++) {
+            const entry = flattened.entries[index];
             const pair = entry.value as ListNode;
-            const key = pair.elements[0];
-            if (!isValueNode(key)) continue;
-            await reach(
-                at(String(key.valueType.value)),
-                pair.elements[1],
-                entry.origin,
-                depth,
-                walk,
-                inherited,
-                injected
-            );
+            await reach(at(keys[index]), pair.elements[1], entry.origin, depth, walk, inherited, injected);
         }
         return;
     }
@@ -504,6 +538,27 @@ let walked:
     | undefined;
 
 /**
+ * The scope the kept walk was built for, so one part of it can be read again without a build. The
+ * writer needs the part as the files read now, and a walk kept from before the reader's last
+ * keystroke would take its edit to where the value used to stand.
+ */
+let walkedScope: PartCatalogScope | undefined;
+
+/** How many walks are running, which is when a file change has no kept walk to be marked in. */
+let walksInFlight = 0;
+
+/**
+ * The files that changed while a walk was running. A walk stores itself with a clean slate, so a
+ * change that lands after the walk read the file and before it stores would otherwise be dropped
+ * whole: no part marked stale, no notice to the view, and the pre-change value served from then on.
+ * These are replayed against the walk the moment it is stored.
+ */
+const pendingChanges = new Set<string>();
+
+/** True when more files changed during a walk than the pending set holds, which drops the walk. */
+let pendingOverflow = false;
+
+/**
  * Counts the walks this process has kept, so anything worked out from one walk can tell whether it
  * is still looking at the walk the table holds.
  */
@@ -512,6 +567,7 @@ let walkVersion = 0;
 /** Drops the kept walk, so the next build reads the parts from disk again. */
 export const invalidatePartTable = (): void => {
     walked = undefined;
+    walkedScope = undefined;
     walkVersion++;
 };
 
@@ -561,9 +617,17 @@ const noteChange = (): void => {
  * a part reads through a reference is computed live, so the rows can differ even when no part is
  * walked again.
  *
+ * A change that lands while a walk is running is held as well as marked, since the walk stores
+ * itself over whatever was marked while it ran. The held changes are replayed once it has, which
+ * is also what sends the notice the view acts on.
+ *
  * @param uri the uri of the file whose content changed.
  */
 export const invalidatePartTableFor = (uri: string): void => {
+    if (walksInFlight > 0) {
+        if (pendingChanges.size >= MAX_PENDING_CHANGES) pendingOverflow = true;
+        else pendingChanges.add(uri);
+    }
     if (!walked) return;
     const base = basenameOf(uri).toLowerCase();
     if (isModRules(uri) || base === 'cosmoteer.rules') {
@@ -583,6 +647,30 @@ export const invalidatePartTableFor = (uri: string): void => {
     // is what it is.
     if (!ownFile && walked.modRoot && key.startsWith(fileKey(walked.modRoot))) walked.catalogStale = true;
     noteChange();
+};
+
+/**
+ * Replays against the walk that was just stored the changes that landed while it ran. The walk
+ * stores itself over whatever was marked while it read, so without this a file saved during a
+ * build is marked in a walk that is thrown away, and every later build answers the pre-change
+ * value from a walk nothing says is stale.
+ *
+ * Each held change goes back through {@link invalidatePartTableFor}, which is what keeps a manifest
+ * change dropping the walk and an unknown file under the mod root making the catalog stale rather
+ * than both becoming a plain part mark. A build that ran through more changes than the set holds
+ * cannot be repaired from it, so the walk is dropped and read again.
+ */
+const replayPendingChanges = (): void => {
+    if (walksInFlight > 0 || (pendingChanges.size === 0 && !pendingOverflow)) return;
+    const pending = [...pendingChanges];
+    pendingChanges.clear();
+    if (pendingOverflow) {
+        pendingOverflow = false;
+        invalidatePartTable();
+        noteChange();
+        return;
+    }
+    for (const uri of pending) invalidatePartTableFor(uri);
 };
 
 /**
@@ -642,8 +730,35 @@ const walkScope = async (
 ): Promise<{ parts: WalkedPart[]; truncated: boolean; prices: ResourcePrices }> => {
     const key = `${scope.context.gameRootPath ?? ''}|${scope.modRoot ?? ''}`;
     const kept = walked?.key === key ? walked : undefined;
-    if (kept && kept.dirty.size === 0 && !kept.catalogStale) return kept;
+    if (kept && kept.dirty.size === 0 && !kept.catalogStale) {
+        walkedScope = scope;
+        return kept;
+    }
+    walksInFlight++;
+    try {
+        return await runWalk(scope, key, kept, token);
+    } finally {
+        walksInFlight--;
+        replayPendingChanges();
+    }
+};
 
+/**
+ * The walk itself, from the catalog to the stored result. It is separated from {@link walkScope}
+ * only so the bookkeeping that holds the changes landing meanwhile has one place to sit.
+ *
+ * @param scope the game context and the mod the table is scoped to.
+ * @param key the scope's key, which decides whether a kept walk is about the same parts.
+ * @param kept the walk to repair, absent when the parts are read from nothing.
+ * @param token cancels the reads.
+ * @returns the walked parts with the flag that says whether the cap cut them short.
+ */
+const runWalk = async (
+    scope: PartCatalogScope,
+    key: string,
+    kept: typeof walked,
+    token: CancellationToken
+): Promise<{ parts: WalkedPart[]; truncated: boolean; prices: ResourcePrices }> => {
     const catalog =
         !kept || kept.catalogStale
             ? await catalogParts(scope, token)
@@ -699,6 +814,7 @@ const walkScope = async (
             parts.length === kept.parts.length &&
             parts.every((entry, index) => entry.part.key === kept.parts[index].part.key);
         walked = { key, modRoot: scope.modRoot, ...result, dirty: new Set(), catalogStale: false };
+        walkedScope = scope;
         if (!unchanged) walkVersion++;
     }
     return result;
@@ -769,21 +885,6 @@ const elementPathsOf = (entry: WalkedPart, path: string): string[] => {
         .sort();
 };
 
-/**
- * The path of the first value of a part whose last segment is the barrel count, wherever a mod's
- * turret keeps it. The game itself has no such stat, so no fixed path can name it.
- *
- * @param entry the walked part.
- * @returns the path, or undefined when the part has no barrel count.
- */
-const barrelsPathOf = (entry: WalkedPart): string | undefined => {
-    for (const [path, reached] of entry.values) {
-        const cut = path.lastIndexOf('/');
-        if (path.slice(cut + 1).toLowerCase() === BARRELS_SEGMENT && looksNumeric(reached.node)) return path;
-    }
-    return undefined;
-};
-
 /** What a row build hands a derived column: the part, the prices, and a memoized evaluator. */
 interface DerivedContext {
     readonly entry: WalkedPart;
@@ -821,7 +922,9 @@ const DERIVED: readonly DerivedColumn[] = [
             for (const { key } of resources) {
                 const price = priceOf(prices, key);
                 const amount = await numberAt(`${RESOURCES_MEMBER}/${key}`);
-                // A resource nothing prices leaves the cost unknowable rather than quietly cheaper.
+                // A resource no registry entry declares leaves the cost unknowable rather than
+                // quietly cheaper. One that is registered and names no price is free, the way the
+                // game reads its optional `BuyPrice`.
                 if (price === undefined || amount === null) return null;
                 total += price * amount;
             }
@@ -843,7 +946,7 @@ const DERIVED: readonly DerivedColumn[] = [
         path: '@DPS',
         label: 'DPS',
         description:
-            "Damage per second: the game's own stat where the part declares one, otherwise damage per shot times rate of fire, times the barrels where the part counts them.",
+            "Damage per second: the game's own stat where the part declares one, otherwise damage per shot times rate of fire.",
         applies: (entry) =>
             reachedAt(entry, DPS_PATH) !== undefined ||
             elementPathsOf(entry, DPS_PATH).length > 0 ||
@@ -866,11 +969,11 @@ const DERIVED: readonly DerivedColumn[] = [
                 const rate = await numberAt(ROF_PATH);
                 if (perShot !== null && rate !== null) dps = perShot * rate;
             }
-            if (dps === null) return null;
-            const barrels = barrelsPathOf(entry);
-            if (!barrels) return dps;
-            const count = await numberAt(barrels);
-            return count !== null && count > 0 ? dps * count : dps;
+            // A barrel count a turret declares is not a multiplier on any of this. The stats block
+            // is what the game prints in the part's own tooltip, so its damage per second is the
+            // figure for the whole weapon, and a mod that writes a barrel count writes a rate of
+            // fire that already counts the barrels beside it.
+            return dps;
         },
     },
 ];
@@ -1385,10 +1488,25 @@ export const buildPartTable = async (
 };
 
 /**
- * The walked part a table row was built from, which the writer needs to find the value again.
+ * The part a table row was built from, read again from the files as they stand right now.
+ *
+ * The walk is what says which part a row is, and the kept walk answers that as well as it ever
+ * did. What it cannot answer is where a value stands in the text, since its nodes carry the offsets
+ * of the parse it was made from, and the buffer the reader is typing in has moved on since. An edit
+ * built from those offsets lands wherever they now point, which is another field. So the row names
+ * the part and the part is read again, through the same scope the table was built for, which reads
+ * an open file as the editor holds it.
  *
  * @param rowKey the row's key.
- * @returns the part, or undefined when the walk has been dropped or never held that row.
+ * @param token cancels the reads.
+ * @returns the part as the files read now, or undefined when the walk has been dropped, never held
+ * that row, or the part can no longer be read.
  */
-export const walkedPartFor = (rowKey: string): WalkedPart | undefined =>
-    walked?.parts.find((candidate) => candidate.part.key === rowKey);
+export const rewalkedPartFor = async (
+    rowKey: string,
+    token: CancellationToken = CancellationToken.None
+): Promise<WalkedPart | undefined> => {
+    const kept = walked?.parts.find((candidate) => candidate.part.key === rowKey);
+    if (!kept || !walkedScope) return undefined;
+    return (await walkPart(kept.part, walkedScope, token).catch(() => null)) ?? undefined;
+};

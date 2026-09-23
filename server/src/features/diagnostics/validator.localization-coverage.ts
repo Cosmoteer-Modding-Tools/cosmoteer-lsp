@@ -2,9 +2,12 @@ import * as l10n from '@vscode/l10n';
 import { CancellationToken } from 'vscode-languageserver';
 import { AbstractNode, AbstractNodeDocument, isAssignmentNode, isValueNode } from '../../core/ast/ast';
 import {
-    isEnglish,
+    declaresLanguage,
+    englishOf,
     isStringsDocument,
     keyDeclarationsOf,
+    LANGUAGE_ID,
+    languageIdOf,
     languageOf,
     LocalizationKeyIndex,
 } from '../completion/localization-key.index';
@@ -54,21 +57,28 @@ const fileAnchor = (document: AbstractNodeDocument): AbstractNode | undefined =>
 /**
  * Reports what one language of a mod is missing against the languages beside it: keys the other
  * strings files in the same folder declare and this one does not, and a key whose translation drops
- * or invents one of the placeholder slots the English text carries.
+ * or invents one of the placeholder slots the English text carries. Reports a whole language the
+ * game will never offer as well, which is the file's own header missing.
  *
- * The game falls back to nothing when a key is missing from the language in play, so a player
- * reading that language sees the raw key path. A placeholder slot the translation lost is worse
- * still, since the number the sentence was about never reaches the screen.
+ * A key the language in play is missing is answered from English, which the game keeps loaded
+ * behind it, so a player reading that language gets an English sentence. The raw key path is what
+ * reaches the screen when English is missing the key as well, which is the English file's own case.
+ * A placeholder slot the translation lost is worse still, since the number the sentence was about
+ * never reaches the screen.
  *
  * Scoped to the mod being edited and to one folder, on purpose. The game's own strings are not
  * complete either, and a language of the base game is nothing a mod author can fix, so a file
  * outside a mod is never judged.
  *
+ * Only the files the game loads as a language take part, and what the language already renders from
+ * the base game's file of the same id counts as declared. A mod language sits on top of the one the
+ * game ships, so the keys it leaves out are answered from there and are not missing at all.
+ *
  * @param document the parsed strings file to validate.
  * @param folderPaths the project folders the strings index is built from.
  * @param cancellationToken cancellation for the index build.
- * @returns one hint for the keys this language is missing, and one warning per mismatched
- *          placeholder set.
+ * @returns one warning when the game offers this language to nobody, one hint for the keys the
+ *          language is missing, and one warning per mismatched placeholder set.
  */
 export const validateLocalizationCoverage = async (
     document: AbstractNodeDocument,
@@ -77,22 +87,51 @@ export const validateLocalizationCoverage = async (
 ): Promise<ValidationError[]> => {
     if (!isStringsDocument(document) || !findModRoot(document.uri)) return [];
     const language = languageOf(document);
-    if (!language) return [];
-
-    const languages = await LocalizationKeyIndex.instance.languageTextsUnder(
-        folderOf(document.uri),
-        folderPaths,
-        cancellationToken
-    );
-    if (cancellationToken.isCancellationRequested || languages.length < 2) return [];
-
-    const own = languages.find((entry) => entry.language === language);
-    const others = languages.filter((entry) => entry.language !== language);
-    if (!own) return [];
+    const id = languageIdOf(document);
+    if (!language || !id) return [];
 
     const errors: ValidationError[] = [];
+    const folder = folderOf(document.uri);
+    const anchor = fileAnchor(document);
+    const declaredIds = await LocalizationKeyIndex.instance.declaredLanguages(folderPaths, cancellationToken);
+    if (cancellationToken.isCancellationRequested) return errors;
+    // The picker lists a language only where some strings file opens with `__Name` on its first
+    // line and `__DebugOnly` on its second, and it takes the id from the file name. A file named
+    // after an id no file declares that way introduces a language the player cannot pick. An id
+    // another file does declare, the game's own `en` above all, is overridden rather than
+    // introduced and needs no header of its own. Without English in the index there is no game
+    // tree to judge against, so nothing is said.
+    if (
+        anchor &&
+        declaredIds.has('en') &&
+        !declaredIds.has(id) &&
+        LANGUAGE_ID.test(id) &&
+        !declaresLanguage(document)
+    ) {
+        errors.push({
+            message: l10n.t('The game offers no language "{0}", so a player cannot pick this one.', id),
+            node: anchor,
+            severity: 'warning',
+            additionalInfo: l10n.t(
+                'A file that introduces a language has to open with __Name on its first line and __DebugOnly on its second, ahead of any comment.'
+            ),
+        });
+    }
+
+    const languages = await LocalizationKeyIndex.instance.languageTextsUnder(folder, folderPaths, cancellationToken);
+    if (cancellationToken.isCancellationRequested || languages.length < 2) return errors;
+
+    // A file the game never loads as a language is absent from that list, so it is neither judged
+    // nor held against the languages beside it.
+    const own = languages.find((entry) => entry.id === id);
+    const others = languages.filter((entry) => entry.id !== id);
+    if (!own) return errors;
+    const inherited = await LocalizationKeyIndex.instance.inheritedTextsFor(id, folder, folderPaths, cancellationToken);
+    if (cancellationToken.isCancellationRequested) return errors;
+
     const declared = new Set<string>();
     for (const key of own.texts.keys()) declared.add(key.toLowerCase());
+    for (const key of inherited.keys()) declared.add(key.toLowerCase());
     const missing: string[] = [];
     for (const other of others) {
         for (const key of other.texts.keys()) {
@@ -101,15 +140,27 @@ export const validateLocalizationCoverage = async (
             missing.push(key);
         }
     }
-    const anchor = fileAnchor(document);
+    // The English text is the one the translations were written from, so it is what decides which
+    // slots a sentence is supposed to carry. A key English does not declare has nothing to compare.
+    const english = englishOf(languages);
     if (missing.length > 0 && anchor) {
         const listed = missing.slice(0, LISTED_KEYS).join(', ');
+        // English is what every other language falls back to, so what a missing key costs depends on
+        // which file is short of it: a translation renders the English sentence, English itself has
+        // nothing behind it and renders the key path.
+        const translated = english !== undefined && english.id !== id;
         errors.push({
-            message: l10n.t(
-                '{0} declares {1} key(s) fewer than the languages beside it. A player reading it sees the key path instead of a sentence.',
-                language,
-                missing.length
-            ),
+            message: translated
+                ? l10n.t(
+                      '{0} declares {1} key(s) fewer than the languages beside it. A player reading it gets the English text for those, or the key path where English lacks them too.',
+                      language,
+                      missing.length
+                  )
+                : l10n.t(
+                      '{0} declares {1} key(s) fewer than the languages beside it. Nothing falls back for those, so a player sees the key path instead of a sentence.',
+                      language,
+                      missing.length
+                  ),
             node: anchor,
             severity: 'hint',
             additionalInfo:
@@ -120,10 +171,7 @@ export const validateLocalizationCoverage = async (
         });
     }
 
-    // The English text is the one the translations were written from, so it is what decides which
-    // slots a sentence is supposed to carry. A key English does not declare has nothing to compare.
-    const english = languages.find((entry) => isEnglish(entry.language));
-    if (!english || english.language === language) return errors;
+    if (!english || english.id === id) return errors;
     for (const declaration of keyDeclarationsOf(document)) {
         if (cancellationToken.isCancellationRequested) return errors;
         if (declaration.text === undefined || !isValueNode(declaration.node)) continue;

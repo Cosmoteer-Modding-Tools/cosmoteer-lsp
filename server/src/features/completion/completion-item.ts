@@ -1,11 +1,14 @@
 import {
     CompletionItem,
     CompletionItemKind,
+    InsertReplaceEdit,
     InsertTextFormat,
     InsertTextMode,
     MarkupKind,
+    Range,
+    TextEdit,
 } from 'vscode-languageserver';
-import { Completion } from './autocompletion.service.types';
+import { Completion, CompletionSuggestion } from './autocompletion.service.types';
 
 /**
  * Reduce an LSP snippet string to the plain text it would insert (drop the `$0`/`$1` tab stops and
@@ -19,13 +22,51 @@ export const snippetToPlainText = (snippet: string): string =>
         .replace(/\$\d+/g, ''); // $1 / $0 -> ''
 
 /**
+ * The edit a ranged suggestion becomes. A client that takes an insert/replace edit gets both ranges,
+ * so its own `insertMode` decides whether a caret parked inside a written value keeps the tail or
+ * overwrites it. Every other client gets a plain edit over the replace range, which overwrites the
+ * value the completer measured rather than writing the suggestion in front of its tail. The pair is
+ * only shipped in the form the protocol allows, one line, one shared start and an insert end no
+ * further than the replace end.
+ *
+ * @param suggestion the completion carrying the ranges.
+ * @param newText the text the edit writes.
+ * @param insertReplaceSupported whether the client declared `completionItem.insertReplaceSupport`.
+ * @returns the text edit to put on the item.
+ */
+const editFor = (
+    suggestion: CompletionSuggestion,
+    newText: string,
+    insertReplaceSupported: boolean
+): TextEdit | InsertReplaceEdit => {
+    const replace = suggestion.range as Range;
+    const insert = suggestion.insertRange;
+    const pairable =
+        !!insert &&
+        insert.start.line === replace.start.line &&
+        insert.start.character === replace.start.character &&
+        insert.end.line === replace.end.line &&
+        insert.end.character <= replace.end.character;
+    return insertReplaceSupported && pairable ? { newText, insert: insert!, replace } : { range: replace, newText };
+};
+
+/**
  * Convert a {@link Completion} into an LSP {@link CompletionItem}. Plain-string completions keep the
  * legacy `Reference` kind. Snippet completions emit `InsertTextFormat.Snippet` only when the client
  * supports it. Otherwise, their insert text is flattened to plain text so they still work. A
- * suggestion carrying a range becomes a text edit over exactly that range, so the client replaces
- * the text the completer measured instead of the word its own word pattern finds.
+ * suggestion carrying a range becomes an edit over exactly that range, so the client replaces the
+ * text the completer measured instead of the word its own word pattern finds.
+ *
+ * @param completion the suggestion to convert.
+ * @param snippetSupported whether the client renders snippet insert text.
+ * @param insertReplaceSupported whether the client declared `completionItem.insertReplaceSupport`.
+ * @returns the completion item to ship.
  */
-export const toCompletionItem = (completion: Completion, snippetSupported: boolean): CompletionItem => {
+export const toCompletionItem = (
+    completion: Completion,
+    snippetSupported: boolean,
+    insertReplaceSupported = false
+): CompletionItem => {
     if (typeof completion === 'string') {
         return { label: completion, kind: CompletionItemKind.Reference };
     }
@@ -56,7 +97,7 @@ export const toCompletionItem = (completion: Completion, snippetSupported: boole
     // The range is applied last so the edit carries whatever insert text the snippet handling above
     // settled on, and the now-redundant `insertText` is dropped because a text edit supersedes it.
     if (completion.range) {
-        item.textEdit = { range: completion.range, newText: item.insertText ?? completion.label };
+        item.textEdit = editFor(completion, item.insertText ?? completion.label, insertReplaceSupported);
         delete item.insertText;
     }
     return item;

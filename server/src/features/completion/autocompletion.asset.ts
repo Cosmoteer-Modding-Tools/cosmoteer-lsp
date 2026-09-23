@@ -12,6 +12,7 @@ import {
 } from '../../core/ast/ast';
 import { AutoCompletion, Completion } from './autocompletion.service.types';
 import { AssetType, completeAssetPath } from './autocompletion.asset-path';
+import { caretInValue, SegmentSpan, withSegmentEdit, writtenValueRange } from './completion-range';
 import { documentScopeClass, findEnclosingContainer } from '../../document/schema/schema-context';
 import { fieldOf } from '../../document/schema/schema';
 import { resolveClassThroughInheritance } from './inheritance-resolution';
@@ -181,15 +182,46 @@ const looksLikeAssetPath = (node: ValueNode): boolean => {
  * already-classified `.shader`/`.png`/`.wav` extension, or a quoted relative path).
  */
 export class AutoCompletionAsset implements AutoCompletion<ValueNode> {
-    public async getCompletions(node: ValueNode, cancellationToken: CancellationToken): Promise<Completion[]> {
+    public async getCompletions(
+        node: ValueNode,
+        cancellationToken: CancellationToken,
+        cursorOffset?: number
+    ): Promise<Completion[]> {
         if (!isValueNode(node)) return [];
         const assetType = await schemaAssetType(node, cancellationToken);
         if (assetType) {
-            return await completeAssetPath({ node, cancellationToken, assetType }).catch(() => []);
+            return withSegmentEdit(
+                await completeAssetPath({ node, cancellationToken, assetType }).catch(() => []),
+                fileNameSpan(node, cursorOffset)
+            );
         }
         if (looksLikeAssetPath(node)) {
-            return await completeAssetPath({ node, cancellationToken }).catch(() => []);
+            return withSegmentEdit(
+                await completeAssetPath({ node, cancellationToken }).catch(() => []),
+                fileNameSpan(node, cursorOffset)
+            );
         }
         return [];
     }
 }
+
+/**
+ * The file-name segment an asset completion replaces: the part of the path after its last `/`, which
+ * is the only segment the directory listing answers for. A caret parked inside it replaces the whole
+ * name (`File = "ic|on.png"` takes `icon.png`, not `icon.pngon.png`). A caret in a directory written
+ * earlier in the path is left unmeasured, because the offered names belong to the last segment and
+ * would overwrite the wrong one.
+ *
+ * @param node the value node the asset path is written on.
+ * @param cursorOffset the document offset of the cursor, when known.
+ * @returns the segment to replace, or undefined when the caret is not in the file name.
+ */
+const fileNameSpan = (node: ValueNode, cursorOffset?: number): SegmentSpan | undefined => {
+    const caret = caretInValue(node, cursorOffset);
+    const written = writtenValueRange(node);
+    if (!caret || !written) return undefined;
+    const value = String(node.valueType.value ?? '');
+    const nameStart = written.start.character + value.lastIndexOf('/') + 1;
+    if (caret.character < nameStart) return undefined;
+    return { line: written.start.line, start: nameStart, end: written.end.character, caret: caret.character };
+};

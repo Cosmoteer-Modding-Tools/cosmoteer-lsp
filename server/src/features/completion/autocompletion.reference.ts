@@ -1,7 +1,8 @@
-import { CancellationToken, Range } from 'vscode-languageserver';
+import { CancellationToken } from 'vscode-languageserver';
 import { isGroupNode, isListNode, isValueNode, ValueNode } from '../../core/ast/ast';
 import { AutoCompletion, Completion } from './autocompletion.service.types';
 import { completeReference, referenceStartCompletions } from './autocompletion.reference-path';
+import { SegmentSpan, withSegmentEdit } from './completion-range';
 
 /** The characters that close a reference path segment. `&` opens the reference, `<` and `>` bracket a
  *  file path and `/` joins the segments, so the segment being edited starts after the last of them. */
@@ -32,46 +33,38 @@ const referenceValueUpToCursor = (node: ValueNode, cursorOffset?: number): strin
 };
 
 /**
- * The range a reference completion replaces. The strategy answers with leaf segments (`a.rules>`,
- * `ToB`, `parts/`), so the range must cover the segment the cursor sits in and nothing of the path
- * before it. Left to itself the client measures the range with its own word pattern, which breaks at
- * `.`, so accepting `a.rules>` over a typed `a.ru` writes `a.a.rules>`. A reference token never spans
- * lines, so the value's line and start column place the cursor exactly.
+ * The segment a reference completion replaces. The strategy answers with leaf segments (`a.rules>`,
+ * `ToB`, `parts/`), so the span covers the segment the cursor sits in and nothing of the path around
+ * it. Left to itself the client measures the range with its own word pattern, which breaks at `.`, so
+ * accepting `a.rules>` over a typed `a.ru` writes `a.a.rules>`. The segment reaches past the cursor
+ * to its own delimiter, so a caret parked in the middle of `ter|ran/base.rules>` replaces `terran`
+ * and leaves the file name standing. A reference token never spans lines, so the value's line and
+ * start column place the cursor exactly.
  *
  * @param node the value node the reference is typed on.
  * @param cursorOffset the document offset of the cursor, when known.
- * @param wholeValue true to cover the whole typed value instead of its last segment, for the
+ * @param wholeValue true to cover the whole typed value instead of the segment at the cursor, for the
  * reference-start prefixes, whose labels carry the `&` themselves.
- * @returns the range to replace, or undefined when the cursor is not inside the value, which leaves
+ * @returns the segment to replace, or undefined when the cursor is not inside the value, which leaves
  * the client its own measurement.
  */
-const referenceReplaceRange = (node: ValueNode, cursorOffset?: number, wholeValue = false): Range | undefined => {
+const referenceSegmentSpan = (node: ValueNode, cursorOffset?: number, wholeValue = false): SegmentSpan | undefined => {
     if (cursorOffset === undefined || node.position === undefined) return undefined;
     const value = String(node.valueType.value);
     const typedLength = cursorOffset - node.position.start;
     if (typedLength < 0 || typedLength > value.length) return undefined;
-    const typed = value.slice(0, typedLength);
-    let segmentStart = wholeValue ? 0 : typed.length;
-    while (segmentStart > 0 && !SEGMENT_BOUNDARIES.includes(typed[segmentStart - 1])) segmentStart--;
-    const cursorCharacter = node.position.characterStart + typedLength;
+    let segmentStart = wholeValue ? 0 : typedLength;
+    while (segmentStart > 0 && !SEGMENT_BOUNDARIES.includes(value[segmentStart - 1])) segmentStart--;
+    let segmentEnd = wholeValue ? value.length : typedLength;
+    while (segmentEnd < value.length && !SEGMENT_BOUNDARIES.includes(value[segmentEnd])) segmentEnd++;
     return {
-        start: { line: node.position.line, character: cursorCharacter - (typed.length - segmentStart) },
-        end: { line: node.position.line, character: cursorCharacter },
+        line: node.position.line,
+        start: node.position.characterStart + segmentStart,
+        end: node.position.characterStart + segmentEnd,
+        caret: node.position.characterStart + typedLength,
+        delimiter: value[segmentEnd],
     };
 };
-
-/**
- * Tags leaf-segment options with the range they replace, keeping whatever the strategy already said
- * about an option (the file an inherited member comes from).
- *
- * @param options the options the strategy answered with.
- * @param range the replace range, or undefined to leave the client its own.
- * @returns the completions to offer.
- */
-const withSegmentRange = (options: Completion[], range: Range | undefined): Completion[] =>
-    range
-        ? options.map((option) => (typeof option === 'string' ? { label: option, range } : { ...option, range }))
-        : options;
 
 /**
  * A quoted value node that is a reference and is therefore worth offering reference-path completions for.
@@ -92,7 +85,7 @@ export class AutoCompletionReference implements AutoCompletion<ValueNode> {
                 // segment is wrong, would offer the same stale suggestion at every position).
                 valueUpToCursor: referenceValueUpToCursor(node, cursorOffset),
             }).catch(() => []);
-            return withSegmentRange(labels, referenceReplaceRange(node, cursorOffset));
+            return withSegmentEdit(labels, referenceSegmentSpan(node, cursorOffset));
         }
         // A lone `&`, the moment the user starts a reference, is lexed as a string rather than a
         // reference. Offer the reference-start prefixes (including `&^/N/` caret paths) here so the
@@ -100,7 +93,7 @@ export class AutoCompletionReference implements AutoCompletion<ValueNode> {
         if (isValueNode(node) && node.valueType.type === 'String' && node.valueType.value === '&') {
             // These labels spell out the `&` themselves, so the range covers the typed one. A segment
             // range would stop after it and produce `&&<./Data/`.
-            return withSegmentRange(referenceStartCompletions(node), referenceReplaceRange(node, cursorOffset, true));
+            return withSegmentEdit(referenceStartCompletions(node), referenceSegmentSpan(node, cursorOffset, true));
         }
         return [];
     }

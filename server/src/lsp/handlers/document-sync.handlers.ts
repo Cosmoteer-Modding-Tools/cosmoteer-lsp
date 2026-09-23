@@ -13,16 +13,20 @@ import { invalidateNavigationMemoForFile } from '../../semantics/navigate-refere
 import { filePathToUri } from '../../document/reference-path';
 import { normalizeUri } from '../../document/reference-location';
 import { uriToFsPath } from '../../workspace/workspace-files';
-import { reachabilityKey } from '../../mod/mod-reachability';
 import { traceFailure } from '../../utils/cancellation';
 import { hasPullDiagnosticsCapability } from '../../capabilities';
 import { connection, documents, tokenSourceManager } from '../context';
 import { diagnosticsCache, inlayHintCache, semanticTokensCache } from '../document-caches';
 import { forgetDocumentSettings } from '../document-settings';
 import { openDocumentNorms, openParseCache, registerOpenDocument } from '../open-documents';
-import { cancelPushValidation, computeDiagnosticsCached, schedulePushValidation } from '../push-diagnostics';
+import {
+    cancelPushValidation,
+    computeDiagnosticsCached,
+    refreshDependentOpenDocuments,
+    schedulePushValidation,
+} from '../push-diagnostics';
 import { bumpWorkspaceScanEpoch } from '../scan-epoch';
-import { isOutsideRulesPanel, validationScopeKeys, wholeWorkspaceEnabled } from '../validation-scope';
+import { isOutsideRulesPanel, reachableFileFilter, wholeWorkspaceEnabled } from '../validation-scope';
 import { retractWorkspaceDiagnostics, validateWorkspaceFile } from '../workspace-scan';
 
 /**
@@ -53,13 +57,13 @@ export function register(): void {
             // uri the full pass uses, so the file isn't tracked twice under different uri encodings.
             const path = uriToFsPath(e.document.uri);
             const canonicalUri = filePathToUri(path);
-            const scopeKeys = await validationScopeKeys(CancellationToken.None);
+            const inScope = await reachableFileFilter(CancellationToken.None);
             // A `.txt` nothing references leaves with its tab for the same reason an out-of-scope file
             // does. It validated while open, since opening it as `rules` is a deliberate "this is rules",
             // but the game would never load it, so nothing persists it once the tab is gone. Without this
             // its problems stick forever: the scan gate below never publishes the file, so no later pass
             // is left to retract what the open flow pushed.
-            const outOfScope = scopeKeys && !scopeKeys.has(reachabilityKey(path));
+            const outOfScope = !!inScope && !inScope(path);
             if (outOfScope || (await isOutsideRulesPanel(path, CancellationToken.None))) {
                 // The file is outside what the panel persists. It validated while it was open
                 // (open files always validate), but its problems leave the panel with the tab instead
@@ -94,6 +98,10 @@ export function register(): void {
             // here as well would run the whole validation twice per edit.
             if (hasPullDiagnosticsCapability) return;
             schedulePushValidation(e.document);
+            // The other open documents were judged against this buffer (an inherited base, a strings
+            // file, a component provider) and the edit just dropped their cached results. A client
+            // that can pull asks for them again on its own; this one has to be told.
+            refreshDependentOpenDocuments(e.document.uri);
         },
         null,
         [tokenSourceManager]

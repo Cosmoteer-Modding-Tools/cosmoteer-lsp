@@ -9,6 +9,7 @@ import { parseModActions } from '../../../src/mod/action-parser';
 import {
     ModClaims,
     claimsOf,
+    conflictMessage,
     manifestActionsWithFragments,
     otherMods,
 } from '../../../src/features/diagnostics/validator.mod-conflict';
@@ -67,6 +68,57 @@ describe('what an action takes for itself', () => {
         expect(claims('\t{ Action = Add; AddTo = "<a.rules>/Parts"; Name = Mine; ToAdd { MaxHealth = 5 } }')).toEqual(
             []
         );
+    });
+});
+
+/** The claims of one manifest, whole, so the written spelling beside the folded key can be read. */
+const claimsWritten = (actions: string): { key: string; written?: string; target: string }[] => {
+    const manifest = ['ID = test.mod', 'Name = "t"', 'Actions', '[', actions, ']', ''].join('\n');
+    const document = parser(lexer(manifest), 'file:///mod.rules').value;
+    return parseModActions(document).flatMap((action) =>
+        claimsOf(action).map((claim) => ({ key: claim.key, written: claim.written, target: claim.target }))
+    );
+};
+
+// The key two mods are compared by is folded, so that a member spelled `Left` in one manifest and
+// `left` in another still compares equal. The sentence the author reads is a different thing: it
+// has to name what their own file says, or it names something the file does not contain.
+describe('the member a conflict names', () => {
+    it('is quoted as the manifest writes it, group path included', () => {
+        expect(
+            claimsWritten(
+                '\t{ Action = Overrides; OverrideIn = "<a.rules>/Part"; Overrides { MaxBorders { Left = -500 } } }'
+            )
+        ).toEqual([
+            { key: '<./data/a.rules>/part/maxborders/left', written: 'MaxBorders/Left', target: '<a.rules>/Part' },
+        ]);
+    });
+
+    // A `RemoveMany` claims one node per element of its list, so the target has to travel with the
+    // claim. Reaching for the action's first target instead would name the wrong node on every
+    // element but the first.
+    it('carries its own target, so a RemoveMany names the element it claims', () => {
+        expect(claimsWritten('\t{ Action = RemoveMany; RemoveMany = ["<a.rules>/A", "<b.rules>/B"] }')).toEqual([
+            { key: '<./data/a.rules>/a', written: undefined, target: '<a.rules>/A' },
+            { key: '<./data/b.rules>/b', written: undefined, target: '<b.rules>/B' },
+        ]);
+    });
+
+    it('reaches the sentence in that spelling rather than the folded one', () => {
+        const [claim] = claimsWritten(
+            '\t{ Action = Overrides; OverrideIn = "<a.rules>/Part"; Overrides { MaxBorders { Left = -500 } } }'
+        );
+        const message = conflictMessage('Overrides', 'Extended Ship Grid', { ...claim, verb: 'Overrides' });
+        expect(message).toContain("'MaxBorders/Left'");
+        expect(message).not.toContain("'left'");
+    });
+
+    // A verb that takes the whole target names no member at all, so the sentence about it must not
+    // grow one out of the folded key.
+    it('is absent for a replace, whose sentence names the node instead', () => {
+        const [claim] = claimsWritten('\t{ Action = Replace; Replace = "<a.rules>/Part/MaxHealth"; With = 200 }');
+        expect(claim.written).toBeUndefined();
+        expect(conflictMessage('Replace', 'Other', { ...claim, verb: 'Replace' })).toContain('replaces the same node');
     });
 });
 

@@ -15,9 +15,9 @@ import {
 import { validateManifestVersion } from '../../../src/features/diagnostics/validator.manifest-version';
 import { CosmoteerWorkspaceService } from '../../../src/workspace/cosmoteer-workspace.service';
 
-// The game turns a mod off while loading when its `CompatibleGameVersions` names neither the
-// installed version nor one of the older ones the build still accepts, and the accepted set exists
-// nowhere but the game assembly. So these cases build a throwaway install around a copy of it.
+// A mod is incompatible when its `CompatibleGameVersions` names neither the installed version nor
+// one of the older ones the build still accepts, and the accepted set exists nowhere but the game
+// assembly. So these cases build a throwaway install around a copy of it.
 const GAME_DATA = process.env.COSMOTEER_DATA_DIR ?? 'C:/Program Files (x86)/Steam/steamapps/common/Cosmoteer/Data';
 const REAL_ASSEMBLY = gameAssemblyPathFor(GAME_DATA);
 const HAVE_GAME = existsSync(REAL_ASSEMBLY);
@@ -77,6 +77,18 @@ describe.runIf(HAVE_GAME)('a manifest against the versions the installed build a
         expect(errors[0].message).toContain(installed);
     });
 
+    it('names the enable-time warning rather than claiming the mod is off right now', async () => {
+        // `ModsDialog` asks the player to confirm every enable with no further condition, while
+        // the load-time drop needs the auto-disable setting and a last-launched version the build
+        // no longer accepts, so it cannot be stated as something the game does now.
+        const errors = await validate(
+            'mod.rules',
+            'ID = test.mod\nName = "Old"\nCompatibleGameVersions = ["0.22.0a"]\n'
+        );
+        expect(errors[0].message).toContain('warns the player before it lets them enable the mod');
+        expect(errors[0].message).not.toContain('turns the mod off while it loads');
+    });
+
     it('offers a fix that makes the list name the current version', async () => {
         const text = 'ID = test.mod\nName = "Old"\nCompatibleGameVersions = ["0.22.0a", "0.21.0"]\n';
         const errors = await validate('mod.rules', text);
@@ -108,10 +120,20 @@ describe.runIf(HAVE_GAME)('a manifest against the versions the installed build a
         ).toEqual([]);
     });
 
-    it('stays silent on a manifest that declares no list', async () => {
-        // A missing list is the selectability check's business, and only when the mod has more
-        // than one manifest.
-        expect(await validate('mod.rules', 'ID = test.mod\nName = "N"\n')).toEqual([]);
+    it('reports a manifest that declares no list at all', async () => {
+        // `IsCompatibleWithGameVersion` opens with `if (CompatibleGameVersions == null) return
+        // false`, so writing no list is as incompatible as naming a version the build dropped.
+        const errors = await validate('mod.rules', 'ID = test.mod\nName = "N"\n');
+        expect(errors).toHaveLength(1);
+        expect(errors[0].message).toContain('declares no');
+        expect(errors[0].severity).toBe('warning');
+    });
+
+    it('reports a list that names nothing at all', async () => {
+        const text = 'ID = test.mod\nName = "N"\nCompatibleGameVersions = []\n';
+        const errors = await validate('mod.rules', text);
+        expect(errors).toHaveLength(1);
+        expect(errors[0].message).toContain(installed);
     });
 
     it("keeps the file's own line ending when it adds the missing field", async () => {

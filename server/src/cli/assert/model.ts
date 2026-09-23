@@ -40,6 +40,63 @@ export type UnverifiableReason =
     | 'manifest-choice'
     | 'unknown-finding';
 
+/**
+ * One finding on a file the game reads that costs the whole file. The game's parser refuses the
+ * file outright, so the action that pulls it in throws, and this is the only kind of finding the
+ * load check folds in from a file rather than from an action entry.
+ *
+ * The list is deliberately short. Every entry names the engine site that refuses the file, and a
+ * finding the list does not carry is left to the ordinary check, because folding in every error on
+ * every reachable file would turn a field the game reads past into "does not load".
+ */
+export interface FileLoadBlocker {
+    /** The rule the pass tags the finding with. */
+    ruleId: string;
+    /** The start of the message, empty when every error of the rule is one of these. */
+    messageStart: string;
+    /** The engine site that refuses the file, so the entry can be checked against the game. */
+    engine: string;
+}
+
+/**
+ * What the game refuses a whole file for, in the findings this build's own passes write.
+ *
+ * `OTFile` parses a file in one go and wraps whatever the tokenizer or the tree builder threw as
+ * `Unable to parse file "…"`, so nothing of a file that does not parse reaches the game at all. A
+ * name written twice in one scope is the same kind of failure rather than a silent overwrite,
+ * because `OTGroupNode` registers each child under its name and throws when the scope already
+ * holds it.
+ */
+export const FILE_LOAD_BLOCKERS: readonly FileLoadBlocker[] = [
+    {
+        ruleId: 'parse-error',
+        messageStart: '',
+        engine: 'halfling/Halfling.ObjectText/OTFile.cs:314',
+    },
+    {
+        ruleId: 'document-duplicate',
+        messageStart: 'Duplicate field "',
+        engine: 'halfling/Halfling.ObjectText/OTGroupNode.cs:1676',
+    },
+    {
+        ruleId: 'syntax-and-references',
+        messageStart: 'Duplicate field "',
+        engine: 'halfling/Halfling.ObjectText/OTGroupNode.cs:1676',
+    },
+];
+
+/**
+ * Whether one finding says the game refuses the whole file it is in.
+ *
+ * @param finding the finding to weigh.
+ * @returns true when the finding is one of {@link FILE_LOAD_BLOCKERS}.
+ */
+export const refusesTheFile = (finding: LintFinding): boolean =>
+    finding.severity === 'error' &&
+    FILE_LOAD_BLOCKERS.some(
+        (blocker) => blocker.ruleId === finding.ruleId && finding.message.startsWith(blocker.messageStart)
+    );
+
 /** One thing the check could not see, in the words the report prints. */
 export interface Disclosure {
     reason: UnverifiableReason;
@@ -196,6 +253,32 @@ export const ACTION_FINDING_EFFECTS: ReadonlyMap<string, LoadEffect | 'editor-li
 
 /** The rule id the mod action pass tags its findings with. */
 export const MOD_ACTION_RULE_ID = 'mod-action';
+
+/** The rule id the value pass tags a reference it could not resolve with. */
+export const REFERENCE_RULE_ID = 'syntax-and-references';
+
+/**
+ * The message the value pass writes on a reference that resolves to nothing. It is a warning there
+ * on purpose, because the game loads past a dangling reference in its data and vanilla ships some,
+ * but a reference written on a mod action is read long before that: `BaseSerializer.Read` hands
+ * every member it reads to `ObjectTextSerializer.DereferenceSource`
+ * (`halfling/Halfling.Serialization.ObjectText/ObjectTextSerializer.cs:279`), which calls
+ * `OTReferenceNode.FindFinalTarget` and throws when the target is not there. The throw happens
+ * inside the `ModInfo` constructor, which `ModInfo.TryLoadMod` catches, so the whole mod is dropped.
+ *
+ * The message is matched rather than a code, the way {@link ACTION_FINDING_EFFECTS} is, and a test
+ * pins it against the pass that writes it.
+ */
+export const DANGLING_REFERENCE_MESSAGE = 'Reference name is not known';
+
+/**
+ * Whether one finding says a reference resolves to nothing.
+ *
+ * @param finding the finding to weigh.
+ * @returns true when it is the value pass's unresolved reference.
+ */
+export const isDanglingReference = (finding: LintFinding): boolean =>
+    finding.ruleId === REFERENCE_RULE_ID && finding.message === DANGLING_REFERENCE_MESSAGE;
 
 /**
  * The one message whose effect depends on the verb it is reported on. An AddMany reads its source

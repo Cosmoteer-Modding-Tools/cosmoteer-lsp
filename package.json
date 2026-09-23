@@ -4,7 +4,7 @@
     "description": "A complete language server for Cosmoteer rules",
     "author": "Cosmoteer Modding Tools",
     "license": "MIT",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "repository": {
         "type": "git",
         "url": "https://github.com/Cosmoteer-Modding-Tools/cosmoteer-lsp"
@@ -559,7 +559,7 @@
                         "scope": "resource",
                         "type": "boolean",
                         "default": true,
-                        "description": "Report an id this project only resolves because another mod is installed on this machine, while the manifest does not list that mod under Dependencies. The editor consults installed mods before reporting an unknown id, so a mod that needs another one looks correct here and breaks for everybody who does not have it. One finding per file and per mod, with a fix that writes the dependency into the manifest."
+                        "description": "Report an id this project only resolves because another mod is installed on this machine, while the manifest does not list that mod under Dependencies. The editor consults installed mods before reporting an unknown id, so a mod that needs another one looks correct here and names nothing for anybody who does not have it. One finding per file and per mod, with a fix that records the requirement under Dependencies. The game reads no dependency field, so the entry states what the mod needs and the player still has to install it."
                     },
                     "cosmoteerLSPRules.diagnostics.validateUnreceivableBuffs": {
                         "scope": "resource",
@@ -607,7 +607,7 @@
                         "scope": "resource",
                         "type": "boolean",
                         "default": true,
-                        "description": "Compare the language strings files of the mod against each other: a language that declares fewer keys than the languages beside it, and a translation that drops or invents one of the placeholder slots the English text carries. Only the mod's own files are compared."
+                        "description": "Compare the language strings files of the mod against each other: a language that declares fewer keys than the languages beside it, a translation that drops or invents one of the placeholder slots the English text carries, and a new language the game will never offer because the file does not open with the two header lines. Only the mod's own files are compared."
                     },
                     "cosmoteerLSPRules.diagnostics.validateMarkerVocabulary": {
                         "scope": "resource",

@@ -16,7 +16,8 @@ import {
     registerMemberReplacementSource,
 } from '../document/reference-resolver';
 import { modFolderPaths } from '../workspace/workspace-files';
-import { navigate } from '../semantics/navigate-reference';
+import { clearNavigationMemo, navigate } from '../semantics/navigate-reference';
+import { invalidateEffectiveChainCache } from '../semantics/effective-group';
 import { FileTree, FileWithPath, isFile } from '../workspace/cosmoteer-workspace.service';
 import { ModAction } from './action';
 import { resolveActionTarget, resolveActionTargetMember } from './action-target-resolver';
@@ -92,6 +93,38 @@ export class MemberInjectionIndex extends ModActionNodeIndex<InjectedMember> {
         return MemberInjectionIndex._instance;
     }
 
+    /** Whether something asked what a mod injects before this index could answer for the project. */
+    private answeredUnbuilt = false;
+
+    /**
+     * Records that a query was answered before the build finished. Until then every answer here is
+     * "nothing injected", which is what a node the manifest really does not touch answers too, so a
+     * caller cannot tell the two apart and memoizes the wrong one. The answer is dropped again in
+     * {@link buildCompleted}.
+     *
+     * @returns nothing.
+     */
+    private noteAnsweredUnbuilt(): void {
+        if (!this.built) this.answeredUnbuilt = true;
+    }
+
+    /**
+     * Drops the caches that may hold an answer taken while this index was still empty. A value read
+     * through the resolver before the manifest was indexed resolves through inheritance to the game
+     * file's own declaration, and both the navigation memo and the flattened-container memo keep
+     * that reading for the rest of the session, through a refresh that rebuilds everything above
+     * them. The build is the moment this index starts speaking for the project, so it is also the
+     * moment those readings stop being defensible.
+     *
+     * @returns nothing.
+     */
+    protected override buildCompleted(): void {
+        if (!this.answeredUnbuilt) return;
+        this.answeredUnbuilt = false;
+        clearNavigationMemo();
+        invalidateEffectiveChainCache();
+    }
+
     /**
      * The member a nested `Overrides` merged into `node` under `name` (case-insensitively, like the
      * game's node lookup), or undefined. Synchronous, for the resolver's per-segment step.
@@ -101,6 +134,7 @@ export class MemberInjectionIndex extends ModActionNodeIndex<InjectedMember> {
      * @returns the injected member's declaration node, or undefined.
      */
     public injectedMember(node: AbstractNode, name: string): AbstractNode | undefined {
+        this.noteAnsweredUnbuilt();
         const members = this.byNode.get(MemberInjectionIndex.nodeKey(node));
         if (!members) return undefined;
         const lower = name.toLowerCase();
@@ -128,6 +162,7 @@ export class MemberInjectionIndex extends ModActionNodeIndex<InjectedMember> {
      * @returns the replacing declaration node, or undefined when nothing replaces that name.
      */
     public injectedReplacement(node: AbstractNode, name: string): AbstractNode | undefined {
+        this.noteAnsweredUnbuilt();
         if (this.byNode.size === 0) return undefined;
         const members = this.byNode.get(MemberInjectionIndex.nodeKey(node));
         if (!members) return undefined;
@@ -173,6 +208,7 @@ export class MemberInjectionIndex extends ModActionNodeIndex<InjectedMember> {
     public injectedMemberEntries(
         node: AbstractNode
     ): Array<{ name: string; precedence: InjectionPrecedence; value: AbstractNode }> {
+        this.noteAnsweredUnbuilt();
         return (this.byNode.get(MemberInjectionIndex.nodeKey(node)) ?? []).map((member) => ({
             name: member.name,
             precedence: member.precedence,

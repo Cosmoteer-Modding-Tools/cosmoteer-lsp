@@ -14,6 +14,8 @@ export let hasDiagnosticRelatedInformationCapability = false;
 export let hasDidChangeWatchedFilesCapability = false;
 /** Does the client render snippet (`$1`/`${1:…}`) insert text in completions? */
 export let hasSnippetCapability = false;
+/** Does the client take an insert/replace edit pair and pick between them with its own insert mode? */
+export let hasInsertReplaceCapability = false;
 /** Does the client pull diagnostics itself (`textDocument/diagnostic`)? */
 export let hasPullDiagnosticsCapability = false;
 /** Does the client resolve completion documentation lazily? */
@@ -37,6 +39,7 @@ export function readClientCapabilities(capabilities: ClientCapabilities): void {
     hasConfigurationCapability = !!(capabilities.workspace && !!capabilities.workspace.configuration);
     hasWorkspaceFolderCapability = !!(capabilities.workspace && !!capabilities.workspace.workspaceFolders);
     hasSnippetCapability = !!capabilities.textDocument?.completion?.completionItem?.snippetSupport;
+    hasInsertReplaceCapability = !!capabilities.textDocument?.completion?.completionItem?.insertReplaceSupport;
     hasDiagnosticRelatedInformationCapability = !!(
         capabilities.textDocument &&
         capabilities.textDocument.publishDiagnostics &&

@@ -25,6 +25,23 @@ const TABLE_NAME = 'Parts';
 /** The view's key for the column holding the part's id, which the reader can move and unpin. */
 const ID_KEY = 'id';
 
+/** The drive-letter prefix of a document uri, the one place a colon stands in a path Excel takes. */
+const ENCODED_DRIVE = /^(file:\/\/\/)([A-Za-z])%3[Aa](?=\/|$)/;
+
+/**
+ * The hyperlink target Excel accepts for the file a row was read from.
+ *
+ * A document uri percent encodes every character a path segment may not carry, the drive colon of a
+ * Windows path among them. Excel reads a `%3A` in a link target as part of the name rather than as
+ * the drive it stands for and refuses the whole workbook over it, while the escape of a space or a
+ * bracket is read the way it is meant. So the drive prefix alone is written out, anchored at the
+ * front, since a colon further along is a real character of a name on the systems that allow one.
+ *
+ * @param uri the document uri of the file the row was read from.
+ * @returns the target to write into the link.
+ */
+const linkTargetOf = (uri: string): string => uri.replace(ENCODED_DRIVE, '$1$2:');
+
 /** How far from the compared part a value has to be for the stronger shade, as the view shades it. */
 const FAR_FACTOR = 2;
 
@@ -218,6 +235,11 @@ const translateFormulas = (
         columns,
         idColumn: headers[idColumnOf(model)],
         referenceId: model.referenceId,
+        // The lookup reads the sheet's own id column, so a compared part the view is showing but
+        // the sheet does not hold is refused rather than written as a formula that finds nothing.
+        referenceOffSheet:
+            model.referenceId !== undefined &&
+            !model.rows.some((row) => row.id.toLowerCase() === model.referenceId?.toLowerCase()),
     };
     for (const column of model.columns) {
         if (column.formula === undefined) continue;
@@ -366,6 +388,14 @@ const partsSheet = (
     const numberStyles = model.columns.map((column, index) =>
         styles.id({ numberFormat: formatFor(column.unit, hasDecimals(model, index, column.unit)) })
     );
+    // A typed-over cell is marked the way the view marks it, in italics. The mark is added to the
+    // column's own format rather than replacing it, so a typed value in seconds or in credits is
+    // still written the way its neighbours are. Italics rather than a fill: the comparison shading
+    // is a fill of Excel's own, and a fill of its own wins over the one a cell carries.
+    const typedStyles = model.columns.map((column, index) =>
+        styles.id({ numberFormat: formatFor(column.unit, hasDecimals(model, index, column.unit)), italic: true })
+    );
+    const typedText = styles.id({ italic: true });
     const allHeaders = [...groups, ...headers.columns];
     const rows: XlsxCell[][] = [allHeaders.map((text) => ({ kind: 'text', text, style: header }) as XlsxCell)];
     for (const row of model.rows) {
@@ -374,16 +404,23 @@ const partsSheet = (
         );
         model.columns.forEach((column, index) => {
             const value = row.cells[index];
+            const typed = row.typed?.includes(index) ?? false;
             if (typeof value === 'number') {
                 const excel = translated.get(column.key)?.formula;
-                cells.push({ kind: 'number', value, formula: excel, style: numberStyles[index] });
+                cells.push({
+                    kind: 'number',
+                    value,
+                    formula: excel,
+                    style: typed ? typedStyles[index] : numberStyles[index],
+                });
                 return;
             }
             if (typeof value === 'string' && value !== '') {
                 // The part's own column carries the link to the file it is written in, so a row of
                 // the workbook still leads back to the declaration behind it.
-                const link = index === idColumn && row.uri ? { target: row.uri, tooltip: row.file } : undefined;
-                cells.push({ kind: 'text', text: value, link });
+                const link =
+                    index === idColumn && row.uri ? { target: linkTargetOf(row.uri), tooltip: row.file } : undefined;
+                cells.push({ kind: 'text', text: value, link, style: typed ? typedText : undefined });
                 return;
             }
             cells.push({ kind: 'blank' });
@@ -448,6 +485,28 @@ const averageOf = (index: number, groupCount: number, model: PartTableWorkbookMo
 };
 
 /**
+ * How many cells of the export hold a value the reader typed over the table, and which columns
+ * those sit in. A number nothing in the files holds is worth saying out loud, since the workbook
+ * is read by people who were not there when it was typed.
+ *
+ * @param model what the view is showing.
+ * @returns the count and the column names, the names in the order the columns stand.
+ */
+const typedColumns = (model: PartTableWorkbookModel): { total: number; columns: string } => {
+    const counted = new Map<number, number>();
+    for (const row of model.rows) {
+        for (const index of row.typed ?? []) counted.set(index, (counted.get(index) ?? 0) + 1);
+    }
+    const total = [...counted.values()].reduce((sum, count) => sum + count, 0);
+    const columns = [...counted.keys()]
+        .sort((left, right) => left - right)
+        .map((index) => model.columns[index]?.label ?? '')
+        .filter((label) => label !== '')
+        .join(', ');
+    return { total, columns };
+};
+
+/**
  * The sheet that says what the export was made of: when it was taken, which parts it holds, what
  * was filtered out, what it was compared against, and every formula column with the Excel formula
  * it was written as.
@@ -479,6 +538,22 @@ const aboutSheet = (
     if (model.search) line(l10n.t('Filter'), model.search);
     for (const filter of model.filters ?? []) line(filter.label, filter.value);
     if (model.referenceId) line(l10n.t('Compared with'), model.referenceId);
+    const typed = typedColumns(model);
+    if (typed.total > 0) {
+        line(
+            l10n.t('Typed values'),
+            typed.total === 1
+                ? l10n.t(
+                      'One value was typed over the table rather than read from the files. It is written in italics, under {0}, and the formula columns and the average row are computed with it.',
+                      typed.columns
+                  )
+                : l10n.t(
+                      '{0} values were typed over the table rather than read from the files. They are written in italics, under {1}, and the formula columns and the average row are computed with them.',
+                      typed.total,
+                      typed.columns
+                  )
+        );
+    }
     if (model.perTile) line(l10n.t('Per tile'), l10n.t('Every number is divided by the tiles the part covers.'));
     if (model.asPercent) {
         line(

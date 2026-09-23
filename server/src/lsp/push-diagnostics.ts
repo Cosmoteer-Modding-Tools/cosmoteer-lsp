@@ -59,8 +59,12 @@ export function computeDiagnosticsCached(document: TextDocument): Promise<Diagno
  * so only the settled text is validated.
  *
  * @param document the open document whose validation to schedule.
+ * @param alwaysDebounce keeps the wait even when nothing is cached for the document. The
+ *     no-cache shortcut is there so a freshly opened file publishes at once; a document queued
+ *     because another one changed has no cache entry either (the change dropped it) and must not
+ *     take that shortcut, or every keystroke in one file would re-validate every other open tab.
  */
-export function schedulePushValidation(document: TextDocument): void {
+export function schedulePushValidation(document: TextDocument, alwaysDebounce = false): void {
     const uri = document.uri;
     const existing = pushValidationTimers.get(uri);
     if (existing !== undefined) clearTimeout(existing);
@@ -75,7 +79,7 @@ export function schedulePushValidation(document: TextDocument): void {
             traceFailure(e);
         }
     };
-    if (!diagnosticsCache.has(uri)) {
+    if (!alwaysDebounce && !diagnosticsCache.has(uri)) {
         void run();
         return;
     }
@@ -83,6 +87,30 @@ export function schedulePushValidation(document: TextDocument): void {
         uri,
         setTimeout(() => void run(), VALIDATION_DEBOUNCE_MS)
     );
+}
+
+/**
+ * Re-publishes the open documents that were judged against something that has since moved: another
+ * buffer's edit, a file changed on disk, a refactoring's write, a settings change.
+ *
+ * A client that can pull is simply asked to pull again, which is what every such path already did.
+ * A client that cannot pull was asked for nothing: the caches of the other open documents were
+ * dropped and nobody ever recomputed them, so a squiggle the user had just fixed in the base file
+ * stayed on the derived one until that file was itself edited or reopened. Each of them is queued
+ * through the typing debounce, so a burst of edits or a git-pull-sized notification settles into
+ * one validation per document rather than one per event.
+ *
+ * @param exceptUri the document the change came from, whose own flow already re-validates it.
+ */
+export function refreshDependentOpenDocuments(exceptUri?: string): void {
+    if (hasPullDiagnosticsCapability) {
+        connection.languages.diagnostics.refresh();
+        return;
+    }
+    for (const document of documents.all()) {
+        if (document.uri === exceptUri) continue;
+        schedulePushValidation(document, true);
+    }
 }
 
 /**

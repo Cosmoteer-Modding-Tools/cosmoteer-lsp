@@ -1,0 +1,16 @@
+ID = Test.OverviewTxt
+Name = "Overview txt fixture"
+Version = 1.0
+
+// One wired file and one part parked as `.txt`, which is how a mod disables content. Both are
+// counted as rules files, so the reachability caption has to name both extensions.
+Actions
+[
+	{
+		Action = Add
+		AddTo = <cosmoteer.rules>
+		Name = OVERVIEW_TXT
+		ToAdd = &<wired/good.rules>
+		CreateIfNotExisting = true
+	}
+]

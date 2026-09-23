@@ -11,7 +11,7 @@ import {
 } from '../document/reference-path';
 import * as path from 'path';
 import { globalSettings } from '../settings';
-import { stepIntoNode } from '../document/reference-resolver';
+import { isInheritanceEntry, stepIntoNode } from '../document/reference-resolver';
 import { findMemberThroughInheritance, ResolveReferenceFn } from './inheritance-resolver';
 import { CancellationToken } from 'vscode-languageserver';
 import { CancellationError } from '../utils/cancellation';
@@ -138,12 +138,7 @@ const isRuntimeReferenceValue = (node: AbstractNode | null | undefined): node is
  * Such a reference names a sibling of the inheriting group, so a relative `&`
  * lookup must resolve against the group's container, not the group's own members.
  */
-export const isInheritanceMember = (node: AbstractNode | null | undefined): boolean =>
-    !!node &&
-    !!node.parent &&
-    (isGroupNode(node.parent) || isListNode(node.parent)) &&
-    !!node.parent.inheritance &&
-    node.parent.inheritance.some((inheritance) => inheritance === node);
+export const isInheritanceMember = (node: AbstractNode | null | undefined): boolean => isInheritanceEntry(node);
 
 /**
  * The scope a relative `&…` reference is looked up in.
@@ -316,12 +311,19 @@ const navigateReference = async (
     let index = 0;
     for (const substring of substrings) {
         if (!node) return null;
+        const afterCaret = index > 0 && substrings[index - 1] === '^';
         node = navigateReferenceRecursive(
             substring,
             node,
-            substrings.length > 1 && index > 0 && substrings[index - 1] === '^' && substrings[index] === substring
+            substrings.length > 1 && afterCaret && substrings[index] === substring
         );
         index++;
+        // Straight after a `^` the game stands on the node's inheritance list, which answers a base
+        // index and nothing else. The inheritance fallback below would find the member anyway,
+        // because our `^` step hands back the node itself, and the game's navigator cannot reach it
+        // (`^/Label` finds nothing and dereferencing it throws `OTNavigateException`, verified
+        // against the shipped HalflingCore navigator). So the miss stays a miss.
+        if (!node && afterCaret) return null;
         if (!node) {
             // The segment was not found directly: look for it through the
             // inheritance chain.

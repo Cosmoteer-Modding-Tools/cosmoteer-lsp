@@ -144,6 +144,16 @@ export class PartGridEditorPanel {
         }
     }
 
+    /**
+     * The version of the tracked document as the editor holds it right now.
+     *
+     * @returns the version, or undefined when the document is no longer open.
+     */
+    private trackedVersion(): number | undefined {
+        return workspace.textDocuments.find((candidate) => candidate.uri.toString() === this.tracked?.uri.toString())
+            ?.version;
+    }
+
     /** Sends one mutation to the server and applies the returned edit, reporting rejections back. */
     private async applyMutation(message: EditMessage): Promise<void> {
         if (!this.tracked || !this.anchor) return;
@@ -163,6 +173,14 @@ export class PartGridEditorPanel {
             });
             if (result?.status === 'ok' && result.edit) {
                 const edit = await this.client.protocol2CodeConverter.asWorkspaceEdit(result.edit);
+                // Last gate before the write. The document can change while the server builds the
+                // edit, and the ranges then point into text that has moved, so a version that no
+                // longer matches the one the mutation was drawn from takes the resync path.
+                if (this.trackedVersion() !== message.dataVersion) {
+                    await this.panel.webview.postMessage({ type: 'editRejected', reason: 'stale' });
+                    await this.render(this.tracked.uri, this.tracked.position);
+                    return;
+                }
                 const applied = await workspace.applyEdit(edit);
                 if (!applied) {
                     await this.panel.webview.postMessage({ type: 'editRejected', reason: 'applyFailed' });
@@ -171,11 +189,8 @@ export class PartGridEditorPanel {
                 // Ack with the document's new version so queued follow-up clicks are not judged
                 // stale against the version this edit just advanced. The apply also fires
                 // onDidChangeTextDocument, which re-renders the webview authoritatively.
-                const version = workspace.textDocuments.find(
-                    (candidate) => candidate.uri.toString() === this.tracked?.uri.toString()
-                )?.version;
                 if (result.note) await this.panel.webview.postMessage({ type: 'note', note: result.note });
-                await this.panel.webview.postMessage({ type: 'editDone', dataVersion: version });
+                await this.panel.webview.postMessage({ type: 'editDone', dataVersion: this.trackedVersion() });
             } else {
                 await this.panel.webview.postMessage({ type: 'editRejected', reason: result?.status ?? 'error' });
                 if (result?.message) void window.showWarningMessage(result.message);

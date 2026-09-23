@@ -1,0 +1,6 @@
+// The string is never closed, so the game's tokenizer stops here and nothing of this file loads.
+Part
+{
+	NameKey = "Parts/Refused
+	MaxHealth = 10
+}

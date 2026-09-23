@@ -11,11 +11,12 @@ import {
     isListNode,
 } from '../../core/ast/ast';
 import { memberTypeIn } from '../../document/schema/schema-context';
+import { referenceNodesOf } from '../navigation/reference-nodes';
 import { findModRoot } from '../../mod/mod-root';
 import { globalSettings } from '../../settings';
 import { memberIndentAt } from '../diagnostics/required-field-insert';
 import { indentUnitOf, lineEndingOf } from './command-host';
-import { memberSpanOf } from './shared-base/member-record';
+import { memberHitSpansOf, memberSpanOf } from './shared-base/member-record';
 import { snippetCodeAction } from './snippet-action';
 
 /** The member a `ModifiableValue` group carries the plain number in. */
@@ -34,8 +35,9 @@ interface Located {
 
 /**
  * The members the offset falls in, outermost first, so a caret inside a group body names both that
- * group and the member it sits on. A caret inside a `[ ]` stops the walk: a list element carries no
- * name for the schema to type it by.
+ * group and the member it sits on. The indentation a member is written behind counts as part of it,
+ * so a selection that starts at the head of its line names the member on that line. A caret inside a
+ * `[ ]` stops the walk: a list element carries no name for the schema to type it by.
  *
  * @param container the group or document to search.
  * @param offset the caret's byte offset.
@@ -43,9 +45,8 @@ interface Located {
  * @returns the chain, empty when nothing holds the offset.
  */
 const locateChain = (container: AbstractNodeDocument | GroupNode, offset: number, chain: Located[] = []): Located[] => {
-    for (const element of container.elements) {
-        const span = memberSpanOf(element);
-        if (!span || offset < span.start || offset >= span.end) continue;
+    for (const { element, start, end } of memberHitSpansOf(container)) {
+        if (offset < start || offset >= end) continue;
         chain.push({ element, container });
         const value = isAssignmentNode(element) ? element.right : element;
         if (isListNode(value)) return chain;
@@ -111,21 +112,137 @@ const soleBaseValue = (group: GroupNode): AssignmentNode | undefined => {
     return only;
 };
 
+/** One character of whitespace, which is what the value's own span is trimmed by. */
+const WHITESPACE = /\s/;
+
 /**
- * The value an assignment is written with, taken from the source rather than from the value node. A
- * parenthesized reference is spelled `(&…)` in the file while the node's own span starts after the
- * bracket, so the text is what decides here.
+ * The span of the value an assignment is written with, taken from the source rather than from the
+ * value node. A parenthesized reference is spelled `(&…)` in the file while the node's own span
+ * starts after the bracket, so the text is what decides here.
  *
  * @param text the file's source.
  * @param assignment the assignment to read.
- * @returns the value as the file spells it, empty when the assignment writes none.
+ * @returns the span of the value as the file spells it, or undefined when the assignment writes none.
  */
-const writtenValueOf = (text: string, assignment: AssignmentNode): string => {
+const writtenValueSpan = (text: string, assignment: AssignmentNode): { start: number; end: number } | undefined => {
     const span = memberSpanOf(assignment);
-    if (!span) return '';
+    if (!span) return undefined;
     const equals = text.indexOf('=', assignment.left.position.end);
-    if (equals < 0 || equals >= span.end) return '';
-    return text.slice(equals + 1, span.end).trim();
+    if (equals < 0 || equals >= span.end) return undefined;
+    let start = equals + 1;
+    let end = span.end;
+    while (start < end && WHITESPACE.test(text[start])) start++;
+    while (end > start && WHITESPACE.test(text[end - 1])) end--;
+    return start < end ? { start, end } : undefined;
+};
+
+/**
+ * The path a reference names, with the `&` sigil and any `<file>` prefix taken off, split into the
+ * segments the game's own navigator walks.
+ *
+ * @param reference the reference as the file spells it.
+ * @returns the segments after the root, empty for a reference that names nothing but a file.
+ */
+const pathSegmentsOf = (reference: string): string[] => {
+    const body = reference.startsWith('&') ? reference.slice(1) : reference;
+    const close = body.startsWith('<') ? body.indexOf('>') : -1;
+    return (close >= 0 ? body.slice(close + 1) : body).split('/').filter((segment) => segment.length > 0);
+};
+
+/**
+ * Whether a path names its own root rather than starting where it is written: the file root `~`, the
+ * original root `/`, or another file `<…>`. Such a path means the same thing wherever it moves to.
+ *
+ * @param path the reference path, `&` already taken off.
+ * @returns true when the path is rooted.
+ */
+const isRootedPath = (path: string): boolean => path.startsWith('~') || path.startsWith('/') || path.startsWith('<');
+
+/**
+ * The same path read from one group further down, which is where the wrap puts the value. The game
+ * accepts `.` only as a path's first token, so a leading `.` is rewritten rather than prefixed.
+ *
+ * @param path the reference path, `&` already taken off.
+ * @returns the path as it has to be spelled one level deeper.
+ */
+const deepenedPath = (path: string): string => {
+    if (isRootedPath(path)) return path;
+    if (path === '.') return '..';
+    if (path.startsWith('./')) return `../${path.slice(2)}`;
+    return `../${path}`;
+};
+
+/**
+ * The same path read from one group further up, which is where the collapse puts the value. A path
+ * with no `..` to give up names something inside the group that is about to go, so it cannot be
+ * written one level up at all.
+ *
+ * @param path the reference path, `&` already taken off.
+ * @returns the path as it has to be spelled one level up, or undefined when it cannot be.
+ */
+const shallowedPath = (path: string): string | undefined => {
+    if (isRootedPath(path)) return path;
+    if (path === '..') return '.';
+    if (path.startsWith('../')) return path.slice(3) || '.';
+    return undefined;
+};
+
+/**
+ * The value an assignment is written with, with every relative reference in it rebased for the move
+ * the refactoring makes. The game resolves a relative reference from the group the field sits in, so
+ * a value that changes depth without its references being rewritten points one group off.
+ *
+ * @param text the file's source.
+ * @param assignment the assignment whose value is moving.
+ * @param rebase the new spelling of one path, or undefined when the path cannot make the move.
+ * @returns the value to write, or undefined when it writes none or carries a path that cannot move.
+ */
+const rebasedValueOf = (
+    text: string,
+    assignment: AssignmentNode,
+    rebase: (path: string) => string | undefined
+): string | undefined => {
+    const span = writtenValueSpan(text, assignment);
+    if (!span) return undefined;
+    let written = '';
+    let read = span.start;
+    for (const node of referenceNodesOf(assignment)) {
+        const reference = String(node.valueType.value);
+        const start = node.position.start;
+        if (start < read || start + reference.length > span.end) continue;
+        const moved = rebase(reference.startsWith('&') ? reference.slice(1) : reference);
+        if (moved === undefined) return undefined;
+        written += text.slice(read, start) + `&${moved}`;
+        read = start + reference.length;
+    }
+    return written + text.slice(read, span.end);
+};
+
+/**
+ * Whether the file reads the member through a reference, which is what the wrap breaks: the game's
+ * expression evaluator throws on a reference that lands on a group instead of a field, and its
+ * navigator answers nothing for one that reads through it.
+ *
+ * The match is on the name the path ends with rather than on a resolved target, so a file that
+ * writes the name for a different field withholds the offer too. Withholding costs the author one
+ * refactoring they could have taken, while offering costs them a file the game refuses to load.
+ *
+ * @param document the parsed file.
+ * @param name the member the refactoring is about to move.
+ * @param tail the segment the reference has to end with after `name`, for the collapse direction.
+ * @returns true when some reference in the file reads the member.
+ */
+const isReadByReference = (document: AbstractNodeDocument, name: string, tail?: string): boolean => {
+    for (const node of referenceNodesOf(document)) {
+        const segments = pathSegmentsOf(String(node.valueType.value));
+        const last = segments[segments.length - 1];
+        if (tail === undefined) {
+            if (last === name) return true;
+            continue;
+        }
+        if (last === tail && segments[segments.length - 2] === name) return true;
+    }
+    return false;
 };
 
 /**
@@ -141,13 +258,18 @@ const escapeSnippet = (value: string): string => value.replace(/[$\\}]/g, '\\$&'
  * The two directions of the modifiable-value refactoring, offered on whichever one the caret sits on.
  *
  * Wrapping writes the group form the game also reads at that slot, with the number the file already
- * has as its `BaseValue` and an empty `Modifiers` list for the caret to land in. Nothing the game
- * loads changes, which is what makes it safe to offer on any such field. The modifier itself is left
- * to the author, because every kind but one names something that has to exist, and the game throws on
- * a `Buff` modifier written without the buff it applies to.
+ * has as its `BaseValue` and an empty `Modifiers` list for the caret to land in. The modifier itself
+ * is left to the author, because every kind but one names something that has to exist, and the game
+ * throws on a `Buff` modifier written without the buff it applies to.
  *
  * Collapsing is the inverse, and it is offered only where the group holds `BaseValue` and nothing
  * else, since every other member of the class changes the value the game arrives at.
+ *
+ * Both directions move the value by one group, so both rebase the relative references the value
+ * carries, and both are withheld where the file reads the member through a reference. The game's
+ * expression evaluator throws on a reference that lands on a group rather than a field, and its
+ * navigator answers nothing for a path whose depth changed under it, so a refactoring that moved
+ * either without the other would write a file the game refuses to load.
  *
  * @param document the parsed document the caret is in.
  * @param textDocument the buffer the caret's offsets are converted against.
@@ -183,8 +305,11 @@ export const makeModifiableCodeActions = (
     if (isGroupNode(written)) {
         const base = soleBaseValue(written);
         if (!base) return [];
-        const value = writtenValueOf(text, base);
-        if (value.length === 0) return [];
+        // A reader spelling the group's own `BaseValue` reads nothing once the group is gone, so the
+        // collapse is withheld rather than written.
+        if (isReadByReference(document, name, BASE_VALUE)) return [];
+        const value = rebasedValueOf(text, base, shallowedPath);
+        if (value === undefined || value.length === 0) return [];
         const title = l10n.t("Replace '{0}' with its plain value", name);
         return [
             snippetCodeAction(
@@ -196,8 +321,11 @@ export const makeModifiableCodeActions = (
     }
 
     if (!isAssignmentNode(located.element)) return [];
-    const value = writtenValueOf(text, located.element);
-    if (value.length === 0) return [];
+    // A reference landing on the field reads a group once the wrap is written, and the game's
+    // expression evaluator throws on that, so the offer is withheld rather than written.
+    if (isReadByReference(document, name)) return [];
+    const value = rebasedValueOf(text, located.element, deepenedPath);
+    if (value === undefined || value.length === 0) return [];
     const indent = memberIndentAt(text, span.start);
     const lineEnding = lineEndingOf(text);
     // One level deeper in whatever the file itself indents with, so a space-indented mod stays one.

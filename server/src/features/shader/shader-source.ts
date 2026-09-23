@@ -2,22 +2,39 @@ import { readFile } from 'fs/promises';
 import { dirname, resolve as resolvePath } from 'path';
 
 /**
+ * Matches an include path the engine anchors at the game folder instead of the including file: a path
+ * written with an explicit `./` or `.\` prefix, capturing what follows it. `D3D11Shader.IncludeHandler`
+ * takes such a path verbatim (`FilePath.IsExplicitCurrentDirectory`), which resolves against the game's
+ * working directory, while any other relative path is joined onto the including file's own folder. A
+ * bare `Data/…` therefore names a `Data` folder next to the shader, not the game data tree.
+ */
+export const GAME_ANCHORED_INCLUDE_RE = /^\.[\\/](.*)$/;
+
+/** Matches the game-anchored form that names the data tree itself, capturing the path below `Data`. */
+const DATA_ANCHORED_INCLUDE_RE = /^\.[\\/][Dd]ata[\\/](.+)$/;
+
+/**
  * Resolves a shader `#include` path to an absolute path. Cosmoteer shaders use two include forms, a
- * path relative to the including file (`"../base.shader"`) and a root-anchored path that names the game
- * data tree (`"./Data/base.shader"`). The latter is resolved against the game's `Data` directory, the
- * former against the including file's own directory, and there is no third rule: the engine's
+ * path relative to the including file (`"../base.shader"`) and a game-anchored path that names the game
+ * data tree (`"./Data/base.shader"`). The latter is resolved against the game folder, the former against
+ * the including file's own directory, and there is no third rule: the engine's
  * `D3D11Shader.IncludeHandler.Open` resolves a relative include against the directory of the file that
  * wrote it and nothing else, so a mod include that only exists at the mirrored location in the game
  * tree throws when the game compiles the shader and must not quietly resolve here.
  *
  * @param fromFile the absolute path of the file that contains the include directive.
  * @param includePath the literal path written in the `#include "…"` directive.
- * @param dataDir the absolute path of the game's `Data` directory, used for root-anchored includes.
+ * @param dataDir the absolute path of the game's `Data` directory, used for game-anchored includes.
  * @returns the absolute path the include resolves to.
  */
 export const resolveInclude = (fromFile: string, includePath: string, dataDir?: string): string => {
-    const rooted = /^\.?[\\/]?[Dd]ata[\\/](.+)$/.exec(includePath);
-    if (rooted && dataDir) return resolvePath(dataDir, rooted[1]);
+    if (dataDir) {
+        const belowData = DATA_ANCHORED_INCLUDE_RE.exec(includePath);
+        if (belowData) return resolvePath(dataDir, belowData[1]);
+        // Any other `./…` path is taken from the game folder, which is the data directory's parent.
+        const anchored = GAME_ANCHORED_INCLUDE_RE.exec(includePath);
+        if (anchored) return resolvePath(dirname(dataDir), anchored[1]);
+    }
     return resolvePath(dirname(fromFile), includePath);
 };
 
@@ -202,7 +219,7 @@ export const expandShaderSourceDetailed = async (
                     // A root-anchored include cannot be judged without the game path, so it is read
                     // but never reported, the same rule the include diagnostic applies.
                     if (inc) {
-                        const judgeable = dataDir || !/^\.?[\\/]?[Dd]ata[\\/]/.test(inc[1]);
+                        const judgeable = dataDir || !GAME_ANCHORED_INCLUDE_RE.test(inc[1]);
                         await process(resolveInclude(key, inc[1], dataDir), judgeable ? inc[1] : undefined);
                     }
                     continue;

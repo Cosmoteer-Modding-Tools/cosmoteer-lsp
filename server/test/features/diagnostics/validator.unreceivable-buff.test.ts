@@ -236,3 +236,44 @@ describe('unreceivable buff validator', () => {
         ).toEqual([]);
     });
 });
+
+// An inline buffable value is written `Amount = { BaseValue = 1; BuffType = … }` as often as
+// `Amount { … }`, and vanilla writes the shortcut that way every time, so the assigned spelling has
+// to be walked like any other group.
+describe('unreceivable buff validator over an assigned group', () => {
+    beforeAll(async () => {
+        await initWorkspace();
+    });
+
+    /** A resource converter whose interval carries the inline buffable-value shortcut. */
+    const converter = (assigned: boolean, buff: string): string[] => [
+        'Components',
+        '{',
+        '\tWaterPipe',
+        '\t{',
+        '\t\tType = ResourceConverter',
+        assigned
+            ? `\t\tInterval = { BaseValue = 1; BuffType = ${buff}; BuffMode = Divide }`
+            : `\t\tInterval { BaseValue = 1; BuffType = ${buff}; BuffMode = Divide }`,
+        '\t}',
+        '}',
+    ];
+
+    it('flags the inline shortcut written with an equals sign', async () => {
+        const found = await messages(part('ReceivableBuffs = [ Engine ]', ...converter(true, 'Factory')));
+        expect(found).toHaveLength(1);
+        expect(found[0]).toContain("never receives 'Factory'");
+    });
+
+    it('reports the same thing for both spellings of the same value', async () => {
+        const assigned = await messages(part('ReceivableBuffs = [ Engine ]', ...converter(true, 'Factory')));
+        const named = await messages(part('ReceivableBuffs = [ Engine ]', ...converter(false, 'Factory')));
+        expect(assigned).toEqual(named);
+    });
+
+    it('says nothing when the part lists the buff the assigned group names', async () => {
+        expect(await messages(part('ReceivableBuffs = [ Engine, Factory ]', ...converter(true, 'Factory')))).toEqual(
+            []
+        );
+    });
+});

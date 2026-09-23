@@ -13,7 +13,7 @@ import {
     childNodesOf,
 } from '../../core/ast/ast';
 import { isModRules, isRulesFileName } from '../../document/document-kind';
-import { registryOf, typeDef } from '../../document/schema/schema';
+import { fieldOf, registryOf, typeDef } from '../../document/schema/schema';
 import {
     BUILTIN_SHIP_CLASS,
     entityDeclarationsOf,
@@ -29,6 +29,7 @@ import {
     mapKeyReferencesOf,
 } from '../navigation/schema-id-reference.navigation';
 import { stringValueNodesOf } from '../navigation/schema-reference.navigation';
+import { resolveGroupClass } from '../../document/schema/schema-context';
 import { ActionRootingIndex } from '../../mod/action-rooting.index';
 import type { ValueType } from '../../document/schema/schema.types';
 import { normalizeUri } from '../../document/reference-location';
@@ -432,18 +433,44 @@ const writesMapEntryKey = (document: AbstractNodeDocument, id: string): boolean 
 };
 
 /**
- * True when `document` writes `id` in a declaration shape: an `ID = <id>` assignment, a named
- * container `<id>`, the `Key` of a self-keyed map entry ({@link declaresSelfKeyedEntry}), or an
- * alias assignment `<id> = &…` whose reference value derives the instance from another one (a mod's
- * `MyBuff = &BaseBuff`). A scalar-valued assignment (`fire = 50%`) is not declaration-shaped: map
- * keys with plain values are the reference side of their relation.
+ * Whether an `ID = <value>` assignment names its own instance or looks another one up. A class whose
+ * `ID` field points into its own family names itself (`PartRules.ID` on a part), while a class whose
+ * `ID` field points at some other class is reading one (`RelativePartCriteria.ID` picks the part the
+ * criteria matches, which is an ordinary reference and has to stay judged). An assignment whose
+ * container the schema cannot type keeps the leniency: an unclassifiable location is the whole
+ * reason this probe exists.
+ *
+ * @param node the `ID = <value>` assignment.
+ * @returns true when the assignment declares the id.
+ */
+const declaresOwnId = (node: AssignmentNode): boolean => {
+    const owner = node.parent;
+    if (!owner || !isGroupNode(owner)) return true;
+    const cls = resolveGroupClass(owner);
+    if (!cls) return true;
+    const field = fieldOf(cls, node.left.name);
+    if (field?.valueType.kind !== 'reference') return true;
+    return isSameOrSubclass(cls, field.valueType.target);
+};
+
+/**
+ * True when `document` writes `id` in a declaration shape: an `ID = <id>` assignment naming its own
+ * instance ({@link declaresOwnId}), a named container `<id>`, the `Key` of a self-keyed map entry
+ * ({@link declaresSelfKeyedEntry}), or an alias assignment `<id> = &…` whose reference value derives
+ * the instance from another one (a mod's `MyBuff = &BaseBuff`). A scalar-valued assignment
+ * (`fire = 50%`) is not declaration-shaped: map keys with plain values are the reference side of
+ * their relation.
  */
 const looseDeclarationIn = (document: AbstractNodeDocument, id: string): boolean => {
     let found = false;
     const visit = (node: AbstractNode): void => {
         if (found) return;
         if (isAssignmentNode(node) && isValueNode(node.right)) {
-            if (node.left.name.toLowerCase() === 'id' && sameId(String(node.right.valueType.value), id)) {
+            if (
+                node.left.name.toLowerCase() === 'id' &&
+                sameId(String(node.right.valueType.value), id) &&
+                declaresOwnId(node)
+            ) {
                 found = true;
                 return;
             }
@@ -604,7 +631,7 @@ export const undeclaredDependencyErrors = async (
             // along with the element pass, which cannot tell its own findings apart.
             code: 'validateUndeclaredDependencies',
             message: l10n.t(
-                "'{0}' is only installed on this machine. This file uses ids that mod declares, and the manifest does not list it under Dependencies, so those ids name nothing for anybody who does not have it.",
+                "'{0}' is only installed on this machine, and this file uses ids that mod declares, so they name nothing for anybody who does not have it. The game reads no dependency field, so listing it under 'Dependencies' records the requirement here and the player still has to install it.",
                 name
             ),
             node: reference.node,

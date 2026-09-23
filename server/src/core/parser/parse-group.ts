@@ -3,6 +3,7 @@ import { AbstractNode, AbstractNodeDocument, GroupNode, ListNode, isIdentifierNo
 import * as l10n from '@vscode/l10n';
 import { ParserError, ParserState } from './parser.types';
 import { isListElementIdentifier } from './parse-list';
+import { reportOrphanTerminator } from './parse-terminator';
 
 /**
  * Reads a `{ … }` group body. The opening brace has already been seen, so the body is collected
@@ -66,6 +67,7 @@ export const parseGroup = (
             tokens[state.current] &&
             (tokens[state.current].type === TOKEN_TYPES.SEMICOLON || tokens[state.current].type === TOKEN_TYPES.COMMA)
         ) {
+            reportOrphanTerminator(state, state.current);
             state.current++;
         }
         if (!tokens[state.current]) {

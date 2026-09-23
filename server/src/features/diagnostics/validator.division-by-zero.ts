@@ -13,7 +13,7 @@ import {
     childNodesOf,
 } from '../../core/ast/ast';
 import { resolveGroupClass } from '../../document/schema/schema-context';
-import { fieldOf } from '../../document/schema/schema';
+import { fieldOf, typeDef } from '../../document/schema/schema';
 import { ValueType } from '../../document/schema/schema.types';
 import { evaluateNumericValueChecked } from '../../semantics/value-evaluator';
 import { ValidationError } from './validator';
@@ -80,7 +80,26 @@ const numericSlot = (valueType: ValueType): ValueType | undefined => {
     if (valueType.kind === 'list' || valueType.kind === 'range' || valueType.kind === 'interpolated') {
         return readsNumber(valueType.element) ? valueType.element : undefined;
     }
+    // A group-typed field written in its scalar shorthand (`ConstructionSwapDelay = 1/6`, a
+    // `Halfling.Timing.Time`): the class binds the whole written value to one number, so the
+    // shorthand lands in that number exactly as a plain numeric field does. Only a class whose
+    // value form the schema types as a number is read this way, so nothing is assumed about a
+    // class that reads a colour or an id in the same shorthand.
+    if (valueType.kind === 'group') return scalarNumericForm(valueType.ref);
     return undefined;
+};
+
+/**
+ * The number a scalar-form class reads its whole written value into, which is what a value written
+ * in the shorthand is converted to.
+ *
+ * @param classRef the group class FullName.
+ * @returns the numeric type, or undefined when the class reads no bare value or reads a non-number.
+ */
+const scalarNumericForm = (classRef: string): ValueType | undefined => {
+    const def = typeDef(classRef);
+    if (!def?.scalarForm || !def.valueForm) return undefined;
+    return readsNumber(def.valueForm) ? def.valueForm : undefined;
 };
 
 /** One written value, together with the type the game converts it to. */

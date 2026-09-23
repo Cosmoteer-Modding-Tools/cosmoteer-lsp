@@ -17,7 +17,6 @@ import {
     ValueNode,
     childNodesOf,
 } from '../../core/ast/ast';
-import { isModRules } from '../../document/document-kind';
 import {
     groupClassCandidates,
     groupDiscriminator,
@@ -147,6 +146,21 @@ const localTypeCategoriesList = (group: FieldContainer): ListNode | undefined =>
     }
     return undefined;
 };
+
+/**
+ * Whether a `TypeCategories` list already writes the `non_flammable` category itself. Compared
+ * case-insensitively, the way the game compares a category: `ID<PartCategory>` interns its names in
+ * a table keyed with `InvariantCultureIgnoreCase`. An element that is not a literal, a reference
+ * naming its value in another file, is not a match, so the fix keeps appending rather than dropping
+ * a fireproofing it cannot read.
+ *
+ * @param list the group's own `TypeCategories` list.
+ * @returns true when one of its literal elements is the category.
+ */
+const writesNonFlammable = (list: ListNode): boolean =>
+    list.elements.some(
+        (element) => isValueNode(element) && String(element.valueType.value).trim().toLowerCase() === 'non_flammable'
+    );
 
 /**
  * Add every `/`-separated word of a reference path to `out`, lower-cased, with the `<file>` part
@@ -525,6 +539,14 @@ const applyDeletedFieldMigration = async (
         // with neither stays manual.
         const categories = localTypeCategoriesList(node);
         if (categories) {
+            // A part that already carries the category migrated by hand and left the old field
+            // beside it. The category is there, so the field is plain dead weight and removal is
+            // the whole migration. Appending would write the name into the list a second time,
+            // which the game folds back into one entry and the author is left to delete.
+            if (writesNonFlammable(categories)) {
+                migration.apply = 'remove';
+                return;
+            }
             migration.apply = 'rewrite';
             data.rewrite = {
                 title: l10n.t("Replace with a 'non_flammable' TypeCategories entry"),
@@ -573,22 +595,30 @@ const applyDeletedFieldMigration = async (
  *
  * @param name the member's name.
  * @param classLabel the friendly name of the class the member sits in.
- * @param declaredButDead true when the class declares the field and the game never reads it.
+ * @param declaredButDead true when the class declares the field and nothing in the game acts on it.
  * @param deprecation the registry entry for the deleted field, when there is one.
+ * @param required true when the game throws on a file that leaves the key out.
  * @returns the message text.
  */
 const ignoredFieldMessage = (
     name: string,
     classLabel: string,
     declaredButDead: boolean,
-    deprecation: ReturnType<typeof deprecatedField>
+    deprecation: ReturnType<typeof deprecatedField>,
+    required: boolean
 ): string =>
     deprecation
         ? deprecation.version
             ? l10n.t("'{0}' was removed in game version {1} ({2}).", name, deprecation.version, deprecation.note)
             : l10n.t("'{0}' was removed in a newer game version ({1}).", name, deprecation.note)
         : declaredButDead
-          ? l10n.t("'{0}' is declared by {1} but the game's code never reads it.", name, classLabel)
+          ? required
+              ? l10n.t(
+                    "'{0}' is declared by {1}, and the game does nothing with the value. The key still has to be written, because the game refuses to load a file that leaves it out.",
+                    name,
+                    classLabel
+                )
+              : l10n.t("'{0}' is declared by {1}, and the game does nothing with the value.", name, classLabel)
           : l10n.t(
                 "'{0}' is not a member of {1} and is never referenced in this file, so the game ignores it.",
                 name,
@@ -619,7 +649,13 @@ const report = async (
     const valueEnd = value?.position?.end;
     const name = identifier.name;
     const classLabel = schema.types[cls]?.name ?? cls;
-    const declaredButDead = !!fieldOf(cls, name);
+    const declared = fieldOf(cls, name);
+    const declaredButDead = !!declared;
+    // A member the game deserializes without ever reading its value still has to be written: the
+    // serializer throws on a file that leaves a non-optional key out, and the file then does not
+    // load at all. Such a member gets the hint that says so and no remove fix, and it is not faded
+    // as dead code either, since a faded line is an invitation to delete it by hand.
+    const required = declared?.absentThrows === true;
     // A field the game deleted in an update (a mod written against an older Cosmoteer):
     // say what replaced it instead of the bare never-reads hint, so the modder learns the
     // migration and not just the removal. The registry records the declaring class, so a
@@ -628,13 +664,15 @@ const report = async (
     for (const ancestor of classAncestry(cls)) deprecation ??= deprecatedField(ancestor, name);
     const start = identifier.position.start;
     const end = valueEnd !== undefined && valueEnd > identifier.position.end ? valueEnd : identifier.position.end;
-    const data: ValidationErrorData = {
-        remove: {
-            title: l10n.t("Remove '{0}'", name),
-            start,
-            end,
-        },
-    };
+    const data: ValidationErrorData = required
+        ? {}
+        : {
+              remove: {
+                  title: l10n.t("Remove '{0}'", name),
+                  start,
+                  end,
+              },
+          };
     if (deprecation) {
         const migration: NonNullable<ValidationErrorData['migration']> = {
             version: deprecation.version,
@@ -650,13 +688,13 @@ const report = async (
         );
     }
     ctx.errors.push({
-        message: ignoredFieldMessage(name, classLabel, declaredButDead, deprecation),
+        message: ignoredFieldMessage(name, classLabel, declaredButDead, deprecation, required),
         node: identifier,
         // Fade the value along with the key: the game reads neither, and the span then
         // matches what the remove fix deletes.
         range: { start, end },
         severity: 'hint',
-        unnecessary: true,
+        unnecessary: !required,
         data,
     });
 };
@@ -694,6 +732,11 @@ const visit = async (ctx: IgnoredFieldContext, node: AbstractNode): Promise<void
  * from plain string fields), which a reference scan cannot see. A list is never that, because every
  * id mechanism names a group.
  *
+ * A manifest is walked like any other file. The verbs and targets a mod action is written with
+ * (`Action`, `AddTo`, `OverrideIn`, `Name`) belong to no schema class, so the groups holding them
+ * resolve to nothing and stay unjudged, while the payload the action installs is typed by the slot
+ * it is installed into and carries a dead key exactly as the target file would.
+ *
  * @param document the parsed document to validate.
  * @param cancellationToken cancels the walk.
  * @returns the hints for provably ignored fields.
@@ -702,7 +745,6 @@ export const validateIgnoredFields = async (
     document: AbstractNodeDocument,
     cancellationToken: CancellationToken
 ): Promise<ValidationError[]> => {
-    if (isModRules(document.uri)) return [];
     const ctx: IgnoredFieldContext = { errors: [], document, cancellationToken };
     // A file that is one object writes its members at the top level (a whole-file media effect, a
     // part override fragment), where there is no enclosing group to judge them against. Only the

@@ -37,6 +37,22 @@ const VIEWS_KEY = 'cosmoteer.partTable.views';
 const STATE_KEY = 'cosmoteer.partTable.state';
 
 /**
+ * The working state as it is kept, with the workspace it was set up in beside it.
+ *
+ * The view itself is worth keeping across workspaces, since a column pick and a sort are about the
+ * parts of the game rather than about one mod. A value typed over a cell is not: it is a question
+ * asked about one mod's numbers, and a row key is an absolute path that resolves in every
+ * workspace, so carrying it over would show another mod a number nothing in it holds and then
+ * offer to write that number into its files.
+ */
+interface KeptState {
+    readonly view?: Record<string, unknown>;
+    readonly activeView?: string;
+    /** The workspace the state was kept from, absent in a state kept before this was recorded. */
+    readonly workspace?: string;
+}
+
+/**
  * Owns the single live part table webview: the spreadsheet view of every part of the game and of
  * the mod being edited, with the members they carry resolved to the numbers the game computes.
  *
@@ -58,6 +74,15 @@ export class PartTablePanel {
     private quietWait = false;
     /** The payload posted before the page was listening. */
     private queued: { table: PartTableData; columns?: string[]; pendingFormula?: string } | undefined;
+    /**
+     * What the page last asked for, which a request the panel makes itself asks for again. The page
+     * owns the column pick and the narrowing, and an answer carrying neither is read as a table of
+     * the suggested columns over every part, so asking for nothing would take the reader's pick
+     * away whenever the table is opened a second time.
+     */
+    private asked: { columns?: string[]; filter?: unknown } = {};
+    /** How many tables have been asked for, so an answer overtaken by a later ask is dropped. */
+    private requests = 0;
 
     private constructor(
         private readonly context: ExtensionContext,
@@ -89,7 +114,7 @@ export class PartTablePanel {
         // Opened with the table itself or a non-rules file in front, the table is still about the
         // mod the reader is working in, which any rules file they have open names.
         const fallback = workspace.textDocuments.find((document) => document.languageId === 'rules')?.uri;
-        await panel.render(uri ?? panel.tracked ?? fallback);
+        await panel.render(uri ?? panel.tracked ?? fallback, panel.asked.columns, undefined, panel.asked.filter);
     }
 
     /**
@@ -152,6 +177,7 @@ export class PartTablePanel {
             });
         }
         this.waiting = true;
+        const mine = ++this.requests;
         const table = await this.client
             .sendRequest<PartTableData | null>(COSMOTEER_METHOD.partTable, {
                 textDocument: this.tracked ? { uri: this.tracked.toString() } : undefined,
@@ -163,8 +189,15 @@ export class PartTablePanel {
             .finally(() => {
                 this.waiting = false;
             });
+        // An answer another ask has already overtaken is dropped rather than posted. The page is
+        // told what it last asked for, and taking the older answer would put the columns and the
+        // narrowing of a request the reader has moved on from back on screen.
+        if (mine !== this.requests) return;
         if (!table) {
             void window.showWarningMessage(l10n.t('The parts could not be read.'));
+            // The page is waiting on this answer, so it is told there is none rather than left
+            // spinning over a table that never arrives.
+            if (this.ready) await this.panel.webview.postMessage({ type: 'table' });
             return;
         }
         if (table.emptyReason === 'noGamePath') {
@@ -212,6 +245,7 @@ export class PartTablePanel {
             }
             case 'columns':
             case 'refresh': {
+                this.asked = { columns: message.columns, filter: message.filter };
                 await this.render(
                     undefined,
                     message.columns,
@@ -228,17 +262,22 @@ export class PartTablePanel {
                 return;
             }
             case 'saveState': {
-                await this.context.globalState.update(STATE_KEY, {
-                    view: message.view,
+                const kept: KeptState = {
+                    view: message.view as Record<string, unknown> | undefined,
                     activeView: message.activeView ?? '',
-                });
+                    workspace: PartTablePanel.workspaceKey(),
+                };
+                await this.context.globalState.update(STATE_KEY, kept);
                 return;
             }
             case 'saveView': {
                 if (!message.name || !message.view) return;
                 await this.context.globalState.update(VIEWS_KEY, {
                     ...this.savedViews(),
-                    [message.name]: message.view,
+                    // A saved view is a way of looking at parts and is offered in every workspace,
+                    // so the values typed over cells are left out of it rather than travelling
+                    // into a mod they were never typed against.
+                    [message.name]: { ...(message.view as Record<string, unknown>), overrides: {} },
                 });
                 await this.postViews();
                 return;
@@ -355,13 +394,39 @@ export class PartTablePanel {
      * state rides along, which is what the page puts back when it opens.
      */
     private async postViews(): Promise<void> {
-        const kept = this.context.globalState.get<{ view?: unknown; activeView?: string }>(STATE_KEY);
+        const kept = this.context.globalState.get<KeptState>(STATE_KEY);
         await this.panel.webview.postMessage({
             type: 'views',
             views: this.savedViews(),
-            state: kept?.view,
+            state: PartTablePanel.forThisWorkspace(kept),
             activeView: kept?.activeView ?? '',
         });
+    }
+
+    /**
+     * The workspace the reader is in, which is what a typed value belongs to. The folders name it
+     * rather than the mod, since a workspace holding no mod at all still asks about its own parts.
+     *
+     * @returns the key, empty when no folder is open.
+     */
+    private static workspaceKey(): string {
+        return (workspace.workspaceFolders ?? []).map((folder) => folder.uri.toString()).join('|');
+    }
+
+    /**
+     * The kept view as this workspace may have it. Everything the reader set up is theirs wherever
+     * they open the table, except the values they typed over cells and the text they were looking
+     * for, which are dropped when the state was kept somewhere else. A search is a hunt through one
+     * mod's parts, and a mod's own name in the box would open the table of another mod on no rows
+     * at all, with nothing on screen saying why.
+     *
+     * @param kept the state the host holds, absent when nothing was kept yet.
+     * @returns the view to put back, or undefined when there is none.
+     */
+    private static forThisWorkspace(kept: KeptState | undefined): Record<string, unknown> | undefined {
+        if (!kept?.view) return undefined;
+        if (kept.workspace === PartTablePanel.workspaceKey()) return kept.view;
+        return { ...kept.view, overrides: {}, search: '' };
     }
 
     /**

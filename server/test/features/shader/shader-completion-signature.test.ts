@@ -170,6 +170,25 @@ describe('shader signature help', () => {
         expect(help?.activeParameter).toBe(1);
     });
 
+    it('shows a texture method signature with the active argument lit', () => {
+        const src = ['Texture2D _texture;', 'float4 pix(float2 uv) { return _texture.Sample(_texture_SS, uv); }'].join(
+            '\n'
+        );
+        const first = shaderSignatureHelp(src, src.indexOf('_texture_SS'));
+        expect(first?.signatures[0].label).toBe('float4 Sample(sampler, uv)');
+        expect(first?.activeParameter).toBe(0);
+        const second = shaderSignatureHelp(src, src.indexOf('uv);'));
+        expect(second?.activeParameter).toBe(1);
+    });
+
+    it('keeps a file function of a texture method`s name ahead of the method table', () => {
+        const src = ['float4 Sample(float2 uv) { return float4(uv, 0, 1); }', 'float4 pix() { return Sample(0.5); }'].join(
+            '\n'
+        );
+        const help = shaderSignatureHelp(src, src.lastIndexOf('0.5'));
+        expect(help?.signatures[0].label).toBe('float4 Sample(float2 uv)');
+    });
+
     it('shows the signature of a function defined in an include', () => {
         const base = 'float3 applyTint(float3 c, float amount) { return c * amount; }';
         const src = 'float4 pix() { return float4(applyTint(_color.rgb, 0.5), 1); }';
@@ -318,6 +337,11 @@ describe('#include path completion', () => {
             // The root-anchored ./Data/ form resolves against the game data dir instead.
             const rooted = await shaderIncludePathCompletions('./Data/common_effects/', join(dir, 'elsewhere', 'far.shader'), dir);
             expect(rooted.map((c) => c.label)).toContain('base_beam.shader');
+
+            // A bare `Data/` prefix is an ordinary relative path, so it completes beside the edited
+            // file. There is no such folder here, which is exactly what the engine would find.
+            const bare = await shaderIncludePathCompletions('Data/', join(dir, 'edited.shader'), dir);
+            expect(bare).toEqual([]);
 
             // An unresolvable prefix answers empty rather than throwing.
             expect(await shaderIncludePathCompletions('missing/', join(dir, 'edited.shader'))).toEqual([]);

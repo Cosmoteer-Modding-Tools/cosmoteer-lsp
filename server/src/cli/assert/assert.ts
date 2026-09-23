@@ -1,4 +1,6 @@
 import { basename, relative } from 'path';
+import { AbstractNode, isAssignmentNode, isGroupNode, isListNode, isValueNode } from '../../core/ast/ast';
+import { VERB_SCHEMA } from '../../mod/action';
 import type { LintFinding } from '../findings';
 import type { GameDataStatus } from '../report/report';
 import { reportPath } from '../uri';
@@ -15,16 +17,16 @@ import {
     ManifestFailure,
     ModAssertion,
     MOD_ACTION_RULE_ID,
+    isDanglingReference,
+    refusesTheFile,
 } from './model';
+import { payloadOf, PayloadContext } from './payload';
 import { walkModFiles } from './walk';
 
 // Putting the load check together. The scan the lint command already runs answers the one question
 // a command line cannot answer on its own, which is whether an action's target is really in the
 // game's data, and this module answers the rest: which manifest the game reads, which actions it
 // runs, and which of them nothing here was able to judge.
-
-/** The rule id the parse check tags its findings with. */
-const PARSE_ERROR_RULE_ID = 'parse-error';
 
 /** Everything the report is built from. */
 export interface AssertInput {
@@ -74,7 +76,8 @@ interface ModScope {
     /** What the judge needs to know about the run, including the report paths. */
     context: JudgeContext;
     findingsByFile: Map<string, LintFinding[]>;
-    parseErrorsByFile: Map<string, LintFinding[]>;
+    /** The findings that say the game refuses a whole file, keyed by the file they are in. */
+    blockersByFile: Map<string, LintFinding[]>;
     /** Everything the check could not see, added to by every phase in the order they run. */
     disclosures: Disclosure[];
 }
@@ -221,8 +224,11 @@ const assertMod = async (folder: string, input: AssertInput, checked: Set<string
             checked: (file) => checked.has(pathKey(file)),
             relative: (file) => reportPath([folder], file),
         },
-        findingsByFile: groupFindings(input.findings, MOD_ACTION_RULE_ID),
-        parseErrorsByFile: groupFindings(input.findings, PARSE_ERROR_RULE_ID),
+        findingsByFile: groupFindings(
+            input.findings,
+            (finding) => finding.ruleId === MOD_ACTION_RULE_ID || isDanglingReference(finding)
+        ),
+        blockersByFile: groupFindings(input.findings, refusesTheFile),
         disclosures: [],
     };
 
@@ -240,7 +246,7 @@ const assertMod = async (folder: string, input: AssertInput, checked: Set<string
             cache,
             context: scope.context,
             findingsByFile: scope.findingsByFile,
-            parseErrorsByFile: scope.parseErrorsByFile,
+            blockersByFile: scope.blockersByFile,
             disclosures: scope.disclosures,
             selectionNote: choice.undecided
                 ? 'one of several manifests, chosen by the running game version'
@@ -278,7 +284,7 @@ interface ManifestContext {
     cache: DocumentCache;
     context: JudgeContext;
     findingsByFile: Map<string, LintFinding[]>;
-    parseErrorsByFile: Map<string, LintFinding[]>;
+    blockersByFile: Map<string, LintFinding[]>;
     disclosures: Disclosure[];
     selectionNote?: string;
 }
@@ -299,9 +305,11 @@ const assertManifest = async (
     const failures = metadataFailures(candidate, path);
 
     // The game parses the manifest and every file it reads its actions from before it applies
-    // anything, so a file among them that does not parse costs the whole mod.
+    // anything, so a file among them the game refuses costs the whole mod. What counts as refused
+    // is the same allowlist the content an action adds is weighed against, since a name written
+    // twice is a parse failure to the game rather than a silent overwrite.
     for (const file of [candidate.file, ...collection.includedFiles]) {
-        const errors = scope.parseErrorsByFile.get(pathKey(file)) ?? [];
+        const errors = scope.blockersByFile.get(pathKey(file)) ?? [];
         if (errors.length === 0) continue;
         failures.push({
             subject: 'file',
@@ -327,12 +335,22 @@ const assertManifest = async (
         });
     }
 
+    // One payload context covers this manifest, so a file several actions add content from is read
+    // and walked once rather than once per action.
+    const payloadContext: PayloadContext = {
+        modRoot: scope.folder,
+        cache: scope.cache,
+        links: new Map(),
+        checked: scope.context.checked,
+        blockersOn: (file) => scope.blockersByFile.get(pathKey(file)) ?? [],
+    };
     const actions: ActionVerdict[] = [];
     for (const record of collection.records) {
         const judged = judgeAction(
             record,
             await findingsInside(record, scope.findingsByFile, scope.cache),
-            scope.context
+            scope.context,
+            await payloadOf(record, payloadContext)
         );
         actions.push(judged.verdict);
         scope.disclosures.push(...judged.disclosures);
@@ -352,16 +370,19 @@ const assertManifest = async (
 };
 
 /**
- * The findings of one rule, grouped by the file they are in.
+ * The findings a test keeps, grouped by the file they are in.
  *
  * @param findings every finding the scan produced.
- * @param ruleId the rule to keep.
- * @returns the findings of that rule, keyed by comparable file path.
+ * @param keep whether one finding belongs in the table.
+ * @returns the findings it kept, keyed by comparable file path.
  */
-const groupFindings = (findings: readonly LintFinding[], ruleId: string): Map<string, LintFinding[]> => {
+const groupFindings = (
+    findings: readonly LintFinding[],
+    keep: (finding: LintFinding) => boolean
+): Map<string, LintFinding[]> => {
     const byFile = new Map<string, LintFinding[]>();
     for (const finding of findings) {
-        if (finding.ruleId !== ruleId) continue;
+        if (!keep(finding)) continue;
         const key = pathKey(finding.file);
         const known = byFile.get(key);
         if (known) known.push(finding);
@@ -389,11 +410,45 @@ const findingsInside = async (
     if (!candidates || candidates.length === 0) return [];
     const parsed: ParsedFile | undefined = await cache.get(record.file);
     if (!parsed) return [];
+    const written = writtenValueSpans(record);
     return candidates.filter((finding) => {
         const offset = offsetOf(parsed.lineStarts, finding.startLine, finding.startColumn);
         // A container's end offset is one past its closing brace, so the end is exclusive.
-        return offset >= record.startOffset && offset < record.endOffset;
+        if (offset < record.startOffset || offset >= record.endOffset) return false;
+        if (!isDanglingReference(finding)) return true;
+        return written.some((span) => offset >= span.start && offset < span.end);
     });
+};
+
+/**
+ * Where the entry's own values are written. A reference the game follows while it reads the
+ * manifest is one of these: every `[Serialize]` member of a mod action is read straight off the
+ * entry. A reference nested inside a group or a list the action adds is not, because the game keeps
+ * that node as it stands and only follows what is in it once the patched tree is read, which is far
+ * past the point this check is about.
+ *
+ * @param record the action entry.
+ * @returns the offsets each value spans, in the order the entry writes them.
+ */
+const writtenValueSpans = (record: ActionRecord): { start: number; end: number }[] => {
+    const spans: { start: number; end: number }[] = [];
+    const take = (node: AbstractNode | null | undefined): void => {
+        if (!isValueNode(node)) return;
+        const { start, end } = node.position;
+        spans.push({ start: Math.min(start, end), end: Math.max(start, end) + 1 });
+    };
+    const members = (node: AbstractNode): void => {
+        if (isGroupNode(node)) for (const element of node.elements) if (isAssignmentNode(element)) take(element.right);
+        if (isListNode(node)) for (const element of node.elements) take(element);
+    };
+    members(record.action.group);
+    // An Overrides writes a `Dictionary<string, OTNode>` and an AddMany an `OTNode[]`
+    // (`cosmoteer/Cosmoteer.Mods/ModOverridesAction.cs:19` and `ModAddManyAction.cs:18`), so the
+    // game reads those entry by entry and follows a reference written as one of them too. Every
+    // other verb takes its source as one node, and nothing deeper than these is read here at all.
+    const shape = record.action.type === 'Unknown' ? undefined : VERB_SCHEMA[record.action.type].sourceShape;
+    if (shape === 'group' || shape === 'list') for (const source of record.action.sources) members(source);
+    return spans;
 };
 
 /**

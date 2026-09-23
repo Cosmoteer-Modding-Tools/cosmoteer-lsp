@@ -1,4 +1,5 @@
-import { ValueNode } from '../../core/ast/ast';
+import { AbstractNodeDocument, GroupNode, ListNode, ValueNode } from '../../core/ast/ast';
+import { markupSourceOf, positionIn } from './markup-source';
 import {
     AttributeSpec,
     AttributeValueKind,
@@ -566,21 +567,95 @@ export const scanMarkup = (written: string): MarkupScan => {
 };
 
 /**
- * The text of a string value as it was written, with the document offset of its first character, so
- * that every offset a scan reports can be turned back into a span in the file. The lexer keeps a
- * value's text exactly as written, escapes and all, so the two run character for character and the
- * only thing to work out is how much of the literal the opening quote takes.
+ * The file a value was parsed from, walked up the tree the value hangs in.
+ *
+ * @param node the value node.
+ * @returns the file's uri, or undefined when the node hangs in no document.
+ */
+const documentUriOf = (node: ValueNode): string | undefined => {
+    let parent: GroupNode | ListNode | AbstractNodeDocument | undefined = node.parent;
+    while (parent) {
+        if (parent.type === 'Document') return parent.uri;
+        parent = parent.parent;
+    }
+    return undefined;
+};
+
+/**
+ * Whether a written value carries a tag that runs across the join between two of its segments.
+ *
+ * ObjectText reads `"<col" \` and the `"or hex='FF0000'>…"` below it as one string, so the game
+ * sees one tag where the file has a quote, a backslash and an indent in the middle of it. No span
+ * of the file covers such a tag, so nothing is said about the value at all rather than something
+ * about the wrong characters.
+ *
+ * @param written the value as it stands in the file, its delimiters included.
+ * @returns true when a tag is split across a join.
+ */
+const tagCrossesJoin = (written: string): boolean => {
+    const opening = written.startsWith('@"') ? 2 : written.startsWith('"') ? 1 : 0;
+    const closing =
+        opening > 0 && written.length > opening && written.endsWith('"') ? written.length - 1 : written.length;
+    let inTag = false;
+    for (let index = opening; index < closing; index++) {
+        const character = written[index];
+        if (character === '\\') {
+            index++;
+            continue;
+        }
+        if (character === '<') inTag = true;
+        else if (character === '>') inTag = false;
+        else if (inTag && (character === '"' || character === '\n')) return true;
+    }
+    return false;
+};
+
+/**
+ * The span of a value whose file the markup layer cannot reach, which is a file the bulk pass walks
+ * and nothing holds open. Only a value the lexer kept character for character can be placed that
+ * way, which is one written as its text between a single pair of delimiters. A value assembled from
+ * several segments lost the quotes, the backslash and the indent between them, and where its text
+ * sits in the file is no longer derivable from what the node carries, so nothing is said about it.
  *
  * @param node the string value node.
- * @returns the written text and where it starts, or undefined when the node carries no text.
+ * @returns the text and where it starts, or undefined when its written form is not derivable.
  */
-export const markupTextOf = (node: ValueNode): MarkupSpan | undefined => {
-    if (node.valueType.type !== 'String') return undefined;
+const undelimitedSpanOf = (node: ValueNode): MarkupSpan | undefined => {
     const text = String(node.valueType.value);
+    const delimiters = node.position.end - node.position.start - text.length;
+    if (!node.quoted) return delimiters === 0 ? { text, offset: node.position.start } : undefined;
+    if (delimiters === 2) return { text, offset: node.position.start + 1 };
+    if (delimiters === 3) return { text, offset: node.position.start + 2 };
+    return undefined;
+};
+
+/**
+ * The text of a string value as it stands in the file, with the document offset of its first
+ * character, so that every offset a scan reports is already a span in the file.
+ *
+ * The text the parser carries is not the written form: segments joined over a line continuation
+ * drop the glue between them, and a verbatim string drops its `@`, its quotes and every doubled
+ * quote. The span is therefore cut out of the file's own text, delimiters and glue included, which
+ * are characters the markup reader walks past as prose.
+ *
+ * @param node the string value node.
+ * @param source the file's text, when the caller already holds it.
+ * @returns the written text and where it starts, or undefined when no span can be trusted.
+ */
+export const markupTextOf = (node: ValueNode, source?: string): MarkupSpan | undefined => {
+    if (node.valueType.type !== 'String') return undefined;
     const { start, end } = node.position;
-    const opening = end - start - text.length - (node.quoted ? 1 : 0);
-    if (opening < 0) return undefined;
-    return { text, offset: start + opening };
+    const uri = documentUriOf(node);
+    const written = source ?? (uri === undefined ? undefined : markupSourceOf(uri));
+    if (written !== undefined && start >= 0 && end > start && end <= written.length) {
+        const slice = written.slice(start, end);
+        // A file that moved under the parse would hand back a slice of something else, so the
+        // delimiter the node says it was written with has to be the one standing there.
+        if (!node.quoted || slice.startsWith('"') || slice.startsWith('@"')) {
+            return tagCrossesJoin(slice) ? undefined : { text: slice, offset: start };
+        }
+    }
+    return undelimitedSpanOf(node);
 };
 
 /** Whether a written value parses the way `float.Parse` with the invariant culture does. */
@@ -801,25 +876,41 @@ export const tagIssues = (tag: MarkupTag): MarkupIssue[] => {
     return issues;
 };
 
+/** The number of line breaks a text carries. */
+const breaksIn = (text: string): number => {
+    let breaks = 0;
+    for (let index = text.indexOf('\n'); index >= 0; index = text.indexOf('\n', index + 1)) breaks++;
+    return breaks;
+};
+
 /**
- * The editor position of a document offset that falls inside a written string value. A value written
- * across a line continuation still runs as one text, so the line of an offset past the break is the
- * value's own line plus the breaks in front of it.
+ * The editor position of a document offset that falls inside a written string value.
+ *
+ * The file's own text is walked whenever it is in reach, so a value carried across a line
+ * continuation places every offset on the line it really stands on. Without the file, the value's
+ * text stands in for it: the lexer stamps a string token with the line it ends on, so the value's
+ * first line is its own line less the breaks its text carries.
  *
  * @param node the string value node the offset falls in.
  * @param span the value's written text and where it starts.
  * @param offset the document offset to place, inside the value's text.
+ * @param source the file's text, when the caller already holds it.
  * @returns the zero-based line and character of that offset.
  */
 export const markupPositionOf = (
     node: ValueNode,
     span: MarkupSpan,
-    offset: number
+    offset: number,
+    source?: string
 ): { line: number; character: number } => {
+    const uri = documentUriOf(node);
+    const written = source ?? (uri === undefined ? undefined : markupSourceOf(uri));
+    if (written !== undefined && offset >= 0 && offset <= written.length) return positionIn(written, offset);
     const upTo = span.text.slice(0, Math.max(0, offset - span.offset));
-    const breaks = upTo.split('\n').length - 1;
+    const breaks = breaksIn(upTo);
+    const firstLine = node.position.line - breaksIn(span.text);
     if (breaks === 0) {
-        return { line: node.position.line, character: node.position.characterStart + (offset - node.position.start) };
+        return { line: firstLine, character: node.position.characterStart + (offset - node.position.start) };
     }
-    return { line: node.position.line + breaks, character: upTo.length - upTo.lastIndexOf('\n') - 1 };
+    return { line: firstLine + breaks, character: upTo.length - upTo.lastIndexOf('\n') - 1 };
 };

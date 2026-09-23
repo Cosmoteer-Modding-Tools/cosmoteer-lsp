@@ -9,6 +9,7 @@ import {
     isListNode,
 } from '../../core/ast/ast';
 import { namedMembersOf } from '../../utils/ast.utils';
+import { idiomCompletions } from './idioms';
 import {
     findEnclosingContainer,
     documentScopeClass,
@@ -282,6 +283,8 @@ export const schemaFieldNameCompletions = async (
         // opens on what a part or an effect is actually written with.
         sortText: `${field.optional ? '1' : '0'}_${fieldUsageRank(owner, field.name)}_${field.name}`,
     }));
+
+    completions.push(...idiomCompletions(classes, present));
 
     const scaffold = requiredFieldsScaffold(missing, inherited);
     if (scaffold) completions.unshift(scaffold);

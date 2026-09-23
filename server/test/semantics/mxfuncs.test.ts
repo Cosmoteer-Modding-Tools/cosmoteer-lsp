@@ -73,7 +73,9 @@ describe('mXparser-compatible functions and constants', () => {
         expect(await eval_('EulerLn')).toBe(1); // ln(e)
     });
 
-    it('leaves domain/unknown functions unevaluated (no wrong number)', async () => {
-        expect(await eval_('Unknown')).toBeNull(); // deg(90), not pure arithmetic
+    it('converts an angle with deg, which reads its argument as radians', async () => {
+        // `deg(90)` is 90 radians in degrees, which is what the shipped parser answers. A field
+        // meaning 90 degrees is written `deg(90d)` or `deg(&SomeAngle)`.
+        expect(await eval_('Unknown')).toBeCloseTo(5156.620156177409, 9);
     });
 });

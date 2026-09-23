@@ -146,3 +146,27 @@ describe('manifest value positions', () => {
         expect(names).toContain('ToAdd');
     });
 });
+
+describe('the discriminator of a slot whose base type has registries of its own', () => {
+    const SECTOR = 'file:///modes/career/sectors/asteroid_field.rules';
+
+    // `GetAllPolymorphicSubclasses` keeps every non-abstract class the slot's base type is
+    // assignable from, so a `SimSpawner` slot takes the `SimObjectSpawner` discriminators too.
+    // Vanilla writes them there, and the popup offered only `Mission` until the derived registry
+    // was folded in.
+    it('offers the derived registry’s types in a SubSpawners entry', async () => {
+        const src = 'Type = None\nSubSpawners\n[\n\t{\n\t\tType = \n\t}\n]\n';
+        const offset = src.lastIndexOf('Type = ') + 7;
+        const found = labels(await schemaValueCompletionsAtOffset(parse(src, SECTOR), offset, prefixAt(src, offset), token));
+        expect(found).toContain('Doodads');
+        expect(found).toContain('Ships');
+        expect(found).toContain('Mission');
+    });
+
+    // The other direction does not hold: a slot of the derived registry takes its own members only.
+    it('leaves the base registry’s own types out of a derived slot', async () => {
+        const src = 'Type = \n';
+        const found = labels(await schemaValueCompletionsAtOffset(parse(src, SECTOR), 7, 'Type = ', token));
+        expect(found).not.toContain('Mission');
+    });
+});

@@ -27,10 +27,6 @@ import {
  * IntelliJ LSP highlighter, so one implementation colours both editors.
  */
 
-// Line splitting for the clamp below, kept out of the loop that uses them.
-const LINE_BREAK = /\r?\n/;
-const CARRIAGE_RETURN = /\r$/;
-
 /** A single token before delta-encoding, captured so the whole set can be sorted by position first. */
 interface RawToken {
     readonly line: number;
@@ -38,6 +34,9 @@ interface RawToken {
     readonly length: number;
     readonly type: number;
     readonly modifiers: number;
+    /** The offset of the token's first character in the file, which is the one part of a node's
+     *  position that is right for a value written across several lines. */
+    readonly start: number;
 }
 
 // A bareword that the parser types `String` but that is really a numeric literal: a percentage
@@ -48,21 +47,21 @@ interface RawToken {
 const NUMERIC_LITERAL = /^-?(?:\s*\d*\.?\d+\s*[%dr]|infinity)$/i;
 
 /**
- * Walks the cached AST and produces the document's semantic tokens. A node's {@link AstPosition} is
- * always single-line (the parser records one line per node), so every token fits the LSP one-line
- * rule without clamping.
+ * Walks the cached AST and produces the document's semantic tokens. A node's {@link AstPosition}
+ * holds one line and one pair of columns, which describes a value written on one line and nothing
+ * else, so the file's own text is what every token is finally placed against.
  *
  * @param document the parsed document to highlight.
- * @param text the document's source, used to keep a token inside the line it starts on. A value
- * that runs over several lines (a verbatim string, a continued one) carries the whole span in one
- * position, and a token reaching past its line is one the editor cannot place.
+ * @param text the document's source, used to place each token on the line it really starts on and
+ * to cut it at every line break it crosses. A value that runs over several lines (a verbatim string,
+ * a continued one) carries the whole span in one position, and its line is the one the value ends on.
  * @returns the delta-encoded tokens for `textDocument/semanticTokens/full`.
  */
 export const buildSemanticTokens = (document: AbstractNodeDocument, text?: string): SemanticTokens => {
     const collected: RawToken[] = [];
     for (const element of document.elements) collectNode(element, true, collected);
 
-    const tokens = text === undefined ? collected : clampToLines(collected, text);
+    const tokens = text === undefined ? collected : placeOnRealLines(collected, text);
 
     // The builder demands tokens in document order. Node traversal is mostly ordered but a value's
     // sub-tokens (reference, operators) can interleave, so sort defensively before encoding.
@@ -74,30 +73,64 @@ export const buildSemanticTokens = (document: AbstractNodeDocument, text?: strin
 };
 
 /**
- * Cut every token back to the line it starts on.
+ * Put every token on the line it really starts on, and cut it at each line break it crosses.
  *
- * A value that runs over several lines, a verbatim string or one the author continued, carries the
- * whole span in a single position, and a token reaching past the end of its line is one the editor
- * cannot place.
+ * A value written across several lines, a verbatim string or one the author continued, carries the
+ * whole span in a single position whose line is the one the value ends on. The offset of the first
+ * character is the only part of that position which survives the join, so the line and the column
+ * are worked out from it. Neither client supports a token that spans a line break, so a value that
+ * crosses one is handed over as one token per line instead, and the lines after the first would
+ * otherwise stay uncoloured.
  *
  * @param tokens the tokens the walk collected.
  * @param text the document's source.
- * @returns the tokens, each no longer than the rest of its own line.
+ * @returns the tokens, each on one line and inside it.
  */
-const clampToLines = (tokens: readonly RawToken[], text: string): RawToken[] => {
-    const lineLengths = text.split(LINE_BREAK).map((line) => line.replace(CARRIAGE_RETURN, '').length);
-    return tokens.map((token) => {
-        const lineLength = lineLengths[token.line];
-        if (lineLength === undefined || token.char + token.length <= lineLength) return token;
-        return { ...token, length: Math.max(0, lineLength - token.char) };
-    });
+const placeOnRealLines = (tokens: readonly RawToken[], text: string): RawToken[] => {
+    const lineStarts = [0];
+    for (let index = 0; index < text.length; index++) if (text[index] === '\n') lineStarts.push(index + 1);
+    // The text a line holds, with the carriage return of a CRLF break left out of its length.
+    const lengthOf = (line: number): number => {
+        const end = line + 1 < lineStarts.length ? lineStarts[line + 1] - 1 : text.length;
+        return Math.max(0, (text[end - 1] === '\r' ? end - 1 : end) - lineStarts[line]);
+    };
+    const lineAt = (offset: number): number => {
+        let low = 0;
+        let high = lineStarts.length - 1;
+        while (low < high) {
+            const middle = Math.ceil((low + high) / 2);
+            if (lineStarts[middle] <= offset) low = middle;
+            else high = middle - 1;
+        }
+        return low;
+    };
+    const placed: RawToken[] = [];
+    for (const token of tokens) {
+        const line = token.start >= 0 && token.start <= text.length ? lineAt(token.start) : token.line;
+        const char = line === token.line ? token.char : token.start - lineStarts[line];
+        const from = lineStarts[line] + char;
+        const to = from + token.length;
+        for (let current = line, at = from; at < to && current < lineStarts.length; current++) {
+            const length = Math.min(to, lineStarts[current] + lengthOf(current)) - at;
+            if (length > 0) placed.push({ ...token, line: current, char: at - lineStarts[current], length });
+            at = current + 1 < lineStarts.length ? lineStarts[current + 1] : to;
+        }
+    }
+    return placed;
 };
 
 /** Pushes a token for a node's own single-line position span (start→end on its line). */
 const pushSpan = (position: AstPosition, type: TokenType, modifiers: number, tokens: RawToken[]): void => {
     const length = position.characterEnd - position.characterStart;
     if (length <= 0) return;
-    tokens.push({ line: position.line, char: position.characterStart, length, type: typeIndex(type), modifiers });
+    tokens.push({
+        line: position.line,
+        char: position.characterStart,
+        length,
+        type: typeIndex(type),
+        modifiers,
+        start: position.start,
+    });
 };
 
 /** Pushes a token of a fixed length at a node's start (for naming the head of a wider node). */
@@ -109,7 +142,14 @@ const pushHead = (
     tokens: RawToken[]
 ): void => {
     if (length <= 0) return;
-    tokens.push({ line: position.line, char: position.characterStart, length, type: typeIndex(type), modifiers });
+    tokens.push({
+        line: position.line,
+        char: position.characterStart,
+        length,
+        type: typeIndex(type),
+        modifiers,
+        start: position.start,
+    });
 };
 
 /**

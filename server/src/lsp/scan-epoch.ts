@@ -14,7 +14,7 @@ import { PROJECT_INDEXES } from './project-indexes';
 export let workspaceScanEpoch = 0;
 /** The last seen scan-relevant settings serialization, so only a real change bumps the epoch
  *  (the whole-workspace toggle itself re-pulls configuration twice per flip). Undefined until
- *  the first configuration change establishes the baseline. */
+ *  the startup establishes the baseline. */
 let lastScanSettingsKey: string | undefined;
 
 export const bumpWorkspaceScanEpoch = (): void => {
@@ -23,17 +23,28 @@ export const bumpWorkspaceScanEpoch = (): void => {
 
 /**
  * The scan-relevant settings serialization. Only settings that change what a file's validation
- * produces participate: the whole-workspace toggle selects which files are scanned, not what a file
- * yields, and flipping it is exactly the repeat-scan case the caches exist for. The scope does
- * participate, because the duplicate-field pass compares a file against the other files the game
- * loads, so narrowing or widening the scope changes what that file itself reports. The l10n bundle
- * path rides along because persisted diagnostics carry localized messages.
+ * produces participate: the validator switches, the problem limit, the ignored paths, the game
+ * install every reference resolves against, and the code-mod schema merge. The whole-workspace
+ * toggle selects which files are scanned, not what a file yields, and flipping it is exactly the
+ * repeat-scan case the caches exist for. The scope does participate, because the duplicate-field
+ * pass compares a file against the other files the game loads, so narrowing or widening the scope
+ * changes what that file itself reports. The l10n bundle path rides along because persisted
+ * diagnostics carry localized messages.
+ *
+ * Everything else the settings hold decides how something is presented, not what is found: the
+ * trace level, the inlay hints, the hover sections, the code lens, the formatter, the decompiler
+ * link and the vanilla-editing switch. Serializing those too made every one of them stale every
+ * cached scan result and re-run the whole pass, which is a cold walk over the project for a hover
+ * section somebody turned off.
  *
  * @returns the serialized key.
  */
 export const scanSettingsKeyOf = (): string =>
     JSON.stringify({
-        ...globalSettings,
+        maxNumberOfProblems: globalSettings.maxNumberOfProblems,
+        cosmoteerPath: globalSettings.cosmoteerPath,
+        ignorePaths: globalSettings.ignorePaths,
+        codeMods: globalSettings.codeMods,
         diagnostics: {
             ...globalSettings.diagnostics,
             validateWholeWorkspace: undefined,
@@ -43,17 +54,23 @@ export const scanSettingsKeyOf = (): string =>
 
 /**
  * Compares the scan-relevant settings against the last seen ones and stales every cached scan
- * result when they moved. The first call only establishes the baseline: nothing was scanned under
- * an earlier key yet.
+ * result when they moved. The baseline is established at startup, before anything is scanned under
+ * it, so the first configuration change of a session is judged against the settings the startup
+ * pass really ran with rather than establishing the baseline itself and reporting no change.
+ *
+ * @returns whether the settings moved, so the caller can re-run what was computed under the old
+ *     ones. The published diagnostics of every unopened file are exactly that.
  */
-export function noteScanSettingsChange(): void {
+export function noteScanSettingsChange(): boolean {
     const scanSettingsKey = scanSettingsKeyOf();
     if (lastScanSettingsKey === undefined) {
         lastScanSettingsKey = scanSettingsKey;
-    } else if (scanSettingsKey !== lastScanSettingsKey) {
-        lastScanSettingsKey = scanSettingsKey;
-        bumpWorkspaceScanEpoch();
+        return false;
     }
+    if (scanSettingsKey === lastScanSettingsKey) return false;
+    lastScanSettingsKey = scanSettingsKey;
+    bumpWorkspaceScanEpoch();
+    return true;
 }
 
 /**

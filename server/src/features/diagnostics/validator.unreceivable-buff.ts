@@ -1,6 +1,6 @@
 import * as l10n from '@vscode/l10n';
 import { CancellationToken } from 'vscode-languageserver';
-import { AbstractNode, AbstractNodeDocument, GroupNode, isGroupNode, isListNode } from '../../core/ast/ast';
+import { AbstractNode, AbstractNodeDocument, GroupNode, descendants, isGroupNode } from '../../core/ast/ast';
 import { getStartOfAstNode } from '../../utils/ast.utils';
 import { classAncestry } from '../../document/schema/schema';
 import { resolveGroupClass } from '../../document/schema/schema-context';
@@ -130,14 +130,17 @@ const consumerUse = (group: GroupNode): BuffUse | null => {
  */
 const buffUsesIn = (part: GroupNode): BuffUse[] => {
     const uses: BuffUse[] = [];
-    const visit = (node: AbstractNode): void => {
-        if (isGroupNode(node)) {
+    // The shared descent, rather than a walk of its own: a buffable value is written `Amount = {
+    // BaseValue = 1; BuffType = … }` as often as `Amount { … }`, and vanilla writes the inline
+    // shortcut in the assigned spelling every time, so a walk that steps only into a container's own
+    // elements sees none of them.
+    for (const element of part.elements) {
+        for (const node of descendants(element)) {
+            if (!isGroupNode(node)) continue;
             const use = consumerUse(node);
             if (use) uses.push(use);
         }
-        if (isGroupNode(node) || isListNode(node)) for (const child of node.elements) visit(child);
-    };
-    for (const element of part.elements) visit(element);
+    }
 
     // The part's own buff-keyed clamps sit on the part root. They are written as a group whose
     // member names are the buffs (`MaxBuffValues = { Engine=100% }`), not as the key/value entry

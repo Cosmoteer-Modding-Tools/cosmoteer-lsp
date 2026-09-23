@@ -1,22 +1,30 @@
-import { afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { mkdirSync, rmSync, writeFileSync } from 'fs';
-import { dirname } from 'path';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
+import { dirname, join } from 'path';
 import { CancellationToken } from 'vscode-languageserver';
 import { parseText } from '../../../src/utils/ast.utils';
 import { filePathToUri } from '../../../src/document/reference-path';
 import { validateResourcePickups } from '../../../src/features/diagnostics/validator.resource-pickup';
-import { initWorkspace, WORKSPACE_DATA_DIR, workspaceFile } from '../../workspace-helper';
+import { initWorkspace, workspaceFile } from '../../workspace-helper';
 
 const token = CancellationToken.None;
 const TAB = String.fromCharCode(9);
 const NEWLINE = String.fromCharCode(10);
 
-/** Files this test wrote into the fixture workspace, removed again after each case. */
+/**
+ * A `Data` root of this test's own, which the resource files are written into. The lookup walks
+ * whatever folders it is handed, and writing into the shared fixture workspace would race every
+ * other test file reading that tree in a parallel worker.
+ */
+let dataDir: string;
+
+/** Files this test wrote, removed again after each case. */
 const written: string[] = [];
 
-/** Writes a resource file into the fixture workspace so the id lookup can find it. */
+/** Writes a resource file into this test's own tree so the id lookup can find it. */
 const writeResource = (name: string, body: string): void => {
-    const path = workspaceFile('resources', name, `${name}.rules`);
+    const path = join(dataDir, 'resources', name, `${name}.rules`);
     mkdirSync(dirname(path), { recursive: true });
     writeFileSync(path, body, 'utf8');
     written.push(path);
@@ -40,7 +48,7 @@ const messages = async (...members: string[]): Promise<string[]> => {
         '}',
         '',
     ].join(NEWLINE);
-    return (await validateResourcePickups(parseText(body, uri), [WORKSPACE_DATA_DIR], token)).map(
+    return (await validateResourcePickups(parseText(body, uri), [dataDir], token)).map(
         (error) => error.message
     );
 };
@@ -50,11 +58,14 @@ const messages = async (...members: string[]): Promise<string[]> => {
 describe('validateResourcePickups', () => {
     beforeAll(async () => {
         await initWorkspace();
+        dataDir = join(mkdtempSync(join(tmpdir(), 'resource-pickup-')), 'Data');
     });
 
     afterEach(() => {
         for (const path of written.splice(0)) rmSync(path, { force: true });
     });
+
+    afterAll(() => rmSync(dirname(dataDir), { recursive: true, force: true }));
 
     it('flags a pickup above the resource stack', async () => {
         writeResource('probe_fuel', `ID = probe_fuel${NEWLINE}MaxPerNugget = 100${NEWLINE}`);

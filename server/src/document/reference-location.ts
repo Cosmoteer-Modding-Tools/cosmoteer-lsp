@@ -1,5 +1,5 @@
 import { Location, Range } from 'vscode-languageserver';
-import { AbstractNode, isListNode, isDocumentNode, isGroupNode } from '../core/ast/ast';
+import { AbstractNode, AbstractNodeDocument, isListNode, isDocumentNode, isGroupNode } from '../core/ast/ast';
 import { assignmentKeyIn, getStartOfAstNode } from '../utils/ast.utils';
 import { normalizeUri } from '../utils/uri-path';
 import { filePathToUri } from './reference-path';
@@ -9,17 +9,78 @@ import { filePathToUri } from './reference-path';
 // keyed like it reach for it next to the location helpers below.
 export { normalizeUri };
 
+/** The text a parsed document was produced from, plus the line starts counted in it once. Keyed by
+ *  the document node, which ties the text to the exact parse it came from: a re-parse brings its
+ *  own entry and the old one dies with its tree. */
+const documentSources: WeakMap<AbstractNodeDocument, { text: string; starts?: number[] }> = new WeakMap();
+
+/**
+ * Records the text a parsed document came from, so the ranges below can be placed on the lines
+ * their offsets really fall on. Every parse that holds the text registers it; a parse that does
+ * not only leaves multi-line spans placed the way they were recorded.
+ *
+ * @param document the parsed document.
+ * @param text the text it was parsed from.
+ */
+export const noteDocumentSource = (document: AbstractNodeDocument, text: string): void => {
+    documentSources.set(document, { text });
+};
+
+/**
+ * Where an offset of a node really sits in its file.
+ *
+ * An {@link AbstractNode}'s position records one line and two columns, so a value carried across a
+ * `\` continuation ends at a column counted from its first line, a column that line does not have,
+ * and a verbatim `@"…"` string is stamped with the line it ends on while its start column belongs
+ * to the line it began on. The absolute offsets are right in both cases, so the file's own text
+ * places them whenever it was registered.
+ *
+ * @param node the node whose file the offset belongs to.
+ * @param offset the node's absolute offset.
+ * @param line the line the position records, used when there is no text to count in.
+ * @param character the column the position records, used the same way.
+ * @returns the position to use.
+ */
+const placed = (
+    node: AbstractNode,
+    offset: number,
+    line: number,
+    character: number
+): { line: number; character: number } => {
+    const source = documentSources.get(getStartOfAstNode(node));
+    if (!source || offset < 0 || offset > source.text.length) return { line, character };
+    if (!source.starts) {
+        const starts = [0];
+        for (let at = source.text.indexOf('\n'); at >= 0; at = source.text.indexOf('\n', at + 1)) starts.push(at + 1);
+        source.starts = starts;
+    }
+    const starts = source.starts;
+    let low = 0;
+    let high = starts.length - 1;
+    while (low < high) {
+        const middle = Math.ceil((low + high) / 2);
+        if (starts[middle] <= offset) low = middle;
+        else high = middle - 1;
+    }
+    return { line: low, character: offset - starts[low] };
+};
+
+/** The span of one node, both ends placed in the file's own text ({@link placed}). */
+const spanOf = (node: AbstractNode): Range => {
+    const { line, characterStart, characterEnd, start, end } = node.position;
+    const from = placed(node, start, line, characterStart);
+    const to = placed(node, end, line, characterEnd);
+    return Range.create(from.line, from.character, to.line, to.character);
+};
+
 /**
  * The range to highlight for a definition target: the identifier of an
  * group/list (so jumping to / listing `Foo {…}` lands on `Foo`), else the
  * node itself. Shared by go-to-definition and the reference index so a
  * reference and the definition it points at key to the exact same range.
  */
-export const rangeOf = (node: AbstractNode): Range => {
-    const target = (isGroupNode(node) || isListNode(node)) && node.identifier ? node.identifier : node;
-    const { line, characterStart, characterEnd } = target.position;
-    return Range.create(line, characterStart, line, characterEnd);
-};
+export const rangeOf = (node: AbstractNode): Range =>
+    spanOf((isGroupNode(node) || isListNode(node)) && node.identifier ? node.identifier : node);
 
 /** The LSP {@link Location} of a definition target node (cross-file uri + identifier range). */
 export const definitionLocationOf = (node: AbstractNode): Location => ({
@@ -28,13 +89,10 @@ export const definitionLocationOf = (node: AbstractNode): Location => ({
 });
 
 /** The LSP {@link Location} of a reference site. The `&…` text itself, for the references list. */
-export const referenceSiteLocation = (node: AbstractNode): Location => {
-    const { line, characterStart, characterEnd } = node.position;
-    return {
-        uri: filePathToUri(getStartOfAstNode(node).uri),
-        range: Range.create(line, characterStart, line, characterEnd),
-    };
-};
+export const referenceSiteLocation = (node: AbstractNode): Location => ({
+    uri: filePathToUri(getStartOfAstNode(node).uri),
+    range: spanOf(node),
+});
 
 /**
  * The name a definition node is known by: an identified `Group`/`List`'s identifier,

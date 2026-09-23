@@ -120,7 +120,9 @@ export class ShaderPreviewPanel {
         }
         const sources = data.sourceUris?.length ? data.sourceUris : data.shaderUri ? [data.shaderUri] : [];
         this.previewedSourcePaths = new Set(sources.map((uri) => Uri.parse(uri).fsPath.toLowerCase()));
-        this.panel.title = l10n.t('Shader Preview: {0}', data.shaderName);
+        // The tab is narrow, so it carries the shader's own file name. The reference the material
+        // wrote, which says which copy was picked up, stays on the panel's meta line.
+        this.panel.title = l10n.t('Shader Preview: {0}', data.shaderLabel || data.shaderName);
         // Every bound texture is inlined as a data URI keyed by its sampler uniform, so noise and ramp
         // textures load in the webview the same way the base texture does.
         const textureData: Record<string, string | null> = {};

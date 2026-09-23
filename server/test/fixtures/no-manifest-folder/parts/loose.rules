@@ -1,0 +1,6 @@
+// A folder with rules files and no manifest, opened beside a mod that has one. Nothing scopes this
+// folder, so every file in it stays in the panel's scope.
+Part
+{
+	ID = loose_part
+}

@@ -23,6 +23,7 @@ import {
     comparisonClass,
     formatNumber,
     groupedRows,
+    inTreeSelection,
     levelLabel,
     numberOf,
     orderedKeys,
@@ -149,7 +150,14 @@ export function render() {
     emptyEl.hidden = rows.length > 0;
     updateEditButtons();
     if (rows.length === 0) {
-        emptyEl.textContent = state.table.rows.length === 0 ? t('No parts found.') : t('No part matches the filter.');
+        // A tree pick narrows the rows as much as the filter bar does, and the bar sitting on its
+        // any entry would otherwise be the only thing the reader sees to widen.
+        emptyEl.textContent =
+            state.table.rows.length === 0
+                ? t('No parts found.')
+                : state.treeSelection && !state.table.rows.some(inTreeSelection)
+                  ? t('No part is left in the part of the tree you picked.')
+                  : t('No part matches the filter.');
         updateStatus(rows.length);
         return;
     }
@@ -462,6 +470,15 @@ export function renderTree() {
         const entry = ships.get(ship);
         entry.count++;
         entry.groups.set(group, (entry.groups.get(group) || 0) + 1);
+    }
+    // The pick stands when the rows it named go away, since a narrowed filter brings them back,
+    // so the tree keeps the node and draws it on no parts. Dropping it from the tree would leave
+    // the reader on an empty table with nothing marked as what is narrowing it.
+    if (state.treeSelection) {
+        const { ship, group } = state.treeSelection;
+        if (!ships.has(ship)) ships.set(ship, { count: 0, groups: new Map() });
+        const entry = ships.get(ship);
+        if (group && !entry.groups.has(group)) entry.groups.set(group, 0);
     }
     const item = (label, count, depth, selected, onClick) => {
         const node = document.createElement('div');

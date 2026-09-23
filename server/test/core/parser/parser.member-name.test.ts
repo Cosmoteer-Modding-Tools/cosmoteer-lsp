@@ -47,8 +47,15 @@ describe('prose where a member name belongs', () => {
         expect(findings('G\n{\n\tFoo Bar = 1\n}\n')).toHaveLength(1);
     });
 
-    it('accepts a number naming a list-form index field', () => {
-        expect(errorsMatching('G\n{\n\t0 = 5\n\t1 = 6\n}\n', NUMBER_MESSAGE)).toHaveLength(0);
+    it('flags a number naming a member of a group', () => {
+        // The positional spelling belongs to a `[ … ]` list. In a group an ObjectText identifier may
+        // not start with a digit, and the shipped HalflingCore parser answers
+        // `Unexpected "0" at position Line=3,Char=2` on this one.
+        expect(errorsMatching('G\n{\n\t0 = 5\n\t1 = 6\n}\n', NUMBER_MESSAGE)).toHaveLength(2);
+    });
+
+    it('accepts a number on the left of an "=" inside a list, which is element text', () => {
+        expect(errorsMatching('L\n[\n\t0 = 5\n]\n', NUMBER_MESSAGE)).toHaveLength(0);
     });
 
     it('accepts a void node on its own line', () => {
@@ -92,8 +99,8 @@ describe('a number where a member name belongs', () => {
         expect(findings('L = [0, 1]\n')).toHaveLength(0);
     });
 
-    it('accepts a number as a list-form index field', () => {
-        expect(findings('G\n{\n\t0 = 5\n\t1 = 6\n}\n')).toHaveLength(0);
+    it('flags a number naming a member of a group', () => {
+        expect(findings('G\n{\n\t0 = 5\n\t1 = 6\n}\n')).toHaveLength(2);
     });
 
     it('accepts a number as a field value', () => {

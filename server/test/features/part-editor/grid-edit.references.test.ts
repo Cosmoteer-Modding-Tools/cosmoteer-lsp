@@ -3,6 +3,7 @@ import { CancellationToken } from 'vscode-languageserver';
 import { join } from 'path';
 import { readFileSync } from 'fs';
 import { parseText } from '../../../src/utils/ast.utils';
+import { filePathToUri } from '../../../src/document/reference-path';
 import { buildPartGridEdit } from '../../../src/features/part-editor/grid-edit.service';
 import { buildPartGridData } from '../../../src/features/part-editor/part-grid-data.service';
 import { countReadersOf } from '../../../src/features/part-editor/reference-writeback';
@@ -23,7 +24,10 @@ const squarePath = join(modDir, 'square_part.rules');
 /** Applies LSP text edits to a source string. */
 const applyEdits = (
     text: string,
-    edits: Array<{ range: { start: { line: number; character: number }; end: { line: number; character: number } }; newText: string }>
+    edits: Array<{
+        range: { start: { line: number; character: number }; end: { line: number; character: number } };
+        newText: string;
+    }>
 ): string => {
     const toOffset = (position: { line: number; character: number }): number => {
         let line = 0;
@@ -52,7 +56,7 @@ const mutate = async (path: string, mutation: GridMutation): Promise<PartGridEdi
 
 /** The text of a file after a result's edits for it are applied. */
 const edited = (result: PartGridEditResult, path: string): string =>
-    applyEdits(readFileSync(path, 'utf-8'), result.edit!.changes![path] ?? []);
+    applyEdits(readFileSync(path, 'utf-8'), result.edit!.changes![filePathToUri(path)] ?? []);
 
 describe('grid edits through references', () => {
     beforeAll(async () => {
@@ -68,7 +72,7 @@ describe('grid edits through references', () => {
             rect: { x: 0, y: 0, width: 3, height: 2 },
         });
         expect(result.status, result.message).toBe('ok');
-        expect(result.edit!.changes![derivedPath]).toHaveLength(1);
+        expect(result.edit!.changes![filePathToUri(derivedPath)]).toHaveLength(1);
         const text = edited(result, derivedPath);
         expect(text).toContain('SIZE = [3, 2]');
         expect(text).toContain('SaveRect = [0, 0, &~/SIZE/0, &~/SIZE/1]');
@@ -83,7 +87,7 @@ describe('grid edits through references', () => {
         });
         expect(result.status, result.message).toBe('ok');
         // The part's own file is untouched: the sentence it wrote still holds, the number moved.
-        expect(result.edit!.changes![partPath] ?? []).toHaveLength(0);
+        expect(result.edit!.changes![filePathToUri(partPath)] ?? []).toHaveLength(0);
         expect(edited(result, constantsPath)).toContain('SIZE_RECT = [0, 0, 4, 2]');
         expect(result.note).toBeTruthy();
     });
@@ -115,7 +119,7 @@ describe('grid edits through references', () => {
 
         const result = await mutate(partPath, { op: 'setSize', size: { width: 3, height: 2 } });
         expect(result.status, result.message).toBe('ok');
-        expect(result.edit!.changes![partPath] ?? []).toHaveLength(0);
+        expect(result.edit!.changes![filePathToUri(partPath)] ?? []).toHaveLength(0);
         expect(edited(result, constantsPath)).toContain('SIZE = [3, 2]');
     });
 
@@ -152,7 +156,7 @@ describe('grid edits through references', () => {
             token
         );
         expect(result.status, result.message).toBe('ok');
-        expect(result.edit!.changes![constantsPath]).toHaveLength(1);
+        expect(result.edit!.changes![filePathToUri(constantsPath)]).toHaveLength(1);
         expect(edited(result, constantsPath)).toContain('SQUARE = 3');
     });
 
@@ -168,6 +172,21 @@ describe('grid edits through references', () => {
         );
         expect(result.status).toBe('error');
         expect(result.message).toContain('cannot differ');
+    });
+
+    it('keys the changed files by a uri, whichever file the write landed in', async () => {
+        // The declaring file is not open anywhere, so its parse carries an OS path. A client reads
+        // `c:\...` as a uri whose scheme is the drive letter and applies the edit to nothing, so
+        // the write is lost with a success message. Every key is a file uri.
+        const result = await mutate(partPath, {
+            op: 'setRect',
+            layerId: 'SaveRect',
+            rect: { x: 0, y: 0, width: 4, height: 2 },
+        });
+        expect(result.status, result.message).toBe('ok');
+        const keys = Object.keys(result.edit!.changes!);
+        expect(keys).toContain(filePathToUri(constantsPath));
+        expect(keys.every((key) => key.startsWith('file://'))).toBe(true);
     });
 
     it('names the files the view is read from, so a change in one of them re-renders', async () => {

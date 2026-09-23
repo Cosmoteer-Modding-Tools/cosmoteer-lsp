@@ -14,14 +14,15 @@ import {
     ValueNode,
     childNodesOf,
 } from '../../core/ast/ast';
-import { isModRules } from '../../document/document-kind';
 import {
+    documentScopeClass,
     groupDiscriminator,
+    memberTypeIn,
     registryForContainer,
     registryHintFromContainer,
     resolveGroupClass,
 } from '../../document/schema/schema-context';
-import { documentRootClass, documentRootRegistry } from '../../document/schema/document-root';
+import { classFitsDocument, documentRootClass, documentRootRegistry } from '../../document/schema/document-root';
 import {
     classAncestry,
     discriminatorIsAmbiguous,
@@ -253,6 +254,155 @@ const checkFieldDeprecations = (
 };
 
 /**
+ * The enum a slot reads, written straight into the slot or as one element of its list form. A
+ * `[Flags]` enum is declared as a plain enum and written as a list of members
+ * (`ExternalWalls = [Left, Right]`), and a `list<enum>` field is written either way, so both
+ * spellings of both shapes answer the same enum here.
+ *
+ * @param valueType the slot's schema type.
+ * @returns the enum's schema ref and display name, or undefined when the slot reads no enum.
+ */
+const enumTypeOf = (valueType: ValueType): { ref: string; name: string } | undefined => {
+    if (valueType.kind === 'enum') return { ref: valueType.ref, name: valueType.name };
+    if (valueType.kind === 'list' && valueType.element.kind === 'enum') {
+        return { ref: valueType.element.ref, name: valueType.element.name };
+    }
+    return undefined;
+};
+
+/** A written enum value the game converts outright rather than looking up by name. */
+const NUMERIC_ENUM_VALUE = /^[+-]?\d+$/;
+
+/**
+ * Whether the game's `Enum.Parse` reads the written value. Besides an exact member it accepts a
+ * comma-separated combination of members and a numeric literal, for every enum type and not only
+ * for a `[Flags]` one, so both stay unflagged.
+ *
+ * @param written the value as the author wrote it.
+ * @param members the enum's members.
+ * @returns true when the game parses the value.
+ */
+const parsesAsEnum = (written: string, members: string[]): boolean => {
+    if (NUMERIC_ENUM_VALUE.test(written.trim())) return true;
+    const parts = written.split(',');
+    if (parts.length === 1) return members.includes(written);
+    return parts.every((part) => {
+        const trimmed = part.trim();
+        return members.includes(trimmed) || NUMERIC_ENUM_VALUE.test(trimmed);
+    });
+};
+
+/**
+ * Flag one written enum value the enum does not have, as a rename, a casing slip or an unknown
+ * member, whichever it is.
+ *
+ * @param ctx the findings and resolved containers of the run.
+ * @param value the written value node to report on.
+ * @param enumType the enum the slot reads.
+ */
+const checkEnumValue = (ctx: SchemaCheckContext, value: ValueNode, enumType: { ref: string; name: string }): void => {
+    const members = enumDef(enumType.ref)?.members ?? [];
+    const written = String(value.valueType.value);
+    if (members.length === 0 || parsesAsEnum(written, members)) return;
+    // The game parses enum values with the case-sensitive `Enum.Parse(type, text)`, so a member
+    // matched only after case-folding still fails to load in game and deserves its own message.
+    // A member the game renamed is reported as the rename it is, with the version that made it,
+    // rather than as a value the enum happens not to have.
+    const renamed = deprecatedEnumValue(enumType.ref, written);
+    const folded = members.find((member) => member.toLowerCase() === written.toLowerCase());
+    if (renamed) {
+        ctx.errors.push({
+            message: l10n.t(
+                "'{0}' was renamed to '{1}' in game version {2} ({3}).",
+                written,
+                renamed.replacement,
+                renamed.version ?? '',
+                renamed.note
+            ),
+            node: value,
+            severity: 'hint',
+            data: {
+                migration: {
+                    version: renamed.version,
+                    apply: 'rewrite',
+                    symbol: migrationSymbolOf('enumValue', written),
+                },
+                rewrite: {
+                    title: l10n.t("Change to '{0}'", renamed.replacement),
+                    edits: [
+                        {
+                            start: value.position.start,
+                            end: value.position.end,
+                            newText: renamed.replacement,
+                        },
+                    ],
+                },
+                quickFix: {
+                    title: l10n.t("Change to '{0}'", renamed.replacement),
+                    newText: renamed.replacement,
+                },
+            },
+        });
+    } else if (folded) {
+        ctx.errors.push({
+            message: l10n.t(
+                "'{0}' has the wrong casing. The game's enum parsing is case-sensitive; write '{1}'.",
+                written,
+                folded
+            ),
+            node: value,
+            severity: 'warning',
+            data: { quickFix: { title: l10n.t("Change to '{0}'", folded), newText: folded } },
+        });
+    } else {
+        flag(ctx, value, written, enumType.name, members, closestMatch(written, members, true));
+    }
+};
+
+/** Whether a written value holds at least one bare word, the only shape an enum check judges. */
+const writesWords = (value: AbstractNode): boolean =>
+    (isValueNode(value) && value.valueType.type === 'String') ||
+    (isListNode(value) &&
+        value.elements.some((element) => isValueNode(element) && element.valueType.type === 'String'));
+
+/**
+ * Judge the enum-reading members of a group the schema gives no class of its own: the entry form of
+ * a map (`ExternalWallsByCell [ { Key = […] Value = […] } ]`), whose members read their type off the
+ * map they belong to, and a map whose values are enums. Enums only, since a class-less container is
+ * exactly where the other checks would be guessing.
+ *
+ * @param ctx the findings and resolved containers of the run.
+ * @param group the class-less group.
+ */
+const checkMapEntryEnums = (ctx: SchemaCheckContext, group: GroupNode): void => {
+    for (const element of group.elements) {
+        if (!isAssignmentNode(element) || !element.right || !writesWords(element.right)) continue;
+        const memberType = memberTypeIn(group, element.left.name);
+        const enumType = memberType && enumTypeOf(memberType);
+        if (enumType) checkEnumSlot(ctx, element.right, enumType);
+    }
+};
+
+/**
+ * Judge an enum-reading slot in whichever spelling it was written: one word, or the list form the
+ * engine reads member by member (`FlagsEnumSerializer.Read` calls `Enum.Parse` on every element and
+ * throws on the first one the enum does not have).
+ *
+ * @param ctx the findings and resolved containers of the run.
+ * @param value the written value.
+ * @param enumType the enum the slot reads.
+ */
+const checkEnumSlot = (ctx: SchemaCheckContext, value: AbstractNode, enumType: { ref: string; name: string }): void => {
+    if (isListNode(value)) {
+        for (const element of value.elements) {
+            if (isValueNode(element) && element.valueType.type === 'String') checkEnumValue(ctx, element, enumType);
+        }
+        return;
+    }
+    if (isValueNode(value) && value.valueType.type === 'String') checkEnumValue(ctx, value, enumType);
+};
+
+/**
  * Flag a `name = <word>` assignment whose schema field is an enum/bool not allowing that bare word.
  * Bare-word values only. `&refs`, expressions, numbers and quoted strings parse as other types.
  *
@@ -285,70 +435,19 @@ const checkEnums = (ctx: SchemaCheckContext, container: { elements: AbstractNode
         if (!isAssignmentNode(element)) continue;
         checkFieldDeprecations(ctx, container, cls, element);
         const value = element.right;
-        if (!isValueNode(value) || value.valueType.type !== 'String') continue;
         const field = fieldOf(cls, element.left.name);
         if (!field) continue;
+        // An enum slot is judged before the scalar bail below, since its list form is a list node
+        // and the game reads that form member by member.
+        const enumType = enumTypeOf(field.valueType);
+        if (enumType) {
+            if (value) checkEnumSlot(ctx, value, enumType);
+            continue;
+        }
+        if (!isValueNode(value) || value.valueType.type !== 'String') continue;
         const written = String(value.valueType.value);
 
-        if (field.valueType.kind === 'enum') {
-            const members = enumDef(field.valueType.ref)?.members ?? [];
-            if (members.length > 0 && !members.includes(written)) {
-                // The game parses enum values with the case-sensitive `Enum.Parse(type, text)`,
-                // so a member matched only after case-folding still fails to load in game and
-                // deserves its own message.
-                // A member the game renamed is reported as the rename it is, with the version
-                // that made it, rather than as a value the enum happens not to have.
-                const renamed = deprecatedEnumValue(field.valueType.ref, written);
-                const folded = members.find((m) => m.toLowerCase() === written.toLowerCase());
-                if (renamed) {
-                    ctx.errors.push({
-                        message: l10n.t(
-                            "'{0}' was renamed to '{1}' in game version {2} ({3}).",
-                            written,
-                            renamed.replacement,
-                            renamed.version ?? '',
-                            renamed.note
-                        ),
-                        node: value,
-                        severity: 'hint',
-                        data: {
-                            migration: {
-                                version: renamed.version,
-                                apply: 'rewrite',
-                                symbol: migrationSymbolOf('enumValue', written),
-                            },
-                            rewrite: {
-                                title: l10n.t("Change to '{0}'", renamed.replacement),
-                                edits: [
-                                    {
-                                        start: value.position.start,
-                                        end: value.position.end,
-                                        newText: renamed.replacement,
-                                    },
-                                ],
-                            },
-                            quickFix: {
-                                title: l10n.t("Change to '{0}'", renamed.replacement),
-                                newText: renamed.replacement,
-                            },
-                        },
-                    });
-                } else if (folded) {
-                    ctx.errors.push({
-                        message: l10n.t(
-                            "'{0}' has the wrong casing. The game's enum parsing is case-sensitive; write '{1}'.",
-                            written,
-                            folded
-                        ),
-                        node: value,
-                        severity: 'warning',
-                        data: { quickFix: { title: l10n.t("Change to '{0}'", folded), newText: folded } },
-                    });
-                } else {
-                    flag(ctx, value, written, field.valueType.name, members, closestMatch(written, members, true));
-                }
-            }
-        } else if (field.valueType.kind === 'bool') {
+        if (field.valueType.kind === 'bool') {
             // The game's BooleanSerializer accepts true/yes/y and false/no/n (ignoring case)
             // plus the literal 1/0 (which lex as numbers and never reach this String branch).
             if (!BOOLEAN_WORDS.has(written.toLowerCase())) {
@@ -524,6 +623,7 @@ const visit = (ctx: SchemaCheckContext, node: AbstractNode): void => {
         const unresolvableAmbiguity = disc && discriminatorIsAmbiguous(disc) && !slotRegistry;
         const cls = unresolvableAmbiguity ? undefined : resolveGroupClass(node);
         if (cls) checkEnums(ctx, node, cls);
+        else checkMapEntryEnums(ctx, node);
         // A `Type=` that resolves to no class (typo) is caught here against the inferred
         // registry. A polymorphic slot needs one more case: it resolves the group to the
         // registry base itself when the discriminator matches no member (that fallback keeps
@@ -938,6 +1038,11 @@ const checkResolvedContainers = async (ctx: SchemaCheckContext): Promise<void> =
  * Range ordering is intentionally never checked: `Range<T>` endpoints are From→To interpolation
  * bounds, not min/max, and vanilla ships many descending pairs, so a `min>max` check is unsafe.
  *
+ * A manifest is judged like any other file. Its verbs and targets (`Action`, `AddTo`, `OverrideIn`)
+ * belong to no schema class, so the groups holding them resolve to nothing and stay unjudged, while
+ * the content an action installs is typed by the slot it is installed into and is judged exactly as
+ * the target file's own content would be.
+ *
  * @param document the parsed document to validate.
  * @param cancellationToken cancels the value resolution the asynchronous checks do.
  * @returns the findings, in the order the checks produced them.
@@ -946,11 +1051,17 @@ export const validateSchema = async (
     document: AbstractNodeDocument,
     cancellationToken: CancellationToken
 ): Promise<ValidationError[]> => {
-    if (isModRules(document.uri)) return [];
     const ctx: SchemaCheckContext = { errors: [], typedContainers: [], cancellationToken };
     // Whole-file-root documents (e.g. shot files → BulletRules): validate the top-level fields.
-    const rootClass = documentRootClass(document);
-    if (rootClass) checkEnums(ctx, document, rootClass);
+    // The class comes from {@link documentScopeClass}, the same answer hover and completion read, so
+    // a fragment rooted through the alias walk, a reverse `&<include>` or a manifest action gets its
+    // top level judged too instead of being typed everywhere but here.
+    const rootClass = documentScopeClass(document);
+    // An aliased root is inferred from how another file pulls the fragment in, so it passes the same
+    // majority-fit check a path root passes before its members are judged. A path root already
+    // carries that check, and re-running it here would only cost time.
+    const rootFits = !!rootClass && (!!documentRootClass(document) || classFitsDocument(rootClass, document));
+    if (rootClass && rootFits) checkEnums(ctx, document, rootClass);
     // A whole-file root dispatched by its top-level `Type=` (doodad/effect/music): validate that
     // discriminator against its registry, known by the canonical folder even when it's a typo.
     const rootRegistry = documentRootRegistry(document);
@@ -959,3 +1070,4 @@ export const validateSchema = async (
     await checkResolvedContainers(ctx);
     return ctx.errors;
 };
+ 

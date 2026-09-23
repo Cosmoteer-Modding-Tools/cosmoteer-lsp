@@ -1,7 +1,7 @@
 import { readFile, stat } from 'fs/promises';
 import { resolve as resolvePath } from 'path';
-import { parseShader } from './shader-parser';
-import { ParsedShader, ShaderConstant } from './shader-parser.types';
+import { parseShader, parseShaderTypes } from './shader-parser';
+import { DeclarationPosition, ParsedShader, ShaderConstant } from './shader-parser.types';
 import { resolveInclude } from './shader-source';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
 
@@ -272,7 +272,7 @@ export const readIncludeChain = async (
     return { text: parts.join('\n'), complete };
 };
 
-/** The on-disk location of a uniform or function declaration in a shader or one of its includes. */
+/** The on-disk location of a declaration in a shader or one of its includes. */
 interface ShaderDeclarationLocation {
     /** The absolute path of the file the name is declared in. */
     readonly path: string;
@@ -284,15 +284,40 @@ interface ShaderDeclarationLocation {
     readonly length: number;
 }
 
+/** A `#define` line, with the macro's own name as the last group so its column follows from the match. */
+const DEFINE_RE = /^[ \t]*#[ \t]*define[ \t]+([A-Za-z_]\w*)/;
+
 /**
- * Finds where a uniform or function is declared, searching the file being edited first and then its
- * `#include` chain (open buffers preferred via `readOverride`). This is what go-to-definition on a
- * `_uniform` or a called function resolves to. The entry file's own text is passed in (not read from
- * disk) so an unsaved declaration is found too.
+ * Where a `#define` gives a macro its name, or null.
+ *
+ * Feature guards are how a Cosmoteer shader is configured: `#define ENABLE_TANGENT` above the
+ * `#include` switches on a branch the base shader writes behind `#ifdef`. Hover already reads them,
+ * so the guard a shader tests navigates to the line that turns it on. A name only ever tested has
+ * no definition to find, which is the honest answer: any of a base shader's includers may define
+ * it, and the tested line is a use rather than a declaration.
+ *
+ * @param text the shader source to scan.
+ * @param name the macro name.
+ * @returns the 0-based position of the name, or null.
+ */
+const macroDefinition = (text: string, name: string): DeclarationPosition | null => {
+    const lines = text.split(/\r?\n/);
+    for (let line = 0; line < lines.length; line++) {
+        const match = DEFINE_RE.exec(lines[line]);
+        if (match?.[1] === name) return { line, column: match[0].length - name.length };
+    }
+    return null;
+};
+
+/**
+ * Finds where a name is declared, searching the file being edited first and then its `#include` chain
+ * (open buffers preferred via `readOverride`). Uniforms, functions, structs, `typedef` aliases and
+ * `static const` values are all navigable. The entry file's own text is passed in (not read from disk)
+ * so an unsaved declaration is found too.
  *
  * @param entryText the source of the shader being edited.
  * @param entryPath the absolute path of that shader, the base for resolving its includes.
- * @param name the identifier to locate (a `_`-uniform name or a function name).
+ * @param name the identifier to locate.
  * @param dataDir the game `Data` directory, for root-anchored includes.
  * @param readOverride prefers an open buffer's text over disk for a given path.
  * @returns the declaration's file and position, or null when it is declared nowhere in the chain.
@@ -306,16 +331,30 @@ export const findShaderDeclaration = async (
 ): Promise<ShaderDeclarationLocation | null> => {
     const visited = new Set<string>();
 
-    const locate = (path: string, shader: ParsedShader): ShaderDeclarationLocation | null => {
-        if (name.startsWith('_')) {
-            const constant = shader.constants.find((c) => c.name === name && c.position);
-            if (constant?.position) {
-                return { path, line: constant.position.line, column: constant.position.column, length: name.length };
-            }
-            return null;
-        }
+    const at = (path: string, position: DeclarationPosition): ShaderDeclarationLocation => ({
+        path,
+        line: position.line,
+        column: position.column,
+        length: name.length,
+    });
+
+    const locate = (path: string, shader: ParsedShader, text: string): ShaderDeclarationLocation | null => {
+        const constant = shader.constants.find((c) => c.name === name && c.position);
+        if (constant?.position) return at(path, constant.position);
         const fn = shader.functionDecls.find((f) => f.name === name);
-        if (fn) return { path, line: fn.position.line, column: fn.position.column, length: name.length };
+        if (fn) return at(path, fn.position);
+        // The named types and values live outside the uniform and function lists, and a shader names
+        // one of them in nearly every entry-point signature, so they are navigable too.
+        const declared = parseShaderTypes(text);
+        const struct = declared.structs.find((s) => s.name === name);
+        if (struct) return at(path, struct.position);
+        const alias = declared.typeAliases.find((a) => a.name === name);
+        if (alias) return at(path, alias.position);
+        const staticConstant = declared.staticConstants.find((c) => c.name === name);
+        if (staticConstant) return at(path, staticConstant.position);
+        // Last, so a name that is both a macro and a real declaration navigates to the declaration.
+        const macro = macroDefinition(text, name);
+        if (macro) return at(path, macro);
         return null;
     };
 
@@ -324,7 +363,7 @@ export const findShaderDeclaration = async (
         if (visited.has(key)) return null;
         visited.add(key);
         const shader = parseShader(text);
-        const here = locate(key, shader);
+        const here = locate(key, shader, text);
         if (here) return here;
         for (const include of shader.includes) {
             const target = resolveInclude(key, include, dataDir);

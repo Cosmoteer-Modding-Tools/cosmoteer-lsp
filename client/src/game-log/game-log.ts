@@ -28,8 +28,9 @@ import { anchorUri } from '../wizards/wizard-client';
  * read for no gain here.
  */
 interface ImportGameLogResult {
-    kind: 'imported' | 'loaded-clean' | 'no-mod' | 'no-logs' | 'nothing-for-this-mod';
+    kind: 'imported' | 'loaded-clean' | 'run-failed' | 'no-mod' | 'no-logs' | 'nothing-for-this-mod';
     log?: { path: string; time: string; gameVersion?: string };
+    unplaced?: Array<{ text: string; logLine: number }>;
     diagnostics: Array<{
         uri: string;
         diagnostic: {
@@ -39,6 +40,33 @@ interface ImportGameLogResult {
         };
     }>;
     stale: number;
+}
+
+/**
+ * Tells the author that the run listed the mod and then reported a failure the editor could not
+ * place, and offers to open the log where the failure stands. Saying which file it was about would
+ * be a guess, so the log's own words are shown instead.
+ *
+ * @param result what the server read out of the log.
+ */
+async function showRunFailed(result: ImportGameLogResult): Promise<void> {
+    const first = result.unplaced?.[0];
+    const rest = (result.unplaced?.length ?? 0) - 1;
+    const open = l10n.t('Open the log');
+    const message = l10n.t(
+        'The newest run that loaded this mod reported a failure the editor cannot place in a file: {0}{1}',
+        first?.text ?? '',
+        rest > 0 ? l10n.t(' and {0} more.', String(rest)) : ''
+    );
+    const log = result.log;
+    if (!log) {
+        window.showWarningMessage(message);
+        return;
+    }
+    if ((await window.showWarningMessage(message, open)) !== open) return;
+    const document = await workspace.openTextDocument(Uri.file(log.path));
+    const line = Math.max((first?.logLine ?? 1) - 1, 0);
+    await window.showTextDocument(document, { selection: new Range(line, 0, line, 0) });
 }
 
 /**
@@ -74,7 +102,11 @@ export function registerGameLog(context: ExtensionContext, client: LanguageClien
                 window.showErrorMessage(l10n.t('The game log could not be read.'));
                 return;
             }
-            gameLogDiagnostics.clear();
+            // The two outcomes where the command could not even ask the question leave what an
+            // earlier import put on screen alone: running it from a note or a file outside the mod
+            // is a slip, and emptying the panel over it throws away work the author is in the
+            // middle of. Every other outcome is a newer word on this mod's files, and the old
+            // findings describe text that has moved on, so those still clear first.
             if (result.kind === 'no-mod') {
                 window.showInformationMessage(
                     l10n.t('This file is not inside a mod: no mod.rules was found above it.')
@@ -87,6 +119,7 @@ export function registerGameLog(context: ExtensionContext, client: LanguageClien
                 );
                 return;
             }
+            gameLogDiagnostics.clear();
             if (result.kind === 'loaded-clean') {
                 window.showInformationMessage(
                     l10n.t(
@@ -94,6 +127,10 @@ export function registerGameLog(context: ExtensionContext, client: LanguageClien
                         result.log ? path.basename(result.log.path) : ''
                     )
                 );
+                return;
+            }
+            if (result.kind === 'run-failed') {
+                await showRunFailed(result);
                 return;
             }
             if (result.kind === 'nothing-for-this-mod') {

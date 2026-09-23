@@ -81,14 +81,22 @@ describe('semantic tokens for .rules', () => {
         expect(tokenAt(tokens, 5, 1)?.type).toBe('property');
     });
 
-    it('keeps a value that runs over several lines inside the line it starts on', () => {
-        // A verbatim string carries its whole span in one position, and a token reaching past its
-        // own line is one the editor cannot place.
-        const source = 'A = @"one' + String.fromCharCode(10) + 'two"' + String.fromCharCode(10);
-        const firstLineLength = source.split(String.fromCharCode(10))[0].length;
-        for (const token of decode(source, true)) {
-            expect(token.char + token.length).toBeLessThanOrEqual(firstLineLength);
+    it('cuts a value that runs over several lines at every line break it crosses', () => {
+        // A verbatim string carries its whole span in one position, and neither client can place a
+        // token that crosses a line break, so the value is handed over one line at a time. Colouring
+        // only the first line would leave the rest of the string to the grammar underneath.
+        const newline = String.fromCharCode(10);
+        const source = 'A = @"one' + newline + 'two"' + newline;
+        const lines = source.split(newline);
+        const tokens = decode(source, true);
+        for (const token of tokens) {
+            expect(token.char + token.length).toBeLessThanOrEqual(lines[token.line].length);
         }
+        const strings = tokens.filter((token) => token.type === 'string');
+        expect(strings.map((token) => [token.line, token.char, token.length])).toEqual([
+            [0, 4, 5],
+            [1, 0, 4],
+        ]);
     });
 
     it('produces a non-empty, position-ordered token stream', () => {

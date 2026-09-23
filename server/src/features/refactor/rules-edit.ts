@@ -199,6 +199,35 @@ export const memberIndentOf = (text: string, container: GroupNode | ListNode): s
     return (last && lineIndentAt(text, last.start)) ?? childIndentOf(text, container);
 };
 
+/**
+ * What may sit between a member's last character and the end of its line: the separator the format
+ * allows between two members, and a note about the member.
+ */
+const TRAILING_RUN = /^[ \t]*[,;]?[ \t]*(\/\/.*|\/\*(?:(?!\*\/)[\s\S])*\*\/[ \t]*)?$/;
+
+/**
+ * The offset one more member is written at, moved past whatever trails the member it follows on its
+ * line.
+ *
+ * A member is often written with a note about it, and opening the new line between the two takes
+ * the note over to the new member and leaves the one it was written about without it. The author's
+ * sentence then reads as being about a field they never wrote. A line that goes on with another
+ * member is left exactly where it is, so a group written `{ File = "x"; Tier = 1 }` does not take
+ * the new member between its two siblings.
+ *
+ * @param text the file's current text.
+ * @param offset the end of the member the new one follows.
+ * @returns the offset to write at, which is the given one when the line holds something else.
+ */
+export const pastTrailingRun = (text: string, offset: number): number => {
+    const newline = text.indexOf('\n', offset);
+    const lineEnd = newline === -1 ? text.length : newline;
+    // A `\r` is part of the line ending, not of the line, so the member is written before it and a
+    // CRLF file gains no stray carriage return.
+    const stop = lineEnd > offset && text[lineEnd - 1] === '\r' ? lineEnd - 1 : lineEnd;
+    return TRAILING_RUN.test(text.slice(offset, stop)) ? stop : offset;
+};
+
 /** Where one more member goes inside a container that is written over several lines. */
 export type MemberPlacement =
     /** On a new line right after the last member, which leaves anything trailing that line alone. */
@@ -250,7 +279,7 @@ export const appendMemberEdit = (
     const indent = memberIndentOf(text, container);
     if (options.placement === 'beforeCloser') return insertAt(text, close, `${indent}${memberText}\n`);
     if (!last) return insertAt(text, open + 1, `\n${indent}${memberText}`);
-    return insertAt(text, last.end, `\n${indent}${memberText}`);
+    return insertAt(text, pastTrailingRun(text, last.end), `\n${indent}${memberText}`);
 };
 
 /**

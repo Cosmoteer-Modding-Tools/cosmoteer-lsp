@@ -63,9 +63,7 @@ const resetIndexes = (): void => {
 
 /** The health table's rows, as raw markdown lines. */
 const healthRows = (markdown: string): string[] =>
-    markdown
-        .split('\n')
-        .filter((line) => line.startsWith('| ✓ ') || line.startsWith('| ⚠ '));
+    markdown.split('\n').filter((line) => line.startsWith('| ✓ ') || line.startsWith('| ⚠ '));
 
 /** The one health row whose check cell names `check`. */
 const rowFor = (markdown: string, check: string): string => {
@@ -204,12 +202,7 @@ describe('mod health rows read back from the workspace scan', () => {
     it('counts what the scan found instead of reading the file again', async () => {
         const files = modFiles();
         const uri = pathToFileURL(join(MOD_DIR, 'mod.rules')).href;
-        const markdown = (await generateModOverview(
-            uri,
-            [WORKSPACE_DATA_DIR, MOD_DIR],
-            token,
-            claiming(files)
-        ))!;
+        const markdown = (await generateModOverview(uri, [WORKSPACE_DATA_DIR, MOD_DIR], token, claiming(files)))!;
         // Every reached file claims one finding, and the reached set is smaller than the mod, so the
         // count proves the rows came from the map rather than from the files themselves.
         const row = rowFor(markdown, 'Fields the game never reads');
@@ -224,12 +217,7 @@ describe('mod health rows read back from the workspace scan', () => {
     it('reads a file the scan never covered', async () => {
         const files = modFiles().filter((file) => !file.endsWith('door_part.rules'));
         const uri = pathToFileURL(join(MOD_DIR, 'mod.rules')).href;
-        const markdown = (await generateModOverview(
-            uri,
-            [WORKSPACE_DATA_DIR, MOD_DIR],
-            token,
-            claiming(files)
-        ))!;
+        const markdown = (await generateModOverview(uri, [WORKSPACE_DATA_DIR, MOD_DIR], token, claiming(files)))!;
         // The part-grid finding lives in the one file left out of the map, so it can only be here
         // because the walk read that file itself.
         expect(rowFor(markdown, 'Part grid geometry')).toContain('parts/door_part.rules:');
@@ -265,7 +253,6 @@ describe('the installed-mods health row', () => {
         modId,
         theirVerb: 'Replace',
         ownVerb: 'Replace',
-        key: '<./data/a.rules>/part',
         target: '<a.rules>/Part',
         ownsLastWord,
         file: join(MOD_DIR, 'mod.rules'),
@@ -278,7 +265,14 @@ describe('the installed-mods health row', () => {
     /** The rows for a reachability of the fixture mod, with the conflicts handed in. */
     const rowsWith = async (conflicts: ModConflict[]): Promise<string> => {
         const reachability = (await computeModReachability(MOD_DIR, token))!;
-        const rows = await modHealthRows(reachability, { total: 1, broken: 0 }, [WORKSPACE_DATA_DIR, MOD_DIR], token, undefined, conflicts);
+        const rows = await modHealthRows(
+            reachability,
+            { total: 1, broken: 0 },
+            [WORKSPACE_DATA_DIR, MOD_DIR],
+            token,
+            undefined,
+            conflicts
+        );
         const row = rows.find((entry) => entry.check === 'Installed mods');
         expect(row, 'no installed-mods row').toBeDefined();
         return `${row!.finding} ${row!.clear ? 'clear' : 'flagged'} ${row!.places.length}`;

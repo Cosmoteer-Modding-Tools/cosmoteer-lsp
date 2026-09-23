@@ -410,7 +410,10 @@ export const parseParenGroup = (
         state.current++;
         node.parenthesized = true;
         // Span the closing `)` so an end-of-expression marker sits after it, e.g. the
-        // `(&~/SIZE/1)` operand in `… / (&~/SIZE/1)`.
+        // `(&~/SIZE/1)` operand in `… / (&~/SIZE/1)`. The opening `(` stays outside the span, so
+        // the span is wider than the value at one end and narrower at the other. A consumer that
+        // writes over the span has to narrow it back to the value first, the way the code-action
+        // handler does, or it writes the closing paren away.
         node.position = {
             ...node.position,
             characterEnd: closeParen.lineOffset + 1,

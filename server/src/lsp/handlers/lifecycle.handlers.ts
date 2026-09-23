@@ -53,10 +53,15 @@ import {
     disarmModAssemblyWatch,
     loadModSchema,
 } from '../mod-schema';
-import { schedulePushValidation } from '../push-diagnostics';
+import { refreshDependentOpenDocuments, schedulePushValidation } from '../push-diagnostics';
 import { noteScanSettingsChange } from '../scan-epoch';
 import { bumpValidationScopeEpoch, wholeWorkspaceEnabled, workspaceValidationScope } from '../validation-scope';
-import { getWorkspaceFoldersCached, invalidateWorkspaceFoldersCache, searchFolderUris } from '../workspace-folders';
+import {
+    getWorkspaceFoldersCached,
+    invalidateWorkspaceFoldersCache,
+    searchFolderUris,
+    workspaceFolderUris,
+} from '../workspace-folders';
 import { clearWorkspaceDiagnostics, runWorkspaceValidation } from '../workspace-scan';
 import { COSMOTEER_METHOD } from '../../../../shared/lsp-methods';
 
@@ -192,17 +197,21 @@ const handleInitialize = async (params: InitializeParams) => {
  * Moving or renaming a `.rules` file: rewrite every reference that names it, and every reference
  * the moved file itself writes, so the file lands with its wiring intact.
  *
+ * The sweep searches the open workspace only, not the game `Data` tree the cross-file indexes also
+ * cover. A vanilla file is not the author's to rewrite, so a match there could only be proposed and
+ * then refused, and a common stem such as `en` matches most of the install.
+ *
  * @param params the files about to move, each with the path it leaves and the one it lands on.
  * @param cancellationToken cancels the sweep with the request.
  * @returns the edit that keeps the references working, or null when there is none.
  */
-const handleWillRenameFiles = async (params: RenameFilesParams, cancellationToken: CancellationToken) => {
+export const handleWillRenameFiles = async (params: RenameFilesParams, cancellationToken: CancellationToken) => {
     try {
         const renames = params.files.map((file) => ({
             oldPath: uriToFsPath(file.oldUri),
             newPath: uriToFsPath(file.newUri),
         }));
-        return (await referenceRepairEdit(renames, await searchFolderUris(), cancellationToken)) ?? null;
+        return (await referenceRepairEdit(renames, await workspaceFolderUris(), cancellationToken)) ?? null;
     } catch (e) {
         traceFailure(e);
         return null;
@@ -294,6 +303,9 @@ const startUpServer = async (): Promise<void> => {
     // The game-tree scan (or the decision that there is none) is settled. Index builds that were
     // waiting on it may now resolve the folder set, with the Data root included when it exists.
     markWorkspaceReady();
+    // Record the settings the first pass is about to run under, so the session's first
+    // configuration change is judged against them instead of establishing the baseline itself.
+    noteScanSettingsChange();
 
     if (hasConfigurationCapability) {
         // Register for all configuration changes.
@@ -447,8 +459,10 @@ const handleDidChangeConfiguration = async (change: DidChangeConfigurationParams
     // The shared-base memo holds a mod-wide set filtered by the validation scope, so a scope change
     // would otherwise keep serving a set built under the other filter until a file changes on disk.
     clearSharedBaseScanCache();
-    noteScanSettingsChange();
-    connection.languages.diagnostics.refresh();
+    // Whether anything that decides what a scanned file reports moved (a validator switched on or
+    // off, the problem limit, the ignored paths, the game install, the code-mod schema).
+    const scanSettingsChanged = noteScanSettingsChange();
+    refreshDependentOpenDocuments();
 
     // React to the code-mod switches. Turning the feature off has to unmerge what is already in the
     // schema (the types stay live otherwise), turning it on has to run the merge the startup load
@@ -478,10 +492,15 @@ const handleDidChangeConfiguration = async (change: DidChangeConfigurationParams
     // React to the whole-workspace diagnostics toggle (and to a Cosmoteer-path or scope change while
     // it's on, since those change how every reference resolves / which files are covered). A scope
     // change clears first, so diagnostics published for now-out-of-scope files don't linger.
+    //
+    // A validator switched on or off belongs here too: the panel holds an entry per scanned file,
+    // the client only re-pulls for the editors it has open, and nothing else in a session re-runs
+    // the pass. Without this, turning a noisy validator off left every closed file's entries in the
+    // panel until a window reload, and turning one back on hid real problems just as long.
     const nowWholeWorkspace = wholeWorkspaceEnabled();
     const nowScope = workspaceValidationScope();
     const scopeChanged = nowScope !== previousScope;
-    if (nowWholeWorkspace && (!wasWholeWorkspace || cosmoteerPathChanged || scopeChanged)) {
+    if (nowWholeWorkspace && (!wasWholeWorkspace || cosmoteerPathChanged || scopeChanged || scanSettingsChanged)) {
         if (scopeChanged && wasWholeWorkspace) await clearWorkspaceDiagnostics();
         await runWorkspaceValidation();
     } else if (!nowWholeWorkspace && wasWholeWorkspace) {

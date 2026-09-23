@@ -243,3 +243,68 @@ Components
         expect(errors[0].data?.quickFix?.newText).toBe('DamagePool');
     });
 });
+
+// A part with sixteen repeated components is written as one prototype beside `Components` that each
+// real component derives with its own override. `PartRules` reads the `Components` member and its
+// own fields and nothing else, so the placeholder in the prototype is a value only the components
+// that derive it ever carry.
+describe('a prototype written beside Components', () => {
+    const prototype = (derivers: string) => `Part
+{
+	Components
+	{
+		IsOperational
+		{
+			Type = MultiToggle
+			Mode = All
+		}
+		Mug01
+		{
+			Type = ResourceStorage
+			ResourceType = beer
+		}
+${derivers}
+	}
+	MugUpload
+	{
+		Type = ResourceConverter
+		ToStorage = MugPlaceholder
+		Interval = 8
+	}
+}`;
+
+    it('leaves a placeholder every deriving component overrides alone', async () => {
+        await initWorkspace();
+        const src = prototype('\t\tMug01Upload : &~/Part/MugUpload { ToStorage = Mug01 }');
+        expect(await validate(src)).toHaveLength(0);
+    });
+
+    it('reports a placeholder a deriving component inherits unchanged', async () => {
+        await initWorkspace();
+        const src = prototype(
+            '\t\tMug01Upload : &~/Part/MugUpload { ToStorage = Mug01 }\n\t\tMug02Upload : &~/Part/MugUpload { Interval = 7 }'
+        );
+        const errors = await validate(src);
+        expect(errors).toHaveLength(1);
+        expect(errors[0].message).toMatch(/No component named 'MugPlaceholder'/);
+    });
+
+    it('still judges a component reference written on the Part group itself', async () => {
+        await initWorkspace();
+        const src = `Part
+{
+	SignificanceToggle = NoSuchToggle
+	Components
+	{
+		IsOperational
+		{
+			Type = MultiToggle
+			Mode = All
+		}
+	}
+}`;
+        const errors = await validate(src);
+        expect(errors).toHaveLength(1);
+        expect(errors[0].message).toMatch(/No component named 'NoSuchToggle'/);
+    });
+});

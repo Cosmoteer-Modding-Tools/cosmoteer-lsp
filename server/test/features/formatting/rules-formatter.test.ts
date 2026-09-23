@@ -113,9 +113,17 @@ describe('.rules formatter', () => {
         expect(format('A = "line1\n   line2"\nB = 1\n')).toBe('A = "line1\nline2"\nB = 1\n');
     });
 
-    it('preserves a string continued over a line break verbatim', () => {
-        const input = 'A = "line1 \\\n   line2"\nB = 1\n';
-        expect(format(input)).toBe(input);
+    it('indents the line after a backslash inside the quotes as the ordinary member it is', () => {
+        // A `\` at the end of the line does not continue a quoted value. The game's in-string escape
+        // refuses a line break and throws on it, so the string ends at the break like any other
+        // unclosed one and the next line is laid out on its own.
+        expect(format('A = "line1 \\\n   line2"\nB = 1\n')).toBe('A = "line1 \\\nline2"\nB = 1\n');
+    });
+
+    it('preserves a value continued over a line break outside the quotes', () => {
+        // The spelling the game does read as one value: two quoted pieces joined by a `\` that sits
+        // between them rather than inside either one.
+        expect(format('A = "line1" \\\n\t"line2"\nB = 1\n')).toBe('A = "line1" \\\n\t"line2"\nB = 1\n');
     });
 
     it('preserves verbatim strings with doubled quotes', () => {

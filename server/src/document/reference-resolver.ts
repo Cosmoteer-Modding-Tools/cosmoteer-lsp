@@ -7,6 +7,7 @@ import {
     isDocumentNode,
     isGroupNode,
     isIdentifierNode,
+    ValueNode,
 } from '../core/ast/ast';
 import { getStartOfAstNode } from '../utils/ast.utils';
 import { isNumber } from '../utils/text.utils';
@@ -138,6 +139,14 @@ export const stepIntoNode = (
     segment: string,
     isInheritance = false
 ): AbstractNode | null | undefined => {
+    // Straight after a `^` the game is standing on the node's `OTInheritanceListNode`, and every
+    // name lookup on that list runs through `int.TryParse` (`OTInheritanceListNode.ChildCollection`),
+    // so only a base index resolves there. Running the shipped HalflingCore navigator over
+    // `^/Label`, `^/../Base/Label` and `^/:/Label` finds none of the three while `^/0/Label`
+    // resolves, and dereferencing one of the misses throws `OTNavigateException`. Our `^` step hands
+    // the node itself back rather than modelling the list as a level of its own, which is what would
+    // otherwise let a member name resolve straight through it.
+    if (isInheritance && !isNumber(segment)) return null;
     if (isNumber(segment)) {
         const index = Number(segment);
         if (isInheritance && (isListNode(node) || isGroupNode(node))) {
@@ -235,6 +244,39 @@ export const inheritanceEntriesOf = (node: GroupNode | ListNode): AbstractNode[]
         if (!appended) return entries;
         entries.push(appended);
     }
+};
+
+/**
+ * Whether a node is one of its own container's inheritance entries, the `&BatteryStorageLeft` that
+ * `BatteryStorageRight : BatteryStorageLeft` parses to. Such an entry names something outside the
+ * container it inherits into, which is why it is resolved from a scope above that container.
+ *
+ * @param node the node to classify.
+ * @returns true when the node sits in its parent's inheritance list.
+ */
+export const isInheritanceEntry = (node: AbstractNode | null | undefined): boolean =>
+    !!node &&
+    !!node.parent &&
+    (isGroupNode(node.parent) || isListNode(node.parent)) &&
+    !!node.parent.inheritance &&
+    node.parent.inheritance.some((entry) => entry === node);
+
+/**
+ * The node a written inheritance base walks its path from, mirroring
+ * `OTInheritanceReferenceNode.GetFindRoot` in Halfling.ObjectText, which climbs from the reference
+ * through the inheritance list and the inheriting node to that node's own container. For a group
+ * member that container is the enclosing group, for a list element it is the list. Only a `..`
+ * path can tell the two apart, since every other form addresses the same node from either end, and
+ * a base a mod's `AddBase` appends is written in the manifest rather than in the inheriting file,
+ * so both of those keep the entry itself.
+ *
+ * @param entry an inheritance entry, written or appended.
+ * @returns the node the entry's path is walked from.
+ */
+export const inheritanceEntryScope = (entry: AbstractNode): AbstractNode => {
+    const value = (entry as ValueNode).valueType;
+    if (!value || value.type !== 'Reference' || !String(value.value).startsWith('..')) return entry;
+    return isInheritanceEntry(entry) && entry.parent?.parent ? entry.parent.parent : entry;
 };
 
 /**

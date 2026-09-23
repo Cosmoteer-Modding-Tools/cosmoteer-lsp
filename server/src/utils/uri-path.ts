@@ -34,6 +34,10 @@ export const uriToFsPath = (uri: string): string => {
     }
     // `file:///C:/x` decodes to `/C:/x`, so the slash in front of a drive letter has to go.
     if (/^\/[a-zA-Z]:\//.test(path)) path = path.slice(1);
+    // A uri with an authority, `file://server/share/x`, names a network share, and the authority is
+    // the host. Without the two slashes it comes back as the relative path `server\share\x`, which
+    // resolves against the working directory and reads a different file or none at all.
+    else if (path && !path.startsWith('/')) path = '//' + path;
     return path.replace(/\//g, sep);
 };
 

@@ -69,9 +69,9 @@ describe('resolveWithModContext (effective game = vanilla + mod)', () => {
     // The `Add` that creates this member lives in an included action fragment, not in the manifest
     // itself. A later action into the member is only valid because that fragment ran first.
     it('resolves a member an action fragment adds to a vanilla file', async () => {
-        expect(valueOf(await resolveWithModContext('<indicators/indicators.rules>/FragmentAdded/Bar', node, token))).toBe(
-            7
-        );
+        expect(
+            valueOf(await resolveWithModContext('<indicators/indicators.rules>/FragmentAdded/Bar', node, token))
+        ).toBe(7);
     });
 
     it('returns null for a name that neither vanilla nor the mod provides', async () => {
@@ -106,7 +106,9 @@ describe('resolveWithModContext (effective game = vanilla + mod)', () => {
     });
 
     it('resolves the same mod-added member named through a DIRECT file reference', async () => {
-        expect(valueOf(await resolveWithModContext('<indicators/indicators.rules>/SWNoShields/Y', node, token))).toBe(42);
+        expect(valueOf(await resolveWithModContext('<indicators/indicators.rules>/SWNoShields/Y', node, token))).toBe(
+            42
+        );
     });
 
     // A file-root `Add` (`AddTo=<indicators/indicators.rules> Name=SWAddedIndicator`) puts the member
@@ -117,7 +119,9 @@ describe('resolveWithModContext (effective game = vanilla + mod)', () => {
     });
 
     it('resolves that same file-root addition named through a DIRECT file reference', async () => {
-        expect(await resolveWithModContext('<indicators/indicators.rules>/SWAddedIndicator', node, token)).not.toBeNull();
+        expect(
+            await resolveWithModContext('<indicators/indicators.rules>/SWAddedIndicator', node, token)
+        ).not.toBeNull();
     });
 
     it('returns null for a member that neither the vanilla file nor the mod override provides', async () => {
@@ -133,6 +137,22 @@ describe('resolveWithModContext (effective game = vanilla + mod)', () => {
 
     it('still resolves the vanilla member of that aliased file (`/BASE_AUDIO/BaseAudio`, regression)', async () => {
         expect(await resolveWithModContext('/BASE_AUDIO/BaseAudio', node, token)).not.toBeNull();
+    });
+
+    // The two-step namespace idiom: `Add Name=TWOSTEP ToAdd=&<twostep_ns.rules>` creates the global,
+    // then `Overrides OverrideIn=<cosmoteer.rules>/TWOSTEP` merges the content in. The game applies
+    // both in order over one merged file, so the override's members land in twostep_ns.rules and
+    // `&/TWOSTEP/…` reaches them. Vanilla navigation answers nothing for either half of the target.
+    it('resolves a member an Overrides merges into a global the same manifest created', async () => {
+        expect(valueOf(await resolveWithModContext('/TWOSTEP/TwoStepThing/Bar', node, token))).toBe(11);
+    });
+
+    it('still resolves the member the created global’s own file declares', async () => {
+        expect(valueOf(await resolveWithModContext('/TWOSTEP/NsOwn', node, token))).toBe(3);
+    });
+
+    it('returns null for a member neither half of the two-step global provides', async () => {
+        expect(await resolveWithModContext('/TWOSTEP/NotMergedAtAll', node, token)).toBeNull();
     });
 });
 

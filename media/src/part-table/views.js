@@ -17,13 +17,14 @@ import {
     vscode,
 } from './dom.js';
 import { requestTable } from './host.js';
-import { currentFilter, state } from './state.js';
+import { currentFilter, dropDeadFormulaSort, state } from './state.js';
 
 /**
  * Everything the reader set up, in the shape a saved view is stored as. The compared part is
  * kept by its id rather than by its row key, since a key is rebuilt with the table and an id is
  * what the files themselves write. The typed values ride along so closing the panel loses no
- * question half asked.
+ * question half asked, and the host leaves them out again of anything it offers in another
+ * workspace, since a typed value belongs to the mod it was typed against.
  *
  * @returns {object} the view.
  */
@@ -33,12 +34,18 @@ export function currentView() {
         filter: currentFilter(),
         picked: state.picked,
         shown: state.shown.slice(),
-        formulas: state.formulas.map((formula) => ({ name: formula.name, formula: formula.formula })),
+        // The id rides along with the name and the text, since the sort, the width and the dragged
+        // position of a formula column all name it by its id.
+        formulas: state.formulas.map((formula) => ({
+            id: formula.id,
+            name: formula.name,
+            formula: formula.formula,
+        })),
         frozen: state.frozen.slice(),
         order: state.order.slice(),
         widths: { ...state.widths },
         sort: { key: state.sort.key, descending: state.sort.descending },
-        reference: referenceEl.value || '',
+        reference: state.referenceId,
         asPercent: state.asPercent,
         perTile: state.perTile,
         groupBy: state.groupBy,
@@ -57,25 +64,42 @@ export function currentView() {
  */
 export function applyView(view) {
     searchEl.value = view.search || '';
-    categoryEl.value = (view.filter && view.filter.categories && view.filter.categories[0]) || '';
-    componentEl.value = (view.filter && view.filter.components && view.filter.components[0]) || '';
-    sourceEl.value = (view.filter && view.filter.sources && view.filter.sources[0]) || '';
+    // The filter goes on the page's state rather than into the dropdowns, which have no options
+    // until the first table arrives and would drop every pick assigned into them before it does.
+    const picked = (axis) => {
+        const value = (view.filter && view.filter[axis] && view.filter[axis][0]) || '';
+        return value ? [value] : [];
+    };
+    state.filter = { categories: picked('categories'), components: picked('components'), sources: picked('sources') };
+    categoryEl.value = state.filter.categories[0] || '';
+    componentEl.value = state.filter.components[0] || '';
+    sourceEl.value = state.filter.sources[0] || '';
     state.picked = !!view.picked;
     state.shown = (view.shown || []).slice();
-    // The ids are handed out in order, so a sort saved on a formula column still names the same
-    // column after the view is put back.
-    state.nextFormulaId = 0;
-    state.formulas = (view.formulas || []).map((entry) => ({
-        id: `formula:${state.nextFormulaId++}`,
+    // A formula comes back under the id it was written with, so a sort, a width or a dragged
+    // position that names it still names it. A view kept before the ids were written down falls
+    // back to the position, which is the order they were handed out in.
+    state.formulas = (view.formulas || []).map((entry, index) => ({
+        id: entry.id || `formula:${index}`,
         name: entry.name,
         formula: entry.formula,
         values: {},
     }));
+    // The next one written is handed an id no restored column already holds.
+    state.nextFormulaId = state.formulas.reduce(
+        (next, entry) => Math.max(next, Number(entry.id.slice('formula:'.length)) + 1 || 0),
+        0
+    );
     state.frozen = (view.frozen || ['id']).slice();
     state.order = (view.order || []).slice();
     state.widths = { ...(view.widths || {}) };
     state.sort = view.sort && view.sort.key ? { key: view.sort.key, descending: !!view.sort.descending } : state.sort;
-    referenceEl.value = view.reference || '';
+    // A sort on a formula column the view no longer carries names nothing, and a table sorted by
+    // nothing marks no header while the rows fall back to part id order.
+    dropDeadFormulaSort();
+    state.reference = '';
+    state.referenceId = view.reference || '';
+    referenceEl.value = state.referenceId;
     state.asPercent = !!view.asPercent;
     percentEl.checked = state.asPercent;
     state.perTile = !!view.perTile;
@@ -125,7 +149,10 @@ export function renderViewList() {
         open.addEventListener('click', () => {
             viewsPanel.hidden = true;
             state.activeView = name;
-            applyView(state.views[name]);
+            // A saved view is offered in every workspace, so it brings no typed values with it. A
+            // question asked about one mod's numbers is not part of a way of looking at parts, and
+            // a view kept before this was so may still carry one.
+            applyView({ ...state.views[name], overrides: {} });
         });
         const remove = document.createElement('button');
         remove.type = 'button';

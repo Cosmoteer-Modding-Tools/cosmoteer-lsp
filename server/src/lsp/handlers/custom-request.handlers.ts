@@ -277,6 +277,10 @@ const handlePartGridEdit = async (params: PartGridEditParams, cancellationToken:
     if (params.dataVersion !== document.version) return { status: 'stale' };
     try {
         await ensureFragmentRooting(cancellationToken);
+        // The rooting yields, so a didChange can land while it runs. The parsed document is the one
+        // read before the await and the text is read after it, which would build the edit from a
+        // version N tree over version N+1 text, so the version is judged again here.
+        if (params.dataVersion !== document.version) return { status: 'stale' };
         const openText = openBufferReadOverride();
         return await buildPartGridEdit(
             parserResult,
@@ -454,7 +458,9 @@ const handlePartTable = async (params: PartTableParams | null, cancellationToken
             cancellationToken,
             params?.columnsVersion
         );
-        lastPartTableRows = table.rows;
+        // A cancelled walk answers with the rows it managed, which is better than nothing on screen
+        // but is not the table a formula column should be computed over: the last whole one stands.
+        if (!cancellationToken.isCancellationRequested) lastPartTableRows = table.rows;
         return table;
     } catch (e) {
         traceFailure(e);

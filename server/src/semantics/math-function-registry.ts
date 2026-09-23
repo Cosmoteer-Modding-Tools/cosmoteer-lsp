@@ -324,6 +324,20 @@ const CURATED: Record<string, MathFunctionSpec> = registry({
     atan: invTrig('Arc tangent, in radians.', Math.atan),
     arctan: invTrig('Arc tangent, in radians.', Math.atan),
     arctg: invTrig('Arc tangent, in radians.', Math.atan),
+    // Angle-unit conversion. `deg` turns radians into degrees and `rad` turns degrees into radians,
+    // read off the shipped MathParser.org-mXparser.dll, where `deg(3.4906585039886591)` answers 200
+    // and `rad(200)` answers 3.490658503988659. The game stores every angle in radians, so a stat
+    // written as `Arc = deg(&…/FiringArc)` is the degree number a reader is meant to see.
+    deg: unary(
+        'radians',
+        'Radians converted to degrees.',
+        unaryFn((x) => (x * 180) / Math.PI)
+    ),
+    rad: unary(
+        'degrees',
+        'Degrees converted to radians.',
+        unaryFn((x) => (x * Math.PI) / 180)
+    ),
     // Hyperbolic
     sinh: invTrig('Hyperbolic sine.', Math.sinh),
     cosh: invTrig('Hyperbolic cosine.', Math.cosh),

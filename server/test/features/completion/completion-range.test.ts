@@ -17,6 +17,27 @@ describe('valueRunAtCursor', () => {
         expect(valueRunAtCursor('    NameKey = "')).toBe('');
         expect(valueRunAtCursor('  Part = ')).toBe('');
     });
+
+    // The backward scan replaced an end-anchored `/[A-Za-z0-9_./-]*$/`, whose cost is the square of
+    // the run it matches. It has to answer with the same string the pattern did everywhere, so the
+    // pattern itself is the oracle.
+    it('answers exactly what the end-anchored pattern did', () => {
+        const oracle = (linePrefix: string): string => /[A-Za-z0-9_./-]*$/.exec(linePrefix)?.[0] ?? '';
+        const inputs = [
+            '',
+            'Parts/CannonMed',
+            '    NameKey = "Parts/Cann',
+            '    NameKey = "Parts/Cann"',
+            '  Part = cosmoteer.cannon_med',
+            '    Sprite = [',
+            '    Base : ^/Defaults',
+            '    Angle = 90-4.5',
+            '    Name = Kanonen-Halterung',
+            '    NameKey = "Teile/Größe',
+            '    Emoji = 🚀',
+        ];
+        for (const input of inputs) expect(valueRunAtCursor(input)).toBe(oracle(input));
+    });
 });
 
 describe('wholeValueRange', () => {

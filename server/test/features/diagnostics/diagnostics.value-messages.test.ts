@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { pathToFileURL } from 'url';
 import { CancellationToken } from 'vscode-languageserver';
 import { ValidationForIdentifier, ValidationForValue } from '../../../src/features/diagnostics/validator.value';
+import { Validator } from '../../../src/features/diagnostics/validator';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
 import { AstPosition, IdentifierNode, ValueNode } from '../../../src/core/ast/ast';
@@ -87,6 +88,64 @@ describe('value diagnostics: references (parsed)', () => {
     it('does not flag a reference that resolves in the same file', async () => {
         const error = await validate('Root = 1\nGood = &Root\n', '&Root');
         expect(error).toBeUndefined();
+    });
+});
+
+// The game follows a reference written on a mod action while it reads the manifest and throws when
+// it points at nothing, and the mod is then dropped, so that one reference is an error rather than
+// the warning a dangling reference gets in ordinary game data. It is judged by where it stands, not
+// by the file it stands in, because a manifest can include its action list from another file.
+describe('value diagnostics: a reference a mod action installs', () => {
+    const inActionList = (entry: string[]) =>
+        ['Root = 1', 'Actions', '[', '\t{', ...entry.map((line) => '\t\t' + line), '\t}', ']', ''].join('\n');
+
+    const validateIn = async (source: string, reference: string, uri = 'file:///mod.rules') =>
+        run(findReferenceNode(parser(lexer(source), uri).value, reference));
+
+    it('reports an unresolved action source as an error', async () => {
+        const error = await validateIn(
+            inActionList(['Action = AddMany', 'AddTo = "<parts/p.rules>/Part"', 'ManyToAdd = &NoSuchFragment']),
+            '&NoSuchFragment'
+        );
+        expect(error?.message).toBe('Reference name is not known');
+        expect(error?.severity).toBe('error');
+    });
+
+    it('reports an unresolved action source written as a list element as an error', async () => {
+        const error = await validateIn(
+            inActionList([
+                'Action = AddMany',
+                'AddTo = "<parts/p.rules>/Part"',
+                'ManyToAdd',
+                '[',
+                '\t&NoSuchFragment',
+                ']',
+            ]),
+            '&NoSuchFragment'
+        );
+        expect(error?.severity).toBe('error');
+    });
+
+    it('reports the same source field outside an action list as a warning', async () => {
+        const error = await validateIn(
+            ['Root = 1', 'Holder', '{', '\tManyToAdd = &NoSuchFragment', '}', ''].join('\n'),
+            '&NoSuchFragment'
+        );
+        expect(error?.message).toBe('Reference name is not known');
+        expect(error?.severity).toBe('warning');
+    });
+
+    it('leaves an ordinary reference in the manifest at a warning', async () => {
+        const error = await validateIn(
+            inActionList([
+                'Action = AddMany',
+                'AddTo = "<parts/p.rules>/Part"',
+                'ManyToAdd = &Root',
+                'Note = &NoSuchNote',
+            ]),
+            '&NoSuchNote'
+        );
+        expect(error?.severity).toBe('warning');
     });
 });
 
@@ -218,5 +277,46 @@ describe('identifier diagnostics: bare super-path list elements against the fixt
         );
         expect(error?.message).toBe('Reference name is not known');
         expect(error?.severity).toBe('warning');
+    });
+});
+
+// The engine substitutes a `(&ref)` operand into the expression before it evaluates anything, so a
+// reference standing in one is as live as a reference written as the whole value. The shared child
+// walk stops at the value an expression is written as, so these are only reached through the
+// validator's own descent into the operands.
+describe('a reference standing as one operand of an expression', () => {
+    const findings = async (src: string) => {
+        Validator.instance.registerValidation(ValidationForValue);
+        const document = parser(lexer(src), 'file:///operands.rules').value;
+        return (await Validator.instance.validate(document, token)).map((error) => error.message);
+    };
+
+    it('flags a broken reference an operator follows', async () => {
+        await initWorkspace();
+        expect(await findings('Root = 1\nX = (&DoesNotExist) * 100\n')).toEqual(['Reference name is not known']);
+    });
+
+    it('flags a broken reference inside a parenthesised sub-expression', async () => {
+        await initWorkspace();
+        expect(await findings('Root = 1\nX = 2 * ((&DoesNotExist) + 1)\n')).toEqual(['Reference name is not known']);
+    });
+
+    it('says nothing about an operand that resolves', async () => {
+        await initWorkspace();
+        expect(await findings('Root = 1\nX = (&Root) * 100\n')).toEqual([]);
+    });
+
+    it('says nothing about an operand counting from its own inheritance list', async () => {
+        // `(&^/0/X) * 2` is how vanilla writes an overclocked stat, and the base it counts from is
+        // itself a relative path, a chain the resolver does not follow.
+        await initWorkspace();
+        expect(await findings('Root = 1\nX = (&^/0/Thing) * 2\n')).toEqual([]);
+    });
+
+    it('says nothing about the value checks that read an operand as a list member', async () => {
+        // A parenthesised string operand is the math validator's to judge, so the value checks that
+        // ask where a value sits say nothing about it.
+        await initWorkspace();
+        expect(await findings('Root = 1\nX = 2 * (3 4)\n')).toEqual([]);
     });
 });

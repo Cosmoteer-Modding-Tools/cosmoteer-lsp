@@ -40,6 +40,15 @@
                     }
                 },
                 {
+                    "comment": "A pragma, error or line directive is compiler control to the end of the line, so its body must not be scanned as shader code. Without this `#pragma warning( disable : 3571 )` reads as a call to `warning`.",
+                    "name": "meta.preprocessor.cosmoteer-shader",
+                    "match": "^\\s*(#\\s*(?:pragma|error|line))\\b(.*)$",
+                    "captures": {
+                        "1": { "name": "keyword.control.directive.cosmoteer-shader" },
+                        "2": { "name": "meta.preprocessor.body.cosmoteer-shader" }
+                    }
+                },
+                {
                     "name": "keyword.control.directive.cosmoteer-shader",
                     "match": "^\\s*#\\s*(include|define|undef|if|ifdef|ifndef|elif|else|endif|pragma|error|line)\\b"
                 }

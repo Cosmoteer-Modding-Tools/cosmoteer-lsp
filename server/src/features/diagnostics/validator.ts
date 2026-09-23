@@ -8,6 +8,7 @@ import {
     isDocumentNode,
     isFunctionCallNode,
     isGroupNode,
+    isMathExpressionNode,
 } from '../../core/ast/ast';
 import { globalSettings } from '../../settings';
 
@@ -71,9 +72,57 @@ export class Validator {
             for (const child of node.arguments) {
                 promises.push(this.validateRecursive(child, promises, cancellationToken));
             }
+        } else if (isMathExpressionNode(node)) {
+            for (const child of node.elements) {
+                promises.push(this.validateMathOperand(child, promises, cancellationToken));
+            }
+        }
+    }
+
+    /**
+     * Judges the values an expression is computed from. The shared child walk stops at the value an
+     * expression is written as, so an operand is reached from here instead, and a parenthesised
+     * sub-expression is opened to reach the operands inside it. The engine substitutes a `(&ref)`
+     * operand before it evaluates anything, so a reference standing in one is exactly as live as a
+     * reference written as the whole value.
+     *
+     * Only the operand values are judged. The expression itself is judged once, where it is
+     * written, so its own checks are not run again on every sub-expression inside it.
+     *
+     * @param node the operand.
+     * @param promises the run's findings, which a nested operand adds to.
+     * @param cancellationToken cancels the value checks.
+     * @returns nothing of its own, the findings arrive through `promises`.
+     */
+    private async validateMathOperand(
+        node: AbstractNode,
+        promises: Promise<ValidationError | undefined>[],
+        cancellationToken: CancellationToken
+    ): Promise<ValidationError | undefined> {
+        if (node === undefined || node === null) return;
+        if (isMathExpressionNode(node)) {
+            for (const child of node.elements) {
+                promises.push(this.validateMathOperand(child, promises, cancellationToken));
+            }
+            return;
+        }
+        const callback = this.map.get('Value');
+        if (callback && node.type === 'Value') {
+            expressionOperands.add(node);
+            promises.push(callback(node, cancellationToken));
         }
     }
 }
+
+/**
+ * The values reached as operands of an expression. The parser gives an operand the container the
+ * expression is written in as its parent, so the node itself does not say that it stands in one,
+ * and the value checks that read a value as a member of its container have to be told.
+ *
+ * Membership is a fact about the node, so it never has to be taken back, and the entries die with
+ * the AST they belong to.
+ */
+export const expressionOperands = new WeakSet<AbstractNode>();
 
 export type Validation<T extends AbstractNode> = {
     type: AstType;

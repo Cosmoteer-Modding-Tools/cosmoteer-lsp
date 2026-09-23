@@ -4,7 +4,16 @@
 
 import { t } from '../shared/strings.js';
 import { GROUPINGS } from './constants.js';
-import { fillFilter, fillGrouping, fillReference, readReference, renderColumnList } from './columns.js';
+import {
+    applyColumnDraft,
+    discardColumnDraft,
+    fillFilter,
+    fillGrouping,
+    fillReference,
+    readReference,
+    renderColumnList,
+    startColumnDraft,
+} from './columns.js';
 import {
     applyEditsEl,
     byId,
@@ -38,7 +47,7 @@ import {
     requestFormula,
     submitFormula,
 } from './formulas.js';
-import { currentFilter, state } from './state.js';
+import { currentFilter, dropDeadFormulaSort, state } from './state.js';
 import { render, renderTree, setBusy, showNotice, updatePercentSwitch } from './table-view.js';
 import { applyView, currentView, persistState, renderViewList } from './views.js';
 
@@ -77,9 +86,15 @@ function wireFilters() {
         render();
         recomputeAfterSearch();
     });
-    categoryEl.addEventListener('change', narrow);
-    componentEl.addEventListener('change', narrow);
-    sourceEl.addEventListener('change', narrow);
+    // The dropdown is how the reader picks, and the page's own state is what the pick is kept in.
+    const pick = (select, axis) =>
+        select.addEventListener('change', () => {
+            state.filter[axis] = select.value ? [select.value] : [];
+            narrow();
+        });
+    pick(categoryEl, 'categories');
+    pick(componentEl, 'components');
+    pick(sourceEl, 'sources');
     groupEl.addEventListener('change', () => {
         state.groupBy = GROUPINGS[groupEl.value] ? groupEl.value : '';
         render();
@@ -107,15 +122,33 @@ function wireFilters() {
     });
 }
 
+/** What the last write said about the typed values it left alone, kept until the host answers. */
+let leftAloneNotice = '';
+
 /** Hangs the buttons that write the typed values to the files and that drop them off their clicks. */
 function wireEditButtons() {
     applyEditsEl.addEventListener('click', () => {
         const edits = [];
+        let unseen = 0;
         for (const [rowKey, own] of Object.entries(state.overrides)) {
-            for (const [column, typed] of Object.entries(own)) edits.push({ row: rowKey, column, text: typed.text });
+            // Only a row the reader can see is written. A typed value whose row is not on the
+            // table belongs to a question asked of some other set of parts, and a row key is a path
+            // that resolves in any workspace, so writing it here would edit a file on the strength
+            // of a number typed somewhere else.
+            const onScreen = state.table.rows.some((row) => row.key === rowKey);
+            for (const [column, typed] of Object.entries(own)) {
+                if (onScreen) edits.push({ row: rowKey, column, text: typed.text });
+                else unseen++;
+            }
         }
+        leftAloneNotice =
+            unseen === 0
+                ? ''
+                : unseen === 1
+                  ? t('1 typed value belongs to a part this table is not showing, and was left alone.')
+                  : t('{0} typed values belong to parts this table is not showing, and were left alone.', unseen);
+        showNotice(leftAloneNotice);
         if (edits.length === 0) return;
-        showNotice('');
         vscode.postMessage({ type: 'applyEdits', edits });
     });
     discardEditsEl.addEventListener('click', () => {
@@ -130,19 +163,23 @@ function wireEditButtons() {
 function wireColumnsPanel() {
     byId('pick-columns').addEventListener('click', () => {
         columnsPanel.hidden = false;
+        startColumnDraft();
         renderColumnList();
         columnSearchEl.focus();
     });
     columnSearchEl.addEventListener('input', renderColumnList);
     byId('columns-apply').addEventListener('click', () => {
         columnsPanel.hidden = true;
+        applyColumnDraft();
         state.picked = true;
         requestTable(t('Reading the picked columns…'));
     });
     byId('columns-close').addEventListener('click', () => {
+        // Close cancels: the ticks are dropped and the table stays on the columns it was already
+        // showing. A ticked column drawn without asking the server for it would be a column of
+        // empty cells, which reads as a field no part carries.
         columnsPanel.hidden = true;
-        state.shown = state.shown.filter((path) => state.table.columns.some((column) => column.path === path));
-        render();
+        discardColumnDraft();
     });
 }
 
@@ -160,7 +197,7 @@ function wireFormulaPanel() {
     });
     byId('clear-formulas').addEventListener('click', () => {
         state.formulas = [];
-        if (state.sort.key.startsWith('formula:')) state.sort = { key: 'id', descending: false };
+        dropDeadFormulaSort();
         render();
     });
 }
@@ -251,15 +288,28 @@ function onHostMessage(message) {
  * @param {Record<string, any>} message the table message.
  */
 function takeTable(message) {
+    // A host that could not read the parts still answers, so the page says so and stays usable.
+    // Taking the missing table would leave the page holding nothing, and every later click, every
+    // keystroke in the filter box and even the next good table would fail against it.
+    if (!message.table) {
+        setBusy(false);
+        showNotice(t('The parts could not be read.'));
+        return;
+    }
     // An answer without columns is one for the version already here, which stays.
     const kept = state.table.columns;
     state.table = message.table;
     if (!state.table.columns) state.table.columns = kept;
     setBusy(false);
-    state.shown = message.columns && message.columns.length ? message.columns.slice() : state.table.suggested.slice();
-    fillFilter(categoryEl, state.table.categories, t('Every category'));
-    fillFilter(componentEl, state.table.componentTypes, t('Every component'));
-    fillFilter(sourceEl, state.table.sources, t('Everywhere'));
+    // The columns the answer names are the ones the request asked for, and an answer naming none is
+    // one for a request that asked for none. Until the reader has picked, that is the page asking
+    // the server to rank the columns and taking what it ranks. Once they have picked, their pick
+    // stands: the host asks for it again on their behalf, and taking the ranking here would drop it.
+    if (message.columns && message.columns.length) state.shown = message.columns.slice();
+    else if (!state.picked) state.shown = state.table.suggested.slice();
+    fillFilter(categoryEl, state.table.categories, t('Every category'), 'categories');
+    fillFilter(componentEl, state.table.componentTypes, t('Every component'), 'components');
+    fillFilter(sourceEl, state.table.sources, t('Everywhere'), 'sources');
     fillReference();
     updatePercentSwitch();
     reconcileOverrides();
@@ -283,6 +333,8 @@ function takeFormulaResult(message) {
     if (!formula) return;
     if (message.error) {
         state.formulas = state.formulas.filter((entry) => entry.id !== message.id);
+        // The column is gone, and a sort left on it would name nothing.
+        dropDeadFormulaSort();
         formulaPanel.hidden = false;
         formulaErrorEl.hidden = false;
         formulaErrorEl.textContent = message.error;
@@ -299,7 +351,10 @@ function takeFormulaResult(message) {
  * @param {Record<string, any>} message the edits-applied message.
  */
 function takeEditsApplied(message) {
-    const lines = [];
+    // The values the write left alone are said again beside its outcome, since the reader is told
+    // about them once and the answer would otherwise take the line away.
+    const lines = leftAloneNotice ? [leftAloneNotice] : [];
+    leftAloneNotice = '';
     for (const result of message.results || []) {
         if (result.status === 'ok') {
             const row = state.table.rows.find((entry) => entry.key === result.row);

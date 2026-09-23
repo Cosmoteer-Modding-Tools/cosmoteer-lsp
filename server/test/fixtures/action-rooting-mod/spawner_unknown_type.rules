@@ -1,0 +1,6 @@
+// The same wiring with a `Type` no spawner registry declares. Nothing may root it: a file whose
+// discriminator is a typo has no class, and guessing one would type every member wrongly.
+Type = ZzNotASpawnerType
+Count = [1, 3]
+Retries = 4
+SpawnCrew = true

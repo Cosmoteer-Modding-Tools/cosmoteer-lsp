@@ -24,6 +24,7 @@ import {
     referenceSiteLocation,
 } from '../../document/reference-location';
 import { resolveSchemaSiblingReference, stringValueNodesOf } from './schema-reference.navigation';
+import { componentDeclarationAt, componentDeclarationIdOf, componentIdSites } from './rename-component-id';
 import {
     FileReferenceAnchor,
     fileReferenceName,
@@ -188,6 +189,14 @@ export const findReferences = async (
         }
     }
 
+    // Every other slot of the part that names the same component: a field of the `Part` group, a
+    // bare list element, a group written as a list element. The sibling resolution above types none
+    // of those, and leaving them out reports a component as used in fewer places than it is.
+    const componentId = componentDeclarationIdOf(target.node);
+    if (componentId !== undefined) {
+        for (const site of componentIdSites(target.node, componentId)) sites.push(referenceSiteLocation(site));
+    }
+
     if (includeDeclaration) sites.push(declaration);
     return dedupeLocations(sites);
 };
@@ -209,7 +218,11 @@ const resolveTarget = async (
     const found = findReferenceTargetAtPosition(document, position);
     if (!found) return null;
     const identity = (node: AbstractNode) => ({ node, key: locationKey(definitionLocationOf(node)) });
-    if (!isReferenceValue(found)) return identity(resolveSchemaSiblingReference(found) ?? found);
+    // A component id names its declaration part-wide, so the search starts from that declaration
+    // rather than from the slot, which is a list element with no name of its own to search for.
+    if (!isReferenceValue(found)) {
+        return identity(resolveSchemaSiblingReference(found) ?? componentDeclarationAt(found) ?? found);
+    }
     // The cursor names the segment it sits on, not the path's endpoint, so a mid-path name is
     // searched for as itself rather than as whatever the rest of the path lands on.
     const span = namedSegmentAt(found, position);

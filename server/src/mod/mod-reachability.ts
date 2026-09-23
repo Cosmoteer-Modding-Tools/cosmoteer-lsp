@@ -2,9 +2,17 @@ import { existsSync, readdirSync } from 'fs';
 import { readFile } from 'fs/promises';
 import { basename, dirname, join, relative, resolve } from 'path';
 import { CancellationToken } from 'vscode-languageserver';
-import { AbstractNode, isAssignmentNode, isGroupNode, isListNode, isValueNode } from '../core/ast/ast';
+import {
+    AbstractNode,
+    AbstractNodeDocument,
+    AssignmentNode,
+    isAssignmentNode,
+    isGroupNode,
+    isListNode,
+    isValueNode,
+} from '../core/ast/ast';
 import { parseAlias } from '../document/schema/alias-root';
-import { isManifestBasename, isRulesFileName } from '../document/document-kind';
+import { isManifestBasename, isRulesFileName, isShaderDocument } from '../document/document-kind';
 import { parseFilePath } from '../utils/ast.utils';
 import { stringLiteralEnd } from '../utils/text.utils';
 import { findActionsList, parseModActions } from './action-parser';
@@ -41,7 +49,13 @@ export interface ModReachability {
     manifests: string[];
     /** Every `.rules` file under the mod root (absolute paths). */
     allRulesFiles: string[];
-    /** Normalized (lower-case, forward-slash) absolute paths of the reachable `.rules` files. */
+    /**
+     * Normalized (lower-case, forward-slash) absolute paths of the reachable files: the `.rules`
+     * files of {@link allRulesFiles} the closure reached, plus every `.shader` a reached file names
+     * as an asset. The shaders are in the set so the diagnostics pass can check the ones the game
+     * compiles, and they are only ever asked about by path, so the callers that intersect the set
+     * with {@link allRulesFiles} are unaffected.
+     */
     reachable: Set<string>;
     /** The `.rules` files in {@link allRulesFiles} the closure never reached (absolute paths). */
     unreachable: string[];
@@ -65,6 +79,16 @@ export interface ModReachability {
 
 /** Every `<…>` occurrence in a file's text, inner text only. */
 const FILE_REF_RE = /<([^<>\r\n"]+)>/g;
+
+/** Where a `.shader` path a rules file names ends, quoted or bare. */
+const SHADER_SUFFIX_RE = /\.shader\b/gi;
+
+/**
+ * What ends such a path on its way back to the front: whitespace, and the punctuation Object Text
+ * puts around a value. A path with a space in it is therefore read short and resolves to nothing,
+ * which only leaves that shader where it already was, out of the scan.
+ */
+const PATH_BREAK_RE = /[\s"'<>=,;{}()[\]]/;
 
 /** The canonical set-membership key for a file path on a case-insensitive filesystem. */
 export const reachabilityKey = (path: string): string => path.replace(/\\/g, '/').toLowerCase();
@@ -111,8 +135,17 @@ const stripComments = (text: string): string => {
     return out.join('');
 };
 
-const rulesFilesUnder = (root: string): string[] => {
-    const out: string[] = [];
+/**
+ * Every `.rules` and `.shader` file under a directory tree, collected in one walk. The two are kept
+ * apart because only the rules files are the mod's content: a shader is an asset a rules file names,
+ * so it is judged reachable by that reference and never reported as dead content of its own.
+ *
+ * @param root the directory to walk.
+ * @returns the absolute paths, split by kind.
+ */
+const filesUnder = (root: string): { rules: string[]; shaders: string[] } => {
+    const rules: string[] = [];
+    const shaders: string[] = [];
     const walk = (dir: string): void => {
         let entries;
         try {
@@ -122,11 +155,12 @@ const rulesFilesUnder = (root: string): string[] => {
         }
         for (const entry of entries) {
             if (entry.isDirectory()) walk(join(dir, entry.name));
-            else if (isRulesFileName(entry.name)) out.push(join(dir, entry.name));
+            else if (isRulesFileName(entry.name)) rules.push(join(dir, entry.name));
+            else if (isShaderDocument(entry.name)) shaders.push(join(dir, entry.name));
         }
     };
     walk(root);
-    return out;
+    return { rules, shaders };
 };
 
 /**
@@ -154,18 +188,79 @@ const resolveRef = (raw: string, fromDir: string, modRoot: string, knownFiles: S
     return undefined;
 };
 
-/** Collects the `<file>` refs of every `&`-reference value inside an action source's subtree. */
+/**
+ * Marks every shader a file's text names as reached. An asset path resolves against the directory
+ * of the file that writes it and nowhere else, so a `./Data/…` path names the game's own shader and
+ * a path landing outside the mod names nothing here. Shaders are marked rather than queued: their
+ * `#include` chain is HLSL, which the `<…>` expansion cannot read, and the includer's own checks
+ * already read that chain.
+ *
+ * @param walk the walk's state.
+ * @param text the file's comment-stripped text.
+ * @param fromDir the directory the paths resolve against.
+ * @returns nothing.
+ */
+const reachShaders = (walk: ReachabilityWalk, text: string, fromDir: string): void => {
+    if (walk.knownShaders.size === 0) return;
+    // The extension is found first and the path read backwards from it. A single pattern matching
+    // the whole path forward instead retries its leading run at every offset of the file, which is
+    // far more work over the text of a whole mod for the same answer.
+    for (const match of text.matchAll(SHADER_SUFFIX_RE)) {
+        let start = match.index;
+        while (start > 0 && !PATH_BREAK_RE.test(text[start - 1])) start--;
+        const ref = text.slice(start, match.index + match[0].length).replace(/\\/g, '/');
+        if (/^\.\/data\//i.test(ref)) continue;
+        const key = reachabilityKey(resolve(fromDir, ref));
+        if (walk.knownShaders.has(key)) walk.reachable.add(key);
+    }
+};
+
+/** The inner text of an alias's `<file>` part, without the angle brackets. */
+const aliasFileRef = (node: AbstractNode): string | undefined => {
+    if (!isValueNode(node) || node.valueType.type !== 'Reference') return undefined;
+    const alias = parseAlias(String(node.valueType.value));
+    return alias?.fileRef.replace(/^</, '').replace(/>$/, '');
+};
+
+/**
+ * Collects the `<file>` refs of every `&`-reference value inside an action source's subtree,
+ * including the inheritance bases of every group and list on the way down. A source written as
+ * `Overrides : &<frag.rules>` or `ManyToAdd : &<list.rules>/Parts []` names its content only in the
+ * inheritance list, and the game merges those bases in before it reads the members
+ * (`OTGroupNode.GetInheritedGroups` resolves each entry and opens its file), so the file is loaded
+ * exactly like one named in the body.
+ */
 const collectSourceRefs = (node: AbstractNode, out: string[]): void => {
-    if (isValueNode(node) && node.valueType.type === 'Reference') {
-        const alias = parseAlias(String(node.valueType.value));
-        if (alias) out.push(alias.fileRef.replace(/^</, '').replace(/>$/, ''));
+    const fileRef = aliasFileRef(node);
+    if (fileRef !== undefined) {
+        out.push(fileRef);
         return;
     }
+    if (isValueNode(node)) return;
     if (isGroupNode(node) || isListNode(node)) {
+        for (const base of node.inheritance ?? []) collectSourceRefs(base, out);
         for (const element of node.elements) collectSourceRefs(element, out);
     } else if (isAssignmentNode(node) && node.right) {
         collectSourceRefs(node.right, out);
     }
+};
+
+/**
+ * The reference nodes a manifest names its `Actions` list through from outside the list's own body:
+ * the bases of an `Actions: &<launcher.rules>/Actions, …` inheritance, and the right side of an
+ * `Actions = &<acts/list.rules>/Actions` assignment. The game reads the list with
+ * `TryReadFromPath<List<ModAction>>("Actions")`, which dereferences either form and opens the
+ * referenced file, so both seed the closure. Names are matched case-insensitively, mirroring the
+ * game's node lookup.
+ *
+ * @param document the parsed manifest.
+ * @returns the nodes holding the refs, in declaration order.
+ */
+const actionsListRefs = (document: AbstractNodeDocument): AbstractNode[] => {
+    const assigned = document.elements.filter(
+        (element) => isAssignmentNode(element) && element.left.name.toLowerCase() === 'actions' && element.right
+    ) as AssignmentNode[];
+    return [...(findActionsList(document)?.inheritance ?? []), ...assigned.map((element) => element.right!)];
 };
 
 /** The state one reachability walk threads through its steps. */
@@ -174,6 +269,8 @@ interface ReachabilityWalk {
     root: string;
     /** Every `.rules` file under the mod, keyed per {@link reachabilityKey}. */
     knownFiles: Set<string>;
+    /** Every `.shader` file under the mod, keyed per {@link reachabilityKey}. */
+    knownShaders: Set<string>;
     /** The keys of the files reached so far. */
     reachable: Set<string>;
     /** The reached files whose own refs have still to be expanded. */
@@ -238,8 +335,11 @@ const seedFromManifest = async (walk: ReachabilityWalk, manifest: string): Promi
     walk.reachable.add(reachabilityKey(manifest));
     const manifestDir = dirname(manifest);
     // A whole action commented out is the most common way a mod ships content the game never
-    // loads, and the manifest is not walked with the rest, so its own comments are read here.
-    recordCommented(walk, await readFile(manifest, 'utf8').catch(() => ''), manifest, manifestDir);
+    // loads, and the manifest is not walked with the rest, so its own comments are read here. An
+    // action source written inline in the manifest can name a shader, so those are read here too.
+    const manifestText = await readFile(manifest, 'utf8').catch(() => '');
+    recordCommented(walk, manifestText, manifest, manifestDir);
+    reachShaders(walk, stripComments(manifestText), manifestDir);
     const document = await parseFilePath(manifest).catch(() => null);
     if (!document) return;
     for (const action of parseModActions(document)) {
@@ -247,19 +347,15 @@ const seedFromManifest = async (walk: ReachabilityWalk, manifest: string): Promi
         for (const source of action.sources) collectSourceRefs(source, refs);
         for (const ref of refs) enqueue(walk, resolveRef(ref, manifestDir, walk.root, walk.knownFiles));
     }
-    // A manifest may build its `Actions` by concatenating other files' action lists via virtual
-    // inheritance (`Actions: &<launcher.rules>/Actions, …`). Those `<file>` refs live in the
-    // list's inheritance, not its body, so parseModActions never sees them, yet the game loads
-    // each referenced file to merge its actions in. Seed them here. Their own `<…>` refs (the
-    // parts/resources the actions add) then expand with the rest of the closure.
-    for (const base of findActionsList(document)?.inheritance ?? []) {
-        if (!isValueNode(base) || base.valueType.type !== 'Reference') continue;
-        const alias = parseAlias(String(base.valueType.value));
-        if (alias)
-            enqueue(
-                walk,
-                resolveRef(alias.fileRef.replace(/^</, '').replace(/>$/, ''), manifestDir, walk.root, walk.knownFiles)
-            );
+    // A manifest may build its `Actions` from other files' action lists, by virtual inheritance
+    // (`Actions: &<launcher.rules>/Actions, …`) or by assigning one outright
+    // (`Actions = &<acts/list.rules>/Actions`). Either way the `<file>` ref lives outside the list
+    // body, so parseModActions never sees it, yet the game loads each referenced file to read the
+    // actions. Seed them here. Their own `<…>` refs (the parts/resources the actions add) then
+    // expand with the rest of the closure.
+    for (const node of actionsListRefs(document)) {
+        const fileRef = aliasFileRef(node);
+        if (fileRef !== undefined) enqueue(walk, resolveRef(fileRef, manifestDir, walk.root, walk.knownFiles));
     }
     // Language files under the StringsFolder are loaded by the game directly. The game's node
     // lookup is case-insensitive, so `Stringsfolder` (seen in a published mod) counts too.
@@ -269,7 +365,7 @@ const seedFromManifest = async (walk: ReachabilityWalk, manifest: string): Promi
         if (!value || !isValueNode(value)) continue;
         const stringsDir = resolve(manifestDir, String(value.valueType.value).replace(/"/g, ''));
         if (!existsSync(stringsDir)) continue;
-        for (const file of rulesFilesUnder(stringsDir)) walk.reachable.add(reachabilityKey(file));
+        for (const file of filesUnder(stringsDir).rules) walk.reachable.add(reachabilityKey(file));
     }
 };
 
@@ -290,9 +386,11 @@ const expandClosure = async (walk: ReachabilityWalk, token: CancellationToken): 
         const texts = await Promise.all(wave.map((file) => readFile(file, 'utf8').catch(() => '')));
         for (const [index, text] of texts.entries()) {
             const fromDir = dirname(wave[index]);
-            for (const match of stripComments(text).matchAll(FILE_REF_RE)) {
+            const live = stripComments(text);
+            for (const match of live.matchAll(FILE_REF_RE)) {
                 enqueue(walk, resolveRef(match[1], fromDir, walk.root, walk.knownFiles));
             }
+            reachShaders(walk, live, fromDir);
             recordCommented(walk, text, wave[index], fromDir);
         }
     }
@@ -387,7 +485,7 @@ export const computeModReachability = async (
     }
     if (!rootEntries.some((entry) => isManifestBasename(entry))) return undefined;
 
-    const allRulesFiles = rulesFilesUnder(root);
+    const { rules: allRulesFiles, shaders } = filesUnder(root);
     // The game finds manifests recursively and picks one by game-version priority, so nested
     // manifests (merged sub-mods) seed too. Which one wins depends on the running game version, and
     // seeding all of them keeps the union over-approximate in the safe direction.
@@ -395,6 +493,7 @@ export const computeModReachability = async (
     const walk: ReachabilityWalk = {
         root,
         knownFiles: new Set(allRulesFiles.map((file) => reachabilityKey(file))),
+        knownShaders: new Set(shaders.map((file) => reachabilityKey(file))),
         reachable: new Set<string>(),
         queue: [],
         commentedReferencers: new Map<string, string[]>(),

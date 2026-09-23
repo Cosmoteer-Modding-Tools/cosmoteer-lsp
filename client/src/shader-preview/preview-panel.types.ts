@@ -6,6 +6,8 @@
 /** The preview payload shape returned by the server's `cosmoteer/shaderPreview` request. */
 export interface ShaderPreviewData {
     shaderName: string;
+    /** The short label for the tab, the resolved shader's file name. */
+    shaderLabel: string;
     shaderUri: string | null;
     /** The shader and its whole `#include` chain, watched so an edit to any of them re-renders. */
     sourceUris: string[];

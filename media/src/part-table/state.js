@@ -5,7 +5,7 @@
 
 import { t } from '../shared/strings.js';
 import { FAR_FACTOR, GROUPINGS, IDENTITY, LEVELS, SAME_BAND, TILES } from './constants.js';
-import { categoryEl, componentEl, searchEl, sourceEl } from './dom.js';
+import { searchEl } from './dom.js';
 
 /** @import {FormulaColumn, GroupLevel, PartColumn, PartRow, PartTable} from './types.js' */
 
@@ -28,6 +28,15 @@ export const state = {
 
     /** The column paths shown, in display order. */
     shown: [],
+
+    /**
+     * What the three dropdowns narrow the table to, by axis. The page holds it rather than reading
+     * it back off the dropdowns, since a pick put back before the first table has arrived would be
+     * assigned into a dropdown that has no options yet, and a dropdown drops a value it cannot
+     * offer. The dropdowns are how the reader changes it, and {@link fillFilter} writes it back
+     * onto them once the values they offer are known.
+     */
+    filter: { categories: [], components: [], sources: [] },
 
     /**
      * Whether the reader has picked the columns themselves. Until they have, narrowing the table
@@ -64,6 +73,13 @@ export const state = {
 
     /** The row key the comparison shades against, empty when the table compares nothing. */
     reference: '',
+
+    /**
+     * The id of the compared part, which is what a kept view names it by. A row key is rebuilt with
+     * the table and an id is what the files themselves write, so the id is what survives a restore
+     * that arrives before the rows do.
+     */
+    referenceId: '',
 
     /** Whether numeric cells show the percentage of the reference rather than the value. */
     asPercent: false,
@@ -344,15 +360,28 @@ export function orderedKeys() {
 }
 
 /**
- * The filter as the dropdowns stand, sent to the server so the columns it answers with are the
- * ones the narrowed parts really carry.
+ * Puts the sort back on the part id when it names a formula column that is no longer there, so a
+ * table cannot come back sorted by a column nothing holds.
+ *
+ * A column path is left alone even when the table does not carry it: a filter takes a column off
+ * the table and puts it back, and the sort belongs to it while it is gone.
+ */
+export function dropDeadFormulaSort() {
+    if (!state.sort.key.startsWith('formula:')) return;
+    if (state.formulas.some((entry) => entry.id === state.sort.key)) return;
+    state.sort = { key: 'id', descending: false };
+}
+
+/**
+ * The narrowing the reader picked, sent to the server so the columns it answers with are the ones
+ * the narrowed parts really carry.
  *
  * @returns {object} the filter, with an empty axis for each dropdown left at its any entry.
  */
 export function currentFilter() {
     return {
-        categories: categoryEl.value ? [categoryEl.value] : [],
-        components: componentEl.value ? [componentEl.value] : [],
-        sources: sourceEl.value ? [sourceEl.value] : [],
+        categories: state.filter.categories.slice(),
+        components: state.filter.components.slice(),
+        sources: state.filter.sources.slice(),
     };
 }

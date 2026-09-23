@@ -1138,6 +1138,88 @@ describe('what the command refuses to create', () => {
     });
 });
 
+// A language file written with `\r\n` used to come back with a second carriage return on every
+// line the command added, and with the keys of one run split across groups the next run reopened.
+// The game reads a lone `\r` as a line break, so the file still parsed and the keys landed at paths
+// nothing looks up. The assertions are on the bytes, since a comparison of the parsed tree cannot
+// see a stray carriage return.
+describe('how a created file matches the language files around it', () => {
+    const STRINGS = (): string => `${MOD_DIR}/strings/en.rules`;
+    const OTHER = (): string => `${MOD_DIR}/strings/de.rules`;
+    const BODY = ['Parts', '{', '\tExisting = "Existing"', '}', ''];
+
+    /** Writes both language files with one line ending and runs two creations against them. */
+    const twoCreations = async (lineEnding: string, prefix: string): Promise<string> => {
+        const body = BODY.join(lineEnding);
+        const kept = [read(STRINGS()), read(OTHER())];
+        writeFileSync(STRINGS(), body, 'utf-8');
+        writeFileSync(OTHER(), body, 'utf-8');
+        try {
+            await apply(
+                { uri: anchorUri(), kind: 'resource', name: `${prefix}_ore`, skipRegistration: true },
+                makeHost()
+            );
+            await apply({ uri: anchorUri(), kind: 'part', name: `${prefix}_part`, skipRegistration: true }, makeHost());
+            return read(STRINGS());
+        } finally {
+            writeFileSync(STRINGS(), kept[0], 'utf-8');
+            writeFileSync(OTHER(), kept[1], 'utf-8');
+        }
+    };
+
+    it('leaves a language file written with plain newlines carrying no carriage return', async () => {
+        const text = await twoCreations('\n', 'lf');
+        expect(text).not.toContain('\r');
+    });
+
+    it('writes every line of a crlf language file with one carriage return and no more', async () => {
+        const text = await twoCreations('\r\n', 'returns');
+        expect(/\r(?!\n)/.test(text)).toBe(false);
+        expect(/(?<!\r)\n/.test(text)).toBe(false);
+    });
+
+    // A file an older version already left lone carriage returns in still has to be added to in the
+    // right place. The game counts a lone `\r` as a line break and the protocol does not, so an
+    // insert measured in one convention and spliced in the other lands somewhere else entirely.
+    it('adds the keys inside the group of a file that already carries a lone carriage return', async () => {
+        const kept = [read(STRINGS()), read(OTHER())];
+        const damaged = 'Parts\r\n{\r\n\tExisting = "Existing"\r\r\n}\r\r\n';
+        writeFileSync(STRINGS(), damaged, 'utf-8');
+        writeFileSync(OTHER(), damaged, 'utf-8');
+        try {
+            await apply({ uri: anchorUri(), kind: 'part', name: 'inside_part', skipRegistration: true }, makeHost());
+            expect(read(STRINGS())).toBe(
+                'Parts\r\n{\r\n\tExisting = "Existing"\r\r\n' +
+                    '\tInsidePart = "Inside Part"\r\n\tInsidePartDesc = ""\r\n}\r\r\n'
+            );
+        } finally {
+            writeFileSync(STRINGS(), kept[0], 'utf-8');
+            writeFileSync(OTHER(), kept[1], 'utf-8');
+        }
+    });
+
+    it('adds each run to the group it belongs in rather than reopening one per key', async () => {
+        const text = (await twoCreations('\r\n', 'grouped')).replace(/\r\n/g, '\n');
+        expect(text).toBe(
+            [
+                'Parts',
+                '{',
+                '\tExisting = "Existing"',
+                '\tGroupedPart = "Grouped Part"',
+                '\tGroupedPartDesc = ""',
+                '}',
+                'Resource',
+                '{',
+                '\tGroupedOre = "Grouped Ore"',
+                '\tGroupedOrePlural = "Grouped Ore"',
+                '\tGroupedOreDesc = ""',
+                '}',
+                '',
+            ].join('\n')
+        );
+    });
+});
+
 describe('how a created file matches the mod around it', () => {
     it('writes the line ending the mod already uses', async () => {
         const manifest = `${MOD_DIR}/mod.rules`;
@@ -1151,7 +1233,10 @@ describe('how a created file matches the mod around it', () => {
             );
             const text = read(result.created);
             expect(text).toContain('\r\n');
-            expect(text.replace(/\r\n/g, '')).not.toContain('\n');
+            // A carriage return standing alone reads as a line break to the game and as none to the
+            // protocol, so the check is that every one of them belongs to a `\r\n` pair.
+            expect(/\r(?!\n)/.test(text)).toBe(false);
+            expect(/(?<!\r)\n/.test(text)).toBe(false);
         } finally {
             writeFileSync(manifest, original, 'utf-8');
             clearBaseFileCache();

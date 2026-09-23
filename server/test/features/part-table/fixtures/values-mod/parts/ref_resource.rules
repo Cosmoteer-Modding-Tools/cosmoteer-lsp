@@ -1,0 +1,22 @@
+// The resource id is kept in one place and named by reference from the pair list, the way a mod
+// that builds a line of parts out of one file writes it. The vertices below are pairs of numbers
+// named the same way, which is a list read by position rather than by key.
+DEFAULT_RESOURCE = "coil"
+SIZE = [3, 2]
+
+Part : <./Data/ships/terran/armor/armor.rules>/Part
+{
+	ID = test.ref_resource
+	Resources
+	[
+		[&~/DEFAULT_RESOURCE, 40]
+	]
+	Audit
+	{
+		Vertices
+		[
+			[&~/SIZE/0, 0]
+			[&~/SIZE/1, 1]
+		]
+	}
+}

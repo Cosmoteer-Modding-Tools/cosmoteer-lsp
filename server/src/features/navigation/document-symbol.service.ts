@@ -14,6 +14,7 @@ import {
     ValueNode,
 } from '../../core/ast/ast';
 import { resolveGroupClass } from '../../document/schema/schema-context';
+import { markupSourceOf } from '../text-markup/markup-source';
 import { enclosingRange, orderRange, unionRange } from './ast-range';
 
 /**
@@ -48,6 +49,16 @@ const posToRange = (position: AstPosition): Range =>
     Range.create(position.line, position.characterStart, position.line, position.characterEnd);
 
 /**
+ * The span of the character a container opens with, which is the only text an anonymous element of
+ * a list has of its own.
+ *
+ * @param position the container's own position.
+ * @returns the range covering its opening brace.
+ */
+const openingRange = (position: AstPosition): Range =>
+    Range.create(position.line, position.characterStart, position.line, position.characterStart + 1);
+
+/**
  * Builds the hierarchical document outline (`textDocument/documentSymbol`).
  *
  * Walks the cached AST and emits a {@link DocumentSymbol} tree mirroring the
@@ -56,20 +67,25 @@ const posToRange = (position: AstPosition): Range =>
  * into. Needs no cross-file resolution: it's a pure structural projection of one
  * document, which is why it's the cheapest navigation primitive to ship.
  */
-export const getDocumentSymbols = (document: AbstractNodeDocument): DocumentSymbol[] => {
-    return symbolsFromElements(document.elements).map(normalizeSymbol);
+export const getDocumentSymbols = (document: AbstractNodeDocument, source?: string): DocumentSymbol[] => {
+    // A value written across a line continuation ends on a later line than the one its position
+    // records, and the client reads a symbol's range to decide which symbol the caret is in, so the
+    // file's own text is what those lines are counted in. The open buffer holds it, which is where
+    // the outline is asked for in the first place.
+    const text = source ?? markupSourceOf(document.uri);
+    return symbolsFromElements(document.elements, text).map(normalizeSymbol);
 };
 
-const symbolsFromElements = (elements: AbstractNode[]): DocumentSymbol[] => {
+const symbolsFromElements = (elements: AbstractNode[], source: string | undefined): DocumentSymbol[] => {
     const symbols: DocumentSymbol[] = [];
     elements.forEach((element, index) => {
-        const symbol = symbolFromElement(element, index);
+        const symbol = symbolFromElement(element, index, source);
         if (symbol) symbols.push(symbol);
     });
     return symbols;
 };
 
-const symbolFromElement = (element: AbstractNode, index: number): DocumentSymbol | null => {
+const symbolFromElement = (element: AbstractNode, index: number, source: string | undefined): DocumentSymbol | null => {
     // `key = value` / `key : value` name it by the left identifier. When the value
     // is itself a container, fold the two into one outline node (`Key { … }`) instead
     // of nesting an anonymous group under the assignment.
@@ -77,13 +93,13 @@ const symbolFromElement = (element: AbstractNode, index: number): DocumentSymbol
         const name = element.left.name;
         const right = element.right;
         if (isGroupNode(right) || isListNode(right)) {
-            return containerSymbol(name, posToRange(element.left.position), element, right);
+            return containerSymbol(name, posToRange(element.left.position), element, right, source);
         }
         return {
             name,
             detail: detailOf(right),
             kind: kindOfValue(right),
-            range: enclosingRange(element),
+            range: enclosingRange(element, source),
             selectionRange: posToRange(element.left.position),
         };
     }
@@ -91,18 +107,22 @@ const symbolFromElement = (element: AbstractNode, index: number): DocumentSymbol
     // a positional list element (e.g. the entries of a `Components` list).
     if (isGroupNode(element) || isListNode(element)) {
         const name = element.identifier?.name ?? `[${index}]`;
-        const nameRange = posToRange((element.identifier ?? element).position);
-        return containerSymbol(name, nameRange, element, element);
+        // An anonymous element has no name in the file, so the label the outline gives it names no
+        // text either. Its own position carries the opening brace's line and the closing brace's
+        // column, which is a span of nothing on that line, so the brace that opens it is selected.
+        const nameRange = element.identifier ? posToRange(element.identifier.position) : openingRange(element.position);
+        return containerSymbol(name, nameRange, element, element, source);
     }
     // A math run folded into one node is a positional element like any other, so it is outlined
     // by its index. Without this a list of computed values shows no children at all.
     if (isValueNode(element) || isMathExpressionNode(element)) {
+        const range = enclosingRange(element, source);
         return {
             name: `[${index}]`,
             detail: detailOf(element),
             kind: kindOfValue(element),
-            range: isMathExpressionNode(element) ? enclosingRange(element) : posToRange(element.position),
-            selectionRange: isMathExpressionNode(element) ? enclosingRange(element) : posToRange(element.position),
+            range,
+            selectionRange: range,
         };
     }
     return null;
@@ -112,15 +132,16 @@ const containerSymbol = (
     name: string,
     selectionRange: Range,
     outer: AbstractNode,
-    content: Container
+    content: Container,
+    source: string | undefined
 ): DocumentSymbol => {
     return {
         name,
         detail: containerDetail(content),
         kind: isListNode(content) ? SymbolKind.Array : SymbolKind.Object,
-        range: enclosingRange(outer),
+        range: enclosingRange(outer, source),
         selectionRange,
-        children: symbolsFromElements(content.elements),
+        children: symbolsFromElements(content.elements, source),
     };
 };
 

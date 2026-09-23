@@ -48,11 +48,44 @@ describe('manifest version selectability', () => {
         expect(await validate(dir, 'mod_old.rules', VERSIONED)).toEqual([]);
     });
 
-    it("stays silent when the file is the mod's only manifest", async () => {
+    it("does not call the mod's only manifest unselectable", async () => {
         // A single-manifest mod is used unconditionally (GetModInfoPath returns early), so a lone
-        // mod_*.rules without the field is fine.
+        // mod_*.rules is selectable. It still declares no versions, which the other check reports.
         const dir = modFolder({ 'mod_only.rules': OLD_MANIFEST });
-        expect(await validate(dir, 'mod_only.rules', OLD_MANIFEST)).toEqual([]);
+        const errors = await validate(dir, 'mod_only.rules', OLD_MANIFEST);
+        expect(errors).toHaveLength(1);
+        expect(errors[0].message).toContain('declares no');
+    });
+
+    it('reports a manifest whose mod declares the versions nowhere', async () => {
+        const dir = modFolder({ 'mod.rules': OLD_MANIFEST });
+        const errors = await validate(dir, 'mod.rules', OLD_MANIFEST);
+        expect(errors).toHaveLength(1);
+        expect(errors[0].message).toContain('declares no');
+        expect(errors[0].severity).toBe('warning');
+    });
+
+    it('does not tell the author a manifest without the field is off right now', async () => {
+        const dir = modFolder({ 'mod.rules': OLD_MANIFEST });
+        const errors = await validate(dir, 'mod.rules', OLD_MANIFEST);
+        expect(errors[0].message).toContain('warns the player before it lets them enable the mod');
+        expect(errors[0].message).not.toContain('turns the mod off while it loads');
+    });
+
+    it('stays silent when a sibling manifest declares the versions', async () => {
+        // The version-split layout: a fieldless root manifest scores 0 while the sibling naming
+        // the installed version scores 3, so the sibling is the one the game selects.
+        const dir = modFolder({ 'mod.rules': OLD_MANIFEST, 'sub/mod_030.rules': VERSIONED });
+        expect(await validate(dir, 'mod.rules', OLD_MANIFEST)).toEqual([]);
+    });
+
+    it('reports a version-split manifest once', async () => {
+        // Both manifests are fieldless, so the mod_*.rules is unselectable as well as undeclared.
+        // Only the unselectable finding is reported on it, the one that names its own file.
+        const dir = modFolder({ 'mod.rules': OLD_MANIFEST, 'mod_old.rules': OLD_MANIFEST });
+        const errors = await validate(dir, 'mod_old.rules', OLD_MANIFEST);
+        expect(errors).toHaveLength(1);
+        expect(errors[0].message).toContain('never selects');
     });
 
     it('never flags the plain mod.rules', async () => {

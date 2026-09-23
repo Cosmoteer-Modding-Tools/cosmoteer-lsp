@@ -1,0 +1,5 @@
+// The members the two-step Overrides merges into the namespace the Add created.
+TwoStepThing
+{
+	Bar = 11
+}

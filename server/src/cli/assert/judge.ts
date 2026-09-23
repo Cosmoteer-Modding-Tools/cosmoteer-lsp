@@ -7,10 +7,12 @@ import {
     ACTION_FINDING_EFFECTS,
     ActionVerdict,
     Disclosure,
+    isDanglingReference,
     LoadEffect,
     SOURCE_SHAPE_MESSAGE,
     UnverifiableReason,
 } from './model';
+import type { ActionPayload } from './payload';
 
 // Judging one action. The order the tests run in is the whole design: a failure the check is
 // certain of comes first, then every reason the check could not judge the action at all, and only
@@ -112,6 +114,8 @@ interface ActionScope {
     targets: string[];
     /** The verb as written, empty when the entry names none. */
     verb: string;
+    /** The files this action's own content comes from, and what the scan said about them. */
+    payload: ActionPayload;
     /** Everything the check could not see about this action, added to as the checks run. */
     disclosures: Disclosure[];
 }
@@ -210,6 +214,29 @@ const missingRequiredField: ActionCheck = (scope) => {
 };
 
 /**
+ * A reference written on the action entry that resolves to nothing. The game follows every member
+ * it reads while it reads the manifest, so this one fails before any action is applied, which is
+ * why it stands with the other read-time checks rather than among the scan's own findings: an
+ * action carrying `IgnoreIfNotExisting` or a target shape nothing here can resolve still fails on
+ * it, and a later check would answer for the action first and hide this.
+ *
+ * @param scope what the checks were given.
+ * @returns the verdict, or undefined when every reference on the entry resolves.
+ */
+const danglingReference: ActionCheck = (scope) => {
+    const dangling = scope.findings.find(isDanglingReference);
+    if (!dangling) return undefined;
+    return done(scope, {
+        ...scope.base,
+        mark: 'failed',
+        effect: 'mod-dropped',
+        detail:
+            `A reference written on line ${dangling.startLine} of this action points at nothing. ` +
+            `The game follows every reference an action carries while it reads the manifest. ${consequence('mod-dropped')}`,
+    });
+};
+
+/**
  * An action with nothing to run over: a `RemoveMany []` with nothing in it, or a target field
  * holding something that is not a path. The game loops over no targets and nothing happens.
  *
@@ -224,6 +251,46 @@ const noTarget: ActionCheck = (scope) => {
         effect: 'no-effect',
         detail: 'The action names no target, so the game runs it over nothing and it changes nothing.',
     });
+};
+
+/**
+ * A file this action's content comes from that the game refuses to read. The game materialises the
+ * content while it applies the action, so it parses that file, and `OTFile` wraps whatever the
+ * tokenizer or the tree builder threw as `Unable to parse file "…"` rather than reading part of it.
+ * Nothing of the file reaches the game, so the action cannot apply and the load ends there.
+ *
+ * @param scope what the checks were given.
+ * @returns the verdict, or undefined when every file the content comes from is one the game reads.
+ */
+const payloadRefused: ActionCheck = (scope) => {
+    const blocked = scope.payload.blockers[0];
+    if (!blocked) return undefined;
+    const path = scope.context.relative(blocked.file);
+    return done(scope, {
+        ...scope.base,
+        mark: 'failed',
+        effect: 'game-stops',
+        detail:
+            `This action adds content from ${quote(path)}, which the game refuses to read (${blocked.finding.message}). ` +
+            'It throws while it reads that file and stops loading, and no action of this mod after it runs.',
+    });
+};
+
+/**
+ * A file this action's content comes from that the scan published no result for, so nothing said
+ * whether the game can read it.
+ *
+ * @param scope what the checks were given.
+ * @returns the verdict, or undefined when the scan checked every file the content comes from.
+ */
+const payloadNotChecked: ActionCheck = (scope) => {
+    const missing = scope.payload.unchecked[0];
+    if (missing === undefined) return undefined;
+    return unverifiable(
+        scope,
+        'file-not-checked',
+        `This action adds content from ${quote(scope.context.relative(missing))}, and the scan published no result for that file, so nothing it holds was judged.`
+    );
 };
 
 /**
@@ -401,8 +468,11 @@ const deadFinding: ActionCheck = (scope) => {
 const ACTION_CHECKS: readonly ActionCheck[] = [
     unknownVerb,
     missingRequiredField,
+    danglingReference,
+    payloadRefused,
     noTarget,
     fileNotChecked,
+    payloadNotChecked,
     indexedAddBase,
     createIfNotExisting,
     toleratedMissingTarget,
@@ -419,12 +489,14 @@ const ACTION_CHECKS: readonly ActionCheck[] = [
  * @param record the action entry and where it is written.
  * @param findings the scan's mod action findings that fall inside this entry.
  * @param context what the judge needs to know about the run.
+ * @param payload the files this action's content comes from, and what the scan said about them.
  * @returns the verdict and everything the check could not see about it.
  */
 export const judgeAction = (
     record: ActionRecord,
     findings: readonly LintFinding[],
-    context: JudgeContext
+    context: JudgeContext,
+    payload: ActionPayload
 ): ActionJudgement => {
     const { action } = record;
     const path = context.relative(record.file);
@@ -445,6 +517,7 @@ export const judgeAction = (
         },
         targets,
         verb,
+        payload,
         disclosures: [],
     };
 

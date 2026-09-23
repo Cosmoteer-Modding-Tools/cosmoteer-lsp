@@ -4,14 +4,27 @@ import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
 import { validateIgnoredFields } from '../../../src/features/diagnostics/validator.ignored-field';
 
-// Fields the game declares but provably never reads (the schema's `dead` flag, from schemagen's
-// whole-assembly read scan) get the same dead-weight hint as unknown members, with the remove fix.
+// Fields the game declares and then does nothing with (the schema's `dead` flag, from schemagen's
+// whole-assembly read scan plus the curated overlay) get the same dead-weight hint as unknown
+// members, with the remove fix.
 // Deleted fields recorded in the deprecations registry upgrade the hint with the game version and
 // the migration, and carry the fix the workspace migration applies.
 const token = CancellationToken.None;
 const parse = (src: string) => parser(lexer(src), 'file:///data/parts/t.rules').value;
 /** A status type, whose `ContinuousMediaEffects` list holds media-effect groups (vanilla's `scorched`). */
 const parseStatus = (src: string) => parser(lexer(src), 'file:///data/statuses/scorched/scorched.rules').value;
+/** The crew rules file, whose members the document itself is keyed by rather than a group. */
+const crewRules = (src: string) => parser(lexer(src), 'file:///data/crew/crew.rules').value;
+
+/** The text a fix's byte-offset edits produce, applied back to front so earlier spans keep place. */
+const applyRewrite = (source: string, edits: { start: number; end: number; newText: string }[]): string =>
+    [...edits]
+        .sort((a, b) => b.start - a.start)
+        .reduce((text, edit) => text.slice(0, edit.start) + edit.newText + text.slice(edit.end), source);
+
+/** The text the remove fix produces, with the line it emptied taken out the way the editor takes it. */
+const applyRemoval = (source: string, remove: { start: number; end: number }): string =>
+    applyRewrite(source, [{ ...remove, newText: '' }]).replace(/^[ \t]*\r?\n/m, '');
 
 describe('dead declared fields', () => {
     it('hints a declared-but-never-read field with a remove fix', async () => {
@@ -19,10 +32,49 @@ describe('dead declared fields', () => {
         const errors = await validateIgnoredFields(doc, token);
         const hit = errors.find((e) => e.message.includes('FireDamageFactor'));
         expect(hit).toBeTruthy();
-        expect(hit!.message).toContain('never reads');
+        expect(hit!.message).toContain('does nothing with the value');
         expect(hit!.severity).toBe('hint');
         expect(hit!.data?.remove?.title).toContain('FireDamageFactor');
         expect(hit!.data?.migration).toBeUndefined();
+    });
+
+    it('does not claim the code never reads a value the shipped build does load', async () => {
+        // The dead set is not one mechanism. `SuppressLocationAssertions` and
+        // `SuppressNoTagTargetFound` are loaded into the empty `if` body a `[Conditional("DEBUG")]`
+        // call leaves behind, and `IsActivated` reaches a constructor nothing calls. One sentence
+        // covers the whole set only while it says what becomes of the value rather than what the
+        // code does with it, which a reader can check against the decompile.
+        const doc = parse('Part\n{\n\tFireDamageFactor = 2\n}\n');
+        const errors = await validateIgnoredFields(doc, token);
+        const hit = errors.find((e) => e.message.includes('FireDamageFactor'));
+        expect(hit!.message).not.toContain("the game's code never reads it");
+    });
+
+    // A member the serializer reads without the game ever using its value still has to be in the
+    // file. Deleting it makes the game throw at load, and the required-field check of this same
+    // server then reports the deletion, so the hint must carry neither the remove fix nor the fade
+    // that invites the author to delete the line by hand.
+    it('offers no remove fix for a dead field the game refuses to load without', async () => {
+        const doc = crewRules('PathfindRadius = 5\n');
+        const errors = await validateIgnoredFields(doc, token);
+        const hit = errors.find((e) => e.message.includes('PathfindRadius'));
+        expect(hit).toBeTruthy();
+        expect(hit!.data?.remove).toBeUndefined();
+    });
+
+    it('does not fade a dead field the game refuses to load without', async () => {
+        const doc = crewRules('PathfindRadius = 5\n');
+        const errors = await validateIgnoredFields(doc, token);
+        const hit = errors.find((e) => e.message.includes('PathfindRadius'));
+        expect(hit!.unnecessary).toBe(false);
+    });
+
+    it('says the key has to stay when the game refuses to load without it', async () => {
+        const doc = crewRules('PathfindRadius = 5\n');
+        const errors = await validateIgnoredFields(doc, token);
+        const hit = errors.find((e) => e.message.includes('PathfindRadius'));
+        expect(hit!.message).toContain('does nothing with the value');
+        expect(hit!.message).toContain('still has to be written');
     });
 
     it('hints a deleted field with its game version, migration note, and a remove fix', async () => {
@@ -50,6 +102,43 @@ describe('dead declared fields', () => {
         // One edit deletes the Flammable assignment, the other appends before the list closer.
         expect(edits[0].newText).toBe('');
         expect(edits[1].newText).toBe(', non_flammable');
+    });
+
+    // Vanilla's `armor_2x1.rules` and a run of workshop parts already carry `non_flammable` in
+    // `TypeCategories` and kept `Flammable = false` beside it. Appending a second entry there writes
+    // the category twice, so the field is plain dead weight and removing it is the whole migration.
+    it('removes Flammable rather than writing a second non_flammable entry', async () => {
+        const source = 'Part\n{\n\tTypeCategories = [armor, non_flammable]\n\tFlammable = false\n}\n';
+        const doc = parse(source);
+        const errors = await validateIgnoredFields(doc, token);
+        const hit = errors.find((e) => e.message.includes('Flammable'));
+        expect(hit!.data?.migration?.apply).toBe('remove');
+        expect(hit!.data?.rewrite).toBeUndefined();
+        const applied = applyRemoval(source, hit!.data!.remove!);
+        expect(applied).toContain('TypeCategories = [armor, non_flammable]');
+        expect(applied.match(/non_flammable/g)).toHaveLength(1);
+        expect(applied).not.toContain('Flammable = false');
+    });
+
+    it('matches the category however it is cased', async () => {
+        const doc = parse('Part\n{\n\tTypeCategories = [Non_Flammable]\n\tFlammable = false\n}\n');
+        const errors = await validateIgnoredFields(doc, token);
+        const hit = errors.find((e) => e.message.includes('Flammable'));
+        expect(hit!.data?.migration?.apply).toBe('remove');
+    });
+
+    // An element written as a reference names its value in another file, so the list cannot be read
+    // as carrying the category. The append stays, since dropping the fireproofing on a guess is the
+    // worse of the two mistakes.
+    it('still appends when the only element is a reference', async () => {
+        const source = 'Part\n{\n\tTypeCategories = [&/Shared/Cat]\n\tFlammable = false\n}\n';
+        const doc = parse(source);
+        const errors = await validateIgnoredFields(doc, token);
+        const hit = errors.find((e) => e.message.includes('Flammable'));
+        expect(hit!.data?.migration?.apply).toBe('rewrite');
+        expect(applyRewrite(source, hit!.data!.rewrite!.edits)).toContain(
+            'TypeCategories = [&/Shared/Cat, non_flammable]'
+        );
     });
 
     it('appends into a bare-form TypeCategories list too', async () => {
@@ -155,7 +244,7 @@ describe('dead declared fields', () => {
         const errors = await validateIgnoredFields(doc, token);
         const hit = errors.find((e) => e.message.includes('Z'));
         expect(hit).toBeTruthy();
-        expect(hit!.message).toContain('never reads');
+        expect(hit!.message).toContain('does nothing with the value');
         expect(hit!.severity).toBe('hint');
     });
 

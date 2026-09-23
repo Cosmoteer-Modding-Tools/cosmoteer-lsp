@@ -5,7 +5,7 @@ import { AbstractNode, GroupNode, isAssignmentNode, isGroupNode, isListNode, isV
 import { basenameOf } from '../../document/document-kind';
 import { uriToFsPath } from '../../workspace/workspace-files';
 import { appendMemberEdit, replaceSpan, spanIsCurrent, valueSpan } from '../refactor/rules-edit';
-import { clientUri, fileKey, isDerivedPath, reachedAt, walkedPartFor } from './part-table.service';
+import { clientUri, fileKey, isDerivedPath, reachedAt, rewalkedPartFor } from './part-table.service';
 import { PartTableEditHooks, PartTableEditResult } from './part-table.types';
 
 /**
@@ -146,7 +146,9 @@ export const buildPartTableEdit = async (
     text: string,
     hooks: PartTableEditHooks
 ): Promise<PartTableEditResult> => {
-    const entry = walkedPartFor(rowKey);
+    // The part is read again before anything is worked out from it, since the edit is a span of the
+    // text the reader has in front of them and the walk behind the table may be older than it.
+    const entry = await rewalkedPartFor(rowKey);
     if (!entry)
         return { status: 'notFound', message: l10n.t('The table has to be read again before it can be edited.') };
     const written = text.trim();

@@ -9,7 +9,8 @@ const parse = (src: string) => parser(lexer(src), 'file:///t.rules');
  * An in-progress empty assignment (`Type = ` with the value still untyped) must not desync the
  * parser, regardless of line endings. The CRLF form is what a real editor buffer holds on Windows
  * the moment a completion snippet scaffolds `Type = ` or the user deletes a value, and a desync
- * there breaks every schema feature until the value is typed again.
+ * there breaks every schema feature until the value is typed again. The game does refuse a file in
+ * that state, so the dangling `=` is reported, and the tree still has to come out whole.
  */
 describe('empty assignment value at end of line', () => {
     for (const [name, eol] of [
@@ -19,7 +20,9 @@ describe('empty assignment value at end of line', () => {
         it(`keeps the structure intact with ${name} endings`, () => {
             const src = ['Components', '{', '\tFoo', '\t{', '\t\tType = ', '\t}', '\tBar', '\t{', '\t}', '}', ''].join(eol);
             const result = parse(src);
-            expect(result.parserErrors).toEqual([]);
+            expect(result.parserErrors.map((error) => error.message)).toEqual([
+                'This "=" has no value, so the game reads the closing brace as one',
+            ]);
             const document = result.value;
             expect(document.elements).toHaveLength(1);
             const components = document.elements[0] as GroupNode;

@@ -67,18 +67,33 @@ describe.runIf(HAVE_GAME)('the migration and the manifest version list', () => {
         const text = 'ID = test.mod\nName = "Old"\nCompatibleGameVersions = ["0.22.0a"]\nVersion = "1.0"\n';
         const { result, applied } = await migrate(text);
         expect(applied).toBe(
-            `ID = test.mod\nName = "Old"\nCompatibleGameVersions = ["${installed}"]\nVersion = "1.0"\n`
+            `ID = test.mod\nName = "Old"\nCompatibleGameVersions = ["0.22.0a", "${installed}"]\nVersion = "1.0"\n`
         );
         expect(result.byVersion[installed]).toBe(1);
         // Running the migration again over what it produced changes nothing.
         expect((await migrate(applied)).result.edits).toEqual([]);
     });
 
-    it('rewrites a list the build still accepts but that does not name the installed version', async () => {
+    it('adds the installed version to a list the build still accepts, keeping what it names', async () => {
         const info = await readGameVersionInfo(DATA_ROOT);
         const older = info.accepted[0];
         const { applied } = await migrate(`ID = test.mod\nName = "Old"\nCompatibleGameVersions = ["${older}"]\n`);
-        expect(applied).toContain(`["${installed}"]`);
+        expect(applied).toContain(`CompatibleGameVersions = ["${older}", "${installed}"]`);
+    });
+
+    it('keeps the versions a mod names for builds that are not out yet', async () => {
+        // A mod that names the next builds keeps loading through the update that brings them, so
+        // the migration has no business dropping them for a version it is only adding.
+        const text = 'ID = test.mod\nName = "Old"\nCompatibleGameVersions = ["0.29.0", "9.9.9", "9.9.10"]\n';
+        const { applied } = await migrate(text);
+        expect(applied).toContain(`CompatibleGameVersions = ["0.29.0", "9.9.9", "9.9.10", "${installed}"]`);
+    });
+
+    it('writes the installed version once for a list that already names it further along', async () => {
+        const text = `ID = test.mod\nName = "Old"\nCompatibleGameVersions = ["0.22.0a"]\n`;
+        const once = (await migrate(text)).applied;
+        expect((await migrate(once)).applied).toBe(once);
+        expect(once.split(installed)).toHaveLength(2);
     });
 
     it('leaves a manifest that already names the installed version alone', async () => {
@@ -93,7 +108,7 @@ describe.runIf(HAVE_GAME)('the migration and the manifest version list', () => {
     it('rewrites the version list beside the manifest field renames', async () => {
         const text = 'ID = test.mod\nName = "Old"\nCompatibleGameVersions = ["0.22.0a"]\nModifiesMultiplayer = true\n';
         const { applied } = await migrate(text);
-        expect(applied).toContain(`["${installed}"]`);
+        expect(applied).toContain(`"${installed}"]`);
         expect(applied).toContain('ModifiesGameplay = true');
     });
 });

@@ -1,0 +1,15 @@
+// A part that writes one component of its own and inherits the rest, which is how nearly every part
+// of the game and of a mod is written.
+Part : &<base_flow_part.rules>/FlowBase
+{
+	ID = test.inherited_flow
+	Components : ^/0/Components
+	{
+		Drain
+		{
+			Type = ResourceConsumer
+			ResourceType = bullets
+			Storage = Ammo
+		}
+	}
+}

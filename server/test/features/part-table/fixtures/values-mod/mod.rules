@@ -1,0 +1,21 @@
+ID = test.table_values
+Name = "Table values mod"
+Version = 1.0
+CompatibleGameVersions = ["0.30.0"]
+ModifiesVanillaAssets = true
+
+// Parts written the way mods write the values the table used to read wrongly: a turret whose
+// tooltip stats carry a barrel count beside the damage per second the game prints, and a part
+// whose resource id and collider vertices are written as references rather than spelled out.
+Actions
+[
+	{
+		Action = AddMany
+		AddTo = "<ships/terran/terran.rules>/Terran/Parts"
+		ManyToAdd
+		[
+			&<parts/twin_cannon.rules>/Part
+			&<parts/ref_resource.rules>/Part
+		]
+	}
+]

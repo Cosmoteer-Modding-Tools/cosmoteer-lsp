@@ -17,10 +17,14 @@ export const fsPathToUri = (path: string): string => {
     if (path.startsWith('file://')) return path;
     const forward = resolve(path).replace(/\\/g, '/');
     const withLeadingSlash = forward.startsWith('/') ? forward : `/${forward}`;
-    return `file://${withLeadingSlash
+    const encoded = withLeadingSlash
         .split('/')
         .map((segment) => (segment === '' ? '' : encodeURIComponent(segment)))
-        .join('/')}`;
+        .join('/');
+    // A path on a network share carries its host in the two leading slashes, and the host belongs in
+    // the uri's authority rather than in its path, so those two slashes come off. The server spells
+    // such a file the same way, and a run that spelled it differently would key the same file twice.
+    return `file://${forward.startsWith('//') ? encoded.slice(2) : encoded}`;
 };
 
 /**

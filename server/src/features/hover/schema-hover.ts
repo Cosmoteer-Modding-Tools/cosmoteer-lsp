@@ -112,3 +112,4 @@ export const schemaDiscriminatorHover = (node: AbstractNode): string | null => {
     const summary = typeDef(cls)?.description;
     return summary ? `${head}\n\n${summary}` : head;
 };
+ 

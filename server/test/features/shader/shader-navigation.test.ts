@@ -75,4 +75,27 @@ describe('shader go-to-definition', () => {
         expect(found?.path.replace(/\\/g, '/')).toContain('base.shader');
         expect(found?.line).toBe(0);
     });
+
+    // Feature guards are how a Cosmoteer shader is configured: the `#define` above the `#include`
+    // is the line that switches the guarded branch on, so the `#ifdef` testing it navigates there.
+    const GUARDED = [
+        '#define ENABLE_TANGENT',
+        '#include "base.shader"',
+        '#ifdef ENABLE_TANGENT',
+        'float3 t;',
+        '#endif',
+    ].join('\n');
+
+    it('resolves a guard tested by an #ifdef to the #define that switches it on', async () => {
+        const location = await shaderSymbolDefinition(GUARDED, GUARDED.indexOf('ENABLE_TANGENT', 30), uri);
+        expect(location?.range.start.line).toBe(0);
+        expect(location?.range.start.character).toBe('#define '.length);
+    });
+
+    it('still answers nothing for a guard nothing in the chain defines', async () => {
+        // Which includer defines it is a question the tested line cannot answer, so the honest
+        // answer is none: jumping to the `#ifdef` itself would offer a use as a declaration.
+        const tested = '#ifdef NEVER_DEFINED\nfloat3 t;\n#endif';
+        expect(await shaderSymbolDefinition(tested, tested.indexOf('NEVER_DEFINED'), uri)).toBeNull();
+    });
 });

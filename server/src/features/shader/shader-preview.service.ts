@@ -11,7 +11,7 @@ import {
     ValueNode,
 } from '../../core/ast/ast';
 import { existsSync } from 'fs';
-import { join } from 'path';
+import { basename, join } from 'path';
 import { findEnclosingGroup, resolveGroupClass } from '../../document/schema/schema-context';
 import { acceptsShaderConstants } from '../../document/schema/schema';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
@@ -510,6 +510,7 @@ const assignmentRaw = (group: GroupNode, name: string, text: string): string | n
  */
 const missingShaderPreview = (shaderNode: ValueNode): ShaderPreviewData => ({
     shaderName: String(shaderNode.valueType.value),
+    shaderLabel: String(shaderNode.valueType.value),
     shaderUri: null,
     sourceUris: [],
     glsl: null,
@@ -687,6 +688,7 @@ export const buildShaderPreview = async (
 
     return {
         shaderName: String(shaderNode.valueType.value),
+        shaderLabel: basename(shaderPath),
         shaderUri: filePathToUri(shaderPath),
         sourceUris: (files.length ? files : [shaderPath]).map(filePathToUri),
         glsl: translation.ok ? translation.glsl! : null,

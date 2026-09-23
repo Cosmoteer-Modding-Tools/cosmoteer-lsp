@@ -1,7 +1,9 @@
 import { CancellationToken } from 'vscode-languageserver';
 import { AbstractNodeDocument, isAssignmentNode, isValueNode } from '../../core/ast/ast';
-import { basenameOf } from '../../document/document-kind';
+import { basenameOf, isManifestBasename } from '../../document/document-kind';
 import { uriToFsPath } from '../../workspace/workspace-files';
+import { cachedReaddir } from '../../workspace/fs-cache';
+import { join } from 'path';
 import { code, linkDestination, tableCell } from '../report/markdown-link';
 import { Action } from '../../mod/action';
 import { normalizeTargetPath } from '../../mod/action-target-resolver';
@@ -62,7 +64,7 @@ const placeLink = (modRoot: string, place: HealthPlace): string =>
  * @param rows the rows the checks produced.
  * @returns the lines, empty when no check could be answered.
  */
-const healthSection = (modRoot: string, rows: HealthRow[]): string[] => {
+export const healthSection = (modRoot: string, rows: HealthRow[]): string[] => {
     if (rows.length === 0) return [];
     const lines = [`## ${l10n.t('Mod health')}`, ''];
     lines.push(
@@ -74,7 +76,7 @@ const healthSection = (modRoot: string, rows: HealthRow[]): string[] => {
     lines.push(`| ${l10n.t('Check')} | ${l10n.t('Finding')} | ${l10n.t('Where')} |`);
     lines.push('| --- | --- | --- |');
     for (const row of rows) {
-        const mark = row.clear ? '✓' : '⚠';
+        const mark = row.unchecked ? '○' : row.clear ? '✓' : '⚠';
         const places = row.places.map((place) => placeLink(modRoot, place)).join('<br>');
         lines.push(`| ${mark} ${tableCell(row.check)} | ${tableCell(row.finding)} | ${places} |`);
     }
@@ -314,7 +316,7 @@ const reachabilitySection = (modRoot: string, reachability: ModReachability): st
     lines.push('');
     lines.push(
         l10n.t(
-            '{0} of {1} `.rules` files are reachable from the manifest (action sources, their includes and inheritance, and the strings folder). The game never loads the rest.',
+            '{0} of {1} `.rules` and `.txt` files are reachable from the manifest (action sources, their includes and inheritance, and the strings folder). The game never loads the rest.',
             reached,
             total
         )
@@ -368,7 +370,7 @@ const partUnlockSection = (modRoot: string, coverage: PartTechCoverage): string[
  * @param conflicts the collisions the sweep found.
  * @returns the lines, empty when nothing installed writes the same node.
  */
-const conflictSection = (modRoot: string, conflicts: ModConflict[]): string[] => {
+export const conflictSection = (modRoot: string, conflicts: ModConflict[]): string[] => {
     if (conflicts.length === 0) return [];
     const lines: string[] = [];
     lines.push(`## ${l10n.t('Conflicts with installed mods')} (${conflicts.length})`);
@@ -383,8 +385,9 @@ const conflictSection = (modRoot: string, conflicts: ModConflict[]): string[] =>
     lines.push('| --- | --- | --- | --- |');
     for (const conflict of conflicts.slice(0, CONFLICT_LIMIT)) {
         const where = placeLink(modRoot, { file: conflict.file, line: conflict.line });
+        const node = conflict.member ? `${conflict.target}/${conflict.member}` : conflict.target;
         lines.push(
-            `| ${tableCell(code(conflict.key))} | ${conflict.ownVerb}, ${where} | ${conflict.theirVerb}, ${tableCell(conflict.modName)} | ${
+            `| ${tableCell(code(node))} | ${conflict.ownVerb}, ${where} | ${conflict.theirVerb}, ${tableCell(conflict.modName)} | ${
                 conflict.ownsLastWord ? l10n.t('this mod') : tableCell(conflict.modName)
             } |`
         );
@@ -397,11 +400,35 @@ const conflictSection = (modRoot: string, conflicts: ModConflict[]): string[] =>
 };
 
 /**
+ * The manifest of the mod a file belongs to, which is the file the overview reports on.
+ *
+ * The command is offered from any rules file, and every half of the report but the actions is
+ * computed from the mod root already. Read as a manifest, a part file declares no action, which the
+ * report then states as the mod loading nothing at all. So a file that is not a manifest hands over
+ * to the mod's own. A mod names its manifest `mod.rules` or `mod_<version>.rules`, and the plain
+ * name wins where a mod ships both.
+ *
+ * @param modRoot the mod root the asked file lies in.
+ * @param askedPath the on-disk path of the file the command was invoked from.
+ * @returns the manifest's path, or undefined when the root holds none that can be read.
+ */
+const manifestPathOf = async (modRoot: string, askedPath: string): Promise<string | undefined> => {
+    if (isManifestBasename(basenameOf(askedPath))) return askedPath;
+    const entries = await cachedReaddir(modRoot).catch(() => []);
+    const manifests = entries
+        .filter((entry) => entry.isFile() && isManifestBasename(entry.name))
+        .map((entry) => entry.name)
+        .sort();
+    const chosen = manifests.find((name) => name.toLowerCase() === 'mod.rules') ?? manifests[0];
+    return chosen ? join(modRoot, chosen) : undefined;
+};
+
+/**
  * Renders the "what does this mod.rules do" markdown report: the manifest header fields, every
  * action with its verb, target, source and resolution status, and the reachability section listing
  * the `.rules` files no action or include ever pulls in (probable forgotten content).
  *
- * @param manifestUri the mod.rules document uri the overview is requested for.
+ * @param manifestUri the document uri the overview is requested for, a manifest or any file of a mod.
  * @param folderPaths the project folders, for the id index the part-unlock section reads.
  * @param token cancels target resolution and the reachability walk.
  * @param scanned the findings the workspace scan already holds, which the health table reads back
@@ -414,14 +441,15 @@ export const generateModOverview = async (
     token: CancellationToken,
     scanned?: ScanFindings
 ): Promise<string | undefined> => {
-    const manifestPath = uriToFsPath(manifestUri);
     const modRoot = findModRoot(manifestUri);
     if (!modRoot) return undefined;
+    const manifestPath = await manifestPathOf(modRoot, uriToFsPath(manifestUri));
+    if (!manifestPath) return undefined;
     const document = await parseFilePath(manifestPath).catch(() => null);
     if (!document) return undefined;
     const actions = parseModActions(document);
 
-    const header = headerSection(document, manifestUri);
+    const header = headerSection(document, manifestPath);
     // The health table summarizes sections computed further down, so its place is held here and
     // filled once every count it reads is known.
     const healthAt = header.length;

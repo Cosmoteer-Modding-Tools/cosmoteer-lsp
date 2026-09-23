@@ -152,10 +152,15 @@ export const PROJECT_INDEXES: readonly ProjectIndex[] = [
         revision: () => aliasRootIndex.revision,
     },
     {
-        // Dirty marks only. The part table is a derived view rather than an index the server
-        // builds up front, so there is nothing to reset, remove from or revision-sum.
+        // Dirty marks and removals, which are the same call. The part table is a derived view
+        // rather than an index the server builds up front, so there is nothing to reset or to
+        // revision-sum, and a deleted file is a changed one: marking the parts written in it stale
+        // is what makes the next build read them again, find nothing where the file stood, and
+        // drop their rows. Without it a part deleted on disk keeps its row, its values and the
+        // link to the file that is gone.
         name: 'features/part-table/part-table.service',
         markDirty: (uri) => invalidatePartTableFor(uri),
+        remove: (uri) => invalidatePartTableFor(uri),
     },
 ];
 

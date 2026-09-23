@@ -34,6 +34,17 @@ const MAX_OVERRIDE_DEPTH = 8;
 export interface Claim {
     /** The claimed path, folded, either a target node or one member written into it. */
     readonly key: string;
+    /**
+     * The member path as this manifest writes it, group segments included, for the sentence to
+     * quote. Absent for a verb that claims the whole target, which names no member.
+     */
+    readonly written?: string;
+    /**
+     * The target this claim's own action names, as the manifest writes it. Carried per claim
+     * because a `RemoveMany` claims one node per element of its list, and a report that reached
+     * for the action's first target would name the wrong one.
+     */
+    readonly target: string;
     /** The verb behind the claim, which decides the sentence the finding writes. */
     readonly verb: ActionVerb;
 }
@@ -90,15 +101,18 @@ const MAX_FRAGMENT_DEPTH = 4;
 export const claimsOf = (action: Action): Claim[] => {
     if (action.type === 'Unknown') return [];
     const verb = action.type;
-    const targets = action.targets.map((target) => normalizeTargetPath(String(target.valueType.value)).toLowerCase());
-    if (DESTRUCTIVE_VERBS.has(verb)) return targets.map((key) => ({ key, verb }));
+    const targets = action.targets.map((target) => ({
+        written: String(target.valueType.value),
+        key: normalizeTargetPath(String(target.valueType.value)).toLowerCase(),
+    }));
+    if (DESTRUCTIVE_VERBS.has(verb)) return targets.map(({ key, written }) => ({ key, target: written, verb }));
     if (verb !== 'Overrides') return [];
     const claims: Claim[] = [];
-    for (const target of targets) {
+    for (const { key: target, written } of targets) {
         for (const source of action.sources) {
             if (!isGroupNode(source)) continue;
             for (const member of writtenMembersOf(source, '', MAX_OVERRIDE_DEPTH)) {
-                claims.push({ key: `${target}/${member.toLowerCase()}`, verb });
+                claims.push({ key: `${target}/${member.toLowerCase()}`, written: member, target: written, verb });
             }
         }
     }
@@ -243,10 +257,10 @@ export const manifestActionsWithFragments = (manifestPath: string, document: Abs
  *
  * @param verb the other mod's verb.
  * @param name the other mod's display name.
- * @param key the claimed path, for an override's member.
+ * @param claim the claim the two mods share, whose member the sentence quotes.
  * @returns the message.
  */
-const conflictMessage = (verb: ActionVerb, name: string, key: string): string => {
+export const conflictMessage = (verb: ActionVerb, name: string, claim: Claim): string => {
     switch (verb) {
         case 'Replace':
             return l10n.t("'{0}' replaces the same node.", name);
@@ -254,7 +268,13 @@ const conflictMessage = (verb: ActionVerb, name: string, key: string): string =>
         case 'RemoveMany':
             return l10n.t("'{0}' removes the same node.", name);
         default:
-            return l10n.t("'{0}' writes the same member, '{1}'.", name, key.split('/').pop() ?? key);
+            // The member is quoted as this manifest spells it, since that is the file the reader
+            // has open. The folded key is only a fallback, for a claim that carries no member.
+            return l10n.t(
+                "'{0}' writes the same member, '{1}'.",
+                name,
+                claim.written ?? claim.key.split('/').pop() ?? claim.key
+            );
     }
 };
 
@@ -310,7 +330,7 @@ export const validateModConflicts = async (
                 // that order, so the higher id writes last and its version is the one that stands.
                 const winner = ownId > mod.id ? l10n.t('this mod') : mod.name;
                 errors.push({
-                    message: `${conflictMessage(theirVerb, mod.name, claim.key)} ${l10n.t(
+                    message: `${conflictMessage(theirVerb, mod.name, claim)} ${l10n.t(
                         'The game applies mods in id order, so with both enabled {0} wins.',
                         winner
                     )}`,

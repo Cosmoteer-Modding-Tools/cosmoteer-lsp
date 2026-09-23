@@ -45,6 +45,21 @@ Actions
 		OverrideIn = "<resources/testiron.rules>"
 		Overrides = &<testiron_override.rules>
 	}
+	// AddMany into a polymorphic list (`Spawners` is `list<SimSpawner>`): each whole-file element
+	// names its own class through its own `Type=`, so the first fragment roots as ShipSpawner and
+	// the three that follow root to nothing (unknown type, a type from another registry, a body the
+	// dispatched class does not fit).
+	{
+		Action = AddMany
+		AddTo = "<modes/pvp/pvp_gen.rules>/Spawners"
+		ManyToAdd
+		[
+			&<spawner_ships.rules>
+			&<spawner_unknown_type.rules>
+			&<spawner_foreign_type.rules>
+			&<spawner_misfit.rules>
+		]
+	}
 	// An index-based target is skipped (post-patch renumbering), so its fragment stays unrooted.
 	{
 		Action = Replace

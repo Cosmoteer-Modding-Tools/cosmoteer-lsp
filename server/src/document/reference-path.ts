@@ -44,13 +44,15 @@ export const filePathToUri = (path: string): string => {
     if (path.startsWith('file://')) return path;
     const forward = path.replace(/\\/g, '/');
     const withLeadingSlash = forward.startsWith('/') ? forward : '/' + forward;
-    return (
-        'file://' +
-        withLeadingSlash
-            .split('/')
-            .map((segment) => (segment === '' ? '' : encodeURIComponent(segment)))
-            .join('/')
-    );
+    const encoded = withLeadingSlash
+        .split('/')
+        .map((segment) => (segment === '' ? '' : encodeURIComponent(segment)))
+        .join('/');
+    // A network share, `\\server\share\x`, carries its host in the uri's authority, so the two
+    // leading slashes are the `file://` marker itself rather than part of the path. Kept as
+    // `file:////server/…` the host would read as an empty authority plus a rooted path, which is a
+    // second spelling of the same file and matches nothing the uri form of that path is keyed by.
+    return 'file://' + (forward.startsWith('//') ? encoded.slice(2) : encoded);
 };
 
 export const extractSubstrings = (input: string): string[] => {

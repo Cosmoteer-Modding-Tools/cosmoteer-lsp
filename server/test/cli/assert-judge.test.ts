@@ -4,6 +4,7 @@ import { ActionRecord, collectManifestActions } from '../../src/cli/assert/actio
 import { DocumentCache } from '../../src/cli/assert/documents';
 import { isTypableTarget, judgeAction, JudgeContext, targetPathShape } from '../../src/cli/assert/judge';
 import { AssertMark, UnverifiableReason } from '../../src/cli/assert/model';
+import type { ActionPayload } from '../../src/cli/assert/payload';
 import type { LintFinding } from '../../src/cli/findings';
 
 // What the judge answers is the whole product of the load check, so every branch of it is pinned
@@ -11,6 +12,9 @@ import type { LintFinding } from '../../src/cli/findings';
 
 const MOD_DIR = join(__dirname, 'fixtures', 'assert-mod');
 const DATA_DIR = resolve(__dirname, '..', 'fixtures', 'workspace', 'Data');
+
+/** An action whose content the walk reached no file of this mod through, which most of them are. */
+const NO_PAYLOAD: ActionPayload = { files: [], blockers: [], unchecked: [] };
 
 /**
  * The judge context a test runs in: every file counts as checked, and paths are shown relative to
@@ -45,7 +49,11 @@ const fixtureRecords = async (): Promise<ActionRecord[]> => {
  * @param severity the severity it carries, error unless another is given.
  * @returns the finding.
  */
-const findingIn = (record: ActionRecord, message: string, severity: LintFinding['severity'] = 'error'): LintFinding => ({
+const findingIn = (
+    record: ActionRecord,
+    message: string,
+    severity: LintFinding['severity'] = 'error'
+): LintFinding => ({
     file: record.file,
     path: 'mod.rules',
     ruleId: 'mod-action',
@@ -64,7 +72,12 @@ describe('judging the fixture mod', () => {
         const records = await fixtureRecords();
         const targetMissing = new Set([1, 11]);
         const judged = records.map((record, index) =>
-            judgeAction(record, targetMissing.has(index) ? [findingIn(record, 'Action target not found')] : [], context())
+            judgeAction(
+                record,
+                targetMissing.has(index) ? [findingIn(record, 'Action target not found')] : [],
+                context(),
+                NO_PAYLOAD
+            )
         );
         const answers = judged.map(({ verdict }) => [verdict.verb, verdict.mark, verdict.reason ?? verdict.effect]);
         expect(answers).toEqual([
@@ -85,17 +98,21 @@ describe('judging the fixture mod', () => {
 
     it('says what the game does with each failure, which is not the same thing twice', async () => {
         const records = await fixtureRecords();
-        const unknownVerb = judgeAction(records[8], [], context()).verdict;
+        const unknownVerb = judgeAction(records[8], [], context(), NO_PAYLOAD).verdict;
         expect(unknownVerb.detail).toContain('starts without this mod');
-        const missingTarget = judgeAction(records[1], [findingIn(records[1], 'Action target not found')], context())
-            .verdict;
+        const missingTarget = judgeAction(
+            records[1],
+            [findingIn(records[1], 'Action target not found')],
+            context(),
+            NO_PAYLOAD
+        ).verdict;
         expect(missingTarget.detail).toContain('stops loading');
     });
 
     it('discloses every reason it could not judge an action, one entry per action', async () => {
         const records = await fixtureRecords();
         const reasons = records
-            .flatMap((record) => judgeAction(record, [], context()).disclosures)
+            .flatMap((record) => judgeAction(record, [], context(), NO_PAYLOAD).disclosures)
             .map((disclosure) => disclosure.reason);
         for (const reason of [
             'indexed-add-base',
@@ -112,7 +129,7 @@ describe('judging the fixture mod', () => {
 
     it('counts every action exactly once', async () => {
         const records = await fixtureRecords();
-        const marks = records.map((record) => judgeAction(record, [], context()).verdict.mark);
+        const marks = records.map((record) => judgeAction(record, [], context(), NO_PAYLOAD).verdict.mark);
         const counted: Record<AssertMark, number> = { ok: 0, failed: 0, unverifiable: 0 };
         for (const mark of marks) counted[mark]++;
         expect(counted.ok + counted.failed + counted.unverifiable).toBe(records.length);
@@ -122,14 +139,19 @@ describe('judging the fixture mod', () => {
 describe('judging what the check could not reach', () => {
     it('says so when the scan never checked the file the action is in', async () => {
         const records = await fixtureRecords();
-        const judged = judgeAction(records[0], [], context([]));
+        const judged = judgeAction(records[0], [], context([]), NO_PAYLOAD);
         expect(judged.verdict.mark).toBe('unverifiable');
         expect(judged.verdict.reason).toBe('file-not-checked');
     });
 
     it('refuses to explain a finding it does not know, rather than passing it over', async () => {
         const records = await fixtureRecords();
-        const judged = judgeAction(records[0], [findingIn(records[0], 'Something new the server reports')], context());
+        const judged = judgeAction(
+            records[0],
+            [findingIn(records[0], 'Something new the server reports')],
+            context(),
+            NO_PAYLOAD
+        );
         expect(judged.verdict.mark).toBe('failed');
         expect(judged.verdict.effect).toBe('unknown');
         expect(judged.disclosures.map((entry) => entry.reason)).toContain('unknown-finding');
@@ -140,7 +162,8 @@ describe('judging what the check could not reach', () => {
         const judged = judgeAction(
             records[0],
             [findingIn(records[0], 'Mod action cannot target a language string file')],
-            context()
+            context(),
+            NO_PAYLOAD
         );
         expect(judged.verdict.mark).toBe('ok');
         expect(judged.verdict.effect).toBe('no-effect');
@@ -164,7 +187,8 @@ describe('judging what the check could not reach', () => {
         const judged = judgeAction(
             withoutIndex,
             [findingIn(withoutIndex, 'Mod action source has the wrong shape')],
-            context()
+            context(),
+            NO_PAYLOAD
         );
         expect(judged.verdict.mark).toBe('failed');
         expect(judged.verdict.effect).toBe('unknown');
@@ -183,7 +207,8 @@ describe('judging what the check could not reach', () => {
         const judgedAddMany = judgeAction(
             addMany,
             [findingIn(addMany, 'Mod action source has the wrong shape')],
-            context()
+            context(),
+            NO_PAYLOAD
         );
         expect(judgedAddMany.verdict.mark).toBe('failed');
         expect(judgedAddMany.verdict.effect).toBe('mod-dropped');
@@ -194,7 +219,8 @@ describe('judging what the check could not reach', () => {
         const judged = judgeAction(
             records[0],
             [findingIn(records[0], 'This AddBase inserts at an index, which the editor does not follow', 'info')],
-            context()
+            context(),
+            NO_PAYLOAD
         );
         expect(judged.verdict.mark).toBe('ok');
     });

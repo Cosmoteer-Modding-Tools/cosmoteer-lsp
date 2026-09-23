@@ -4,9 +4,9 @@
 
 import { t } from '../shared/strings.js';
 import { GROUPINGS, IDENTITY } from './constants.js';
-import { categoryEl, componentEl, searchEl, sourceEl } from './dom.js';
+import { searchEl } from './dom.js';
 import { headersFor } from './headers.js';
-import { levelLabel, numberOf, orderedKeys, state, textOf, visibleRows } from './state.js';
+import { currentFilter, levelLabel, numberOf, orderedKeys, overrideOf, state, textOf, visibleRows } from './state.js';
 
 /**
  * The unit a column's numbers carry, read off the first row that has the column at all. Every
@@ -38,6 +38,20 @@ export function exportModel() {
     const keys = orderedKeys();
     const grouping = GROUPINGS[state.groupBy];
     const rows = visibleRows();
+    // The screen paints the rows under their groups, so the sheet reads the same way down the page
+    // rather than scattering a group over it. The rows arrive in the sort the reader set, and the
+    // sort is stable, so ordering them by their group labels keeps that sort inside each group. A
+    // group the reader folded away is still exported: the sheet is the whole of what was narrowed
+    // to, and the totals and the live formula columns are written over all of it.
+    if (grouping) {
+        rows.sort((left, right) => {
+            for (const level of grouping.levels) {
+                const order = levelLabel(level, left).localeCompare(levelLabel(level, right));
+                if (order !== 0) return order;
+            }
+            return 0;
+        });
+    }
     const headers = headersFor(keys.filter((key) => !IDENTITY.includes(key) && !key.startsWith('formula:')));
     const columns = keys.map((key) => {
         const shared = { key, width: state.widths[key], frozen: state.frozen.includes(key) };
@@ -56,9 +70,10 @@ export function exportModel() {
         };
     });
     const filters = [];
-    if (categoryEl.value) filters.push({ label: t('Category'), value: categoryEl.value });
-    if (componentEl.value) filters.push({ label: t('Component'), value: componentEl.value });
-    if (sourceEl.value) filters.push({ label: t('Mod'), value: sourceEl.value });
+    const narrowed = currentFilter();
+    if (narrowed.categories[0]) filters.push({ label: t('Category'), value: narrowed.categories[0] });
+    if (narrowed.components[0]) filters.push({ label: t('Component'), value: narrowed.components[0] });
+    if (narrowed.sources[0]) filters.push({ label: t('Mod'), value: narrowed.sources[0] });
     if (state.treeSelection) {
         const selected = state.treeSelection.group
             ? `${state.treeSelection.ship} › ${state.treeSelection.group}`
@@ -78,6 +93,10 @@ export function exportModel() {
                 const value = numberOf(row, key);
                 return value === null ? textOf(row, key) || null : value;
             }),
+            // The view paints a typed-over cell differently from one read out of a file, and the
+            // workbook says which cells those are for the same reason: a reader of the file is
+            // otherwise told a number the game never computed.
+            typed: keys.map((key, index) => (overrideOf(row, key) ? index : -1)).filter((index) => index >= 0),
         })),
         groupHeaders: grouping ? grouping.levels.map((level) => t(level.header)) : undefined,
         mod: state.table.mod || '',

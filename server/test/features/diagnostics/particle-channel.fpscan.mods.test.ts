@@ -41,7 +41,7 @@ const MAX_FINDINGS = 150;
 // do: a `Def` that points into the game tree, a fragment shared by several effects, and updaters
 // copied between mods. This is where a false-positive class shows up that vanilla cannot produce.
 describe.skipIf(!HAVE_DATA)('unused particle channels over the installed mods', () => {
-    let findings: Array<{ file: string; message: string }> = [];
+    const findings: Array<{ file: string; message: string }> = [];
 
     beforeAll(async () => {
         globalSettings.cosmoteerPath = DATA_DIR;

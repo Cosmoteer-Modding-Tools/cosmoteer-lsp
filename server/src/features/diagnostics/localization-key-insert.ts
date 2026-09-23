@@ -8,11 +8,30 @@ import { indentUnitOf, lineEndingOf } from '../refactor/command-host';
 import { parseText } from '../../utils/ast.utils';
 import { safeReaddir } from '../../utils/fs.utils';
 import { offsetToPosition } from '../../utils/text.utils';
+import { foldPathCase } from '../../utils/uri-path';
 import { filePathToUri } from '../../document/reference-path';
 import { findModRoot } from '../../mod/mod-root';
-import { isEnglish, languageOf, LocalizationKeyIndex } from '../completion/localization-key.index';
+import { englishOf, isLanguageFile, languageIdOf, LocalizationKeyIndex } from '../completion/localization-key.index';
 import { uriToFsPath } from '../../workspace/workspace-files';
 import { resolveStringsFolders, isUnderFolder } from '../../mod/strings-folder';
+
+/**
+ * One entry per file or folder, whatever spelling reached it. A manifest that names its folder
+ * `Strings` while the folder on disk is spelled `strings` opens the same folder on Windows and
+ * macOS, so both spellings reach every language file in it. Writing both then puts two edits at
+ * the same place into one workspace edit, and the key lands in the file twice.
+ *
+ * @param paths the paths collected, in the order they were found.
+ * @returns the distinct paths, each in the spelling it was first reached by.
+ */
+const distinctPaths = (paths: readonly string[]): string[] => {
+    const byKey = new Map<string, string>();
+    for (const path of paths) {
+        const key = foldPathCase(path.replace(/[\\/]+/g, '/'));
+        if (!byKey.has(key)) byKey.set(key, path);
+    }
+    return [...byKey.values()];
+};
 
 /**
  * The mod's own language strings files (absolute paths): every `.rules` under its strings folders.
@@ -30,17 +49,17 @@ export const modStringsFiles = async (documentUri: string, cancellationToken: Ca
         isUnderFolder(folder, modRoot)
     );
     const conventional = join(modRoot, 'strings');
-    const folders = [...new Set([...declared, ...(existsSync(conventional) ? [conventional] : [])])];
+    const folders = distinctPaths([...declared, ...(existsSync(conventional) ? [conventional] : [])]);
 
-    const files = new Set<string>();
+    const files: string[] = [];
     for (const folder of folders) {
         for (const name of safeReaddir(folder)) {
             // A readme or changelog parked in the strings folder is prose the game never loads, and
             // writing a key into it puts a translation where no player will ever read it.
-            if (name.toLowerCase().endsWith('.rules') && !isDocumentationFileName(name)) files.add(join(folder, name));
+            if (name.toLowerCase().endsWith('.rules') && !isDocumentationFileName(name)) files.push(join(folder, name));
         }
     }
-    return [...files];
+    return distinctPaths(files);
 };
 
 /** The tab-depth at which a container's direct children are written (document root = 0). */
@@ -87,6 +106,27 @@ interface WritingStyle {
  * @returns the indentation and line ending to write with.
  */
 const styleOf = (text: string): WritingStyle => ({ indent: indentUnitOf(text), lineEnding: lineEndingOf(text) });
+
+/**
+ * One key's text, quoted the way a strings file spells it. The index keeps a string's escape
+ * sequences as they were written, because the game unescapes them only when it renders the text, so
+ * escaping the text again writes a `\n` the player reads as a backslash and an `n`. The only thing
+ * to escape here is a quote standing on its own, which is what a value written as several quoted
+ * runs comes back as.
+ *
+ * @param text the key's text as the index stores it.
+ * @returns the value to write, quotes included.
+ */
+export const quotedValue = (text: string): string => {
+    let written = '';
+    for (let index = 0; index < text.length; index++) {
+        const char = text[index];
+        if (char === '\\' && index + 1 < text.length) written += char + text[++index];
+        else if (char === '\\' || char === '"') written += `\\${char}`;
+        else written += char;
+    }
+    return `"${written}"`;
+};
 
 /** One key a batch declares, with the text that file gets for it. */
 export interface LocalizationKeyInsertion {
@@ -157,7 +197,33 @@ export const insertEditsForFile = (
     document: AbstractNodeDocument,
     text: string,
     insertions: readonly LocalizationKeyInsertion[]
-): TextEdit[] => {
+): TextEdit[] => insertOffsetEditsForFile(document, text, insertions).map((entry) => entry.edit);
+
+/** One insert, with the offset it was measured at beside the edit the client is handed. */
+export interface OffsetInsertEdit {
+    /** The offset in the source the edit inserts at, which is both ends of its own range. */
+    readonly offset: number;
+    /** The edit itself, in the shape the protocol carries. */
+    readonly edit: TextEdit;
+}
+
+/**
+ * {@link insertEditsForFile} with the offset each edit was measured at kept beside it, for a caller
+ * splicing the inserts into the text itself rather than handing them to a client. Converting the
+ * edit's position back to an offset is what a caller would otherwise do, and the two conventions
+ * disagree on a file carrying a lone `\r`, which the game reads as a line break and the protocol
+ * does not.
+ *
+ * @param document the parsed strings file.
+ * @param text that file's source, which the insertion points are measured in.
+ * @param insertions the keys to declare, with the text each of them gets.
+ * @returns the edits in ascending offset order, each with the offset it inserts at.
+ */
+export const insertOffsetEditsForFile = (
+    document: AbstractNodeDocument,
+    text: string,
+    insertions: readonly LocalizationKeyInsertion[]
+): OffsetInsertEdit[] => {
     const byContainer = new Map<AbstractNodeDocument | GroupNode, InsertBranch>();
     const written = new Set<string>();
     for (const insertion of insertions) {
@@ -227,7 +293,7 @@ export const insertEditsForFile = (
             edit: { range: { start: pos, end: pos }, newText: `${lead}${body}${style.lineEnding}` },
         });
     }
-    return edits.sort((a, b) => a.offset - b.offset).map((entry) => entry.edit);
+    return edits.sort((a, b) => a.offset - b.offset);
 };
 
 /**
@@ -258,6 +324,9 @@ export const buildInsertLocalizationKeyEdit = async (
         const text = readOverride?.(file) ?? (await readFile(file, 'utf-8').catch(() => undefined));
         if (text === undefined) continue;
         const document = parseText(text, file);
+        // A fragment or a backup parked in the strings folder is read by nothing, so a translation
+        // written into it reaches no player.
+        if (!isLanguageFile(document)) continue;
         const edit = insertEditForFile(document, text, key, value);
         if (edit) changes[filePathToUri(file)] = [edit];
     }
@@ -269,6 +338,10 @@ export const buildInsertLocalizationKeyEdit = async (
  * the same folder declare and it does not. Each inserted key gets the English text as its value, so
  * the author translates what is already there instead of hunting the sentence down. Returns null
  * when the file is not a strings file of a mod, or when nothing is missing.
+ *
+ * Only a file the game loads as a language is written into, and only with keys the language does
+ * not already render from the base game's file of the same id, so nothing here can paste the game's
+ * own table into a mod.
  *
  * @param documentUri the strings file to fill in.
  * @param folderPaths the project folders the strings index is built from.
@@ -288,23 +361,25 @@ export const buildFillLanguageKeysEdit = async (
     const text = readOverride?.(file) ?? (await readFile(file, 'utf-8').catch(() => undefined));
     if (text === undefined) return null;
     const document = parseText(text, file);
-    const language = languageOf(document);
+    const id = languageIdOf(document);
     const folder = dirname(file);
     const languages = await LocalizationKeyIndex.instance.languageTextsUnder(folder, folderPaths, cancellationToken);
-    const own = languages.find((entry) => entry.language === language);
+    const own = languages.find((entry) => entry.id === id);
     if (!own) return null;
-    const english = languages.find((entry) => isEnglish(entry.language));
+    const english = englishOf(languages);
+    const inherited = await LocalizationKeyIndex.instance.inheritedTextsFor(id, folder, folderPaths, cancellationToken);
 
     const declared = new Set<string>();
     for (const key of own.texts.keys()) declared.add(key.toLowerCase());
+    for (const key of inherited.keys()) declared.add(key.toLowerCase());
     const insertions: LocalizationKeyInsertion[] = [];
     for (const entry of languages) {
-        if (entry.language === language) continue;
+        if (entry.id === id) continue;
         for (const [key, translated] of entry.texts) {
             if (declared.has(key.toLowerCase())) continue;
             declared.add(key.toLowerCase());
             const source = english?.texts.get(key) ?? translated;
-            insertions.push({ key, value: JSON.stringify(source) });
+            insertions.push({ key, value: quotedValue(source) });
         }
     }
     if (insertions.length === 0) return null;

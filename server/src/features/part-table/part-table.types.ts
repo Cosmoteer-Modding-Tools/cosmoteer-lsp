@@ -285,6 +285,8 @@ export interface PartTableWorkbookRow {
     readonly groups?: readonly string[];
     /** The cells, by column: a number, text, or null for a cell the part leaves empty. */
     readonly cells: readonly (number | string | null)[];
+    /** The columns whose cell the reader typed over, so the workbook can say which those are. */
+    readonly typed?: readonly number[];
 }
 
 /** What the view is showing, which is what the workbook is built out of. */

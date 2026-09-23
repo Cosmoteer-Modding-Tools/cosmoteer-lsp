@@ -100,8 +100,13 @@ export interface ShaderPreviewSpriteSheet {
 
 /** The payload the webview consumes. File URIs are converted to data URIs on the client. */
 export interface ShaderPreviewData {
-    /** The shader file name, e.g. `particle_lit.shader`. */
+    /** The shader reference exactly as the material wrote it, e.g. `../particle_lit.shader`. */
     readonly shaderName: string;
+    /**
+     * The short label for the preview's tab: the resolved shader's own file name, or the reference as
+     * written when it resolved to nothing (where the written path is the thing worth reading).
+     */
+    readonly shaderLabel: string;
     /** The `file://` URI of the resolved shader, for the "open shader" affordance. */
     readonly shaderUri: string | null;
     /**

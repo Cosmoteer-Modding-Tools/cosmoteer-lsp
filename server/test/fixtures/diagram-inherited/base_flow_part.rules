@@ -1,0 +1,14 @@
+// The part a derived part in the neighbouring file inherits whole, so every component drawn for
+// that part but declared here has to link into this file.
+FlowBase
+{
+	Components
+	{
+		Ammo
+		{
+			Type = ResourceStorage
+			ResourceType = bullets
+			MaxResources = 40
+		}
+	}
+}

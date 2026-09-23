@@ -3,6 +3,7 @@ import { AbstractNode, AbstractNodeDocument, GroupNode, ListNode, isIdentifierNo
 import * as l10n from '@vscode/l10n';
 import { ParserError, ParserState } from './parser.types';
 import { continueMathExpression } from './parse-expression';
+import { reportOrphanTerminator } from './parse-terminator';
 
 /**
  * True when an identifier read in `parent` is a list element. The game never names list
@@ -76,6 +77,7 @@ export const parseList = (
             if (isValueNode(nextNode) || isIdentifierNode(nextNode)) {
                 nextNode.delimiter = tokens[state.current].type === TOKEN_TYPES.COMMA ? ',' : ';';
             }
+            reportOrphanTerminator(state, state.current);
             state.current++;
             // A comma/semicolon ends the entry, so the next element starts fresh. Clearing
             // `lastNode` lets a leading `-N` read as a negative literal (`[0, -1]` is the pair
