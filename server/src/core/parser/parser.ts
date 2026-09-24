@@ -12,6 +12,7 @@ import { parseCallOrParenGroup } from './parse-function-call';
 import { parseBoolean, parseStrayRightParen, parseValue } from './parse-value';
 import { parseInheritance } from './parse-inheritance';
 import { tokenDisplayText } from './token-display';
+import { reportOrphanTerminator } from './parse-terminator';
 
 // A file this broken carries no usable tree past this point, so parsing stops to bound the work.
 // Deliberately not the user's `maxNumberOfProblems`: the parse result is cached and persisted by
@@ -147,9 +148,7 @@ export const walk = (
  * @returns the document tree and every parse error found while building it.
  */
 export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => {
-    // `walk` travels on the state rather than being imported by each branch module, so the seven
-    // parse-* modules stay one-directional instead of every one of them cycling with this file.
-    const state: ParserState = { tokens, current: 0, errors: [], uri, walk };
+    const state: ParserState = { tokens, current: 0, errors: [], uri };
 
     const ast: AbstractNodeDocument = {
         type: 'Document',
@@ -170,6 +169,7 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
         // `lastNode` so the completed entry is not bound to whatever follows, e.g. a void `Foo;`
         // must not become the identifier of a subsequent `Bar { … }` group.
         if (tokens[state.current].type === TOKEN_TYPES.SEMICOLON || tokens[state.current].type === TOKEN_TYPES.COMMA) {
+            reportOrphanTerminator(state, state.current);
             state.current++;
             state.lastNode = undefined;
             continue;

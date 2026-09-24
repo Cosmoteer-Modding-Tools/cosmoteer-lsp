@@ -1,0 +1,6 @@
+// The content the same action adds beside the refused file, which inherits one hop further into
+// the mod so the walk out of a payload can be exercised.
+Part : &<base.rules>/Base
+{
+	NameKey = "Parts/Read"
+}

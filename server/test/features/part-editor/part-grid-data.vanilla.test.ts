@@ -10,6 +10,7 @@ import {
     CellToValuesLayerData,
     ComponentPointsLayerData,
     EdgeRegionLayerData,
+    PointListLayerData,
     PolygonLayerData,
     RectLayerData,
     RectListLayerData,
@@ -79,6 +80,37 @@ describe.skipIf(!HAVE_DATA)('buildPartGridData over vanilla parts', () => {
             (layer): layer is ComponentPointsLayerData => layer.kind === 'componentPoints'
         )!;
         expect(gizmo.entries.some((entry) => entry.component === 'NozzleGraphics' && entry.location)).toBe(true);
+    });
+
+    it('reads the crew destinations the game writes as math and as references', async () => {
+        // The chaingun states its three destinations in 64ths (`[55/64, 322/64]`), the manipulator
+        // names another component's location once per crew group. Both are cells the game walks
+        // its crew to, so both belong on the grid.
+        const chaingun = (await buildFor('ships/terran/chaingun/chaingun.rules'))!;
+        const destinations = chaingun.layers.find(
+            (layer): layer is PointListLayerData => layer.id === 'Components/PartCrew/CrewDestinations'
+        )!;
+        expect(destinations.points).toHaveLength(3);
+        expect(destinations.points[0].point).toEqual({ x: 1.5, y: 3 });
+
+        const manipulator = (await buildFor(
+            'ships/terran/manipulator_beam_emitter/manipulator_beam_emitter.rules'
+        ))!;
+        const referenced = manipulator.layers.filter(
+            (layer): layer is PointListLayerData =>
+                layer.kind === 'pointList' && layer.fieldName === 'CrewDestinations'
+        );
+        expect(referenced).toHaveLength(4);
+        expect(referenced.every((layer) => layer.points.length === 1)).toBe(true);
+    });
+
+    it('reads the resource level offsets the game writes in 64ths', async () => {
+        const data = (await buildFor('ships/terran/hyperdrive_small/hyperdrive_small.rules'))!;
+        const offsets = data.layers.filter(
+            (layer): layer is PointListLayerData => layer.kind === 'pointList' && layer.entryMember === 'Offset'
+        );
+        expect(offsets.length).toBeGreaterThanOrEqual(1);
+        expect(offsets.every((layer) => layer.points.length > 0)).toBe(true);
     });
 
     it('reads the heat exchanger network ports as cell-direction layers', async () => {

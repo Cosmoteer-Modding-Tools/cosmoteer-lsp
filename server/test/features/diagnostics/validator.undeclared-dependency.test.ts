@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import { readFileSync } from 'fs';
 import { join } from 'path';
 import { CancellationToken } from 'vscode-languageserver';
 import { AbstractNode, AbstractNodeDocument, isValueNode } from '../../../src/core/ast/ast';
@@ -46,6 +47,16 @@ describe('undeclared dependency findings', () => {
         expect(found[0].severity).toBe('information');
     });
 
+    it('does not present the manifest field as something the loader reads', async () => {
+        // `ModInfo` reads ID, Name, Version and the compatible versions and nothing else, so the
+        // dependency line is a note for this editor. A message that hangs the broken distribution
+        // on the missing line reads as a loader rule and makes the quick fix look like the remedy.
+        const [finding] = await findingsFor(UNDECLARED_MOD, DEPENDENCY_MOD);
+        expect(finding.message).toContain('The game reads no dependency field');
+        expect(finding.message).toContain('the player still has to install it');
+        expect(finding.message).not.toContain('the manifest does not list it under Dependencies, so');
+    });
+
     it('says it can never be a full dependency audit', async () => {
         const [finding] = await findingsFor(UNDECLARED_MOD, DEPENDENCY_MOD);
         expect(finding.additionalInfo).toContain('not a full list');
@@ -80,5 +91,34 @@ describe('undeclared dependency findings', () => {
     it('says nothing when nothing was rescued', async () => {
         const document = await parseFilePath(join(UNDECLARED_MOD, 'uses.rules'));
         expect(await undeclaredDependencyErrors(document, new Map(), token)).toEqual([]);
+    });
+});
+
+// The setting's own description is the other place the requirement is explained, and it is read by
+// somebody deciding whether to switch the check on. It said the fix writes the dependency into the
+// manifest, which leaves the entry looking like the thing that repairs the mod.
+describe('the setting description of the undeclared-dependency check', () => {
+    const description = (): string => {
+        const packageJson = JSON.parse(readFileSync(join(FIXTURES_DIR, '..', '..', '..', 'package.json'), 'utf8')) as {
+            contributes: { configuration: { properties: Record<string, { description?: string }> }[] };
+        };
+        for (const category of packageJson.contributes.configuration) {
+            const own = category.properties['cosmoteerLSPRules.diagnostics.validateUndeclaredDependencies'];
+            if (own?.description) return own.description;
+        }
+        throw new Error('setting not contributed');
+    };
+
+    it('says the game reads no dependency field', () => {
+        expect(description()).toContain('The game reads no dependency field');
+    });
+
+    it('says the player still has to install the other mod', () => {
+        expect(description()).toContain('the player still has to install it');
+    });
+
+    it('no longer presents the entry as the thing that repairs the mod', () => {
+        expect(description()).not.toContain('writes the dependency into the manifest');
+        expect(description()).not.toContain('breaks for everybody who does not have it');
     });
 });

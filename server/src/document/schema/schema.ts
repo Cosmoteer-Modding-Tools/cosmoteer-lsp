@@ -721,6 +721,32 @@ export const classByDiscriminator = (disc: string, registryHint?: string): strin
     return candidates[0].cls;
 };
 
+/**
+ * Resolve a `Type=<disc>` discriminator strictly inside one registry family: the named registry or a
+ * registry whose base derives from it (`Type = Ships` is declared by `SimObjectSpawner`, which derives
+ * from the `SimSpawner` a spawner slot is typed as). Unlike {@link classByDiscriminator} this never
+ * falls back to an unrelated registry that happens to declare the same word, which is what a caller
+ * rooting a whole file needs: a fragment carrying `Type = Beam` in a spawner slot must root to nothing
+ * rather than to the media effect of that name.
+ *
+ * @param disc the `Type=<disc>` discriminator value written in the document or group.
+ * @param registryKey the registry FullName the slot is typed as.
+ * @returns the selected class FullName, or undefined when that registry family declares no such member.
+ */
+export const classInRegistry = (disc: string, registryKey: string): string | undefined => {
+    const candidates = discriminatorIndex.get(disc);
+    if (!candidates || candidates.length === 0) {
+        // A renamed discriminator (a mod written against an older game) still selects its class, so
+        // the file keeps typing while the deprecation hint nudges the rename.
+        const replacement = deprecatedDiscriminator(disc)?.replacement;
+        return replacement ? classInRegistry(replacement, registryKey) : undefined;
+    }
+    const match = candidates.find(
+        (candidate) => candidate.registryKey === registryKey || registryDerivesFrom(candidate.registryKey, registryKey)
+    );
+    return match?.cls;
+};
+
 /** A vanilla-shaped sample path for an asset kind, matching the extensions the game ships. */
 const assetExamplePath = (assetKind: string): string => {
     switch (assetKind) {
@@ -1114,13 +1140,14 @@ export const fieldSignatureMarkdown = (field: SchemaField, owningType?: string):
         extra.push(`reference → \`${inner.targetName}\``);
     }
     let signature = extra.length > 0 ? `${head}\n\n${extra.join(' · ')}` : head;
-    // A member the game deleted in an update (with its migration when known) or declares but never
-    // reads: warn right under the signature, so hover and completion tell the truth about dead weight.
+    // A member the game deleted in an update (with its migration when known) or declares and then
+    // does nothing with: warn right under the signature, so hover and completion tell the truth
+    // about dead weight.
     const deprecation = owningType ? deprecatedField(owningType, field.name) : undefined;
     if (deprecation) {
         signature += `\n\n⚠ removed in a newer game version (${deprecation.note})`;
     } else if (field.dead) {
-        signature += "\n\n⚠ declared but never read by the game's code";
+        signature += '\n\n⚠ declared, and the game does nothing with the value';
     }
     // The prose description, when documented, goes below the type signature separated by a rule.
     const described = field.description ? `${signature}\n\n---\n\n${renderDocCrefs(field.description)}` : signature;

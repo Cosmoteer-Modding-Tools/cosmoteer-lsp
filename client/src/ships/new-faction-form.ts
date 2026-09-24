@@ -1,6 +1,6 @@
 import { ExtensionContext, ViewColumn, l10n, window } from 'vscode';
 import { webviewShell } from '../webview-util';
-import { escapeHtml, modFolderName } from '../wizards/wizard-form';
+import { escapeHtml, field, modFolderName } from '../wizards/wizard-form';
 
 /**
  * The form a new faction is described on: its id, the name the game shows, and the colour of its
@@ -170,11 +170,7 @@ ${FORM_STYLES}
 <div class="hint">${escapeHtml(l10n.t('The name the game shows, written to every language file of the mod.'))}</div>
 <div class="error" id="nameError"></div>
 </div>
-<div class="field">
-<label for="color">${escapeHtml(l10n.t('Border colour'))}</label>
-<input id="color" type="color" value="${defaultHex}" /><span class="swatch" id="swatch">${defaultHex}</span>
-<div class="hint">${escapeHtml(l10n.t('The colour of its territory border on the galaxy map.'))}</div>
-</div>
+${field('color', l10n.t('Border colour'), l10n.t('The colour of its territory border on the galaxy map.'), `<input id="color" type="color" value="${defaultHex}" /><span class="swatch" id="swatch">${defaultHex}</span>`)}
 <div class="field">
 <label>${escapeHtml(l10n.t('Icon'))}</label>
 <button class="secondary" id="pickIcon" type="button">${escapeHtml(l10n.t('Pick a PNG…'))}</button>

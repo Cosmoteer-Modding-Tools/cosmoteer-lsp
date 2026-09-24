@@ -296,7 +296,7 @@ const judgePhysicalRect = (part: GroupNode, size: PartSize, errors: ValidationEr
     if (fitsInside(rect, size)) return;
     errors.push({
         message: l10n.t(
-            'PhysicalRect must fit inside the part, and [{0}, {1}, {2}, {3}] leaves a {4} by {5} part, so the game refuses to load it.',
+            'PhysicalRect must fit inside the part, and [{0}, {1}, {2}, {3}] is a {2} by {3} rect at column {0}, row {1}, which reaches past a {4} by {5} part, so the game refuses to load it.',
             rect.x,
             rect.y,
             rect.width,

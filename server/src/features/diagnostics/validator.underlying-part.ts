@@ -4,11 +4,11 @@ import {
     AbstractNode,
     AbstractNodeDocument,
     GroupNode,
-    isAssignmentNode,
     isGroupNode,
     isListNode,
     isValueNode,
 } from '../../core/ast/ast';
+import { memberValueNamed } from '../../utils/ast.utils';
 import { resolveGroupClass } from '../../document/schema/schema-context';
 import { fieldsOf } from '../../document/schema/schema';
 import { findMemberThroughInheritance } from '../../semantics/inheritance-resolver';
@@ -37,26 +37,6 @@ const underlyingSpellings = (): Map<string, string> => {
 };
 
 /**
- * The member written under `name`, matched the case-insensitive way the game matches a member name.
- *
- * @param group the group to read.
- * @param name the member name, in any casing.
- * @returns the member's value, or null when the group does not write it.
- */
-const memberOf = (group: GroupNode, name: string): AbstractNode | null => {
-    const wanted = name.toLowerCase();
-    for (const element of group.elements) {
-        if (isAssignmentNode(element) && element.left.name.toLowerCase() === wanted && element.right) {
-            return element.right;
-        }
-        if ((isGroupNode(element) || isListNode(element)) && element.identifier?.name.toLowerCase() === wanted) {
-            return element;
-        }
-    }
-    return null;
-};
-
-/**
  * The part id a value spells, unquoted, or null for anything this pass cannot read as one name.
  *
  * @param node the written value.
@@ -80,7 +60,8 @@ const partIdOf = (node: AbstractNode | null | undefined): string | null => {
 const instantiatedParts = (document: AbstractNodeDocument): GroupNode[] => {
     const parts: GroupNode[] = [];
     const visit = (node: AbstractNode): void => {
-        if (isGroupNode(node) && memberOf(node, 'ID') && resolveGroupClass(node) === PART_RULES_CLASS) parts.push(node);
+        if (isGroupNode(node) && memberValueNamed(node, 'ID') && resolveGroupClass(node) === PART_RULES_CLASS)
+            parts.push(node);
         if (isGroupNode(node) || isListNode(node)) for (const child of node.elements) visit(child);
     };
     for (const element of document.elements) visit(element);
@@ -117,10 +98,10 @@ export const validateUnderlyingParts = async (
     const spellings = underlyingSpellings();
     for (const part of instantiatedParts(document)) {
         if (cancellationToken.isCancellationRequested) return errors;
-        const id = partIdOf(memberOf(part, 'ID'));
+        const id = partIdOf(memberValueNamed(part, 'ID'));
         if (!id) continue;
         for (const [spelling, field] of spellings) {
-            const local = memberOf(part, spelling);
+            const local = memberValueNamed(part, spelling);
             const written =
                 MemberInjectionIndex.instance.injectedReplacement(part, spelling) ??
                 local ??
@@ -131,7 +112,7 @@ export const validateUnderlyingParts = async (
             if (!underlying || underlying.toLowerCase() !== id.toLowerCase()) continue;
             // An inherited declaration lives in another file, which is not this author's to change,
             // so the finding goes on the part's own id instead.
-            const anchor = written === local ? written : memberOf(part, 'ID');
+            const anchor = written === local ? written : memberValueNamed(part, 'ID');
             if (!anchor) continue;
             errors.push({
                 message: l10n.t(

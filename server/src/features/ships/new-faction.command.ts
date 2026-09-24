@@ -24,12 +24,11 @@ import {
     wireIntoManifest,
 } from './mod-wiring';
 import {
+    NewFactionApply,
     NewFactionApplyResult,
     NewFactionArgs,
-    NewFactionFailure,
     NewFactionHost,
     NewFactionResult,
-    NewFactionScanResult,
 } from './new-faction.types';
 
 /**
@@ -109,44 +108,6 @@ const colorOf = (value: unknown): readonly [number, number, number] | undefined 
     if (channels.some((channel) => channel === undefined)) return undefined;
     return channels as unknown as readonly [number, number, number];
 };
-
-/** A scan result carrying nothing but the reason there is nothing to report. */
-const scanFailed = (failure: NewFactionFailure): NewFactionScanResult => ({
-    kind: 'scan',
-    modRoot: '',
-    modId: '',
-    takenIds: [],
-    takenPlayerIndexes: [],
-    suggestedPlayerIndex: FIRST_FREE_BLOCK,
-    failure,
-});
-
-/** An apply result carrying nothing but the reason nothing was created. */
-const applyFailed = (id: string, failure: NewFactionFailure): NewFactionApplyResult => ({
-    kind: 'apply',
-    id,
-    factionFile: '',
-    galaxyFile: '',
-    beaconFile: '',
-    manifest: '',
-    wiring: {
-        registry: 'noTarget',
-        territory: 'noTarget',
-        tiers: 'noTarget',
-        beacon: 'noTarget',
-        beaconSpawner: 'noTarget',
-        lore: 'skipped',
-    },
-    nameKey: '',
-    localizationFiles: [],
-    placeholderAssets: [],
-    loreKeys: [],
-    militaryPlayerIndex: 0,
-    civilianPlayerIndex: 0,
-    createdFiles: [],
-    changedFiles: [],
-    failure,
-});
 
 /**
  * The id's display form for a localization key, `my_faction` reading as `MyFaction` the way the
@@ -448,7 +409,7 @@ const copyAsset = async (source: string | undefined, target: string): Promise<bo
 };
 
 /** One manifest action to write, keyed by the wiring it reports as. */
-type Wiring = ManifestWiring<keyof NewFactionApplyResult['wiring']>;
+type Wiring = ManifestWiring<keyof NewFactionApply['wiring']>;
 
 /** What the faction's own files are written from, once the game tree has been read. */
 interface FactionPlan {
@@ -613,14 +574,14 @@ const applyRound = async (
     cancellationToken: CancellationToken
 ): Promise<NewFactionApplyResult> => {
     const id = (args.id ?? '').trim();
-    if (!BARE_RULES_ID.test(id)) return applyFailed(id, 'invalidId');
+    if (!BARE_RULES_ID.test(id)) return { kind: 'apply', failure: 'invalidId' };
     const facts = await known(modRoot, host, cancellationToken);
-    if (facts.takenIds.has(id.toLowerCase())) return applyFailed(id, 'idTaken');
+    if (facts.takenIds.has(id.toLowerCase())) return { kind: 'apply', failure: 'idTaken' };
     const files = factionFilesOf(modRoot, id);
-    if (existsSync(files.folder)) return applyFailed(id, 'pathTaken');
+    if (existsSync(files.folder)) return { kind: 'apply', failure: 'pathTaken' };
 
     const game = await resolveGameRoot(host);
-    if (!game) return applyFailed(id, 'noGameRoot');
+    if (!game) return { kind: 'apply', failure: 'noGameRoot' };
 
     const identity = await identityOfMod(modRoot).catch((): ModIdentity => ({ root: modRoot }));
     const prefix = authorPrefixOf(identity.manifestId);
@@ -647,7 +608,7 @@ const applyRound = async (
           ]
         : [];
     const written = await writeFactionFiles(plan, files, args.lore === true, lineEnding);
-    if (!written) return applyFailed(id, 'writeFailed');
+    if (!written) return { kind: 'apply', failure: 'writeFailed' };
     const { created, iconFile, beaconShipFile } = written;
     host.filesChanged(created);
 
@@ -668,7 +629,7 @@ const applyRound = async (
         cancellationToken
     ).catch(() => ({ keys: [], files: [] }));
 
-    const wiring: NewFactionApplyResult['wiring'] = {
+    const wiring: NewFactionApply['wiring'] = {
         registry: 'noTarget',
         territory: 'noTarget',
         tiers: 'noTarget',
@@ -732,7 +693,7 @@ export const newFaction = async (
     const scanning = args.id === undefined;
     const located = modRootFor(args.uri, host.dataRoot());
     if ('failure' in located)
-        return scanning ? scanFailed(located.failure) : applyFailed(args.id ?? '', located.failure);
+        return scanning ? { kind: 'scan', failure: located.failure } : { kind: 'apply', failure: located.failure };
     if (scanning) {
         const identity = await identityOfMod(located.modRoot).catch((): ModIdentity => ({ root: located.modRoot }));
         const facts = await known(located.modRoot, host, cancellationToken);

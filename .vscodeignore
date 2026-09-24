@@ -14,9 +14,6 @@
 .git-blame-ignore-revs
 .githooks/**
 eslint.config.mjs
-# Matched by extension rather than by name: the config is `.mts`, and a `vitest.config.ts` entry
-# stopped matching it without anything saying so.
-vitest.config.*
 esbuild.mjs
 esbuild.cache-id.mjs
 package-lock.json

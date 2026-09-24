@@ -59,13 +59,16 @@ const collect = async (
                 isMathExpressionNode(right) ||
                 isFunctionCallNode(right) ||
                 isReferenceValueNode(right) ||
-                isSuffixedNumberLiteral(right)
+                isSuffixedNumberLiteral(right) ||
+                isQuotedValueNode(right)
             ) {
                 // Math/function results and plain reference assignments (`COST = &<file>/COST`)
                 // both annotate with the number they resolve to. A cross-file or inherited
                 // value is otherwise invisible without tracing it by hand. A bare percentage
                 // literal (`Chance = 50%`) is annotated with its decimal value (`= 0.5 (50%)`),
-                // the form the game's math actually uses, which the source doesn't show.
+                // the form the game's math actually uses, which the source doesn't show. A quoted
+                // value is annotated when it turns out to be an expression, which is how the game
+                // reads one carrying a comma.
                 await emitHint([right], range, cancellationToken, hints);
             } else if (isListNode(right)) {
                 await collectList(right.elements, range, cancellationToken, hints);
@@ -137,10 +140,11 @@ const emitHint = async (
     hints: InlayHint[]
 ): Promise<void> => {
     // Worth annotating if it actually computes (operator / function / math group), OR it is a
-    // lone reference / percentage literal whose resolved number isn't visible in the source.
+    // lone reference / percentage literal / quoted expression whose number isn't visible here.
     const computes =
         group.some((node) => isExpressionNode(node) || isFunctionCallNode(node) || isMathExpressionNode(node)) ||
-        (group.length === 1 && (isReferenceValueNode(group[0]) || isSuffixedNumberLiteral(group[0])));
+        (group.length === 1 &&
+            (isReferenceValueNode(group[0]) || isSuffixedNumberLiteral(group[0]) || isQuotedValueNode(group[0])));
     if (!computes) return;
     const end = endPositionOf(group);
     if (end.line < range.start.line || end.line > range.end.line) return;
@@ -258,9 +262,22 @@ const isReferenceValueNode = (node: AbstractNode): node is ValueNode =>
  * degrees to radians), which is what the inlay hint surfaces. A radians literal keeps its own digits
  * and is annotated for the degrees they are. Mirrors the suffix rules in
  * {@link evaluateNumericValue}'s `evaluateValue`.
+ *
+ * The game rewrites `d` and `r` with a regex that allows no space in front of the letter, so `90 d`
+ * and `2 r` reach mXparser as written and throw while the file loads. mXparser brings its own
+ * percent postfix, which is why `50 %` is a number to the game and is annotated here.
  */
 const isSuffixedNumberLiteral = (node: AbstractNode): node is ValueNode =>
-    isValueNode(node) && !node.quoted && /^-?\d*\.?\d+\s*[%dr]$/.test(String(node.valueType.value));
+    isValueNode(node) && !node.quoted && /^-?\d*\.?\d+(?:\s*%|[dr])$/.test(String(node.valueType.value));
+
+/**
+ * A quoted value. Quoting is how a call carrying a comma is written, since a bare comma would end
+ * the value, so the shape is offered to the evaluator and annotated only when a number comes back.
+ * Anything else stays the string it is: the evaluator re-reads a quoted value as an expression only
+ * when it carries an expression's punctuation, and vanilla's own localization text never does.
+ */
+const isQuotedValueNode = (node: AbstractNode): node is ValueNode =>
+    isValueNode(node) && node.quoted === true && node.valueType.type === 'String';
 
 /** The position just after the last character of an expression segment (where its ` = N` hint sits). */
 const endPositionOf = (nodes: AbstractNode[]): Position => {

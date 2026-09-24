@@ -2,6 +2,7 @@ import { Token, TOKEN_TYPES } from '../../core/lexer/lexer';
 import { AbstractNode } from '../../core/ast/ast';
 import { ValidationError } from './validator';
 import * as l10n from '@vscode/l10n';
+import { isOrphanTerminator } from '../../core/parser/parse-terminator';
 
 /** The tokens that end the member before them, so that the next one starts a member of its own. */
 const MEMBER_BOUNDARIES: ReadonlySet<TOKEN_TYPES> = new Set([
@@ -36,6 +37,13 @@ export const validateRedundantSeparators = (tokens: Token[]): ValidationError[] 
         if ((token.type !== TOKEN_TYPES.SEMICOLON && token.type !== TOKEN_TYPES.COMMA) || parenDepth > 0) {
             continue;
         }
+        // A separator the game refuses is reported as a parse error on the separator itself, so
+        // hinting that it has no effect would both contradict that and repeat it.
+        if (isOrphanTerminator(tokens, i)) continue;
+        // Right after an `=` the separator is the field's value, not a terminator. Removing it
+        // there leaves `X =`, which then binds whatever stands on the next line.
+        const previous = tokens[i - 1]?.type;
+        if (previous === TOKEN_TYPES.EQUALS || previous === TOKEN_TYPES.COLON) continue;
         if (isFollowedByLineBreakOrEof(tokens, i)) {
             errors.push({
                 message: l10n.t('Unnecessary separator'),

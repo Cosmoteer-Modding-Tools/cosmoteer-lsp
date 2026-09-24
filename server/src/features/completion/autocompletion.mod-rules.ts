@@ -5,10 +5,12 @@ import {
     ListNode,
     isListNode,
     isAssignmentNode,
+    isDocumentNode,
     isIdentifierNode,
     isGroupNode,
     isValueNode,
     GroupNode,
+    IdentifierNode,
 } from '../../core/ast/ast';
 import { getStartOfAstNode, namedMembersOf } from '../../utils/ast.utils';
 import { isModRules } from '../../document/document-kind';
@@ -22,8 +24,10 @@ import {
     VERB_SCHEMA,
 } from '../../mod/action';
 import { normalizeTargetPath } from '../../mod/action-target-resolver';
+import { MANIFEST_MEMBERS, ManifestMember, manifestMemberFor, SHIP_LIBRARY_MEMBERS } from '../../mod/mod-manifest';
 import { AutoCompletion, Completion, CompletionSuggestion } from './autocompletion.service.types';
 import { completeRawPath } from './autocompletion.reference-path';
+import { caretInValue, withValueEdit, writtenValueRange } from './completion-range';
 
 const BOOLEAN_VALUES = ['true', 'false'];
 
@@ -115,6 +119,67 @@ const enclosingActionGroup = (node: AbstractNode): GroupNode | undefined => {
 /** Whether `list` is an `Actions` list, matched case-insensitively. */
 const isActionsList = (list: ListNode): boolean => list.identifier?.name.toLowerCase() === 'actions';
 
+/** Whether `list` is the manifest's `ShipLibraries` list, matched the way the game reads names. */
+const isShipLibrariesList = (list: ListNode): boolean => list.identifier?.name.toLowerCase() === 'shiplibraries';
+
+/**
+ * The manifest members legal inside a container: the top level takes what `ModInfo` declares, a
+ * `ShipLibraries [ { … } ]` entry takes the library members, and everything else (an action entry,
+ * a version list, a group a manifest grows later) is served elsewhere or not at all.
+ *
+ * @param container the document or the container the caret sits in.
+ * @returns the member model for that scope, or undefined when the scope takes no manifest member.
+ */
+const manifestScopeOf = (container: AbstractNode | AbstractNodeDocument | undefined): ManifestMember[] | undefined => {
+    if (!container) return undefined;
+    if (isDocumentNode(container)) return MANIFEST_MEMBERS;
+    if (isGroupNode(container) && container.parent && isListNode(container.parent))
+        return isShipLibrariesList(container.parent) ? SHIP_LIBRARY_MEMBERS : undefined;
+    return undefined;
+};
+
+/**
+ * The manifest members a scope does not carry yet, as completions. The names the game binds to the
+ * same member are folded together, so a manifest already carrying the legacy `ModifiesMultiplayer`
+ * is not offered `ModifiesGameplay` beside it, and only the declared spelling is ever suggested.
+ * `partial` filters the candidates, and the one name in `exempt` survives the present-set filter,
+ * because a name the caret is writing over is not a name the manifest keeps.
+ *
+ * @param scope the document or entry group the caret sits in.
+ * @param members the member model for that scope.
+ * @param partial the name text typed so far, empty to offer them all.
+ * @param exempt the written name the caret is about to overwrite, defaulting to `partial`.
+ * @returns one suggestion per member the scope can still take.
+ */
+const manifestMemberCompletions = (
+    scope: { elements: AbstractNode[] },
+    members: ManifestMember[],
+    partial: string,
+    exempt = partial
+): CompletionSuggestion[] => {
+    const present = new Set<string>();
+    for (const [name] of namedMembersOf(scope)) {
+        const member = manifestMemberFor(name, members);
+        present.add((member?.name ?? name).toLowerCase());
+    }
+    const typed = partial.toLowerCase();
+    const written = manifestMemberFor(exempt, members)?.name.toLowerCase() ?? exempt.toLowerCase();
+    return members
+        .map((member, order) => ({ member, order }))
+        .filter(({ member }) => {
+            const key = member.name.toLowerCase();
+            return key.startsWith(typed) && (key === written || !present.has(key));
+        })
+        .map(({ member, order }) => ({
+            label: member.name,
+            kind: CompletionItemKind.Field,
+            detail: member.required ? 'required' : 'optional',
+            // Required members first, and inside each bucket the order `ModInfo` declares them,
+            // which is the order a hand-written manifest reads in.
+            sortText: `${member.required ? '0' : '1'}_${String(order).padStart(2, '0')}_${member.name}`,
+        }));
+};
+
 const verbOf = (actionGroup: GroupNode): string | undefined => {
     for (const element of actionGroup.elements) {
         if (isAssignmentNode(element) && element.left.name.toLowerCase() === 'action' && isValueNode(element.right))
@@ -143,19 +208,30 @@ const fieldNamesForVerb = (verb: ActionVerb): string[] => {
 /**
  * Field-name completions for an action entry: the names valid for its verb (or, if no
  * verb chosen yet, `Action` + the target fields), minus the fields already present.
- * `partial` filters the candidates (and always keeps the field currently being typed).
+ * `partial` filters the candidates, and the one name in `exempt` survives the present-set
+ * filter, because a name the caret is writing over is not a name the entry keeps.
+ *
+ * @param actionGroup the entry the names are offered in.
+ * @param partial the name text typed so far, empty to offer them all.
+ * @param exempt the written name the caret is about to overwrite, defaulting to `partial`.
+ * @returns the field names the entry can still take.
  */
-export const fieldCompletionsForGroup = (actionGroup: GroupNode | undefined, partial = ''): string[] => {
+export const fieldCompletionsForGroup = (
+    actionGroup: GroupNode | undefined,
+    partial = '',
+    exempt = partial
+): string[] => {
     if (!actionGroup) return [];
     const verb = verbOf(actionGroup);
     const candidates = isActionVerb(verb) ? fieldNamesForVerb(verb) : ['Action', ...TARGET_FIELDS];
     const present = presentFieldNames(actionGroup);
     // The game reads these names ignoring case, so a half-typed `addt` must still reach `AddTo`.
     const typed = partial.toLowerCase();
-    return candidates.filter(
-        (name) =>
-            name.toLowerCase().startsWith(typed) && (name.toLowerCase() === typed || !present.has(name.toLowerCase()))
-    );
+    const written = exempt.toLowerCase();
+    return candidates.filter((name) => {
+        const key = name.toLowerCase();
+        return key.startsWith(typed) && (key === written || !present.has(key));
+    });
 };
 
 const containerChildren = (node: GroupNode | ListNode | AbstractNodeDocument): (GroupNode | ListNode)[] => {
@@ -238,9 +314,57 @@ const valueCompletionsForField = async (
 };
 
 /**
+ * The member name the caret is retyping: the name of an assignment or of a written block in
+ * `scope` whose own span holds the offset. A name with a value behind it is no AST leaf, so the
+ * request lands on this offset path rather than on the node path, and the name has to be read back
+ * off the tree or the field being edited counts as one the entry already has.
+ *
+ * The caret on the name's first character is left out. Nothing is being retyped there, the caret is
+ * in front of the name, and a suggestion accepted there is an insert.
+ *
+ * @param scope the container whose members are being written.
+ * @param offset the cursor byte offset.
+ * @returns the identifier the caret sits in, or undefined when it sits in no member name.
+ */
+const editedMemberNameIn = (scope: { elements: AbstractNode[] }, offset: number): IdentifierNode | undefined => {
+    for (const element of scope.elements) {
+        const name = isAssignmentNode(element)
+            ? element.left
+            : (isGroupNode(element) || isListNode(element)) && element.identifier
+              ? element.identifier
+              : undefined;
+        if (name?.position && offset > name.position.start && offset <= name.position.end) return name;
+    }
+    return undefined;
+};
+
+/**
+ * Tags member-name suggestions with the span of the name the caret is retyping, so accepting one
+ * overwrites that name instead of being spliced into it (`Add<caret>To` taking `ManyToAdd` wrote
+ * `AddManyToAddTo`). Every suggestion offered at such a caret carries the span, not only the one
+ * that spells the same name.
+ *
+ * @param completions the member-name suggestions.
+ * @param name the identifier the caret sits in.
+ * @param offset the cursor byte offset, which bounds the insert range.
+ * @returns the tagged suggestions.
+ */
+const withNameEdit = (completions: Completion[], name: IdentifierNode, offset: number): Completion[] => {
+    const position = name.position;
+    if (!position || position.characterEnd - position.characterStart !== name.name.length) return completions;
+    const range = {
+        start: { line: position.line, character: position.characterStart },
+        end: { line: position.line, character: position.characterEnd },
+    };
+    const caret = { line: position.line, character: position.characterStart + (offset - position.start) };
+    return withValueEdit(completions, range, caret);
+};
+
+/**
  * Completions at a byte offset inside a manifest (an empty insertion point, where no leaf node
  * matches): the value of the field being assigned, else the remaining field names inside an action
- * entry, or at the `Actions [ … ]` list level itself, a full action block snippet per verb.
+ * entry, at the `Actions [ … ]` list level itself a full action block snippet per verb, and at the
+ * manifest's own top level or inside a `ShipLibraries` entry the members that scope still takes.
  *
  * @param document the parsed manifest.
  * @param offset the cursor byte offset.
@@ -259,11 +383,20 @@ export const modRulesOffsetCompletions = async (
     if (assignment) {
         return valueCompletionsForField(assignment[1], assignment[2], entry ?? document, cancellationToken);
     }
-    if (entry) return fieldCompletionsForGroup(entry).map(fieldSuggestion);
+    if (entry) {
+        const edited = editedMemberNameIn(entry, offset);
+        const names = fieldCompletionsForGroup(entry, '', edited?.name ?? '').map(fieldSuggestion);
+        return edited ? withNameEdit(names, edited, offset) : names;
+    }
 
     const container = deepestContainerAt(document, offset);
     if (container && isListNode(container) && isActionsList(container)) return verbSnippetSuggestions();
-    return [];
+    const scope = container ?? document;
+    const members = manifestScopeOf(container ?? document);
+    if (!members) return [];
+    const edited = editedMemberNameIn(scope, offset);
+    const names = manifestMemberCompletions(scope, members, '', edited?.name ?? '');
+    return edited ? withNameEdit(names, edited, offset) : names;
 };
 
 /**
@@ -276,10 +409,19 @@ export const modRulesOffsetCompletions = async (
  * Source `&` references are completed by the generic reference completer, so they are left alone.
  */
 export class AutoCompletionModRules implements AutoCompletion<AbstractNode> {
-    public async getCompletions(node: AbstractNode, cancellationToken: CancellationToken): Promise<Completion[]> {
+    public async getCompletions(
+        node: AbstractNode,
+        cancellationToken: CancellationToken,
+        cursorOffset?: number
+    ): Promise<Completion[]> {
         if (!isModRules(getStartOfAstNode(node).uri)) return [];
 
         if (isValueNode(node)) {
+            const value = node;
+            // A verb and a flag are complete values, so the pick replaces the whole written one
+            // rather than landing in front of the tail a caret inside it left standing.
+            const ranged = (completions: Completion[]): Completion[] =>
+                withValueEdit(completions, writtenValueRange(value), caretInValue(value, cursorOffset));
             const field = owningFieldName(node);
             // Lower-cased for the membership checks below, since the game reads names ignoring case.
             const fieldKey = field?.toLowerCase();
@@ -290,19 +432,23 @@ export class AutoCompletionModRules implements AutoCompletion<AbstractNode> {
             const typed = partial.toLowerCase();
 
             if (fieldKey && flagFieldKeys.has(fieldKey)) {
-                return BOOLEAN_VALUES.filter((value) => value.startsWith(typed)).map((value) => ({
-                    label: value,
-                    kind: CompletionItemKind.Value,
-                }));
+                return ranged(
+                    BOOLEAN_VALUES.filter((flag) => flag.startsWith(typed)).map((flag) => ({
+                        label: flag,
+                        kind: CompletionItemKind.Value,
+                    }))
+                );
             }
             // A non-flag boolean literal has nothing else to offer.
             if (node.valueType.type === 'Boolean') return [];
 
             if (fieldKey === 'action') {
-                return ACTION_VERBS.filter((verb) => verb.toLowerCase().startsWith(typed)).map((verb) => ({
-                    label: verb,
-                    kind: CompletionItemKind.Keyword,
-                }));
+                return ranged(
+                    ACTION_VERBS.filter((verb) => verb.toLowerCase().startsWith(typed)).map((verb) => ({
+                        label: verb,
+                        kind: CompletionItemKind.Keyword,
+                    }))
+                );
             }
             if (field && isTargetField(field)) {
                 if (!partial.includes('<')) return ['<./Data/', '<'];
@@ -311,9 +457,17 @@ export class AutoCompletionModRules implements AutoCompletion<AbstractNode> {
             return [];
         }
 
-        // Field-name completion: the identifier being typed inside an action entry.
+        // Field-name completion: the identifier being typed inside an action entry, or, outside
+        // one, the manifest member being typed at the top level or in a ShipLibraries entry. A
+        // half-typed name is an AST leaf, so it never reaches the offset path that serves the
+        // empty line beside it.
         if (isIdentifierNode(node)) {
-            return fieldCompletionsForGroup(enclosingActionGroup(node), node.name).map(fieldSuggestion);
+            const actionGroup = enclosingActionGroup(node);
+            if (actionGroup) return fieldCompletionsForGroup(actionGroup, node.name).map(fieldSuggestion);
+            const scope = node.parent;
+            const members = manifestScopeOf(scope);
+            if (!scope || !members || !('elements' in scope)) return [];
+            return manifestMemberCompletions(scope as { elements: AbstractNode[] }, members, node.name);
         }
 
         return [];

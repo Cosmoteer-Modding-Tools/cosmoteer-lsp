@@ -1,4 +1,5 @@
 import { Token, TOKEN_TYPES } from '../lexer/lexer';
+import { walk } from './parser';
 import {
     AbstractNode,
     AbstractNodeDocument,
@@ -7,11 +8,11 @@ import {
     ValueNode,
     isExpressionNode,
     isIdentifierNode,
+    isListNode,
     isValueNode,
 } from '../ast/ast';
 import * as l10n from '@vscode/l10n';
 import { ParserError, ParserState } from './parser.types';
-import { isListElementIdentifier } from './parse-list';
 
 /**
  * Whether the token an inheritance list is about to collect opens a new member instead of naming
@@ -63,7 +64,7 @@ const collectInheritanceBases = (
             (tokens[state.current].type === TOKEN_TYPES.EXPRESSION && tokens[state.current].value === '/')) &&
         !startsNewMember(state, state.current)
     ) {
-        const nextNode = state.walk(state, lastNode ?? undefined, parent);
+        const nextNode = walk(state, lastNode ?? undefined, parent);
         lastNode = nextNode;
         if (!nextNode) {
             break;
@@ -96,7 +97,7 @@ const collectInheritanceBases = (
             } else if (nextNode.valueType.type === 'Number' && !nextNode.parenthesized) {
                 // Numeric inheritance (e.g. `: 1` for a list element) inherits from
                 // the sibling at that index in the containing list/group. Normalize
-                // to a relative `&<index>` reference, resolved (via isInheritanceMember)
+                // to a relative `&<index>` reference, resolved (via isInheritanceEntry)
                 // against the container: `stepIntoNode` indexes the list by number.
                 nextNode.valueType = {
                     type: 'Reference',
@@ -179,8 +180,7 @@ const bodylessInheritance = (
         elements: [],
         // Named the same way a group with a body is, so the half-written member reads as itself
         // rather than as an anonymous one.
-        identifier:
-            _lastNode && isIdentifierNode(_lastNode) && !isListElementIdentifier(parent) ? _lastNode : undefined,
+        identifier: _lastNode && isIdentifierNode(_lastNode) && !isListNode(parent) ? _lastNode : undefined,
         parent,
         position: {
             characterEnd: lastBase?.position.characterEnd ?? token.lineOffset + 1,
@@ -230,9 +230,9 @@ export const parseInheritance = (
     const inheritanceNodes = collectInheritanceBases(state, parent);
     let right: ListNode | GroupNode | null = null;
     if (tokens[state.current]?.type === TOKEN_TYPES.LEFT_BRACE) {
-        right = state.walk(state, _lastNode, parent) as GroupNode;
+        right = walk(state, _lastNode, parent) as GroupNode;
     } else if (tokens[state.current]?.type === TOKEN_TYPES.LEFT_BRACKET) {
-        right = state.walk(state, _lastNode, parent) as ListNode;
+        right = walk(state, _lastNode, parent) as ListNode;
     }
     if (!right) {
         return bodylessInheritance(state, token, _lastNode, inheritanceNodes, parent);

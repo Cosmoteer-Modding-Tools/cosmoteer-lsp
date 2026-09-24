@@ -2,6 +2,7 @@ package cosmoteer.diagram
 
 import com.google.gson.Gson
 import com.google.gson.JsonObject
+import com.intellij.notification.NotificationType
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ReadAction
@@ -18,6 +19,7 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.wm.ToolWindowManager
 import com.intellij.util.Alarm
 import com.redhat.devtools.lsp4ij.LSPIJUtils
+import cosmoteer.lsp.notifyCosmoteer
 import cosmoteer.lsp.requestFromServer
 import cosmoteer.preview.JcefPageHost
 import cosmoteer.preview.JcefSupport
@@ -81,12 +83,17 @@ class DiagramService(private val project: Project) : Disposable {
         tracked = Triple(kind, file, offset)
         ApplicationManager.getApplication().invokeLater {
             ToolWindowManager.getInstance(project).getToolWindow(TOOL_WINDOW_ID)?.show()
-            render()
+            render(true)
         }
     }
 
-    /** Queries the server for the tracked view and pushes the result into the page. */
-    private fun render() {
+    /**
+     * Queries the server for the tracked view and pushes the result into the page.
+     *
+     * @param announce whether a view the server cannot draw is worth a balloon, which it is when
+     *   the reader just asked for it and not while he types in the file it was built from.
+     */
+    private fun render(announce: Boolean = false) {
         val (kind, file, offset) = tracked ?: return
         val uri = LSPIJUtils.toUri(file).toASCIIString()
         val params = ReadAction.compute<TextDocumentPositionParams?, RuntimeException> {
@@ -104,7 +111,7 @@ class DiagramService(private val project: Project) : Disposable {
                 DiagramKind.EFFECT_CHAIN -> server.effectChainDiagram(params)
             }
         }
-            .thenAccept { data -> postDiagram(data) }
+            .thenAccept { data -> postDiagram(kind, data, announce) }
             .exceptionally { error ->
                 logger<DiagramService>().warn("Diagram request failed", error)
                 null
@@ -112,16 +119,33 @@ class DiagramService(private val project: Project) : Disposable {
     }
 
     /**
-     * Posts a payload into the page, or an empty diagram when the server had none.
+     * Posts a payload into the page, or says why there is none.
      *
+     * A view the server cannot draw leaves the last drawing up and names the caret as the reason,
+     * the way the VS Code panel does. Wiping the page to an empty stage would tell the reader his
+     * part has no wiring, which is not what happened.
+     *
+     * @param kind which view was asked for, which decides the sentence.
      * @param data the payload the server answered with.
+     * @param announce whether the miss is worth a balloon.
      */
-    private fun postDiagram(data: JsonObject?) {
-        val message = JsonObject().apply {
-            addProperty("type", "diagram")
-            if (data != null) add("diagram", data)
+    private fun postDiagram(kind: DiagramKind, data: JsonObject?, announce: Boolean) {
+        if (data == null) {
+            if (!announce) return
+            val reason = when (kind) {
+                DiagramKind.RESOURCE_FLOW -> "the cursor is not inside a part that carries resources."
+                DiagramKind.EFFECT_CHAIN -> "the cursor is not inside a part that fires anything."
+            }
+            ApplicationManager.getApplication().invokeLater {
+                if (project.isDisposed) return@invokeLater
+                notifyCosmoteer(project, "Cosmoteer diagram", "No diagram available: $reason", NotificationType.WARNING)
+            }
+            return
         }
-        page.post(gson.toJson(message))
+        page.post(gson.toJson(JsonObject().apply {
+            addProperty("type", "diagram")
+            add("diagram", data)
+        }))
     }
 
     /** Handles messages the page sends through the shimmed `acquireVsCodeApi().postMessage`. */

@@ -67,7 +67,7 @@ export interface NewPlanetHost extends NewContentHost {
 }
 
 /** What could be created in this mod. */
-export interface NewPlanetScanResult {
+export interface NewPlanetScan {
     kind: 'scan';
     modRoot: string;
     modId: string;
@@ -79,11 +79,12 @@ export interface NewPlanetScanResult {
     bases: PlanetBase[];
     /** The placements the install's spawner file can take. */
     placements: PlanetPlacement[];
-    failure?: NewPlanetFailure;
+    /** Never set here, the field that tells a report from a refusal. */
+    failure?: undefined;
 }
 
 /** What creating the planet did. */
-export interface NewPlanetApplyResult {
+export interface NewPlanetApply {
     kind: 'apply';
     /** The doodad id. */
     id: string;
@@ -101,7 +102,14 @@ export interface NewPlanetApplyResult {
     localizationFiles: string[];
     createdFiles: string[];
     changedFiles: string[];
-    failure?: NewPlanetFailure;
+    /** Never set here, the field that tells a report from a refusal. */
+    failure?: undefined;
 }
+
+/** What the scan round answers: the report, or nothing but the reason there is none. */
+export type NewPlanetScanResult = NewPlanetScan | { kind: 'scan'; failure: NewPlanetFailure };
+
+/** What the apply round answers: what was created, or nothing but the reason nothing was. */
+export type NewPlanetApplyResult = NewPlanetApply | { kind: 'apply'; failure: NewPlanetFailure };
 
 export type NewPlanetResult = NewPlanetScanResult | NewPlanetApplyResult;

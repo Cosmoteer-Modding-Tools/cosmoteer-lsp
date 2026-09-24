@@ -40,6 +40,12 @@ export class CosmoteerWorkspaceService {
     private static _instance: CosmoteerWorkspaceService;
     private _connection!: Connection;
     private isInitalized = false;
+    /** The Data root the tree currently in hand was built from, so a second call naming the same
+     *  install is the no-op it used to be while one naming another install rebuilds. */
+    private initializedPath: string | undefined;
+    /** The Data root a build is running for, so two quick settings edits cannot interleave two
+     *  walks onto one tree. */
+    private buildingPath: string | undefined;
 
     private constructor() {}
 
@@ -168,7 +174,7 @@ export class CosmoteerWorkspaceService {
      * @returns the verified Cosmoteer `Data` path, or `undefined` when detection fails.
      */
     private async detectCosmoteerPath(): Promise<string | undefined> {
-        for (const steamInstallPath of await this.getSteamInstallPaths()) {
+        for (const steamInstallPath of await steamInstallPaths()) {
             const dataPath = await findCosmoteerDataPath(steamInstallPath);
             if (dataPath) return dataPath;
         }
@@ -176,17 +182,19 @@ export class CosmoteerWorkspaceService {
     }
 
     /**
-     * Resolves the Steam client install dir candidates for the current platform. On Windows this
-     * is the registry's `InstallPath` value, elsewhere the conventional install locations.
+     * Scans a Cosmoteer install into the file tree every game-data check reads.
      *
-     * @returns the candidate Steam client dirs, empty when none could be resolved.
+     * Idempotent per install rather than per process: a session that points the setting at another
+     * install rebuilds against it, which is what the user asked for, while a second call naming the
+     * install already in hand stays the no-op it always was. The new tree is built into a local and
+     * swapped in one assignment, so the tree in hand keeps answering until the replacement is whole,
+     * and a path that cannot be read leaves the session on the install it was working with rather
+     * than on nothing.
+     *
+     * @param cosmoteerWorkspacePath the configured path, anywhere from `common` down to `Data`.
+     * @param workDoneProgress the reporter for the walk, always closed before this returns.
      */
-    private async getSteamInstallPaths(): Promise<string[]> {
-        return steamInstallPaths();
-    }
-
     public async initialize(cosmoteerWorkspacePath: string, workDoneProgress: WorkDoneProgressReporter) {
-        if (this.isInitalized) return;
         const dataRoot = toDataRoot(cosmoteerWorkspacePath);
         if (!dataRoot) {
             this._connection.window.showWarningMessage(
@@ -195,18 +203,25 @@ export class CosmoteerWorkspaceService {
             workDoneProgress.done();
             return;
         }
+        if (dataRoot === this.initializedPath || dataRoot === this.buildingPath) {
+            workDoneProgress.done();
+            return;
+        }
         cosmoteerWorkspacePath = dataRoot;
+        this.buildingPath = dataRoot;
         try {
             const dirents = await this.iterateFiles(cosmoteerWorkspacePath);
-            this._fileWorkspaceTree = {
+            const tree: FileTree = {
                 type: 'Dir',
                 name: 'Data',
                 path: cosmoteerWorkspacePath,
                 children: [],
             };
 
-            await this.buildFileStructure(this._fileWorkspaceTree, dirents);
-            if (this._fileWorkspaceTree.children && this._fileWorkspaceTree.children.length > 0) {
+            await this.buildFileStructure(tree, dirents);
+            if (tree.children.length > 0) {
+                this._fileWorkspaceTree = tree;
+                this.initializedPath = cosmoteerWorkspacePath;
                 this.isInitalized = true;
                 this._connection.languages.diagnostics.refresh();
             } else {
@@ -227,6 +242,7 @@ export class CosmoteerWorkspaceService {
                 )
             );
         } finally {
+            if (this.buildingPath === dataRoot) this.buildingPath = undefined;
             workDoneProgress.done();
         }
     }

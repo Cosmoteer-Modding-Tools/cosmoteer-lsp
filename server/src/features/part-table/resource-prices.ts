@@ -67,8 +67,11 @@ const readResourceFile = async (fsPath: string, into: Map<string, number>, token
     const members = topLevelMembers(file.document.elements);
     const id = members.get(ID_MEMBER);
     const price = members.get(PRICE_MEMBER);
-    if (!id || !isValueNode(id) || !price) return;
-    const value = await evaluateNumericValue(price, token).catch(() => null);
+    if (!id || !isValueNode(id)) return;
+    // `BuyPrice` is an optional int, so a resource that names no price is one the game buys for
+    // nothing rather than one nobody prices. A price that is written but will not fold is the
+    // unknown one, and it keeps the resource out of the map.
+    const value = price ? await evaluateNumericValue(price, token).catch(() => null) : 0;
     if (value === null) return;
     into.set(String(id.valueType.value).trim().toLowerCase(), value);
 };

@@ -1,10 +1,6 @@
 import { CancellationToken } from 'vscode-languageserver';
 import { AbstractNode, AbstractNodeDocument, GroupNode, isGroupNode, isListNode } from '../../../core/ast/ast';
-import { findModRoot } from '../../../mod/mod-root';
-import { globalSettings } from '../../../settings';
-import { CosmoteerWorkspaceService } from '../../../workspace/cosmoteer-workspace.service';
-import { foldPathCase } from '../../../workspace/fs-cache';
-import { workshopContentDir } from '../../../workspace/workshop-dir';
+import { editableModRootOf } from '../../../mod/write-gate';
 import { isCoveredByFolders, normalizeUri } from '../../../document/reference-location';
 import { uriToFsPath } from '../../../workspace/workspace-files';
 import { Candidate, candidatesInFile, MIN_FIELDS } from './duplicate-field.analysis';
@@ -34,35 +30,9 @@ const participantUris = (plan: ExtractionPlan): Set<string> => {
     return uris;
 };
 
-/**
- * Whether a file is one the extraction may ever touch, and which tree it is compared within.
- *
- * Normally that is a mod the user is editing, found by its manifest, and never the game's own `Data`
- * tree or somebody else's installed workshop mod: the duplication in the game's files is real and
- * large, and offering to rewrite them would edit an install the user does not own.
- *
- * The game tree is doubly invisible, because it carries no manifest either, so a developer working on
- * the game data itself is served by `allowEditingVanillaFiles`, the one switch every refactoring
- * reads. With it on, the data root stands in for the missing manifest and becomes the tree those
- * files are compared within and the directory a generated base file is placed relative to. An
- * installed workshop mod is somebody else's either way, so that refusal has no switch.
- *
- * @param fsPath the file's on-disk path.
- * @returns the root of the tree the file is compared within, or undefined when it must be left alone.
- */
-export const editableModRootOf = (fsPath: string): string | undefined => {
-    const key = foldPathCase(fsPath.replace(/\\/g, '/'));
-    const workshop = workshopContentDir();
-    if (workshop && key.startsWith(`${foldPathCase(workshop.replace(/\\/g, '/'))}/`)) return undefined;
-    const dataRoot = CosmoteerWorkspaceService.instance.dataRootPath?.replace(/\\/g, '/');
-    if (dataRoot && key.startsWith(`${foldPathCase(dataRoot)}/`)) {
-        if (!globalSettings.allowEditingVanillaFiles) return undefined;
-        // A mod somebody unpacked into the game tree is still its own project, so a manifest inside
-        // the data root keeps winning over the data root itself.
-        return findModRoot(fsPath) ?? dataRoot;
-    }
-    return findModRoot(fsPath) ?? undefined;
-};
+// The gate that says which trees a command may write, which lives beside the mod roots it is
+// asked about. Re-exported here because every refactoring reads it through this module.
+export { editableModRootOf };
 
 /**
  * The extraction plans that involve the given document, computed against the files it is compared

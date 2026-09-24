@@ -9,7 +9,6 @@ import {
     isMathExpressionNode,
     isValueNode,
 } from '../core/ast/ast';
-import { EffectiveMemberEntry } from './effective-group.types';
 
 /**
  * Comparing one written declaration against another, for the reports that answer "what does this
@@ -26,24 +25,6 @@ import { EffectiveMemberEntry } from './effective-group.types';
  * different declarations in the file, and a report that folded them together would be answering a
  * question about arithmetic rather than about what the mod writes.
  */
-
-/** What a member does to the declaration it is compared against. */
-export type DiffVerdict =
-    | /** The other side writes no member under this name. */ 'added'
-    | /** Both write the name, with declarations that differ. */ 'changed'
-    | /** Both write the name, with the same declaration. */ 'identical'
-    | /** Only the other side writes the name. */ 'removed';
-
-/** One member, as the two sides write it. */
-export interface MemberDiffRow {
-    /** The name as written on whichever side writes it. */
-    readonly name: string;
-    /** The declaration being compared against, null when that side does not write the name. */
-    readonly theirs: AbstractNode | null;
-    /** The declaration being judged, null when this side does not write the name. */
-    readonly mine: AbstractNode | null;
-    readonly verdict: DiffVerdict;
-}
 
 /**
  * The structural signature of a declaration, which two declarations are equal by.
@@ -90,42 +71,3 @@ const basesOf = (node: AbstractNode & { inheritance?: readonly AbstractNode[] })
  */
 export const declarationsMatch = (theirs: AbstractNode | null, mine: AbstractNode | null): boolean =>
     signatureOf(theirs) === signatureOf(mine);
-
-/**
- * Compares two flattened member sets, name by name.
- *
- * Names are matched case-insensitively, the way the game matches them. The rows come out in the
- * order the judged side writes them, with the names only the other side writes after them, so a
- * reader following the file from the top reads the table in the same order.
- *
- * @param theirs the member set being compared against.
- * @param mine the member set being judged.
- * @returns one row per name either side writes.
- */
-export const diffMemberSets = (
-    theirs: readonly EffectiveMemberEntry[],
-    mine: readonly EffectiveMemberEntry[]
-): MemberDiffRow[] => {
-    const theirsByName = new Map<string, EffectiveMemberEntry>();
-    for (const member of theirs) theirsByName.set(member.name.toLowerCase(), member);
-
-    const rows: MemberDiffRow[] = [];
-    const seen = new Set<string>();
-    for (const member of mine) {
-        const key = member.name.toLowerCase();
-        seen.add(key);
-        const other = theirsByName.get(key);
-        rows.push({
-            name: member.name,
-            theirs: other?.value ?? null,
-            mine: member.value,
-            verdict: !other ? 'added' : declarationsMatch(other.value, member.value) ? 'identical' : 'changed',
-        });
-    }
-    for (const member of theirs) {
-        const key = member.name.toLowerCase();
-        if (seen.has(key)) continue;
-        rows.push({ name: member.name, theirs: member.value, mine: null, verdict: 'removed' });
-    }
-    return rows;
-};

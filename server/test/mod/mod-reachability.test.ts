@@ -146,6 +146,48 @@ describe('computeModReachability with a virtual-inheritance Actions list', () =>
     });
 });
 
+describe('computeModReachability with an assigned Actions list', () => {
+    // `Actions = &<acts/list.rules>/Actions`. The game reads the list with TryReadFromPath, which
+    // dereferences the path and opens the referenced file, so the whole mod hangs off that one ref.
+    // Before this was seeded, only mod.rules was reachable and every other file of the mod was
+    // reported as content the game never loads.
+    const ASSIGN_DIR = join(FIXTURES_DIR, 'reachability-mod-actionsassign');
+    let reachable: Set<string>;
+    let unreachable: string[];
+
+    beforeAll(async () => {
+        const result = await computeModReachability(ASSIGN_DIR, token);
+        expect(result).toBeDefined();
+        reachable = result!.reachable;
+        unreachable = result!.unreachable.map((file) => relativeToMod(ASSIGN_DIR, file)).sort();
+    });
+
+    const has = (rel: string): boolean => reachable.has(reachabilityKey(join(ASSIGN_DIR, rel)));
+
+    it('reaches the assigned action file and the parts its actions add', () => {
+        expect(has('acts/list.rules')).toBe(true);
+        expect(has('parts/p.rules')).toBe(true);
+    });
+
+    it('still reports a file nothing wires in', () => {
+        // The negative control: the seed must not turn into "everything under the mod is reachable".
+        expect(unreachable).toEqual(['orphan.rules']);
+    });
+});
+
+describe('computeModReachability with an inheriting action source', () => {
+    // `Overrides : &<shared.rules>` names the source's content in the inheritance list rather than
+    // in its body. The game merges the bases in before it reads the members, so the file is loaded.
+    const INHERIT_DIR = join(FIXTURES_DIR, 'override-inherit-mod');
+
+    it('reaches the file an action source inherits from', async () => {
+        const result = await computeModReachability(INHERIT_DIR, token);
+        expect(result).toBeDefined();
+        expect(result!.reachable.has(reachabilityKey(join(INHERIT_DIR, 'shared.rules')))).toBe(true);
+        expect(result!.unreachable).toEqual([]);
+    });
+});
+
 describe('generateModOverview', () => {
     let markdown: string;
 
@@ -183,7 +225,7 @@ describe('generateModOverview', () => {
     });
 
     it('explains the root cosmoteer.rules convention instead of implying it was forgotten', () => {
-        expect(markdown).toContain('never loads the mod\'s copy');
+        expect(markdown).toContain("never loads the mod's copy");
     });
 
     it('annotates dead chains with their unreachable referencer', () => {
@@ -217,7 +259,11 @@ describe('revival chains', () => {
         const result = await computeModReachability(REVIVAL_DIR, token);
         expect(result).toBeDefined();
         deadEdges = result!.deadEdges;
-        markdown = (await generateModOverview(pathToFileURL(join(REVIVAL_DIR, 'mod.rules')).href, [REVIVAL_DIR], token))!;
+        markdown = (await generateModOverview(
+            pathToFileURL(join(REVIVAL_DIR, 'mod.rules')).href,
+            [REVIVAL_DIR],
+            token
+        ))!;
     });
 
     it('keeps only the references a dead file really makes', () => {
@@ -243,7 +289,9 @@ describe('revival chains', () => {
     });
 
     it('points at the commented-out line that disabled the chain', () => {
-        expect(markdown).toMatch(/\[dead\/head\.rules\]\([^)]+\) · brings 2 files back with it ← \[wired\/live\.rules\]\(/);
+        expect(markdown).toMatch(
+            /\[dead\/head\.rules\]\([^)]+\) · brings 2 files back with it ← \[wired\/live\.rules\]\(/
+        );
     });
 
     it('leaves out a file whose only onward reference is commented out', () => {

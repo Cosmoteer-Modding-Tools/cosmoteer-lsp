@@ -52,8 +52,36 @@ describe('validateSchema: invalid enum values', () => {
         expect(await validateSchema(doc, token)).toHaveLength(0);
     });
 
-    it('ignores mod.rules documents', async () => {
+    // A manifest used to be exempt as a whole file, which left the content a mod installs unjudged
+    // although the rooting engine types it. The content is judged now, and the action grammar
+    // around it, which belongs to no schema class, still is not.
+    it('judges content written in a mod.rules manifest', async () => {
         const doc = parse(wrap('\t\t\tMode = Nonsense'), 'file:///mod.rules');
+        const errors = await validateSchema(doc, token);
+        expect(errors).toHaveLength(1);
+        expect(errors[0].message).toContain('Nonsense');
+    });
+
+    it('says nothing about the action grammar of a manifest', async () => {
+        const doc = parse(
+            [
+                'ID = test.manifest',
+                'Actions',
+                '[',
+                '\t{',
+                '\t\tAction = Overrides',
+                '\t\tOverrideIn = "<ships/terran/armor/armor.rules>/Part"',
+                '\t\tCreateIfNotExisting = true',
+                '\t\tOverrides',
+                '\t\t{',
+                '\t\t\tMaxHealth = 100',
+                '\t\t}',
+                '\t}',
+                ']',
+                '',
+            ].join('\n'),
+            'file:///mod.rules'
+        );
         expect(await validateSchema(doc, token)).toHaveLength(0);
     });
 });
@@ -630,5 +658,69 @@ describe('validateSchema: value-form list elements resolve their registry', () =
         expect(
             await validateSchema(status('ApplicationEffects\n[\n\t{\n\t\tType = ExplosiveDamage\n\t}\n]'), token)
         ).toHaveLength(0);
+    });
+});
+
+// The engine reads a `[Flags]` enum member by member through FlagsEnumSerializer.Read, which calls
+// the same case-sensitive `Enum.Parse` the scalar spelling gets and throws on the first member the
+// enum does not have. Vanilla writes these fields only in list form, so the list spelling is the
+// one that has to be judged.
+describe('validateSchema: enum values written as a list', () => {
+    const part = (body: string) => parse(`Part\n{\n\tID = cosmoteer.test\n${body}\n}\n`);
+
+    it('flags a flag the enum does not have inside the list form', async () => {
+        const errors = await validateSchema(part('\tExternalWalls = [ZzCorner]'), token);
+        expect(errors).toHaveLength(1);
+        expect(errors[0].message).toContain('ZzCorner');
+        expect(errors[0].message).toContain('AdjacencyFlags');
+    });
+
+    it('says nothing about a list of real flags', async () => {
+        expect(await validateSchema(part('\tExternalWalls = [TopLeft, Bottom, Left]'), token)).toEqual([]);
+    });
+
+    it('flags only the bad element of a mixed list', async () => {
+        const errors = await validateSchema(part('\tAllowedContiguity = [Top, ZzBogus, Left]'), token);
+        expect(errors).toHaveLength(1);
+        expect(errors[0].message).toContain('ZzBogus');
+    });
+
+    it('flags a bad flag inside a per-cell map entry', async () => {
+        const errors = await validateSchema(
+            part('\tExternalWallsByCell\n\t[\n\t\t{\n\t\t\tKey = [0, 1]\n\t\t\tValue = [ZzCorner]\n\t\t}\n\t]'),
+            token
+        );
+        expect(errors).toHaveLength(1);
+        expect(errors[0].message).toContain('ZzCorner');
+    });
+
+    it('says nothing about a per-cell map entry written correctly', async () => {
+        expect(
+            await validateSchema(
+                part(
+                    '\tExternalWallsByCell\n\t[\n\t\t{\n\t\t\tKey = [0, 1]\n\t\t\tValue = [TopLeft, Bottom]\n\t\t}\n\t]'
+                ),
+                token
+            )
+        ).toEqual([]);
+    });
+
+    it('flags a list-typed enum field in both of its spellings', async () => {
+        const inList = await validateSchema(part('\tDefaultEditorHotkey = [ZzKey]'), token);
+        expect(inList).toHaveLength(1);
+        expect(inList[0].message).toContain('ViKey');
+        const asWord = await validateSchema(part('\tDefaultEditorHotkey = ZzKey'), token);
+        expect(asWord).toHaveLength(1);
+        expect(asWord[0].message).toContain('ViKey');
+        expect(await validateSchema(part('\tDefaultEditorHotkey = [Control, A]'), token)).toEqual([]);
+    });
+
+    it('accepts the comma-combined and numeric spellings the game parses', async () => {
+        // `Enum.Parse` reads a comma-separated combination and a numeric literal for any enum type,
+        // so both load in game and neither is a finding.
+        expect(await validateSchema(part('\tExternalWalls = "Top, Right"'), token)).toEqual([]);
+        expect(await validateSchema(part('\tExternalWalls = "6"'), token)).toEqual([]);
+        const errors = await validateSchema(part('\tExternalWalls = "Top, ZzBogus"'), token);
+        expect(errors).toHaveLength(1);
     });
 });

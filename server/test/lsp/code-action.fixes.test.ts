@@ -1,13 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { Diagnostic } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
+import { join } from 'path';
+import { pathToFileURL } from 'url';
+import { CancellationToken } from 'vscode-languageserver';
 import {
+    crossFileFixActions,
     fixAllAction,
     fixOffsetsAreCurrent,
     quotedLikeSource,
     textFixActions,
 } from '../../src/lsp/handlers/code-action.handlers';
 import { ValidationErrorData } from '../../src/features/diagnostics/validator';
+import { FIXTURES_DIR } from '../helpers';
 
 const URI = 'file:///c%3A/mod/parts/qf_part.rules';
 
@@ -131,9 +136,13 @@ describe('a did-you-mean fix on a quoted value', () => {
         const text = 'Part\n{\n\tFile = "icno.png"\n}\n';
         const doc = document(text);
         const start = text.indexOf('"icno.png"');
-        const diagnostic = finding(doc, { start, end: start + '"icno.png"'.length }, {
-            quickFix: { title: "Change to 'icon.png'", newText: 'icon.png' },
-        });
+        const diagnostic = finding(
+            doc,
+            { start, end: start + '"icno.png"'.length },
+            {
+                quickFix: { title: "Change to 'icon.png'", newText: 'icon.png' },
+            }
+        );
         const [action] = textFixActions(doc, URI, diagnostic);
         expect(action.edit!.changes![URI][0].newText).toBe('"icon.png"');
     });
@@ -142,9 +151,13 @@ describe('a did-you-mean fix on a quoted value', () => {
         const text = 'Part\n{\n\tNameKey = "Parts/QfPar"\n}\n';
         const doc = document(text);
         const start = text.indexOf('"Parts/QfPar"');
-        const diagnostic = finding(doc, { start, end: start + '"Parts/QfPar"'.length }, {
-            quickFix: { title: "Change to 'Parts/QfPart'", newText: 'Parts/QfPart' },
-        });
+        const diagnostic = finding(
+            doc,
+            { start, end: start + '"Parts/QfPar"'.length },
+            {
+                quickFix: { title: "Change to 'Parts/QfPart'", newText: 'Parts/QfPart' },
+            }
+        );
         const [action] = textFixActions(doc, URI, diagnostic);
         expect(action.edit!.changes![URI][0].newText).toBe('"Parts/QfPart"');
     });
@@ -167,14 +180,54 @@ describe('a did-you-mean fix on a quoted value', () => {
         const text = 'Part\n{\n\tX = "roud((&A), 2)"\n}\n';
         const doc = document(text);
         const start = text.indexOf('roud');
-        const diagnostic = finding(doc, { start, end: start + 'roud'.length }, {
-            quickFix: { title: 'Change to "round"', newText: 'round' },
-        });
+        const diagnostic = finding(
+            doc,
+            { start, end: start + 'roud'.length },
+            {
+                quickFix: { title: 'Change to "round"', newText: 'round' },
+            }
+        );
         const [action] = textFixActions(doc, URI, diagnostic);
         expect(action.edit!.changes![URI][0].newText).toBe('round');
     });
 
     it('does not quote a suggestion that already carries its own quotes', () => {
         expect(quotedLikeSource('"a"', '"b"')).toBe('"b"');
+    });
+});
+
+// The game's `ModInfo` reads ID, Name, Version and the compatible versions and nothing else, so a
+// `Dependencies` entry is a statement of the requirement rather than something the loader acts on.
+// A title reading "Add to the manifest's Dependencies" invites the author to take the entry for the
+// remedy, which the diagnostic beside it says it is not.
+describe('the quick fix that records a mod dependency', () => {
+    const UNDECLARED_MOD = join(FIXTURES_DIR, 'undeclared-dep-mod');
+    const uri = pathToFileURL(join(UNDECLARED_MOD, 'uses.rules')).href;
+
+    /** The cross-file actions offered for a finding that names an undeclared mod. */
+    const actionsFor = () =>
+        crossFileFixActions(
+            {
+                textDocument: { uri },
+                range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
+                context: { diagnostics: [] },
+            },
+            { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, message: 'finding' },
+            { addModDependency: { token: 'Test.DependencyMod', name: 'Dependency Fixture' } },
+            CancellationToken.None
+        );
+
+    it('says the manifest records the requirement and the player still installs the mod', async () => {
+        const [action] = await actionsFor();
+        expect(action.title).toBe(
+            "Record 'Dependency Fixture' under the manifest's Dependencies (the player still has to install it)"
+        );
+    });
+
+    it('still writes the entry into the manifest', async () => {
+        const [action] = await actionsFor();
+        const [[target, edits]] = Object.entries(action.edit!.changes!);
+        expect(target.toLowerCase()).toContain('undeclared-dep-mod/mod.rules');
+        expect(edits[0].newText).toContain('Test.DependencyMod');
     });
 });

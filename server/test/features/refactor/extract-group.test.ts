@@ -127,4 +127,86 @@ describe('move a block into its own file', () => {
         await run(PART, 'taken.rules');
         expect((await run(PART, 'taken.rules')).result).toEqual({ failure: 'fileExists' });
     });
+
+    // `Home`, `Shift+End` and a triple click all start the selection in the tab in front of the block's
+    // name, which is where the editor asks the server what the caret is in.
+    it('moves the block a selection of its whole declaration line names', async () => {
+        const path = join(root, 'from_line_start.rules');
+        const uri = filePathToUri(path);
+        const open = TextDocument.create(uri, 'rules', 0, PART);
+        const edits: Record<string, TextEdit[]> = {};
+        const result = await extractGroupToFile(
+            { uri, offset: PART.indexOf('\tShot'), fileName: 'from_line_start_shot.rules' },
+            {
+                openDocuments: () => [open],
+                applyEdit: async (changes) => {
+                    Object.assign(edits, changes);
+                    return true;
+                },
+                filesChanged: (paths) => paths.forEach(invalidateFsPath),
+            },
+            token
+        );
+        if (!('written' in result)) throw new Error(JSON.stringify(result));
+        expect(readFileSync(join(root, 'from_line_start_shot.rules'), 'utf-8')).toContain('Damage = 12');
+        expect(Object.values(edits)[0]?.[0]?.newText).toBe('Shot = &<from_line_start_shot.rules>');
+    });
+
+    it('moves the block the line belongs to, not the one around it', async () => {
+        const nested = [
+            'Part',
+            '{',
+            '\tOuter',
+            '\t{',
+            '\t\tInner',
+            '\t\t{',
+            '\t\t\tX = 1',
+            '\t\t}',
+            '\t}',
+            '}',
+            '',
+        ].join('\n');
+        const path = join(root, 'nested.rules');
+        const uri = filePathToUri(path);
+        const open = TextDocument.create(uri, 'rules', 0, nested);
+        const edits: Record<string, TextEdit[]> = {};
+        const result = await extractGroupToFile(
+            { uri, offset: nested.indexOf('\t\tInner'), fileName: 'inner.rules' },
+            {
+                openDocuments: () => [open],
+                applyEdit: async (changes) => {
+                    Object.assign(edits, changes);
+                    return true;
+                },
+                filesChanged: (paths) => paths.forEach(invalidateFsPath),
+            },
+            token
+        );
+        if (!('written' in result)) throw new Error(JSON.stringify(result));
+        expect(readFileSync(join(root, 'inner.rules'), 'utf-8')).toBe('X = 1\n');
+        expect(Object.values(edits)[0]?.[0]?.newText).toBe('Inner = &<inner.rules>');
+    });
+
+    it('reads a gap on a shared line as the block around it rather than as indentation', async () => {
+        const inline = ['Part', '{', '\tOuter { Inner { X = 1 } }', '}', ''].join('\n');
+        const path = join(root, 'inline.rules');
+        const uri = filePathToUri(path);
+        const open = TextDocument.create(uri, 'rules', 0, inline);
+        const edits: Record<string, TextEdit[]> = {};
+        const result = await extractGroupToFile(
+            { uri, offset: inline.indexOf('Inner') - 1, fileName: 'outer.rules' },
+            {
+                openDocuments: () => [open],
+                applyEdit: async (changes) => {
+                    Object.assign(edits, changes);
+                    return true;
+                },
+                filesChanged: (paths) => paths.forEach(invalidateFsPath),
+            },
+            token
+        );
+        if (!('written' in result)) throw new Error(JSON.stringify(result));
+        expect(readFileSync(join(root, 'outer.rules'), 'utf-8').trimEnd()).toBe('Inner { X = 1 }');
+        expect(Object.values(edits)[0]?.[0]?.newText).toBe('Outer = &<outer.rules>');
+    });
 });

@@ -14,7 +14,7 @@ import { flattenGroup } from '../../semantics/effective-group';
 import { EffectiveMemberEntry, MemberOrigin } from '../../semantics/effective-group.types';
 import { declarationsMatch } from '../../semantics/member-diff';
 import { getStartOfAstNode } from '../../utils/ast.utils';
-import { navigationDepKey } from '../../workspace/navigation-deps';
+import { normalizeUri } from '../../utils/uri-path';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
 import { code, tableCell } from '../report/markdown-link';
 import { nearestGroup, pathOf } from './effective-group.report';
@@ -57,7 +57,7 @@ interface BaseDiffRow {
  * @returns true when the file sits inside the game's `Data` folder.
  */
 const isGameFile = (uri: string, dataRootKey: string): boolean =>
-    (navigationDepKey(uri) + '/').startsWith(dataRootKey + '/');
+    (normalizeUri(uri) + '/').startsWith(dataRootKey + '/');
 
 /**
  * The container a report is about.
@@ -125,7 +125,7 @@ export const generateBaseDiffReport = async (
 ): Promise<string | null> => {
     const dataRoot = CosmoteerWorkspaceService.instance.dataRootPath;
     if (!dataRoot) return null;
-    const dataRootKey = navigationDepKey(dataRoot);
+    const dataRootKey = normalizeUri(dataRoot);
 
     const container = containerAt(document, offset);
     const group = isListNode(container) ? nearestGroup(container) : container;

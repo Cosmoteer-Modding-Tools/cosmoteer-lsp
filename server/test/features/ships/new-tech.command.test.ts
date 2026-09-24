@@ -10,9 +10,12 @@ import { filePathToUri } from '../../../src/document/reference-path';
 import { clearBaseFileCache } from '../../../src/features/refactor/shared-base/base-index';
 import { newTech } from '../../../src/features/ships/new-tech.command';
 import {
+    NewTechApply,
     NewTechApplyResult,
     NewTechArgs,
     NewTechHost,
+    NewTechFailure,
+    NewTechScan,
     NewTechScanResult,
 } from '../../../src/features/ships/new-tech.types';
 import { clearModRootCache } from '../../../src/mod/mod-root';
@@ -24,7 +27,7 @@ import {
     FileWithPath,
 } from '../../../src/workspace/cosmoteer-workspace.service';
 import { clearFsCaches } from '../../../src/workspace/fs-cache';
-import { FIXTURES_DIR } from '../../helpers';
+import { Answer, FIXTURES_DIR } from '../../helpers';
 
 // The tech command against the ship fixture's stand-in install, whose mod declares three parts, one
 // per group field a part can have, and whose career mode names a tech list of two vanilla-shaped
@@ -88,17 +91,20 @@ const makeHost = (options: { noGameRoot?: boolean; bareRoot?: boolean } = {}): T
 });
 
 /** The scan round, asserting it answered as one. */
-const scan = async (host: NewTechHost, uri = filePathToUri(MOD_DIR)): Promise<NewTechScanResult> => {
+const scan = async (host: NewTechHost, uri = filePathToUri(MOD_DIR)): Promise<Answer<NewTechScan, NewTechFailure>> => {
     const result = await newTech({ uri }, host, token);
     if (result.kind !== 'scan') throw new Error('expected the scan round');
-    return result;
+    return result as Answer<NewTechScan, NewTechFailure>;
 };
 
 /** The apply round, asserting it answered as one. */
-const apply = async (args: Omit<NewTechArgs, 'uri'>, host: NewTechHost): Promise<NewTechApplyResult> => {
+const apply = async (
+    args: Omit<NewTechArgs, 'uri'>,
+    host: NewTechHost
+): Promise<Answer<NewTechApply, NewTechFailure>> => {
     const result = await newTech({ uri: filePathToUri(MOD_DIR), ...args }, host, token);
     if (result.kind !== 'apply') throw new Error('expected the apply round');
-    return result;
+    return result as Answer<NewTechApply, NewTechFailure>;
 };
 
 /** Apply captured edits to a text, so what the client would have written can be read back. */
@@ -321,7 +327,6 @@ describe('what the tech command refuses', () => {
         const host = makeHost();
         const result = await apply({ part: 'test.nothing', cost: 100 }, host);
         expect(result.failure).toBe('unknownPart');
-        expect(result.file).toBe('');
         expect(existsSync(`${MOD_DIR}/techs/nothing.rules`)).toBe(false);
         expect(host.changes[filePathToUri(`${MOD_DIR}/mod.rules`)]).toBeUndefined();
     });

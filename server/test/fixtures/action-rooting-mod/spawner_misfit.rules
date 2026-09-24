@@ -1,0 +1,7 @@
+// A spawner discriminator the registry does declare, over a body that belongs to something else.
+// The majority-fit guard refuses it, so a mis-wired fragment stays unrooted instead of drawing a
+// diagnostic on every line.
+Type = Ships
+Duration = 5
+Radius = 3
+FadeInTime = 2

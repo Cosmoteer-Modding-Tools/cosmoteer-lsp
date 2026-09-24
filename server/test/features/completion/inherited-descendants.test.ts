@@ -13,8 +13,12 @@ import {
     isValueNode,
     ValueNode,
 } from '../../../src/core/ast/ast';
-import { findNodeByIdentifier, parseFilePath } from '../../../src/utils/ast.utils';
-import { resolveClassThroughInheritance, warmInheritedClasses } from '../../../src/features/completion/inheritance-resolution';
+import { parseFilePath } from '../../../src/utils/ast.utils';
+import { findNodeByIdentifier } from '../../helpers';
+import {
+    resolveClassThroughInheritance,
+    warmInheritedClasses,
+} from '../../../src/features/completion/inheritance-resolution';
 import { AutoCompletionSchema } from '../../../src/features/completion/autocompletion.schema';
 import {
     crossFileReferenceTargetAtOffset,
@@ -109,7 +113,12 @@ describe('members of a group classified through a cross-file base', () => {
 
     it('offers bool values at an empty `Key = ` position inside the nested group', async () => {
         const offset = text.indexOf('= x') + 2;
-        const result = await schemaValueCompletionsAtOffset(document, offset, '\t\tUseCustomShapeForDistance = ', token);
+        const result = await schemaValueCompletionsAtOffset(
+            document,
+            offset,
+            '\t\tUseCustomShapeForDistance = ',
+            token
+        );
         expect(labels(result ?? [])).toEqual(['true', 'false']);
     });
 
@@ -125,7 +134,8 @@ describe('members of a group classified through a cross-file base', () => {
             { line: left.position.line, character: left.position.characterStart + 1 },
             token
         );
-        const value = hover && typeof hover.contents === 'object' && 'value' in hover.contents ? hover.contents.value : '';
+        const value =
+            hover && typeof hover.contents === 'object' && 'value' in hover.contents ? hover.contents.value : '';
         expect(value).toContain('**MaxDistance**');
         expect(value).toContain('float');
     });

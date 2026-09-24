@@ -9,7 +9,10 @@ import { ensureAliasRootIndex } from '../features/navigation/alias-root-builder'
 import { invalidateSchemaContextCache } from '../document/schema/schema-context';
 import { clearNavigationMemo } from '../semantics/navigate-reference';
 import { invalidateEffectiveChainCache } from '../semantics/effective-group';
-import { modFolderPaths } from '../workspace/workspace-files';
+import { modFolderPaths, uriToFsPath } from '../workspace/workspace-files';
+import { collectRulesFiles } from '../workspace/rules-file-walk';
+import { filePathToUri } from '../document/reference-path';
+import { SchemaIdIndex } from '../features/completion/schema-id.index';
 import { perfCount } from '../utils/perf-counters';
 import { CosmoteerWorkspaceService } from '../workspace/cosmoteer-workspace.service';
 import { buildGroupMembers } from './project-indexes';
@@ -57,6 +60,26 @@ export const timedStartupPhase = async <T>(counter: string, run: () => Promise<T
         return await run();
     } finally {
         perfCount(counter, Date.now() - started);
+    }
+};
+
+/**
+ * Marks every fragment the mod actions root for a fresh id harvest.
+ *
+ * The id index is built in the project walk, which runs before the action rooting, so a fragment
+ * that is typed only by the action that wires it in was read with no class and gave up no id. The
+ * re-read happens at the id index's next query, so nothing is parsed here: only the mod folders are
+ * walked, from the cached directory listings, and each path is a lookup in the action index.
+ *
+ * @param folders the project folders, of which the mod ones are walked.
+ * @returns once every action-rooted fragment is marked.
+ */
+const reharvestActionRootedIds = async (folders: string[]): Promise<void> => {
+    for (const folder of modFolderPaths(folders)) {
+        for await (const file of collectRulesFiles(uriToFsPath(folder))) {
+            const uri = filePathToUri(file);
+            if (ActionRootingIndex.instance.rootType(uri)) SchemaIdIndex.instance.markDirty(uri);
+        }
     }
 };
 
@@ -143,9 +166,18 @@ export async function ensureFragmentRooting(cancellationToken: CancellationToken
     // target slots. Built after the rooting indexes above, since the target slot types resolve
     // through them (mod folders only), and on its own walk. See the note above for what breaks
     // when it joins the shared one.
+    const actionRootingRevisionBefore = ActionRootingIndex.instance.revision;
     await timedStartupPhase('startup.actionRootingMs', () =>
         ActionRootingIndex.instance.ensureBuilt(folders, cancellationToken)
     ).catch(() => undefined);
+    // The id index was harvested in the project walk above, which is before the action rooting
+    // this build just produced, so every fragment a manifest wires into a game collection was
+    // read there without a class and contributed no id. A one-time build never looks at such a
+    // file again, so the mod's own resources and factions stay missing from everything the ids
+    // feed. Mark them for a re-read whenever the action rooting moved.
+    if (ActionRootingIndex.instance.revision !== actionRootingRevisionBefore) {
+        await timedStartupPhase('startup.actionRootedIdsMs', () => reharvestActionRootedIds(folders));
+    }
     // The action-rooting build re-roots fragments whose own includes then contribute new
     // reverse-include records (it marks those fragments dirty). Reconcile them here, repeating
     // while the reconcile still uncovers deeper chains, so the rooting revisions settle within

@@ -79,6 +79,22 @@ export const escapeHtml = (text: string): string =>
         .replace(/'/g, '&#39;');
 
 /**
+ * One labelled field of a form: the label, the control under it, and the sentence explaining it.
+ *
+ * @param id the control's id, which the label points at. Empty when the control is not one element
+ * a label can address, such as a group of radio buttons.
+ * @param label the label's text, escaped here.
+ * @param hint the sentence under the control, escaped here. Empty for a field without one.
+ * @param control the control's HTML, already built and escaped.
+ * @returns the field's HTML.
+ */
+export const field = (id: string, label: string, hint: string, control: string): string =>
+    `<div class="field">
+<label${id ? ` for="${id}"` : ''}>${escapeHtml(label)}</label>
+${control}${hint ? `\n<div class="hint">${escapeHtml(hint)}</div>` : ''}
+</div>`;
+
+/**
  * Serializes a value into a script, with the one character that could end the script escaped.
  *
  * @param value the value.

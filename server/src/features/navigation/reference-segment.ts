@@ -28,7 +28,9 @@ export const MEMBER_SEGMENT_NAME = /^[A-Za-z_]\w*$/;
  * The stored text is not always the text on the line. An inheritance reference is written without a
  * sigil (`Child : Base`) and stored as `&Base`, so its offsets sit one character ahead. A reference
  * inside a math expression (`RecCrew = (&CrewRequired) + 1`) carries the closing paren in its span,
- * so its span is one character longer than what it stores while the offsets still line up.
+ * so its span is one character longer than what it stores while the offsets still line up. A quoted
+ * reference (`Replace = "<a.rules>/Part/MaxHealth"`) keeps its delimiters in the span and drops them
+ * from the text, so its offsets sit behind the line by the width of the opening delimiter.
  *
  * @param node the reference value node.
  * @param value the node's stored reference text.
@@ -36,14 +38,53 @@ export const MEMBER_SEGMENT_NAME = /^[A-Za-z_]\w*$/;
  */
 export const valueShift = (node: ValueNode, value: string): number | undefined => {
     const span = node.position.characterEnd - node.position.characterStart;
+    if (node.quoted) {
+        // `"…"` and `@"…"` are the two delimiter pairs, and a span wider than either says the value
+        // was assembled from several written pieces, which no single offset can line up. A
+        // parenthesized operand carries its closing paren in the span the same way an unquoted one
+        // does, so that character is taken off before the pair is read.
+        const delimiters = span - value.length - (node.parenthesized ? 1 : 0);
+        if (delimiters === 2) return -1;
+        if (delimiters === 3) return -2;
+        return undefined;
+    }
     if (value.length === span || value.length === span - 1) return 0;
     if (value.length === span + 1 && value.startsWith('&')) return 1;
     return undefined;
 };
 
 /**
- * The document range covering a segment's name, so a long path is rewritten or lit up only where it
- * matches.
+ * The document range covering a segment's name, or undefined when the written form of the value
+ * cannot be lined up with the text it stores.
+ *
+ * Every caller that turns a range into an edit asks here, because the whole-value fallback below is
+ * a span of the delimiters and the glue as well as the name, and writing a new name over it deletes
+ * the rest of the value.
+ *
+ * @param node the reference value node.
+ * @param span the segment inside its text.
+ * @returns the range of the segment's name, or undefined when it cannot be placed.
+ */
+export const segmentNameRangeExact = (node: ValueNode, span: SegmentSpan): Range | undefined => {
+    const { line, characterStart, characterEnd } = node.position;
+    const value = String(node.valueType.value);
+    const shift = valueShift(node, value);
+    if (shift === undefined) return undefined;
+    const sigil = span.text.startsWith('&') ? 1 : 0;
+    const start = characterStart + span.start + sigil - shift;
+    const end = characterStart + span.end - shift;
+    return start < characterStart || end > characterEnd || end <= start
+        ? undefined
+        : Range.create(line, start, line, end);
+};
+
+/**
+ * The document range covering a segment's name, so a long path is lit up only where it matches,
+ * falling back to the whole value when the segment cannot be placed inside it.
+ *
+ * The fallback is for the features that only draw (the highlight, the reference list), where a span
+ * covering more text than the name is still real text of the file. A rewrite asks
+ * {@link segmentNameRangeExact} instead and refuses when it answers nothing.
  *
  * @param node the reference value node.
  * @param span the segment inside its text.
@@ -51,18 +92,7 @@ export const valueShift = (node: ValueNode, value: string): number | undefined =
  */
 export const segmentNameRange = (node: ValueNode, span: SegmentSpan): Range => {
     const { line, characterStart, characterEnd } = node.position;
-    const value = String(node.valueType.value);
-    const wholeValue = Range.create(line, characterStart, line, characterEnd);
-    const shift = valueShift(node, value);
-    if (shift === undefined) return wholeValue;
-    const sigil = span.text.startsWith('&') ? 1 : 0;
-    const start = characterStart + span.start + sigil - shift;
-    const end = characterStart + span.end - shift;
-    // An offset that still lands outside the value falls back to the whole value, which is real text
-    // whatever the reference is written like.
-    return start < characterStart || end > characterEnd || end <= start
-        ? wholeValue
-        : Range.create(line, start, line, end);
+    return segmentNameRangeExact(node, span) ?? Range.create(line, characterStart, line, characterEnd);
 };
 
 /**

@@ -29,7 +29,13 @@ describe('parser error diagnostics', () => {
             'A : &B ( 1 )\n{\n}\n',
             'Expected reference value after reference value but found FunctionCall',
         ],
-        ['unknown token', 'X = @\n', 'Unknown token type'],
+        // A `#` in its modulo spelling is what is left of the unknown-token class, and only where a
+        // member name belongs. The punctuation that used to stand here (`@`, `?`, `|`, `$`) is
+        // ordinary value text to the game's tokenizer and reads as part of the value now, and so is
+        // a control character. A control character on the right of an `=` used to stand here, which
+        // claimed a parser bug over input the game loads: it folds the character into the value and
+        // reads `A = 1` with a control character after the `1` as the two-character value.
+        ['unknown token', '1 # 2\n', 'Unknown token type'],
         // The real OT parser throws `Unexpected "=" at position …` here too (OTGroupNode.Parse),
         // so this is reported as invalid input rather than a possible parser bug.
         ['stray equals after a comma terminator', 'X = &<a.rules>, = &<b.rules>\n', 'Unexpected "="'],
@@ -63,7 +69,9 @@ describe('parser error diagnostics', () => {
     });
 
     it('asks the user to report an unknown token as a possible bug', () => {
-        const error = parseErrors('X = @\n').find((e) => e.message === 'Unknown token type');
+        // The input has to be one the game refuses as well. A control character stood here before,
+        // and the game reads that as ordinary value text.
+        const error = parseErrors('1 # 2\n').find((e) => e.message === 'Unknown token type');
         expect((error?.additionalInfo ?? []).map((i) => i.message)).toContain(
             'This could be a bug in the parser or lexer, please report this issue, if you think this is a bug'
         );

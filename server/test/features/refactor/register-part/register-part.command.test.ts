@@ -7,8 +7,11 @@ import { isGroupNode, isListNode } from '../../../../src/core/ast/ast';
 import { filePathToUri } from '../../../../src/document/reference-path';
 import { registerPartInShip } from '../../../../src/features/refactor/register-part/register-part.command';
 import {
+    RegisterPartApply,
     RegisterPartApplyResult,
     RegisterPartArgs,
+    RegisterPartFailure,
+    RegisterPartScan,
     RegisterPartScanResult,
 } from '../../../../../shared/register-part.types';
 import { RegisterPartHost } from '../../../../src/features/refactor/register-part/register-part.types';
@@ -19,7 +22,7 @@ import { clearModRootCache } from '../../../../src/mod/mod-root';
 import { globalSettings } from '../../../../src/settings';
 import { parseText } from '../../../../src/utils/ast.utils';
 import { CosmoteerWorkspaceData, FileWithPath } from '../../../../src/workspace/cosmoteer-workspace.service';
-import { FIXTURES_DIR } from '../../../helpers';
+import { Answer, FIXTURES_DIR } from '../../../helpers';
 
 // The command itself: the two rounds of the exchange against a stand-in game install, so both the
 // "edit the ship" and the "patch it from the manifest" routes are exercised without a real game.
@@ -67,17 +70,24 @@ const makeHost = (
 });
 
 /** The command's scan round for a part, asserting it answered with candidates. */
-const scan = async (uri: string, offset: number, host: RegisterPartHost): Promise<RegisterPartScanResult> => {
+const scan = async (
+    uri: string,
+    offset: number,
+    host: RegisterPartHost
+): Promise<Answer<RegisterPartScan, RegisterPartFailure>> => {
     const result = await registerPartInShip({ uri, offset }, host, CancellationToken.None);
     if (result.kind !== 'scan') throw new Error('expected the scan round');
-    return result;
+    return result as Answer<RegisterPartScan, RegisterPartFailure>;
 };
 
 /** The command's apply round, asserting it answered as an apply. */
-const apply = async (args: RegisterPartArgs, host: RegisterPartHost): Promise<RegisterPartApplyResult> => {
+const apply = async (
+    args: RegisterPartArgs,
+    host: RegisterPartHost
+): Promise<Answer<RegisterPartApply, RegisterPartFailure>> => {
     const result = await registerPartInShip(args, host, CancellationToken.None);
     if (result.kind !== 'apply') throw new Error('expected the apply round');
-    return result;
+    return result as Answer<RegisterPartApply, RegisterPartFailure>;
 };
 
 /** The offset of a part group's name, which is what the code action anchors the offer on. */
@@ -133,7 +143,6 @@ describe('the register-part scan round', () => {
     it('answers stale when the offset no longer names a part group', async () => {
         const result = await scan(NOT_A_PART, 0, makeHost());
         expect(result.failure).toBe('stale');
-        expect(result.candidates).toEqual([]);
     });
 });
 
@@ -164,9 +173,18 @@ describe('the register-part apply round, ship file route', () => {
             filePathToUri(MOD_SHIP),
             'rules',
             1,
-            ['ModShip', '{', '\tID = test.modship', '', '\tParts', '\t[', '\t\t&<../parts/anonymous_part.rules>/Part', '\t]', '}', ''].join(
-                '\n'
-            )
+            [
+                'ModShip',
+                '{',
+                '\tID = test.modship',
+                '',
+                '\tParts',
+                '\t[',
+                '\t\t&<../parts/anonymous_part.rules>/Part',
+                '\t]',
+                '}',
+                '',
+            ].join('\n')
         );
         const host = makeHost({ open: [buffer] });
         const result = await apply(

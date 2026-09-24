@@ -1,9 +1,7 @@
-import { CancellationToken, CancellationTokenSource, URI, Disposable } from 'vscode-languageserver';
+import { CancellationToken, CancellationTokenSource, URI } from 'vscode-languageserver';
 
-export class WorkspaceTokenManager implements Disposable {
+export class WorkspaceTokenManager {
     private readonly tokens: Map<URI, CancellationTokenSource> = new Map();
-
-    constructor() {}
 
     public cancelToken(uri: URI): void {
         const tokenSource = this.tokens.get(uri);
@@ -20,13 +18,5 @@ export class WorkspaceTokenManager implements Disposable {
         }
         this.tokens.set(uri, tokenSource);
         return tokenSource.token;
-    }
-
-    public dispose(): void {
-        this.tokens.forEach((tokenSource) => {
-            tokenSource.cancel();
-            tokenSource.dispose();
-        });
-        this.tokens.clear();
     }
 }

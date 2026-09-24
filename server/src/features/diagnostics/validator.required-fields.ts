@@ -9,7 +9,7 @@ import {
     isListNode,
     isValueNode,
     ValueNode,
-    childNodesOf,
+    descendants,
 } from '../../core/ast/ast';
 import { isModRules } from '../../document/document-kind';
 import { namedMembersOf, getStartOfAstNode } from '../../utils/ast.utils';
@@ -96,7 +96,7 @@ export const validateRequiredFields = async (
     // {@link isInheritanceBase}). The optional `workspaceBaseNames` opens the same question for the
     // cross-file bases a single file cannot see.
     const localBaseReferences = new Map<string, ValueNode[]>();
-    const collect = (node: AbstractNode): void => {
+    for (const node of descendants(document)) {
         if (isGroupNode(node) || isListNode(node)) {
             for (const reference of node.inheritance ?? []) {
                 if (!isValueNode(reference) || reference.valueType.type !== 'Reference') continue;
@@ -123,10 +123,7 @@ export const validateRequiredFields = async (
                 groups.push(node);
             }
         }
-        const children = childNodesOf(node);
-        for (const child of children) collect(child);
-    };
-    for (const element of document.elements) collect(element);
+    }
 
     /**
      * Whether some group really inherits from this very node, which makes it a template rather than an
@@ -212,18 +209,33 @@ const isSlotTypedInstance = (group: GroupNode): boolean => {
     return !!cls && !hasAlternativeWriteForms(cls);
 };
 
+/** A positional member, read out of the `[ … ]` spelling by its index rather than by a name. */
+const POSITIONAL_FIELD = /^\d+$/;
+
 /**
- * Whether a class is one the game reads through spellings other than its named members: a scalar form
- * (`Color = white`), or a positional one (`[0, 0, 0, 255]`, read through the class's digit fields).
- * Such a class has a deserializer of its own that accepts several shapes, so a named member being
- * absent says nothing about the write being incomplete: a `Color { Rf … }` and a `Color { R … }` are
- * the same value written two ways.
+ * Whether a class written as a `{ … }` group is one the game still reads through a spelling other
+ * than the members that must be there. A scalar form (`Color = white`) is one. A second named set
+ * standing in for the first is the other: `IntRect` takes `X`/`Y`/`Width`/`Height`, or
+ * `Left`/`Right`/`Top`/`Bottom`, or `Location`/`Size`, and the schema marks the stand-ins by leaving
+ * them absent-safe next to the primary set. A class whose every named member must be written has one
+ * named spelling and nothing that can stand in for it.
+ *
+ * The positional digit members are deliberately not a reason on their own any more. The reader
+ * branches on the node it is handed (`IntVector2.ReadContentFrom` takes `X` and `Y` out of an
+ * `OTGroupNode` and `0` and `1` out of an `OTListNode`), so inside a group the positional spelling
+ * is not a candidate at all and a missing `Y` is simply missing. The game answers that with a
+ * `DeserializeException` from `GetSourceAtPath` and the file does not load.
  *
  * @param cls the class FullName.
- * @returns true when the class carries more than one write form.
+ * @returns true when a group written for this class has more than one complete spelling.
  */
-const hasAlternativeWriteForms = (cls: string): boolean =>
-    !!typeDef(cls)?.scalarForm || fieldsOf(cls).some((field) => /^\d+$/.test(field.name));
+const hasAlternativeWriteForms = (cls: string): boolean => {
+    if (typeDef(cls)?.scalarForm) return true;
+    const fields = fieldsOf(cls);
+    if (!fields.some((field) => POSITIONAL_FIELD.test(field.name))) return false;
+    const named = fields.filter((field) => !POSITIONAL_FIELD.test(field.name));
+    return named.length === 0 || named.some((field) => !field.absentThrows);
+};
 
 /** A required field is satisfied if it, or any of its aliases, is among the present member names (lower-cased on both sides). */
 const isSatisfied = (field: SchemaField, present: Set<string>): boolean =>

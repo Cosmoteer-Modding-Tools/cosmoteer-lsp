@@ -1,5 +1,6 @@
-import { AbstractNode, GroupNode, descendants, isAssignmentNode, isGroupNode } from '../../core/ast/ast';
+import { AbstractNode, GroupNode, descendants, isGroupNode } from '../../core/ast/ast';
 import { resolveGroupClass } from '../../document/schema/schema-context';
+import { memberValueNamed } from '../../utils/ast.utils';
 
 /**
  * The part component dictionary, as the two cycle checks both need to read it.
@@ -17,21 +18,6 @@ export const PART_RULES_CLASS = 'Cosmoteer.Ships.Parts.PartRules';
 const COMPONENTS = 'components';
 
 /**
- * The member written under `name` in a group, in both spellings the format allows.
- *
- * @param group the group to read.
- * @param name the member name, folded to lower case.
- * @returns the member's value, or undefined when the group does not write it.
- */
-export const memberOf = (group: GroupNode, name: string): AbstractNode | undefined => {
-    for (const element of group.elements) {
-        if (isAssignmentNode(element) && element.left.name.toLowerCase() === name) return element.right ?? undefined;
-        if (isGroupNode(element) && element.identifier?.name.toLowerCase() === name) return element;
-    }
-    return undefined;
-};
-
-/**
  * Every group a part writes its registered components into, which is the `Components` member of a
  * group the schema types as a part. A `Components` nested inside a toggled set is not one of them,
  * since the game reads those into a list of their own rather than into the part's dictionary.
@@ -42,7 +28,7 @@ export const memberOf = (group: GroupNode, name: string): AbstractNode | undefin
 export function* partComponentGroupsIn(node: AbstractNode): Generator<GroupNode> {
     for (const candidate of descendants(node)) {
         if (!isGroupNode(candidate) || resolveGroupClass(candidate) !== PART_RULES_CLASS) continue;
-        const components = memberOf(candidate, COMPONENTS);
+        const components = memberValueNamed(candidate, COMPONENTS);
         if (components && isGroupNode(components)) yield components;
     }
 }

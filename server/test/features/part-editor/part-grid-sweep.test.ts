@@ -3,6 +3,7 @@ import { CancellationToken } from 'vscode-languageserver';
 import { join } from 'path';
 import { readFileSync } from 'fs';
 import { parseText, parseFilePath } from '../../../src/utils/ast.utils';
+import { filePathToUri } from '../../../src/document/reference-path';
 import { buildPartGridData } from '../../../src/features/part-editor/part-grid-data.service';
 import { buildPartGridEdit } from '../../../src/features/part-editor/grid-edit.service';
 import {
@@ -37,7 +38,13 @@ const layerOf = <T>(data: PartGridData, id: string): T => {
 };
 
 /** Applies LSP text edits to a source string. */
-const applyEdits = (text: string, edits: Array<{ range: { start: { line: number; character: number }; end: { line: number; character: number } }; newText: string }>): string => {
+const applyEdits = (
+    text: string,
+    edits: Array<{
+        range: { start: { line: number; character: number }; end: { line: number; character: number } };
+        newText: string;
+    }>
+): string => {
     const toOffset = (position: { line: number; character: number }): number => {
         let line = 0;
         let offset = 0;
@@ -63,7 +70,7 @@ const mutate = async (mutation: GridMutation): Promise<{ edited: string; data: P
     const document = parseText(text, basePath);
     const result = await buildPartGridEdit(document, text, basePath, 0, mutation, token);
     expect(result.status, result.message).toBe('ok');
-    const edited = applyEdits(text, result.edit!.changes![basePath]);
+    const edited = applyEdits(text, result.edit!.changes![filePathToUri(basePath)]);
     const data = (await buildPartGridData(parseText(edited, basePath), 0, 1, token))!;
     return { edited, data };
 };
@@ -213,7 +220,11 @@ describe('sweep-round mutations', () => {
     });
 
     it('sets and removes a single point field', async () => {
-        const moved = await mutate({ op: 'setPoint', layerId: 'Components/storage/PickUpLocation', point: { x: 1, y: 2 } });
+        const moved = await mutate({
+            op: 'setPoint',
+            layerId: 'Components/storage/PickUpLocation',
+            point: { x: 1, y: 2 },
+        });
         expect(moved.edited).toContain('PickUpLocation = [1, 2]');
         const removed = await mutate({ op: 'setPoint', layerId: 'Components/storage/PickUpLocation', point: null });
         expect(removed.edited).not.toContain('PickUpLocation');
@@ -235,11 +246,21 @@ describe('sweep-round mutations', () => {
     });
 
     it('moves, inserts, and removes polygon vertices', async () => {
-        const moved = await mutate({ op: 'moveVertex', layerId: 'Components/collider/Vertices', index: 3, point: { x: 0.25, y: 1.75 } });
+        const moved = await mutate({
+            op: 'moveVertex',
+            layerId: 'Components/collider/Vertices',
+            index: 3,
+            point: { x: 0.25, y: 1.75 },
+        });
         const polygon = layerOf<PolygonLayerData>(moved.data, 'Components/collider/Vertices');
         expect(polygon.vertices[3].point).toEqual({ x: 0.25, y: 1.75 });
 
-        const inserted = await mutate({ op: 'insertVertex', layerId: 'Components/collider/Vertices', index: 1, point: { x: 0.5, y: 0 } });
+        const inserted = await mutate({
+            op: 'insertVertex',
+            layerId: 'Components/collider/Vertices',
+            index: 1,
+            point: { x: 0.5, y: 0 },
+        });
         const insertedPolygon = layerOf<PolygonLayerData>(inserted.data, 'Components/collider/Vertices');
         expect(insertedPolygon.vertices.map(({ point }) => [point.x, point.y])).toEqual([
             [0, 0],
@@ -283,13 +304,22 @@ describe('sweep-round mutations', () => {
     });
 
     it('writes the railgun segment as its two scalar fields', async () => {
-        const { edited } = await mutate({ op: 'setPoint', layerId: 'Components/rail/RailgunStart', point: { x: 0.5, y: -2 } });
+        const { edited } = await mutate({
+            op: 'setPoint',
+            layerId: 'Components/rail/RailgunStart',
+            point: { x: 0.5, y: -2 },
+        });
         expect(edited).toContain('XStartOffset = 0.5');
         expect(edited).toContain('YStartOffset = -2');
     });
 
     it('moves a fixed-count entry offset but refuses adding to it', async () => {
-        const moved = await mutate({ op: 'movePoint', layerId: 'Components/rs/ResourceLevels:Offset', index: 0, point: { x: 0.5, y: 0 } });
+        const moved = await mutate({
+            op: 'movePoint',
+            layerId: 'Components/rs/ResourceLevels:Offset',
+            index: 0,
+            point: { x: 0.5, y: 0 },
+        });
         const offsets = layerOf<PointListLayerData>(moved.data, 'Components/rs/ResourceLevels:Offset');
         expect(offsets.points[0].point).toEqual({ x: 0.5, y: 0 });
 
@@ -334,7 +364,7 @@ describe('sweep-round mutations', () => {
             token
         );
         expect(first.status).toBe('ok');
-        const overridden = applyEdits(text, first.edit!.changes![derivedPath]);
+        const overridden = applyEdits(text, first.edit!.changes![filePathToUri(derivedPath)]);
         expect(overridden).toContain('IsFlippable = true');
         const second = await buildPartGridEdit(
             parseText(overridden, derivedPath),
@@ -345,7 +375,7 @@ describe('sweep-round mutations', () => {
             token
         );
         expect(second.status).toBe('ok');
-        const reverted = applyEdits(overridden, second.edit!.changes![derivedPath]);
+        const reverted = applyEdits(overridden, second.edit!.changes![filePathToUri(derivedPath)]);
         expect(reverted).not.toContain('IsFlippable');
     });
 
@@ -373,17 +403,27 @@ describe('sweep-round mutations', () => {
             token
         );
         expect(moved.status, moved.message).toBe('ok');
-        const edited = applyEdits(text, moved.edit!.changes![basePath]);
+        const edited = applyEdits(text, moved.edit!.changes![filePathToUri(basePath)]);
         expect(edited).toContain('SIZE = [2, 2]');
         expect(edited).toContain('[&~/SIZE/0, 0]');
         expect(moved.note).toBeTruthy();
 
-        const resized = await mutate({ op: 'setNumber', layerId: 'Components/ccol/Radius', field: 'Radius', value: 0.75 });
+        const resized = await mutate({
+            op: 'setNumber',
+            layerId: 'Components/ccol/Radius',
+            field: 'Radius',
+            value: 0.75,
+        });
         expect(resized.edited).toContain('Radius = 0.75');
     });
 
     it('resizes the buff circle', async () => {
-        const radius = await mutate({ op: 'setNumber', layerId: 'Components/cbuff/BuffCenter', field: 'BuffRadius', value: 3.5 });
+        const radius = await mutate({
+            op: 'setNumber',
+            layerId: 'Components/cbuff/BuffCenter',
+            field: 'BuffRadius',
+            value: 3.5,
+        });
         expect(radius.edited).toContain('BuffRadius = 3.5');
         const center = await mutate({ op: 'setPoint', layerId: 'Components/cbuff/BuffCenter', point: { x: 1, y: 1 } });
         const circle = layerOf<CircleLayerData>(center.data, 'Components/cbuff/BuffCenter');
@@ -392,11 +432,21 @@ describe('sweep-round mutations', () => {
 
     it('writes the region distance into the nested Region group and clears it', async () => {
         // The distance lives at Region/Distance, so the edit targets the nested group, not a sibling.
-        const grown = await mutate({ op: 'setNumber', layerId: 'Components/regulator/Region', field: 'Distance', value: 6 });
+        const grown = await mutate({
+            op: 'setNumber',
+            layerId: 'Components/regulator/Region',
+            field: 'Distance',
+            value: 6,
+        });
         expect(grown.edited).toContain('Distance = 6');
         expect(layerOf<EdgeRegionLayerData>(grown.data, 'Components/regulator/Region').distance).toBe(6);
 
-        const cleared = await mutate({ op: 'setNumber', layerId: 'Components/regulator/Region', field: 'Distance', value: null });
+        const cleared = await mutate({
+            op: 'setNumber',
+            layerId: 'Components/regulator/Region',
+            field: 'Distance',
+            value: null,
+        });
         expect(cleared.edited).not.toContain('Distance =');
         expect(layerOf<EdgeRegionLayerData>(cleared.data, 'Components/regulator/Region').distance).toBeNull();
     });

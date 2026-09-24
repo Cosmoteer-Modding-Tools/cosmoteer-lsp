@@ -1,0 +1,14 @@
+ID = test.actionid
+Name = "Action-rooted id fixture"
+
+// A mod whose only resource is wired into the game tree by an action, from a folder whose name
+// says nothing about what it holds. Nothing but the action types this file, so the id index only
+// sees the resource once the action rooting has run.
+Actions
+[
+	{
+		Action = Overrides
+		OverrideIn = "<resources/testiron.rules>"
+		Overrides = &<wired/pumpkin.rules>
+	}
+]

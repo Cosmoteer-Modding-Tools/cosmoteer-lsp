@@ -3,11 +3,13 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { AbstractNodeDocument, isAssignmentNode } from '../../core/ast/ast';
 import { isModRules } from '../../document/document-kind';
 import { migrationSymbolOf, RENAMED_MOD_RULES_FIELDS } from '../../document/schema/deprecations';
+import { warmInheritedClasses } from '../completion/inheritance-resolution';
 import { ValidationError } from '../diagnostics/validator';
 import { compatibleVersionsRewrite, namesInstalledGameVersion } from '../diagnostics/validator.manifest-version';
 import { validateSchema } from '../diagnostics/validator.schema';
 import { validateIgnoredFields } from '../diagnostics/validator.ignored-field';
-import { readGameVersionInfo } from '../game-version';
+import { declaredCompatibleVersions, readGameVersionInfo } from '../game-version';
+import { writeRefusalFor } from '../../mod/write-gate';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
 import { removalRange } from '../../utils/removal-range';
 import { unifiedDiff } from '../refactor/unified-diff';
@@ -105,7 +107,28 @@ interface FileMigrationResult {
 }
 
 /**
- * Bring a manifest's `CompatibleGameVersions` to the version the installed build is.
+ * The `CompatibleGameVersions` list a manifest is brought to: every version it declares today, with
+ * the installed one added at the end.
+ *
+ * The installed version is added rather than written in place of the list. The game accepts a mod
+ * when the list names the build's own version or one of the older ones the build still accepts, so
+ * every entry an author wrote is a build they said the mod runs on, and the entries naming versions
+ * that are not out yet are what keeps the mod loading through the next update. None of that costs
+ * anything to keep, and none of it is the migration's to decide. Adding also leaves a second run
+ * with nothing to do, because the list then names the installed version.
+ *
+ * @param declared the versions the manifest writes today.
+ * @param installed the version the installed build is.
+ * @returns the list literal to write.
+ */
+const widenedVersionsLiteral = (declared: readonly string[], installed: string): string => {
+    const versions = [...declared.filter((version) => version !== installed), installed];
+    return `[${versions.map((version) => `"${version}"`).join(', ')}]`;
+};
+
+/**
+ * Bring a manifest's `CompatibleGameVersions` to the version the installed build is, keeping every
+ * version it already names.
  *
  * Nothing is rewritten while the list already names that version, which also makes a second
  * migration run over the same mod a no-op, and an install whose version cannot be read rewrites
@@ -124,12 +147,20 @@ const manifestVersionEdit = async (
     const rewrite = await compatibleVersionsRewrite(documentNode);
     if (!rewrite) return undefined;
     const info = await readGameVersionInfo(CosmoteerWorkspaceService.instance.dataRootPath).catch(() => undefined);
+    const installed = info?.installed ?? '';
+    const declared = declaredCompatibleVersions(documentNode);
+    // A manifest writing an empty list has nothing to keep, so it takes the plain literal the
+    // diagnostic's own fix writes.
+    const newText =
+        installed && declared && declared.length > 0
+            ? `CompatibleGameVersions = ${widenedVersionsLiteral(declared, installed)}`
+            : rewrite.newText;
     return {
         edit: {
             range: { start: doc.positionAt(rewrite.start), end: doc.positionAt(rewrite.end) },
-            newText: rewrite.newText,
+            newText,
         },
-        version: info?.installed ?? '',
+        version: installed,
     };
 };
 
@@ -198,6 +229,10 @@ export const collectFileMigration = async (
         return result;
     }
 
+    // The same preparation every request entry makes before it reads a class. A group whose class is
+    // only known through a base in another file has none until that base has been read, and the
+    // findings it carries would be missing from a run that reports itself finished.
+    await warmInheritedClasses(documentNode, token).catch(() => undefined);
     const errors: ValidationError[] = [
         ...(await validateSchema(documentNode, token).catch(() => [] as ValidationError[])),
         ...(await validateIgnoredFields(documentNode, token).catch(() => [] as ValidationError[])),
@@ -250,4 +285,39 @@ export const collectFileMigration = async (
         }
     }
     return result;
+};
+
+/** What a migration run may write, and which trees it was told to leave alone. */
+export interface MigrationWriteScope {
+    /** The files the run may edit, in the order they were walked. */
+    readonly files: string[];
+    /** One sentence per tree that was left alone, already localized, for the user to be told. */
+    readonly refusedTrees: string[];
+}
+
+/**
+ * Cuts a migration's file list down to the files the write gate allows, and says which trees were
+ * dropped.
+ *
+ * The command is invoked on a whole workspace, and a workspace folder can be the game's own install
+ * or an installed workshop mod as easily as the author's mod. Neither is theirs to rewrite, and the
+ * migration writes straight to disk, so a file in them would be changed with no editor undo behind
+ * it. A folder carrying no manifest is still migrated: a mod whose `mod.rules` is not written yet,
+ * and a loose folder of fragments, are ordinary things to have open.
+ *
+ * @param files every rules file the walk found.
+ * @returns the files the run may write, and the refusals to report.
+ */
+export const migrationWriteScope = (files: readonly string[]): MigrationWriteScope => {
+    const allowed: string[] = [];
+    const refusedTrees = new Map<string, string>();
+    for (const file of files) {
+        const refusal = writeRefusalFor(file);
+        if (!refusal) {
+            allowed.push(file);
+            continue;
+        }
+        if (!refusedTrees.has(refusal.root)) refusedTrees.set(refusal.root, refusal.message);
+    }
+    return { files: allowed, refusedTrees: [...refusedTrees.values()] };
 };

@@ -2,7 +2,7 @@ import { ExtensionContext, Uri, l10n, window, workspace } from 'vscode';
 import { LanguageClient } from 'vscode-languageclient/node';
 import { creationFailureMessage, wiringNotes } from './nebula-wizard';
 import { applyForWizard, scanForWizard, wizardAnchor } from './wizard-client';
-import { ID_SUGGESTS_NAME_SCRIPT, escapeHtml, modFolderName, scriptJson, showWizardForm } from './wizard-form';
+import { ID_SUGGESTS_NAME_SCRIPT, escapeHtml, field, modFolderName, scriptJson, showWizardForm } from './wizard-form';
 import { NewPlanetApplyResult, NewPlanetScanResult, PlanetBase, PlanetForm } from './planet-wizard.types';
 
 /**
@@ -156,19 +156,9 @@ const showPlanetForm = (context: ExtensionContext, scan: NewPlanetScanResult): P
 <input id="id" type="text" autocomplete="off" spellcheck="false" />
 <div class="hint" id="idHint">${escapeHtml(l10n.t('One word: letters, digits and underscores. The doodad id becomes {0}.planet_<word>.', scan.authorPrefix))}</div>
 </div>
-<div class="field">
-<label for="name">${escapeHtml(l10n.t('Display name'))}</label>
-<input id="name" type="text" autocomplete="off" />
-<div class="hint">${escapeHtml(l10n.t('The name in the palette and on the map, written to every language file.'))}</div>
+${field('name', l10n.t('Display name'), l10n.t('The name in the palette and on the map, written to every language file.'), '<input id="name" type="text" autocomplete="off" />')}
 </div>
-</div>
-<div class="field">
-<label for="base">${escapeHtml(l10n.t('Built on'))}</label>
-<select id="base">
-${scan.bases.map(baseOption).join('')}
-</select>
-<div class="hint">${escapeHtml(l10n.t("One of the game's own planets, inherited whole: its style, its sizes and its orbits. The icon is its own until you draw one."))}</div>
-</div>
+${field('base', l10n.t('Built on'), l10n.t("One of the game's own planets, inherited whole: its style, its sizes and its orbits. The icon is its own until you draw one."), `<select id="base">${scan.bases.map(baseOption).join('')}</select>`)}
 <div class="field">
 <label>${escapeHtml(l10n.t('Where it spawns'))}</label>
 ${offered
@@ -178,28 +168,14 @@ ${offered
     )
     .join('')}
 </div>
-<div class="field">
-<label for="weight">${escapeHtml(l10n.t('Chance weight'))}</label>
-<input id="weight" type="number" min="0.05" max="100" step="0.05" value="1" />
-<div class="hint">${escapeHtml(l10n.t("Against the game's own planets of that list, each of which weighs 1."))}</div>
-</div>
+${field('weight', l10n.t('Chance weight'), l10n.t("Against the game's own planets of that list, each of which weighs 1."), '<input id="weight" type="number" min="0.05" max="100" step="0.05" value="1" />')}
 <div class="field">
 <label class="inline"><input id="resize" type="checkbox" /> ${escapeHtml(l10n.t('Give it a size of its own'))}</label>
 </div>
 <div class="row" id="sizes" hidden>
-<div class="field">
-<label for="scaleMin">${escapeHtml(l10n.t('Smallest'))}</label>
-<input id="scaleMin" type="number" min="1" max="100000" value="250" />
-</div>
-<div class="field">
-<label for="scaleMax">${escapeHtml(l10n.t('Largest'))}</label>
-<input id="scaleMax" type="number" min="1" max="100000" value="1500" />
-</div>
-<div class="field">
-<label for="scaleDefault">${escapeHtml(l10n.t('Placed by hand at'))}</label>
-<input id="scaleDefault" type="number" min="1" max="100000" value="1000" />
-<div class="hint">${escapeHtml(l10n.t("In world units. The game's rocky worlds span 250 to 1500, its gas giants 1000 to 3000."))}</div>
-</div>
+${field('scaleMin', l10n.t('Smallest'), '', '<input id="scaleMin" type="number" min="1" max="100000" value="250" />')}
+${field('scaleMax', l10n.t('Largest'), '', '<input id="scaleMax" type="number" min="1" max="100000" value="1500" />')}
+${field('scaleDefault', l10n.t('Placed by hand at'), l10n.t("In world units. The game's rocky worlds span 250 to 1500, its gas giants 1000 to 3000."), '<input id="scaleDefault" type="number" min="1" max="100000" value="1000" />')}
 </div>`;
     return showWizardForm<PlanetForm>(context, {
         title: l10n.t('New Planet'),

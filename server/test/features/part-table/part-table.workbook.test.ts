@@ -112,6 +112,37 @@ describe('the part table workbook', () => {
         );
     });
 
+    it('writes a drive letter into the link the way Excel reads one', () => {
+        // A document uri escapes the drive colon, and Excel reads the escape as part of the name
+        // and refuses the workbook over it. The escapes of a space and a bracket are read the way
+        // they are meant, so those stay.
+        const windows = buildPartTableWorkbook({
+            ...model,
+            rows: [
+                {
+                    ...model.rows[0],
+                    uri: 'file:///C%3A/Program%20Files%20(x86)/Steam/steamapps/common/Cosmoteer/Data/cannon_deck.rules',
+                },
+            ],
+        });
+        const rels = unzip(Buffer.from(windows.base64, 'base64')).get('xl/worksheets/_rels/sheet1.xml.rels') ?? '';
+        expect(rels).toContain(
+            'Target="file:///C:/Program%20Files%20(x86)/Steam/steamapps/common/Cosmoteer/Data/cannon_deck.rules"'
+        );
+        expect(rels).not.toContain('%3A');
+    });
+
+    it('leaves a colon escaped where it is part of a name rather than a drive', () => {
+        // Only a drive letter at the front is rewritten. A file whose name holds a colon, which
+        // the systems without drive letters allow, keeps the escape that says so.
+        const posix = buildPartTableWorkbook({
+            ...model,
+            rows: [{ ...model.rows[0], uri: 'file:///home/mod/odd%3Aname/cannon_deck.rules' }],
+        });
+        const rels = unzip(Buffer.from(posix.base64, 'base64')).get('xl/worksheets/_rels/sheet1.xml.rels') ?? '';
+        expect(rels).toContain('Target="file:///home/mod/odd%3Aname/cannon_deck.rules"');
+    });
+
     it('freezes the header row and the columns the view pins', () => {
         expect(sheet).toContain('<pane xSplit="3" ySplit="1" topLeftCell="D2"');
     });
@@ -122,6 +153,27 @@ describe('the part table workbook', () => {
         expect(table).toContain('<tableColumn id="3" name="Part"/>');
         expect(table).toContain('totalsRowFunction="average"');
         expect(sheet).toContain('<f>SUBTOTAL(101,Parts[MaxHealth])</f>');
+    });
+
+    it('names a column Excel reads as syntax the way a formula has to name it', () => {
+        // A reader names a formula column freely, and the characters Excel reads as syntax inside a
+        // structured reference reach the totals row as syntax unless they are quoted. The column's
+        // own name and its header cell stay as they were written, which is how Excel writes them.
+        const odd = buildPartTableWorkbook({
+            ...model,
+            columns: [
+                ...model.columns.slice(0, 5),
+                { key: 'formula:0', label: "Bob's [odd] #1 @rank", numeric: true, formula: '[MaxHealth] + 1' },
+            ],
+        });
+        const parts = unzip(Buffer.from(odd.base64, 'base64'));
+        expect(parts.get('xl/worksheets/sheet1.xml')).toContain(
+            '<f>SUBTOTAL(101,Parts[Bob&apos;&apos;s &apos;[odd&apos;] &apos;#1 &apos;@rank])</f>'
+        );
+        expect(parts.get('xl/tables/table1.xml')).toContain('name="Bob&apos;s [odd] #1 @rank"');
+        expect(parts.get('xl/worksheets/sheet1.xml')).toContain(
+            '<t xml:space="preserve">Bob&apos;s [odd] #1 @rank</t>'
+        );
     });
 
     it('shades every numeric column against the compared part', () => {
@@ -188,12 +240,116 @@ describe('the part table workbook', () => {
         expect(about.match(/reads itself/g)?.length).toBe(2);
     });
 
+    it('tells a typed-over value apart from one read out of the files', () => {
+        // The first part's cost was typed over. It keeps the credits format of its column and is
+        // written in italics on top of it, which is the mark the view puts on such a cell.
+        const guessed = buildPartTableWorkbook({
+            ...model,
+            rows: [{ ...model.rows[0], typed: [4] }, model.rows[1]],
+        });
+        const parts = unzip(Buffer.from(guessed.base64, 'base64'));
+        const sheet = parts.get('xl/worksheets/sheet1.xml') ?? '';
+        const typedStyle = /<c r="G2" s="(\d+)"/.exec(sheet)?.[1];
+        const readStyle = /<c r="E2" s="(\d+)"/.exec(sheet)?.[1];
+        expect(typedStyle).toBeDefined();
+        expect(typedStyle).not.toBe(readStyle);
+        const styles = parts.get('xl/styles.xml') ?? '';
+        const format = new RegExp(`<xf numFmtId="(\\d+)" fontId="(\\d+)"[^>]*>(?:(?!</?xf).)*</xf>`, 'g');
+        const written = [...styles.matchAll(format)][Number(typedStyle)];
+        const fonts = [...styles.matchAll(/<font>(.*?)<\/font>/g)].map((entry) => entry[1]);
+        expect(fonts[Number(written[2])]).toContain('<i/>');
+        // The credits format rides along rather than being swapped out for the italics.
+        expect(Number(written[1])).toBeGreaterThan(0);
+    });
+
+    it('says on its second sheet which values were typed over the table', () => {
+        const guessed = buildPartTableWorkbook({
+            ...model,
+            rows: [
+                { ...model.rows[0], typed: [2, 4] },
+                { ...model.rows[1], typed: [2] },
+            ],
+        });
+        const about = unzip(Buffer.from(guessed.base64, 'base64')).get('xl/worksheets/sheet2.xml') ?? '';
+        expect(about).toContain('Typed values');
+        expect(about).toContain('3 values were typed over the table');
+        expect(about).toContain('MaxHealth, Cost');
+    });
+
     it('says on its second sheet what the export was made of', () => {
         const about = parts.get('xl/worksheets/sheet2.xml') ?? '';
         expect(about).toContain('Cosmoteer part table');
         expect(about).toContain('The game and Star Wars');
         expect(about).toContain('2 of 412 parts');
         expect(about).toContain('[MaxHealth] / [@Tiles]');
+    });
+
+    it('writes a number too large for a decimal as the exponent it is', () => {
+        // A fixed twelve decimal places answers an exponent of its own from 1e21 up, and cutting
+        // the zeroes off that answer cuts the exponent, which wrote 1e30 into the file as 1000.
+        const huge = buildPartTableWorkbook({
+            ...model,
+            rows: [{ ...model.rows[0], cells: ['cannon_deck', 'Cosmoteer', 1e30, 6, 250, 1e-13] }, model.rows[1]],
+        });
+        const sheet = unzip(Buffer.from(huge.base64, 'base64')).get('xl/worksheets/sheet1.xml') ?? '';
+        expect(sheet).toContain('<v>1e+30</v>');
+        expect(sheet).toContain('<v>1e-13</v>');
+        expect(sheet).not.toContain('<v>1000</v>');
+    });
+
+    it('writes a number a formula multiplies by as the number it is', () => {
+        const scaled = buildPartTableWorkbook({
+            ...model,
+            columns: [
+                ...model.columns.slice(0, 5),
+                { key: 'formula:0', label: 'Scaled', numeric: true, formula: '[MaxHealth] * 1e30' },
+            ],
+        });
+        const sheet = unzip(Buffer.from(scaled.base64, 'base64')).get('xl/worksheets/sheet1.xml') ?? '';
+        expect(sheet).toContain('*1e+30)');
+    });
+
+    it('cuts a text value at the longest one the format takes', () => {
+        // Excel refuses the whole workbook over one longer cell, so the value costs itself.
+        const long = buildPartTableWorkbook({
+            ...model,
+            rows: [{ ...model.rows[0], cells: ['x'.repeat(40000), 'Cosmoteer', 4000, 6, 250, 666] }, model.rows[1]],
+        });
+        const sheet = unzip(Buffer.from(long.base64, 'base64')).get('xl/worksheets/sheet1.xml') ?? '';
+        const written = /<c r="C2"[^>]*><is><t xml:space="preserve">(x*…?)<\/t>/.exec(sheet)?.[1] ?? '';
+        expect(written.length).toBe(32767);
+        expect(written.endsWith('…')).toBe(true);
+    });
+
+    it('writes the numbers alone for a formula that compares against a part the sheet does not hold', () => {
+        // The lookup reads the sheet's own id column, so a compared part the filter or the search
+        // took off the sheet would leave every cell of the column reading #N/A.
+        const away = buildPartTableWorkbook({
+            ...model,
+            referenceId: 'ion_beam_prism',
+            columns: [
+                ...model.columns.slice(0, 5),
+                { key: 'formula:0', label: 'Share', numeric: true, formula: '[MaxHealth] / ref([MaxHealth]) * 100' },
+            ],
+        });
+        const sheets = unzip(Buffer.from(away.base64, 'base64'));
+        expect(sheets.get('xl/worksheets/sheet1.xml')).not.toContain('MATCH(&quot;ion_beam_prism&quot;');
+        expect(sheets.get('xl/worksheets/sheet2.xml')).toContain('not one of the exported rows');
+        // The part it was compared against is still recorded, since the numbers were computed
+        // against it.
+        expect(sheets.get('xl/worksheets/sheet2.xml')).toContain('ion_beam_prism');
+    });
+
+    it('writes a formula column against a compared part the sheet does hold', () => {
+        const here = buildPartTableWorkbook({
+            ...model,
+            columns: [
+                ...model.columns.slice(0, 5),
+                { key: 'formula:0', label: 'Share', numeric: true, formula: '[MaxHealth] / ref([MaxHealth]) * 100' },
+            ],
+        });
+        const sheet = unzip(Buffer.from(here.base64, 'base64')).get('xl/worksheets/sheet1.xml') ?? '';
+        expect(sheet).toContain('MATCH(&quot;cannon_deck&quot;');
     });
 
     it('writes the numbers alone for a formula the translation refuses', () => {

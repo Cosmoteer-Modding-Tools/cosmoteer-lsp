@@ -11,7 +11,7 @@ import {
     isValueNode,
     ListNode,
     ValueNode,
-    childNodesOf,
+    descendants,
 } from '../../core/ast/ast';
 import {
     classOfGroup,
@@ -240,14 +240,9 @@ const documentOfResolved = async (
 /** Every `OverrideIn = "<…>"` value in the document, the targets of inline (non-manifest) actions. */
 const overrideInValuesOf = (document: AbstractNodeDocument): ValueNode[] => {
     const out: ValueNode[] = [];
-    const visit = (node: AbstractNode): void => {
-        if (isAssignmentNode(node) && node.left.name === 'OverrideIn' && isValueNode(node.right)) {
-            out.push(node.right);
-        }
-        const children = childNodesOf(node);
-        for (const child of children) visit(child);
-    };
-    visit(document);
+    for (const node of descendants(document)) {
+        if (isAssignmentNode(node) && node.left.name === 'OverrideIn' && isValueNode(node.right)) out.push(node.right);
+    }
     return out;
 };
 
@@ -294,11 +289,8 @@ const collectComponentReferences = (document: AbstractNodeDocument, into: Map<st
         }
     };
 
-    const visit = (node: AbstractNode): void => {
+    for (const node of descendants(document)) {
         if (isGroupNode(node)) checkGroup(node);
         if (isListNode(node)) checkTupleList(node);
-        const children = childNodesOf(node);
-        for (const child of children) visit(child);
-    };
-    visit(document);
+    }
 };

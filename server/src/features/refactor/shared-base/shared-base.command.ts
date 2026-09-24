@@ -8,7 +8,7 @@ import { unifiedDiff } from '../unified-diff';
 import { workspaceRelativePath } from '../../../utils/relative-path';
 import { foldPathCase } from '../../../workspace/fs-cache';
 import { normalizeUri } from '../../../document/reference-location';
-import { documentFor, openBuffers } from '../command-host';
+import { documentFor, lineEndingOf, openBuffers } from '../command-host';
 import { baseTargetFrom, BaseTarget } from './base-index';
 import { buildBaseFileText, buildBaseInsertText, relativeRulesReference } from './base-file.emitter';
 import { buildConsumerEdits, mergeFileEdits } from './consumer-rewrite';
@@ -349,7 +349,7 @@ const prepareSharedBase = async (
         });
     }
     if (baseInsert) {
-        const baseLineEnding = baseInsert.document.getText().includes('\r\n') ? '\r\n' : '\n';
+        const baseLineEnding = lineEndingOf(baseInsert.document.getText());
         const at = baseInsert.document.positionAt(baseInsert.target.insertOffset);
         touched.push({
             fsPath: baseFsPath,

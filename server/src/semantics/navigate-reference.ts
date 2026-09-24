@@ -11,12 +11,13 @@ import {
 } from '../document/reference-path';
 import * as path from 'path';
 import { globalSettings } from '../settings';
-import { stepIntoNode } from '../document/reference-resolver';
+import { isInheritanceEntry, stepIntoNode } from '../document/reference-resolver';
 import { findMemberThroughInheritance, ResolveReferenceFn } from './inheritance-resolver';
 import { CancellationToken } from 'vscode-languageserver';
 import { CancellationError } from '../utils/cancellation';
-import { activeNavigationDeps, collectNavigationDeps, navigationDepKey } from '../workspace/navigation-deps';
+import { activeNavigationDeps, collectNavigationDeps } from '../workspace/navigation-deps';
 import { perfCount } from '../utils/perf-counters';
+import { normalizeUri } from '../utils/uri-path';
 import { resolveThroughModContext } from './mod-context-fallback';
 
 // Absolute references (`&<file>/…` file-relative, `&/…` super-path) resolve to the same target no
@@ -41,7 +42,7 @@ const navigationMemo: Map<string, NavigationMemoEntry> = new Map();
  *  all misses go on any buffer edit. */
 const navigationMissKeys: Set<string> = new Set();
 
-/** Dependency key (see {@link navigationDepKey}) → memo keys of the hit entries whose resolution
+/** Dependency key (see {@link normalizeUri}) → memo keys of the hit entries whose resolution
  *  read that file. An edit to one file invalidates exactly these entries. */
 const navigationDepIndex: Map<string, Set<string>> = new Map();
 
@@ -89,7 +90,7 @@ export const clearNavigationMemo = (): void => {
 export const invalidateNavigationMemoForFile = (uriOrPath: string): void => {
     for (const key of navigationMissKeys) navigationMemo.delete(key);
     navigationMissKeys.clear();
-    for (const dep of [VOLATILE_NAVIGATION_DEP, navigationDepKey(uriOrPath)]) {
+    for (const dep of [VOLATILE_NAVIGATION_DEP, normalizeUri(uriOrPath)]) {
         const keys = navigationDepIndex.get(dep);
         if (!keys) continue;
         for (const key of [...keys]) deleteNavigationMemoEntry(key);
@@ -133,19 +134,6 @@ const isRuntimeReferenceValue = (node: AbstractNode | null | undefined): node is
     isReferenceValue(node) && String(node.valueType.value).replace(/^&/, '').startsWith('~');
 
 /**
- * True if `node` is itself one of its parent group's inheritance references
- * (e.g. the `&BatteryStorageLeft` produced by `BatteryStorageRight : BatteryStorageLeft`).
- * Such a reference names a sibling of the inheriting group, so a relative `&`
- * lookup must resolve against the group's container, not the group's own members.
- */
-export const isInheritanceMember = (node: AbstractNode | null | undefined): boolean =>
-    !!node &&
-    !!node.parent &&
-    (isGroupNode(node.parent) || isListNode(node.parent)) &&
-    !!node.parent.inheritance &&
-    node.parent.inheritance.some((inheritance) => inheritance === node);
-
-/**
  * The scope a relative `&…` reference is looked up in.
  *
  * Exported because the scope rule is part of what "this reference resolves from here" means, and a
@@ -161,7 +149,7 @@ export const relativeReferenceScope = (path: string, startNode: AbstractNode): A
     // the bearer is itself an inheritance reference (`Child : Parent`), the
     // name is a sibling of the inheriting group, so resolve against the
     // group's container (grandparent) instead of the group's own members.
-    let scope: AbstractNode | undefined = isInheritanceMember(startNode) ? startNode.parent?.parent : startNode.parent;
+    let scope: AbstractNode | undefined = isInheritanceEntry(startNode) ? startNode.parent?.parent : startNode.parent;
     // A bare relative `&Name` names a field in the nearest enclosing named scope. List
     // containers are positional (their elements have no names), so a name reference
     // sitting inside a list e.g., `Costs = [&BaseCost * 2]` must resolve against
@@ -316,12 +304,19 @@ const navigateReference = async (
     let index = 0;
     for (const substring of substrings) {
         if (!node) return null;
+        const afterCaret = index > 0 && substrings[index - 1] === '^';
         node = navigateReferenceRecursive(
             substring,
             node,
-            substrings.length > 1 && index > 0 && substrings[index - 1] === '^' && substrings[index] === substring
+            substrings.length > 1 && afterCaret && substrings[index] === substring
         );
         index++;
+        // Straight after a `^` the game stands on the node's inheritance list, which answers a base
+        // index and nothing else. The inheritance fallback below would find the member anyway,
+        // because our `^` step hands back the node itself, and the game's navigator cannot reach it
+        // (`^/Label` finds nothing and dereferencing it throws `OTNavigateException`, verified
+        // against the shipped HalflingCore navigator). So the miss stays a miss.
+        if (!node && afterCaret) return null;
         if (!node) {
             // The segment was not found directly: look for it through the
             // inheritance chain.

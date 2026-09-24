@@ -1,0 +1,18 @@
+// A mod whose action adds content out of a file the game's own parser refuses, which our own
+// parser recovers from rather than throwing on.
+ID = Test.AssertPayload
+Name = "Assert Payload Fixture"
+Version = 1.0
+
+Actions
+[
+	{
+		Action = AddMany
+		AddTo = "<action_targets.rules>/List"
+		ManyToAdd
+		[
+			&<parts/refused.rules>/Part
+			&<parts/read.rules>/Part
+		]
+	}
+]

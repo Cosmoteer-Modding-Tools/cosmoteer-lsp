@@ -76,3 +76,63 @@ export interface FunctionScope {
     /** The body text from the opening brace up to the cursor, for scanning locals already in scope. */
     readonly bodyBeforeOffset: string;
 }
+
+/** One preprocessor condition a struct member is declared inside. */
+export interface ShaderMemberGuard {
+    /** The macro the condition tests, empty when the condition is an expression the scanner does not read. */
+    readonly macro: string;
+    /** True when the member is compiled only while the macro is NOT defined (`#ifndef`, or an `#else`). */
+    readonly negated: boolean;
+}
+
+/** A field declared inside a `struct`, with the preprocessor guards it sits behind. */
+export interface ShaderStructMember {
+    /** The member name, e.g. `screenLoc`. */
+    readonly name: string;
+    /** The member's declared type token, e.g. `float4`. */
+    readonly type: string;
+    /** The conditions the member is compiled under, outermost first, empty when it is unconditional. */
+    readonly guards: readonly ShaderMemberGuard[];
+}
+
+/** A `struct` declared at file scope, with its members in declaration order. */
+export interface ShaderStruct {
+    /** The struct's name, e.g. `VERT_OUTPUT_PARTICLE`. */
+    readonly name: string;
+    /** The fields it declares, guarded ones included. */
+    readonly members: readonly ShaderStructMember[];
+    /** Where the name is declared in this file, for go-to-definition and the outline. */
+    readonly position: DeclarationPosition;
+}
+
+/** A `typedef` alias declared at file scope, e.g. `typedef float4 PIX_OUTPUT;`. */
+export interface ShaderTypeAlias {
+    /** The alias name, e.g. `PIX_OUTPUT`. */
+    readonly name: string;
+    /** The type the alias stands for, e.g. `float4`. */
+    readonly aliasedType: string;
+    /** Where the alias name is declared in this file. */
+    readonly position: DeclarationPosition;
+}
+
+/** A `static const` value declared at file scope, e.g. `static const float PI = 3.14159265f;`. */
+export interface ShaderStaticConstant {
+    /** The constant's name, e.g. `PI`. */
+    readonly name: string;
+    /** The declared type token, e.g. `float`. */
+    readonly hlslType: string;
+    /** The initializer text as written, absent when the declaration has none. */
+    readonly value?: string;
+    /** Where the name is declared in this file. */
+    readonly position: DeclarationPosition;
+}
+
+/** The named types and file-scope constants a shader declares, beyond its `_`-uniforms and functions. */
+export interface ShaderTypes {
+    /** The `struct` types declared at file scope. */
+    readonly structs: readonly ShaderStruct[];
+    /** The `typedef` aliases declared at file scope. */
+    readonly typeAliases: readonly ShaderTypeAlias[];
+    /** The `static const` values declared at file scope. */
+    readonly staticConstants: readonly ShaderStaticConstant[];
+}

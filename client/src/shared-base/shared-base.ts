@@ -1,7 +1,8 @@
 import * as path from 'path';
 import { commands, ExtensionContext, l10n, ProgressLocation, Uri, window, workspace } from 'vscode';
 import { ExecuteCommandRequest, LanguageClient } from 'vscode-languageclient/node';
-import { DiffPreviewProvider, showDiffPreview, showPatchPreview } from '../preview/diff-preview';
+import { showDiffPreview, showPatchPreview } from '../preview/diff-preview';
+import { VirtualContentProvider } from '../virtual-content-provider';
 import { ApplyCleanup, openDocumentPaths, saveAndTidy } from './apply-cleanup';
 import {
     SerializedPlan,
@@ -21,7 +22,7 @@ import {
  * The command the server's lightbulb refactoring carries. The server deliberately does not claim it,
  * so the editor resolves it here and the rewrite can be shown as a real diff before it happens.
  */
-export const EXTRACT_SHARED_BASE_LOCAL_COMMAND = 'cosmoteer.extractSharedBaseFromAction';
+const EXTRACT_SHARED_BASE_LOCAL_COMMAND = 'cosmoteer.extractSharedBaseFromAction';
 
 /**
  * Offer the sweep's extractions and let the user pick one to look at.
@@ -62,7 +63,7 @@ async function pickSharedBasePlan(plans: SerializedPlan[]): Promise<SerializedPl
 async function previewAndApplySharedBase(
     client: LanguageClient,
     plan: SerializedPlan,
-    provider: DiffPreviewProvider
+    provider: VirtualContentProvider
 ): Promise<void> {
     // Captured before the preview, not after: the diff opens the real file on its left-hand side, so
     // by the time it is on screen those files count as open and the tidy-up would leave them behind.
@@ -228,7 +229,7 @@ function sharedBaseFailureMessage(failure: SharedBaseFailure): string {
 export function registerSharedBase(
     context: ExtensionContext,
     client: LanguageClient,
-    provider: DiffPreviewProvider
+    provider: VirtualContentProvider
 ): void {
     // Shared base extraction: a command that sweeps the mod for fields several files write word for
     // word and turns the set the user picks into a base file all of them inherit, the way the game's

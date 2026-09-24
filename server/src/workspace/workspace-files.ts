@@ -8,7 +8,7 @@ import { uriToFsPath } from '../utils/uri-path';
 import { ParserResultRegistrar } from '../document/parser-result-registrar';
 import { globalSettings } from '../settings';
 import { MentionIndex } from './mention.index';
-import { normalizeUri } from '../document/reference-location';
+import { noteDocumentSource, normalizeUri } from '../document/reference-location';
 import { CosmoteerWorkspaceService } from './cosmoteer-workspace.service';
 
 /** How many candidate parses are kept. Bounded by count, since each holds a tree. */
@@ -104,6 +104,28 @@ export async function* projectDocuments(
 }
 
 /**
+ * Whether a registered buffer must not stand in for its file in the walks below.
+ *
+ * The game `Data` tree is content the game ships and loads from disk, and several checks read it
+ * to decide what the game itself carries: an id the base game references without declaring, a
+ * field name vanilla writes. An editor buffer over a vanilla file is not what the game reads, so
+ * letting it stand in let one unsaved vanilla file answer those questions for the whole install,
+ * and the answers are memoized per session, so the silence outlived closing the buffer.
+ *
+ * A session that turned `allowEditingVanillaFiles` on keeps its buffers, since there the unsaved
+ * edit is the thing being worked on.
+ *
+ * @param uri the registered document's uri.
+ * @returns true when the file behind it should be read from disk instead.
+ */
+const isGameTreeBuffer = (uri: string): boolean => {
+    if (globalSettings.allowEditingVanillaFiles) return false;
+    const dataRoot = CosmoteerWorkspaceService.instance.dataRootPath;
+    if (!dataRoot) return false;
+    return normalizeUri(uri).startsWith(`${normalizeUri(dataRoot).replace(/\/+$/, '')}/`);
+};
+
+/**
  * Like {@link projectDocuments}, but only yields documents whose raw text mentions `name`,
  * a cheap substring pre-filter that lets find-all-references / rename scale to the whole
  * Cosmoteer `Data` tree: the vast majority of files don't mention a given symbol, so they're
@@ -112,7 +134,9 @@ export async function* projectDocuments(
  * when the name is a pure word (no directory re-walk, no whole-tree read), and from a full walk
  * otherwise. Every candidate is still re-read and substring-checked before parsing, so the index
  * only pre-filters and can never change which documents are found. Open editor buffers are always
- * yielded unfiltered (unsaved edits, few of them, and the per-reference check filters).
+ * yielded unfiltered (unsaved edits, few of them, and the per-reference check filters). The one
+ * exception is a buffer over a game `Data` file, whose file is read from disk instead, for the
+ * reason {@link isGameTreeBuffer} gives.
  *
  * @param folderPaths the workspace folders to search.
  * @param name the symbol name the raw text must mention.
@@ -168,6 +192,9 @@ export async function* documentsMentioningWhere(
 ): AsyncGenerator<AbstractNodeDocument> {
     const seen = new Set<string>();
     for (const document of ParserResultRegistrar.instance.allResults()) {
+        // A buffer over a game file is not what the game ships, so it is left out and the file is
+        // read from disk with the rest of the tree below.
+        if (isGameTreeBuffer(document.uri)) continue;
         const norm = normalizeUri(document.uri);
         if (seen.has(norm)) continue;
         seen.add(norm);
@@ -239,6 +266,7 @@ const parsedMention = (file: string, text: string): AbstractNodeDocument | undef
     }
     try {
         const document = parseText(text, file);
+        noteDocumentSource(document, text);
         if (mentionParses.size >= MENTION_PARSE_CAP) {
             const oldest = mentionParses.keys().next().value;
             if (oldest !== undefined) mentionParses.delete(oldest);

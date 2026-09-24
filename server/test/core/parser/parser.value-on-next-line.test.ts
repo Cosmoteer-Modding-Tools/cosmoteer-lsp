@@ -80,10 +80,17 @@ describe('a value written on the line after `=`', () => {
     it('leaves the value empty before a closing brace, keeping the container intact', () => {
         // Deviation on purpose: the game swallows the `}` into the value and then runs off the end of
         // the file. This is the live-editing state right after a snippet scaffolds `Type = `, so a
-        // cascading desync here would break every schema feature in the file.
-        const group = groupOf('G\n{\n\tA = 1\n\tX =\n}\nH\n{\n\tB = 2\n}\n');
+        // cascading desync here would break every schema feature in the file. The tree stays whole
+        // and the dangling `=` is reported instead, since the game does refuse the file.
+        const source = 'G\n{\n\tA = 1\n\tX =\n}\nH\n{\n\tB = 2\n}\n';
+        const result = parse(source);
+        expect(result.parserErrors.map((error) => error.message)).toEqual([
+            'This "=" has no value, so the game reads the closing brace as one',
+        ]);
+        const group = result.value.elements[0] as GroupNode;
+        expect(isGroupNode(group)).toBe(true);
         expect((memberNamed(group, 'X') as AssignmentNode).right).toBeNull();
-        expect(parse('G\n{\n\tA = 1\n\tX =\n}\nH\n{\n\tB = 2\n}\n').value.elements).toHaveLength(2);
+        expect(result.value.elements).toHaveLength(2);
     });
 
     it('leaves the value empty above the head of a new member', () => {

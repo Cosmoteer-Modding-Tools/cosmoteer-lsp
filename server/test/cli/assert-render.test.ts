@@ -28,7 +28,7 @@ describe('the report a person reads', () => {
 
     it('says plainly when nothing was left unjudged, rather than saying nothing', async () => {
         const text = assertTextReport(await reportFor('assert-clean-mod'));
-        expect(text).toContain('Nothing. Every action was judged.');
+        expect(text).toContain('Nothing. Every action was judged, and so was every file it adds content from.');
         expect(text).toContain('The game loads this mod.');
         expect(text).toContain('Everything was checked and the game loads what is here.');
     });

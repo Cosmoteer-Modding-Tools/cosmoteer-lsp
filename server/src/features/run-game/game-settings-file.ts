@@ -3,6 +3,7 @@ import { AbstractNode, isIdentifierNode, isListNode, isValueNode } from '../../c
 import { lexer, Token } from '../../core/lexer/lexer';
 import { namedMembersOf, parseText } from '../../utils/ast.utils';
 import { foldPathCase } from '../../workspace/fs-cache';
+import { lineEndingOf } from '../refactor/command-host';
 
 /**
  * Reading and editing the game's own `settings.rules`, specifically its `EnabledMods` list.
@@ -137,7 +138,7 @@ export const enableModInSettings = (
     const member = enabledModsMember(text, settingsPath);
     if (typeof member === 'string') return { kind: 'refused', reason: member };
 
-    const eol = text.includes('\r\n') ? '\r\n' : '\n';
+    const eol = lineEndingOf(text);
     const wanted = foldPathCase(resolve(modFolder));
 
     let spliceStart: number;

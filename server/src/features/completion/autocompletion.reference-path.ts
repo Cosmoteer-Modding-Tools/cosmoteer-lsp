@@ -251,7 +251,7 @@ export const completeReference = async (args: {
     }
     // An inheritance ref (`Child : Par…`) names a sibling of the inheriting group, so its
     // relative lookups must resolve against the group's container, not the group's own
-    // members (mirrors `isInheritanceMember` in the navigation strategy).
+    // members (mirrors `isInheritanceEntry` in the navigation strategy).
     const startNode = isInheritanceNode && node.parent?.parent ? node.parent.parent : node;
     if (REFERENCE_REGEX.test(reference)) {
         const options = await optionsForParentLevelWithInheritance(reference, startNode, cancellationToken);

@@ -29,6 +29,24 @@ const WIRED = [
     '',
 ].join('\n');
 
+// The same part wiring a slot that takes a toggle rather than a trigger, which is the other half of
+// the question the picker has to answer.
+const TOGGLED = [
+    'Part',
+    '{',
+    '\tID = wired_part',
+    '\tComponents',
+    '\t{',
+    '\t\tturret',
+    '\t\t{',
+    '\t\t\tType = TurretWeapon',
+    '\t\t\tOperationalToggle = pull_trigger',
+    '\t\t}',
+    '\t}',
+    '}',
+    '',
+].join('\n');
+
 /** The edits a run handed the client, so the apply round can be read back. */
 let handedToClient: Record<string, TextEdit[]>[] = [];
 
@@ -41,11 +59,12 @@ const run = (
     text: string,
     name: string,
     type?: string,
-    apply?: boolean
+    apply?: boolean,
+    field = 'FireTrigger'
 ): Promise<CreateComponentResult> => {
     const open = TextDocument.create(URI, 'rules', 0, text);
     // The quick fix anchors on the reference that named nothing, wherever the name itself resolves.
-    const offset = text.indexOf('trigger', text.indexOf('FireTrigger') + 'FireTrigger'.length);
+    const offset = text.indexOf('trigger', text.indexOf(field) + field.length);
     const host = {
         openDocuments: (): readonly TextDocument[] => [open],
         applyEdit: async (changes: Record<string, TextEdit[]>): Promise<boolean> => {
@@ -78,6 +97,20 @@ describe('create a referenced component', () => {
         if (!('choices' in result)) throw new Error('no choices');
         expect(result.choices.length).toBeGreaterThan(50);
         expect(result.choices.map((choice) => choice.type)).toContain('BurstTrigger');
+    });
+
+    it('leaves out the kinds the slot the reference sits in cannot take', async () => {
+        const result = await run(TOGGLED, 'pull_trigger', undefined, undefined, 'OperationalToggle');
+        if (!('choices' in result)) throw new Error('no choices');
+        const types = result.choices.map((choice) => choice.type);
+        // The game casts the component a toggle slot names and throws while it builds the part when
+        // the cast fails, so a trigger is not a choice here however plausible its name reads.
+        expect(types).not.toContain('BurstTrigger');
+        expect(types).toContain('StatusToggle');
+        // A kind the bundle records no capabilities for cannot be judged, so it stays on offer
+        // rather than being refused on a guess, which is what keeps a code mod's own kinds listed.
+        expect(types).toContain('ArcSprite');
+        expect(types.length).toBeLessThan(100);
     });
 
     it('declares the component beside the one that references it', async () => {

@@ -27,14 +27,14 @@ import {
     scalarOf,
     registrationLineEnding,
     resolveGameRoot,
+    takenIdsOf,
 } from './mod-wiring';
 import {
+    NewPlanetApply,
     NewPlanetApplyResult,
     NewPlanetArgs,
-    NewPlanetFailure,
     NewPlanetHost,
     NewPlanetResult,
-    NewPlanetScanResult,
     PlanetBase,
     PlanetPlacement,
 } from './new-planet.types';
@@ -115,32 +115,6 @@ const PLACEMENTS: readonly PlanetPlacement[] = ['inner', 'outer', 'innerMoon', '
  * reaches as `&<file>/Planet`, the way a nebula file carries its `Nebula`.
  */
 const DOODAD_MEMBER = 'Planet';
-
-/** A scan result carrying nothing but the reason there is nothing to report. */
-const scanFailed = (failure: NewPlanetFailure): NewPlanetScanResult => ({
-    kind: 'scan',
-    modRoot: '',
-    modId: '',
-    authorPrefix: '',
-    takenIds: [],
-    bases: [],
-    placements: [],
-    failure,
-});
-
-/** An apply result carrying nothing but the reason nothing was created. */
-const applyFailed = (id: string, failure: NewPlanetFailure): NewPlanetApplyResult => ({
-    kind: 'apply',
-    id,
-    file: '',
-    manifest: '',
-    wiring: { doodads: 'noTarget', spawner: 'noTarget' },
-    localizationKeys: [],
-    localizationFiles: [],
-    createdFiles: [],
-    changedFiles: [],
-    failure,
-});
 
 /**
  * A numeric list member written back the way the game's own files write it, `[a, b]`.
@@ -322,27 +296,6 @@ const registryRead = async (
         });
     }
     return { ids, planets };
-};
-
-/**
- * The doodad ids the game and the workspace mods already declare, folded.
- *
- * @param registryIds the ids the game's registry lists.
- * @param host the server facilities.
- * @param cancellationToken cancels the lookup.
- * @returns the ids.
- */
-const takenIdsOf = async (
-    registryIds: readonly string[],
-    host: NewPlanetHost,
-    cancellationToken: CancellationToken
-): Promise<Set<string>> => {
-    const taken = new Set(registryIds.map((id) => id.toLowerCase()));
-    const declared = await host
-        .existingIds?.(DOODAD_CLASS, cancellationToken)
-        .catch((): ReadonlySet<string> => new Set());
-    for (const id of declared ?? []) taken.add(id.toLowerCase());
-    return taken;
 };
 
 /**
@@ -578,7 +531,7 @@ const wirePlanetIntoManifest = async (
     manifestFsPath: string,
     modRoot: string,
     plan: PlanetWiringPlan,
-    wiring: NewPlanetApplyResult['wiring'],
+    wiring: NewPlanetApply['wiring'],
     host: NewPlanetHost
 ): Promise<boolean> => {
     const manifest = await openManifest(manifestFsPath, host);
@@ -642,13 +595,13 @@ const applyRound = async (
     cancellationToken: CancellationToken
 ): Promise<NewPlanetApplyResult> => {
     const word = (args.id ?? '').trim();
-    if (!BARE_RULES_ID.test(word)) return applyFailed(word, 'invalidId');
+    if (!BARE_RULES_ID.test(word)) return { kind: 'apply', failure: 'invalidId' };
     const game = await resolveGameRoot(host);
-    if (!game) return applyFailed(word, 'noGameRoot');
+    if (!game) return { kind: 'apply', failure: 'noGameRoot' };
     const { dataRoot, rootPath, rootDocument } = game;
     const registry = doodadRegistryOf(rootDocument, rootPath, dataRoot);
     const read = registry ? await registryRead(registry, host, cancellationToken) : undefined;
-    if (!registry || !read || read.planets.length === 0) return applyFailed(word, 'noGameRoot');
+    if (!registry || !read || read.planets.length === 0) return { kind: 'apply', failure: 'noGameRoot' };
 
     // The game refuses a doodad id without an author segment at load, so a mod whose id carries
     // none cannot declare a doodad at all.
@@ -656,11 +609,11 @@ const applyRound = async (
     const prefix = authorPrefixOf(identity.manifestId);
     const segment = factionSegment(word);
     const doodadId = `${prefix ?? ''}.planet_${segment}`;
-    if (!prefix) return applyFailed(doodadId, 'noAuthorPrefix');
-    const taken = await takenIdsOf(read.ids, host, cancellationToken);
-    if (taken.has(doodadId.toLowerCase())) return applyFailed(doodadId, 'idTaken');
+    if (!prefix) return { kind: 'apply', failure: 'noAuthorPrefix' };
+    const taken = await takenIdsOf(read.ids, [DOODAD_CLASS], host, cancellationToken);
+    if (taken.has(doodadId.toLowerCase())) return { kind: 'apply', failure: 'idTaken' };
     const files = planetFilesOf(modRoot, segment);
-    if (existsSync(files.folder)) return applyFailed(doodadId, 'pathTaken');
+    if (existsSync(files.folder)) return { kind: 'apply', failure: 'pathTaken' };
 
     const wantedBase = (args.base ?? '').trim().toLowerCase();
     const base = read.planets.find((candidate) => candidate.id.toLowerCase() === wantedBase) ?? read.planets[0];
@@ -691,7 +644,7 @@ const applyRound = async (
         await writeFile(files.doodad, text, { encoding: 'utf-8', flag: 'wx' });
         created.push(files.doodad);
     } catch {
-        return applyFailed(doodadId, 'writeFailed');
+        return { kind: 'apply', failure: 'writeFailed' };
     }
     host.filesChanged(created);
 
@@ -703,7 +656,7 @@ const applyRound = async (
         cancellationToken
     ).catch(() => ({ keys: [], files: [] }));
 
-    const wiring: NewPlanetApplyResult['wiring'] = {
+    const wiring: NewPlanetApply['wiring'] = {
         doodads: 'noTarget',
         spawner: placement === 'none' ? 'skipped' : 'noTarget',
     };
@@ -759,17 +712,17 @@ export const newPlanet = async (
     const scanning = args.id === undefined;
     const located = modRootFor(args.uri, host.dataRoot());
     if ('failure' in located)
-        return scanning ? scanFailed(located.failure) : applyFailed(args.id ?? '', located.failure);
+        return scanning ? { kind: 'scan', failure: located.failure } : { kind: 'apply', failure: located.failure };
     if (!scanning) return await applyRound(args, located.modRoot, host, cancellationToken);
 
     const identity = await identityOfMod(located.modRoot).catch((): ModIdentity => ({ root: located.modRoot }));
     const game = await resolveGameRoot(host);
-    if (!game) return scanFailed('noGameRoot');
+    if (!game) return { kind: 'scan', failure: 'noGameRoot' };
     const { dataRoot, rootPath, rootDocument } = game;
     const registry = doodadRegistryOf(rootDocument, rootPath, dataRoot);
     const read = registry ? await registryRead(registry, host, cancellationToken) : undefined;
-    if (!read || read.planets.length === 0) return scanFailed('noGameRoot');
-    const taken = await takenIdsOf(read.ids, host, cancellationToken);
+    if (!read || read.planets.length === 0) return { kind: 'scan', failure: 'noGameRoot' };
+    const taken = await takenIdsOf(read.ids, [DOODAD_CLASS], host, cancellationToken);
     const spawnerExists = existsSync(`${dataRoot.replace(/\\/g, '/')}/${SPAWNER_FILE}`);
     return {
         kind: 'scan',

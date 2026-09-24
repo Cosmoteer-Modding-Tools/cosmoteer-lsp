@@ -4,7 +4,7 @@ import {
     AbstractNodeDocument,
     GroupNode,
     ListNode,
-    isAssignmentNode,
+    descendants,
     isGroupNode,
     isListNode,
 } from '../../core/ast/ast';
@@ -96,18 +96,11 @@ const drawnPixels = (sprite: ReadSprite): { width: number; height: number } =>
  */
 const spriteLists = (document: AbstractNodeDocument): ListNode[] => {
     const lists: ListNode[] = [];
-    const visit = (node: AbstractNode): void => {
-        if (isAssignmentNode(node)) {
-            if (node.right) visit(node.right);
-            return;
-        }
-        if (isListNode(node)) {
-            const element = listElementType(node);
-            if (element?.kind === 'group' && element.ref === ATLAS_SPRITE_CLASS) lists.push(node);
-        }
-        if (isGroupNode(node) || isListNode(node)) for (const child of node.elements) visit(child);
-    };
-    for (const element of document.elements) visit(element);
+    for (const node of descendants(document)) {
+        if (!isListNode(node)) continue;
+        const element = listElementType(node);
+        if (element?.kind === 'group' && element.ref === ATLAS_SPRITE_CLASS) lists.push(node);
+    }
     return lists;
 };
 

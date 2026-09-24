@@ -5,6 +5,7 @@ import { globalSettings } from '../../settings';
  * table below read like the grammar they implement.
  */
 const enum CHAR {
+    NUL = 0,
     TAB = 9,
     NEWLINE = 10,
     VERTICAL_TAB = 11,
@@ -13,6 +14,8 @@ const enum CHAR {
     SPACE = 32,
     BANG = 33,
     QUOTE = 34,
+    HASH = 35,
+    DOLLAR = 36,
     AMPERSAND = 38,
     LEFT_PAREN = 40,
     RIGHT_PAREN = 41,
@@ -28,6 +31,7 @@ const enum CHAR {
     LESS_THAN = 60,
     EQUALS = 61,
     GREATER_THAN = 62,
+    QUESTION = 63,
     AT = 64,
     UPPER_E = 69,
     LEFT_BRACKET = 91,
@@ -36,7 +40,9 @@ const enum CHAR {
     CARET = 94,
     LOWER_E = 101,
     LEFT_BRACE = 123,
+    PIPE = 124,
     RIGHT_BRACE = 125,
+    DELETE = 127,
 }
 
 export enum TOKEN_TYPES {
@@ -75,6 +81,18 @@ const enum VALUE_CHAR {
 }
 
 /**
+ * Whether a character is a control character the ObjectText grammar gives no meaning to. That is
+ * every C0 code and the delete character, minus the tab, the line feed and the carriage return,
+ * which are the three the game reads as spacing and which this lexer reads as spacing too.
+ *
+ * @param code the character's UTF-16 code unit.
+ * @returns true for a control character that carries no grammar.
+ */
+const isControlCode = (code: number): boolean =>
+    (code < CHAR.SPACE && code !== CHAR.TAB && code !== CHAR.NEWLINE && code !== CHAR.CARRIAGE_RETURN) ||
+    code === CHAR.DELETE;
+
+/**
  * The value charset by character code. Unquoted values may contain arbitrary text: the game's value
  * is simply every token joined until a delimiter. Localized strings/*.rules carry unquoted accented
  * letters (Fuellen), CJK text and punctuation. Every structural/math character in our grammar is
@@ -90,8 +108,23 @@ for (const range of [
     for (let code = range[0]; code <= range[1]; code++) VALUE_CHAR_CLASS[code] = VALUE_CHAR.ORDINARY;
 }
 for (const char of "-^~./&_<>%! '") VALUE_CHAR_CLASS[char.charCodeAt(0)] = VALUE_CHAR.ORDINARY;
-// A value character that can also mean something else, so the scanner asks before taking it.
-for (const char of '-/^!') VALUE_CHAR_CLASS[char.charCodeAt(0)] = VALUE_CHAR.CHECKED;
+// The game's file tokenizer emits any character it has no grammar for as a token of its own, and
+// the value is every token of the line joined, so these read as ordinary text on the right of an
+// `=` (`A = Gun #2`, `A = a?b`, `A = Guns | Roses` all load). They are refused where a member name
+// belongs, which the parser reports off the token that carries them.
+for (const char of '$?`') VALUE_CHAR_CLASS[char.charCodeAt(0)] = VALUE_CHAR.ORDINARY;
+// A control character is not spacing to the game either, so it stays inside the value the way any
+// other stray character does: the shipped HalflingCore parser reads `A = 1␀` as the value `1␀` and
+// `S = [1,␀ 2]` as the two elements `1` and `␀ 2`, and it answers the same for every other control
+// character, the delete character included. Where one stands in front of a member name the parser
+// reports it instead. These are what a file really picks up from a tool that wrote it wrong.
+for (let code = 0; code <= CHAR.DELETE; code++) {
+    if (isControlCode(code)) VALUE_CHAR_CLASS[code] = VALUE_CHAR.ORDINARY;
+}
+// A value character that can also mean something else, so the scanner asks before taking it. `#`
+// and `|` are mXparser operators in one spelling and ordinary text in every other, and `@` opens a
+// verbatim string only when a quote follows it.
+for (const char of '-/^!#|@') VALUE_CHAR_CLASS[char.charCodeAt(0)] = VALUE_CHAR.CHECKED;
 // Not value characters at all, yet each has one shape in which it stays inside a value: a time
 // literal or a virtual-inheritance path segment (`:`), an exponent sign (`+`), a path separator
 // inside `<…>` (`\`).
@@ -125,12 +158,37 @@ SINGLE_CHAR_TOKEN[CHAR.BANG] = TOKEN_TYPES.EXPRESSION;
  * is absent on purpose: it ends a value, so the main loop settles it before reading this table.
  */
 const INLINE_WHITESPACE = new Uint8Array(128);
-for (const code of [CHAR.SPACE, CHAR.TAB, CHAR.CARRIAGE_RETURN, CHAR.VERTICAL_TAB, CHAR.FORM_FEED]) {
+// The game's tokenizer counts only tab, line feed, carriage return, space and backslash as
+// spacing, so a vertical tab and a form feed are ordinary characters to it and belong in the
+// value charset rather than here. The carriage return is absent for the same reason as the line
+// feed: it ends a value, so the main loop settles it before this table is read.
+for (const code of [CHAR.SPACE, CHAR.TAB]) {
     INLINE_WHITESPACE[code] = 1;
 }
 
 /** Matches the non-ASCII whitespace `\s` recognizes (NBSP, ideographic space, BOM, …). */
 const NON_ASCII_WHITESPACE = new RegExp('[\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff]');
+
+/**
+ * The characters that read as nothing on screen and that the game refuses wherever a member name
+ * belongs. ObjectText's tokenizer counts only tab, line feed, carriage return, space and backslash
+ * as spacing and only `[0-9A-Za-z_.]` as name text, so every one of these becomes a token of its
+ * own and the file fails to load (`Unexpected " " at position Line=…`). Verified against the
+ * shipped HalflingCore parser. Inside a value or a string the game keeps the character, so the
+ * lexer only records it and the parser decides whether the position is fatal.
+ */
+const isInvisibleCode = (code: number): boolean =>
+    isControlCode(code) ||
+    code === 0x85 ||
+    code === 0xa0 ||
+    code === 0xad ||
+    code === 0x1680 ||
+    (code >= 0x2000 && code <= 0x200f) ||
+    (code >= 0x2028 && code <= 0x202f) ||
+    code === 0x205f ||
+    code === 0x2060 ||
+    code === 0x3000 ||
+    code === 0xfeff;
 
 /** `MM:SS`/`HH:MM:SS` time-literal prefix, evaluated only when a `:` follows a value. */
 const TIME_LITERAL_PREFIX = /^\d+(:\d+)*$/;
@@ -219,6 +277,60 @@ const splitsAsOperator = (input: string, at: number, start: number): boolean =>
     (at > start && isWhitespaceCode(input.charCodeAt(at - 1))) || parenFollowsSpaces(input, at + 1);
 
 /**
+ * The character before `at`, with spaces and tabs skipped.
+ *
+ * @param input the document text.
+ * @param at the offset to look back from.
+ * @returns the character's code, or NaN before the start of the input.
+ */
+const codeBeforeSpaces = (input: string, at: number): number => {
+    let i = at - 1;
+    while (i >= 0) {
+        const code = input.charCodeAt(i);
+        if (code !== CHAR.SPACE && code !== CHAR.TAB) return code;
+        i--;
+    }
+    return NaN;
+};
+
+/**
+ * The character at or after `at`, with spaces and tabs skipped.
+ *
+ * @param input the document text.
+ * @param at the offset to look forward from.
+ * @returns the character's code, or NaN past the end of the input.
+ */
+const codeAfterSpaces = (input: string, at: number): number => {
+    let i = at;
+    while (i < input.length) {
+        const code = input.charCodeAt(i);
+        if (code !== CHAR.SPACE && code !== CHAR.TAB) return code;
+        i++;
+    }
+    return NaN;
+};
+
+/**
+ * Whether the `#` or `|` at `at` is written as the mXparser operator it can also be. Both are
+ * ordinary text to the game's tokenizer, which is why `Gun #2`, `a#b` and `Guns | Roses` are values
+ * it reads, and both compute when the value reaches the expression evaluator, which is why
+ * `7 # 3` is 1 and `(0) | (3)` is 1. Only the spelling with whitespace on each side, a number or a
+ * `)` on the left and a number or a `(` on the right is read as the operator, so the text forms
+ * keep their character and the math forms keep their operator.
+ *
+ * @param input the document text.
+ * @param at the offset of the `#` or `|`.
+ * @returns true when the character ends the value and is lexed as an operator.
+ */
+const standsAsAssembledOperator = (input: string, at: number): boolean => {
+    if (!isWhitespaceCode(input.charCodeAt(at - 1)) || !isWhitespaceCode(input.charCodeAt(at + 1))) return false;
+    const before = codeBeforeSpaces(input, at);
+    if (before !== CHAR.RIGHT_PAREN && !isDigitCode(before)) return false;
+    const after = codeAfterSpaces(input, at + 1);
+    return after === CHAR.LEFT_PAREN || isDigitCode(after);
+};
+
+/**
  * Whether a `+`/`-` is the sign of a scientific-notation exponent (`3.4028235E+38`) rather than a
  * math operator. (`E-38` already works through the `-` in the value charset.) The previous-character
  * guard skips the slice and the regex unless an `e`/`E` precedes.
@@ -251,18 +363,26 @@ const isTimeLiteralColon = (input: string, at: number, start: number, sawDigit: 
 
 /**
  * Whether a `:` is a segment of a virtual-inheritance reference path (`&:/v_A`, `&../:/v_Foo`),
- * which stays in the value. It is recognizable by its neighbors, followed by `/` and directly
- * preceded by `&` or `/`, which an inheritance colon never is: there the `:` follows the inherited
- * name or whitespace, as in `Child : Parent` or `X : /BASE/Y`.
+ * which stays in the value. It is recognizable by its neighbors, directly preceded by `&` or `/`,
+ * which an inheritance colon never is: there the `:` follows the inherited name or whitespace, as
+ * in `Child : Parent` or `X : /BASE/Y`.
+ *
+ * The segment may also be the last one of the path. `&/Foo/:` and `&:` are both paths the shipped
+ * HalflingCore parser accepts and resolves, while `&/Foo/:Bar` is one it refuses, so the colon
+ * stays in the value when the path carries on with a `/` and when it ends on the colon, and hands
+ * the colon back when a name follows it.
  *
  * @param input the document text.
  * @param at the offset of the `:`.
  * @returns true when the colon is a path segment.
  */
 const isVirtualPathColon = (input: string, at: number): boolean => {
-    if (input.charCodeAt(at + 1) !== CHAR.SLASH) return false;
     const previous = input.charCodeAt(at - 1);
-    return previous === CHAR.AMPERSAND || previous === CHAR.SLASH;
+    if (previous !== CHAR.AMPERSAND && previous !== CHAR.SLASH) return false;
+    const next = input.charCodeAt(at + 1);
+    if (next === CHAR.SLASH) return true;
+    // Past the end of the input, or on a character no value carries on with, the path ends here.
+    return Number.isNaN(next) || (next < 128 && VALUE_CHAR_CLASS[next] === VALUE_CHAR.ENDS);
 };
 
 /**
@@ -311,7 +431,18 @@ const belongsInValue = (
             // exclamation that belongs to the value. Localized UI text is full of them (`KÄMPFEN!`,
             // `LOS!`). Keep `!` in non-numeric values, split it off numbers.
             return !(numberSoFar && sawDigit && at > start);
+        case CHAR.HASH:
+        case CHAR.PIPE:
+            return !standsAsAssembledOperator(input, at);
+        case CHAR.AT:
+            // `@"…"` opens a verbatim string, which the game reads as its own token and joins to
+            // the value without a separator. Everywhere else an `@` is ordinary value text.
+            return input.charCodeAt(at + 1) !== CHAR.QUOTE;
         case CHAR.COLON:
+            // Inside a `<…>` file path a colon is the drive letter's, not an inheritance colon.
+            // `&<C:/x/y.rules>/Member` is a reference the game reads, and splitting the value on
+            // the colon left `&<C` behind as a reference that is not valid.
+            if (insideFilePath) return true;
             return isTimeLiteralColon(input, at, start, sawDigit) || isVirtualPathColon(input, at);
         case CHAR.BACKSLASH:
             // Inside a `<…>` file path a backslash is a path separator (ObjectText accepts
@@ -440,6 +571,11 @@ const skipLineComment = (state: LexerState): void => {
  * opening `/*` is two columns like any other text: counting the comment's characters but not its
  * opener reported every token after it two columns early.
  *
+ * A line break inside the comment is part of the insignificant run in front of the next token and
+ * follows the same rule as any other, so it ends the value unless an earlier `\` suppressed it.
+ * The game reads `A = 1 /* c <newline> *\/ 2` as a parse error on the `2` and reads the same text
+ * with a `\` in front of the comment as the one value `1 2`.
+ *
  * @param state the lex state, positioned on the opening `/`.
  */
 const skipBlockComment = (state: LexerState): void => {
@@ -451,6 +587,7 @@ const skipBlockComment = (state: LexerState): void => {
     let closed = true;
     while (input[current] !== '*' || input[current + 1] !== '/') {
         if (input[current] === '\n') {
+            markNewline(state);
             lineNumber++;
             lineOffset = 0;
         } else {
@@ -511,11 +648,27 @@ const scanVerbatimString = (state: LexerState): void => {
         }
         current++;
     }
-    if (!closed) value += input.slice(segmentStart, current);
+    if (!closed) {
+        // No closing quote anywhere below, so the game refuses the file (`Unexpected "￿"`).
+        // Running to the end of the input would hand every remaining member to this one value and
+        // leave the outline, completion and every whole-file check working on a document that lost
+        // them. End the token at the end of its own line instead, the way the plain-string scanner
+        // does, and let the parser report the missing quote on the `@`.
+        const lineEnd = input.indexOf('\n', start);
+        current = lineEnd === -1 ? input.length : lineEnd;
+        lineNumber = state.lineNumber;
+        lineOffset = lineOffsetBefore + (current - start);
+        value = input.slice(start + 2, current);
+    }
     state.current = current;
     state.lineNumber = lineNumber;
     state.lineOffset = lineOffset;
-    pushToken(state, createToken(TOKEN_TYPES.STRING, lineOffsetBefore, lineNumber, start, current, value));
+    const token = createToken(TOKEN_TYPES.STRING, lineOffsetBefore, lineNumber, start, current, value);
+    if (!closed) {
+        token.unterminatedString = true;
+        token.verbatimString = true;
+    }
+    pushToken(state, token);
 };
 
 /**
@@ -533,24 +686,33 @@ const scanQuotedString = (state: LexerState): void => {
     const start = state.current;
     const lineOffsetBefore = state.lineOffset;
     let current = start + 1;
-    let lineNumber = state.lineNumber;
+    // A plain string never crosses a line break now that a `\` in front of one ends it, so the
+    // token stays on the line it opened on.
+    const lineNumber = state.lineNumber;
     let lineOffset = lineOffsetBefore + 1;
     let contentEnd = input.length;
     let unterminated = false;
     while (current < input.length) {
         const code = input.charCodeAt(current);
         if (code === CHAR.BACKSLASH) {
+            const escaped = input.charCodeAt(current + 1);
+            // The game's in-string escape takes any character except a line break, so a `\` at the
+            // end of the line is not a continuation inside a quoted value. ObjectText throws
+            // `Unexpected "\n"` on it and refuses the whole file, verified against the shipped
+            // HalflingCore parser. End the string here so the missing quote is reported on the
+            // opening quote and the rest of the file is read as ordinary rules. The backslash
+            // itself is consumed, or the lexer's line-continuation rule would suppress the very
+            // line break that ends the value.
+            if (escaped === CHAR.NEWLINE || escaped === CHAR.CARRIAGE_RETURN) {
+                contentEnd = current;
+                current++;
+                lineOffset++;
+                unterminated = true;
+                break;
+            }
             current++;
             lineOffset++;
             if (current < input.length) {
-                // A `\` before the line break is ObjectText's line continuation, so the string
-                // really does carry on below. Count the line it crosses.
-                if (input.charCodeAt(current) === CHAR.NEWLINE) {
-                    lineNumber++;
-                    lineOffset = 0;
-                    current++;
-                    continue;
-                }
                 current++;
                 lineOffset++;
             }
@@ -607,10 +769,17 @@ const scanValue = (state: LexerState): void => {
     // Whether the scanner stands inside a `<…>` file-path segment of a reference, where a
     // backslash is a path separator rather than whitespace.
     let insideFilePath = false;
+    // Where the first character that reads as nothing on screen sits, so the parser can report it
+    // when the token turns out to name a member. The guard in front of the test keeps the common
+    // printable range to two comparisons.
+    let invisibleAt = -1;
     for (;;) {
         const valueCode = input.charCodeAt(current);
         const kind = valueCode < 128 ? VALUE_CHAR_CLASS[valueCode] : VALUE_CHAR.ORDINARY;
         if (kind === VALUE_CHAR.ENDS) break;
+        if (invisibleAt < 0 && (valueCode < CHAR.SPACE || valueCode > 126) && isInvisibleCode(valueCode)) {
+            invisibleAt = current;
+        }
         if (
             kind !== VALUE_CHAR.ORDINARY &&
             !belongsInValue(input, current, start, valueCode, numberSoFar, sawDigit, insideFilePath)
@@ -636,17 +805,19 @@ const scanValue = (state: LexerState): void => {
     state.lineOffset = lineOffset;
     const untrimmedValue = input.slice(start, current);
     const value = untrimmedValue.trim();
-    pushToken(
-        state,
-        createToken(
-            TOKEN_TYPES.VALUE,
-            lineOffsetBefore,
-            state.lineNumber,
-            start,
-            current - (untrimmedValue.length - value.length),
-            value
-        )
+    const token = createToken(
+        TOKEN_TYPES.VALUE,
+        lineOffsetBefore,
+        state.lineNumber,
+        start,
+        current - (untrimmedValue.length - value.length),
+        value
     );
+    if (invisibleAt >= 0) {
+        token.invisibleChar = input.charCodeAt(invisibleAt);
+        token.invisibleCharStart = invisibleAt;
+    }
+    pushToken(state, token);
 };
 
 /**
@@ -762,11 +933,19 @@ export const lexer = (input: string, blockComments?: BlockCommentSpan[]): Token[
                 state.lineOffset = 0;
                 state.current++;
                 continue;
-            case CHAR.SPACE:
-            case CHAR.TAB:
             case CHAR.CARRIAGE_RETURN:
-            case CHAR.VERTICAL_TAB:
-            case CHAR.FORM_FEED: {
+                // ObjectText's tokenizer ends a line at a carriage return as readily as at a line
+                // feed, so a file written with lone `\r` breaks carries one member per return and
+                // not one value that swallows all of them. A `\r\n` pair is one line break, so the
+                // line feed of a pair is stepped over here rather than counted again.
+                markNewline(state);
+                state.lineNumber++;
+                state.lineOffset = 0;
+                state.current++;
+                if (input.charCodeAt(state.current) === CHAR.NEWLINE) state.current++;
+                continue;
+            case CHAR.SPACE:
+            case CHAR.TAB: {
                 // The whole run of inline whitespace at once, so a line of indentation costs one
                 // write-back rather than one per space.
                 let at = state.current;
@@ -790,10 +969,10 @@ export const lexer = (input: string, blockComments?: BlockCommentSpan[]): Token[
             continue;
         }
 
-        // The whitespace `\s` recognizes beyond ASCII (NBSP, ideographic space, BOM, …). Checked
-        // before the value scanner, which takes every character from U+0080 up.
-        if (code >= 128 && NON_ASCII_WHITESPACE.test(input[state.current])) {
-            state.lineOffset++;
+        // A byte-order mark opening the file is the one invisible character the game skips, so it
+        // produces no token here either. Anywhere else it is a token to the game and the value
+        // scanner below picks it up like any other invisible character.
+        if (code === 0xfeff && state.current === 0) {
             state.current++;
             continue;
         }
@@ -809,6 +988,14 @@ export const lexer = (input: string, blockComments?: BlockCommentSpan[]): Token[
         }
 
         if (scanKeyword(state)) continue;
+
+        // A `#` or `|` in its operator spelling carries no value text, so it is handed to the
+        // parser on its own, which assembles it with its neighbours (`||`, `@&`, …). Every other
+        // spelling belongs to the value the scanner below reads.
+        if ((code === CHAR.HASH || code === CHAR.PIPE) && standsAsAssembledOperator(input, state.current)) {
+            pushUnexpected(state);
+            continue;
+        }
 
         const valueClass = code < 128 ? VALUE_CHAR_CLASS[code] : VALUE_CHAR.ORDINARY;
         if (valueClass === VALUE_CHAR.ORDINARY || valueClass === VALUE_CHAR.CHECKED) {
@@ -894,4 +1081,20 @@ export interface Token {
      * opening quote, where the missing quote belongs.
      */
     unterminatedString?: boolean;
+    /**
+     * True when the unterminated string is a verbatim `@"…"` one. A verbatim string may legitimately
+     * span line breaks, so the advice that closes a plain string is wrong for it and the parser
+     * picks the wording off this flag.
+     */
+    verbatimString?: boolean;
+    /**
+     * The first invisible character the token carries, as its code point. The game reads only tab,
+     * space, carriage return, line feed and backslash as spacing, so a no-break space or a
+     * zero-width character is a token of its own there and makes the whole file fail to load
+     * wherever a member name is expected. Inside a value the game keeps it, which is why the fact
+     * travels on the token and the parser decides whether the position is fatal.
+     */
+    invisibleChar?: number;
+    /** The offset the {@link invisibleChar} sits at, so the report lands on the character itself. */
+    invisibleCharStart?: number;
 }

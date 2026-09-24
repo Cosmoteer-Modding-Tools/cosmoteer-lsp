@@ -1,0 +1,11 @@
+// A pvp system generator. The `modes/pvp/` path rule plus the top-level `Spawners` field roots this
+// file as a SimulationGenerator, whose `Spawners` is `list<SimSpawner>`: a polymorphic slot, where
+// each element names its own class through its own `Type=`. The action-rooting fixture mod appends
+// whole-file spawner fragments to it.
+Spawners
+[
+	{
+		Type = None
+		Count = 1
+	}
+]

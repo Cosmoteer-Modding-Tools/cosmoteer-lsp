@@ -99,6 +99,18 @@ describe('validatePartGeometry', () => {
         expect(found[0].message).toContain('refuses to load');
     });
 
+    // The mistake that writes this value is reading the last two numbers as an edge rather than a
+    // size, so the sentence has to say which two are the size and which two are the corner.
+    it('says what the four numbers of a refused PhysicalRect mean', async () => {
+        const [found] = await check('\tSize = [5, 5]\n\tPhysicalRect = [0, 2, 3, 4]');
+        expect(found.message).toContain('is a 3 by 4 rect at column 0, row 2');
+        expect(found.message).toContain('reaches past a 5 by 5 part');
+    });
+
+    it('leaves a rect that fits alone', async () => {
+        expect(await messages('\tSize = [5, 5]\n\tPhysicalRect = [0, 1, 3, 4]')).toEqual([]);
+    });
+
     it('leaves SaveRect alone, since the game reads only its location', async () => {
         expect(await messages('\tSize = [1, 3]\n\tSaveRect = [0, 3, 1, 1]')).toEqual([]);
     });

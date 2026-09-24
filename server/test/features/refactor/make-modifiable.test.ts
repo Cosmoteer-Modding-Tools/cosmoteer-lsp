@@ -41,7 +41,10 @@ const actionsAt = (text: string, needle: string): CodeAction[] => {
 /** The document as the offer would leave it, read through the plain form of its snippet. */
 const applied = (action: CodeAction, text: string): string => {
     const args = action.command?.arguments?.[0] as
-        | { range: { start: { line: number; character: number }; end: { line: number; character: number } }; snippet: string }
+        | {
+              range: { start: { line: number; character: number }; end: { line: number; character: number } };
+              snippet: string;
+          }
         | undefined;
     const document = TextDocument.create(URI, 'rules', 0, text);
     if (args) return TextDocument.applyEdits(document, [{ range: args.range, newText: plainTextOf(args.snippet) }]);
@@ -61,6 +64,15 @@ describe('make a value modifiable', () => {
     it('wraps a plain number in the group form the game also reads', () => {
         const text = source('4.5');
         const [action] = actionsAt(text, 'Force');
+        expect(action?.title).toContain('Force');
+        expect(applied(action, text)).toContain('Force\n\t\t\t{\n\t\t\t\tBaseValue = 4.5');
+    });
+
+    // The whole of the line in front of the field is where `Home` and a triple click put the
+    // selection's start, and that is the offset the editor asks the offers about.
+    it('offers the wrap for a selection that starts in the indentation of the line', () => {
+        const text = source('4.5');
+        const [action] = actionsAt(text, '\t\t\tForce');
         expect(action?.title).toContain('Force');
         expect(applied(action, text)).toContain('Force\n\t\t\t{\n\t\t\t\tBaseValue = 4.5');
     });
@@ -86,6 +98,41 @@ describe('make a value modifiable', () => {
         expect(applied(action, text)).toContain('Force\n            {\n                BaseValue = 4.5');
     });
 
+    // The game resolves a relative reference from the group the field sits in, so a value that
+    // gains a group around it reads one level off unless every relative path in it is rebased.
+    it('rebases a relative reference it nests one group deeper', () => {
+        const text = source('&../../FuelUsage');
+        const [action] = actionsAt(text, 'Force');
+        expect(applied(action, text)).toContain('BaseValue = &../../../FuelUsage');
+    });
+
+    it('rewrites a leading dot instead of putting a step in front of it', () => {
+        const text = source('(&./Sibling) * 2');
+        const [action] = actionsAt(text, 'Force');
+        expect(applied(action, text)).toContain('BaseValue = (&../Sibling) * 2');
+    });
+
+    it('rebases every reference of a value that carries more than one', () => {
+        const text = source('(&../Rate) / (&../Interval)');
+        const [action] = actionsAt(text, 'Force');
+        expect(applied(action, text)).toContain('BaseValue = (&../../Rate) / (&../../Interval)');
+    });
+
+    // The game's expression evaluator throws on a reference that lands on a group rather than a
+    // field, so a file that reads the number cannot have it wrapped without its readers moving too.
+    it('is not offered where the file reads the field through a reference', () => {
+        const text = source('4.5').replace(
+            '\t\t}\n\t}',
+            '\t\t}\n\t\tThrust = (&~/Part/Components/thruster/Force)\n\t}'
+        );
+        expect(actionsAt(text, 'Force =')).toHaveLength(0);
+    });
+
+    it('is still offered where the file reads a different name', () => {
+        const text = source('4.5').replace('\t\t}\n\t}', '\t\t}\n\t\tThrust = (&~/Part/Components/thruster/Mass)\n\t}');
+        expect(actionsAt(text, 'Force =')).toHaveLength(1);
+    });
+
     it('is not offered on a field the game reads only as a plain number', () => {
         const text = source('4.5').replace('Force = 4.5', 'Force = 4.5\n\t\t\tResourceStorage = fuel');
         expect(actionsAt(text, 'ResourceStorage')).toHaveLength(0);
@@ -98,6 +145,32 @@ describe('make a value modifiable', () => {
         );
         const [action] = actionsAt(text, 'BaseValue');
         expect(applied(action, text)).toContain('Force = 4.5');
+    });
+
+    it('strips a level from a relative reference when it lifts the value out of its group', () => {
+        const text = source('4.5').replace(
+            '\t\t\tForce = 4.5',
+            ['\t\t\tForce', '\t\t\t{', '\t\t\t\tBaseValue = &../../FuelUsage', '\t\t\t}'].join('\n')
+        );
+        const [action] = actionsAt(text, 'BaseValue');
+        expect(applied(action, text)).toContain('Force = &../FuelUsage');
+    });
+
+    // A path with no step to give up names something inside the group that is about to go, so there
+    // is no spelling of it that still reads the same node one level up.
+    it('is not offered where the value names something inside the group it would leave', () => {
+        const text = source('4.5').replace(
+            '\t\t\tForce = 4.5',
+            ['\t\t\tForce', '\t\t\t{', '\t\t\t\tBaseValue = &Sibling', '\t\t\t}'].join('\n')
+        );
+        expect(actionsAt(text, 'BaseValue')).toHaveLength(0);
+    });
+
+    it('is not offered where the file reads the group through its base value', () => {
+        const text = source('4.5')
+            .replace('\t\t\tForce = 4.5', ['\t\t\tForce', '\t\t\t{', '\t\t\t\tBaseValue = 4.5', '\t\t\t}'].join('\n'))
+            .replace('\t\t}\n\t}', '\t\t}\n\t\tThrust = (&~/Part/Components/thruster/Force/BaseValue)\n\t}');
+        expect(actionsAt(text, 'BaseValue')).toHaveLength(0);
     });
 
     it('leaves a group carrying a bound alone, since the bound changes what the game computes', () => {

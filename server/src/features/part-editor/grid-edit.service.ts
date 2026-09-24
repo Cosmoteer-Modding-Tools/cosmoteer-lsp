@@ -12,6 +12,7 @@ import {
 } from '../../core/ast/ast';
 import { GridCell, GridMutation, GridPoint, PartGridEditResult } from './part-grid.types';
 import {
+    GRID_LAYER_FIELDS,
     buildEffectiveFieldState,
     inheritedBoolean,
     inheritedEnumNames,
@@ -23,11 +24,18 @@ import {
     childNamed,
     enumNameOf,
     numberOf,
-    readMapEntries,
     readRect,
+    readRectEvaluated,
     readVector,
     readVectorEvaluated,
 } from '../../semantics/vector-forms';
+import {
+    hasUnreadableMapKey,
+    readGridMapEntries,
+    readGridMemberVectors,
+    readGridVector,
+    readGridVectors,
+} from './grid-value-reads';
 import {
     GridEditOptions,
     WriteSite,
@@ -36,9 +44,13 @@ import {
     holdsReference,
     isRefusal,
 } from './reference-writeback';
+import { mutationRefusal } from './grid-mutation-check';
 import { isReferenceValue } from '../navigation/reference-target';
 import { evaluateNumericValue } from '../../semantics/value-evaluator';
 import { normalizeUri } from '../../document/reference-location';
+import { filePathToUri } from '../../document/reference-path';
+import { writeRefusalFor } from '../../mod/write-gate';
+import { uriToFsPath } from '../../workspace/workspace-files';
 import { indentUnitOf } from '../refactor/command-host';
 import {
     appendMemberEdit,
@@ -48,6 +60,7 @@ import {
     openerOffset,
     overwriteValueEdit,
     replaceSpan,
+    valueSpan,
 } from '../refactor/rules-edit';
 
 /**
@@ -107,6 +120,13 @@ const SCALAR_PAIR_FIELDS: Readonly<Record<string, { x: string; y: string }>> = {
     RailgunEnd: { x: 'XEndOffset', y: 'YEndOffset' },
 };
 
+/** The numeric siblings a layer offers (a ray's length, a buff or collider radius, a region's reach). */
+const NUMBER_SIBLING_FIELDS: ReadonlySet<string> = new Set(['MaxTiles', 'BuffRadius', 'Radius', 'Distance']);
+
+/** The part-root rotation fields the sidebar writes, one set per value shape. */
+const BOOL_FIELDS: ReadonlySet<string> = new Set(['IsRotateable', 'IsFlippable']);
+const INT_LIST_FIELDS: ReadonlySet<string> = new Set(['FlipHRotate', 'FlipVRotate', 'SelectionTypeRotations']);
+
 /** The game defaults of the part-root flags fields, from their field initializers. */
 const FLAG_FIELD_DEFAULTS: Readonly<Record<string, readonly string[]>> = {
     AllowedContiguity: ['Sides'],
@@ -120,6 +140,34 @@ const FLAG_FIELD_DEFAULTS: Readonly<Record<string, readonly string[]>> = {
  */
 const SAME_DECLARATION = (): string =>
     l10n.t('Two of these numbers are the same declaration and cannot differ, edit them in the text.');
+
+/**
+ * What to say when a field that only exists on a base part cannot be copied down faithfully. The
+ * copy is written out as literals, so an inherited element written as math or as a reference would
+ * either vanish from the copy or freeze into a number the base can no longer move.
+ *
+ * @returns the localized refusal.
+ */
+const UNCOPYABLE_INHERITED = (): string =>
+    l10n.t('The inherited field holds values that cannot be copied down, write the field out locally first.');
+
+/**
+ * What to say when a map field holds a key the editor cannot read. The game builds these fields
+ * with one dictionary add per entry and refuses the whole file on a repeated key, so a new entry is
+ * not appended where the editor cannot tell whether it repeats one.
+ *
+ * @returns the localized refusal.
+ */
+const UNREADABLE_KEY = (): string =>
+    l10n.t('An entry of this field has a key the editor cannot read, add the entry in the text.');
+
+/**
+ * What to say about a field name no layer of this part carries.
+ *
+ * @param name the name the mutation asked for.
+ * @returns the localized refusal.
+ */
+const NOT_A_GRID_FIELD = (name: string): string => l10n.t('{0} is not a field the grid editor draws.', name);
 
 /**
  * Whether an edit builder refused instead of producing edits.
@@ -350,11 +398,30 @@ const currentNumber = async (node: AbstractNode, token: CancellationToken): Prom
     return evaluateNumericValue(node, token).catch(() => null);
 };
 
-/** Writes one numeric component, and writes nothing when the file already says that number. */
+/**
+ * Writes one numeric component, and writes nothing when the file already says that number.
+ *
+ * A component the author wrote as a computation (`1 - 14/64`, `(&~/PAD) + 0.5`) cannot stay one
+ * once the gesture moves it to a number the expression does not produce, and the arithmetic is not
+ * inverted here: writing the dropped number into the constant would move every other reader of it.
+ * The replacement is said out loud instead, so the author knows the sentence left the file.
+ *
+ * @param scope the file the component is written in.
+ * @param node the component's value node.
+ * @param value the number the gesture landed on.
+ * @returns the edits, or a refusal.
+ */
 const writeNumber = async (scope: WriteScope, node: AbstractNode, value: number): Promise<EditOutcome> => {
     const current = await currentNumber(node, scope.token);
     if (current !== null && current === value) return [];
-    return writeScalar(scope, node, formatNumber(value));
+    const written = await writeScalar(scope, node, formatNumber(value));
+    if (isError(written) || !written.length) return written;
+    if (numberOf(node) !== null || isReferenceValue(node)) return written;
+    const { start, end } = valueSpan(scope.text, node);
+    const replaced = scope.text.slice(start, end).trim();
+    if (!replaced) return written;
+    const note = l10n.t('The value {0} was replaced by a number.', replaced);
+    return [{ ...written[0], note: written[0].note ?? note }, ...written.slice(1)];
 };
 
 /**
@@ -411,28 +478,46 @@ const writeTuple = async (
 };
 
 /**
- * Rewrites a vector: in one span when it is written out here, component by component through the
- * declarations when any part of it is a reference.
+ * Whether a tuple is spelled out here in as many components as the handle moves, so the write can
+ * go component by component instead of pasting over the whole value.
+ *
+ * @param node the tuple's value node.
+ * @param members the group-form member names, in positional order.
+ * @returns true when every component has a node of its own.
  */
-const writeVector = async (scope: WriteScope, node: AbstractNode, x: number, y: number): Promise<EditOutcome> => {
-    if (!holdsReference(node)) return replaceVectorEdit(scope.text, node, x, y);
-    return writeTuple(scope, node, VECTOR_MEMBERS, [x, y]);
+const hasComponents = (node: AbstractNode, members: readonly string[]): boolean => {
+    if (isListNode(node)) return node.elements.length === members.length;
+    if (isGroupNode(node)) return members.every((name) => !!childNamed(node, name));
+    return false;
 };
 
-/** Rewrites a rect, following references the same way {@link writeVector} does. */
+/**
+ * Rewrites a vector: in one span when it is two plain numbers, component by component otherwise, so
+ * a coordinate the author wrote as `1 - 14/64` or through a reference keeps its sentence when the
+ * gesture did not move it. The whole-span rewrite stays for a value the components cannot be told
+ * apart in, which is what the flattened inline forms parse to.
+ */
+const writeVector = async (scope: WriteScope, node: AbstractNode, x: number, y: number): Promise<EditOutcome> => {
+    if (!readVector(node) && (isReferenceValue(node) || hasComponents(node, VECTOR_MEMBERS))) {
+        return writeTuple(scope, node, VECTOR_MEMBERS, [x, y]);
+    }
+    return replaceVectorEdit(scope.text, node, x, y);
+};
+
+/** Rewrites a rect, keeping its authored components the same way {@link writeVector} does. */
 const writeRect = async (
     scope: WriteScope,
     node: AbstractNode,
     rect: { x: number; y: number; width: number; height: number }
 ): Promise<EditOutcome> => {
-    if (!holdsReference(node)) {
-        if (isGroupNode(node) && readRect(node)) {
-            const groupText = `{X = ${formatNumber(rect.x)}; Y = ${formatNumber(rect.y)}; Width = ${formatNumber(rect.width)}; Height = ${formatNumber(rect.height)}}`;
-            return [replaceSpan(scope.text, node.position.start, node.position.end, groupText)];
-        }
-        return [replaceSpan(scope.text, node.position.start, node.position.end, rectText(rect))];
+    if (!readRect(node) && (isReferenceValue(node) || hasComponents(node, RECT_MEMBERS))) {
+        return writeTuple(scope, node, RECT_MEMBERS, [rect.x, rect.y, rect.width, rect.height]);
     }
-    return writeTuple(scope, node, RECT_MEMBERS, [rect.x, rect.y, rect.width, rect.height]);
+    if (isGroupNode(node) && readRect(node)) {
+        const groupText = `{X = ${formatNumber(rect.x)}; Y = ${formatNumber(rect.y)}; Width = ${formatNumber(rect.width)}; Height = ${formatNumber(rect.height)}}`;
+        return [replaceSpan(scope.text, node.position.start, node.position.end, groupText)];
+    }
+    return [replaceSpan(scope.text, node.position.start, node.position.end, rectText(rect))];
 };
 
 /** Formats a rect in the positional form new fields are written with. */
@@ -444,6 +529,11 @@ const rectText = (rect: { x: number; y: number; width: number; height: number })
  * member goes before the closer rather than after the last member so that anything trailing that
  * member's line, a comment above all, stays where the author put it.
  *
+ * The insertion starts at the closer's own line rather than at the brace, because the brace is
+ * already indented and inserting in front of it would push the brace to the end of the new line and
+ * give the member that indentation twice. A closer that shares its line with anything else keeps
+ * the plain append, which writes after the last member instead of cutting into that line.
+ *
  * @param text the file's source text the edit is measured against.
  * @param container the group the member goes into.
  * @param memberText the member as it should be written.
@@ -451,7 +541,15 @@ const rectText = (rect: { x: number; y: number; width: number; height: number })
  *          span says.
  */
 const insertMemberEdit = (text: string, container: GroupNode, memberText: string): EditOutcome => {
-    const edit = appendMemberEdit(text, container, memberText, { placement: 'beforeCloser' });
+    const open = openerOffset(text, container);
+    const close = closerOffset(text, container);
+    if (open >= 0 && close > open && text.slice(open, close).includes('\n')) {
+        const lineStart = text.lastIndexOf('\n', close - 1) + 1;
+        if (/^[ \t]*$/.test(text.slice(lineStart, close))) {
+            return [insertAt(text, lineStart, `${memberIndentOf(text, container)}${memberText}\n`)];
+        }
+    }
+    const edit = appendMemberEdit(text, container, memberText, { inlineSeparator: '; ' });
     if (!edit) return { error: l10n.t('The part group could not be edited safely.') };
     return [edit];
 };
@@ -491,26 +589,45 @@ const materializeFieldEdit = (
     return insertMemberEdit(text, container, blockFieldText(fieldName, elements, indent, indentUnitOf(text)));
 };
 
-/** The nth readable vector element of a list-like member, with its element node. */
-const vectorElementAt = (member: AbstractNode, index: number): { node: AbstractNode; x: number; y: number } | null => {
-    if (!isListNode(member) && !isGroupNode(member)) return null;
-    let seen = 0;
-    for (const element of member.elements) {
-        const vector = readVector(element);
-        if (!vector) continue;
-        if (seen === index) return { node: element, x: vector.x, y: vector.y };
-        seen++;
-    }
-    return null;
+/**
+ * The nth vector element of a list-like member, counting the same elements the payload showed.
+ *
+ * @param member the field's container node.
+ * @param index the index the webview sent, which is an index into the drawn entries.
+ * @param token cancels the reference resolution a computed element needs.
+ * @returns the element with its numbers, or null when the list is shorter than that.
+ */
+const vectorElementAt = async (
+    member: AbstractNode,
+    index: number,
+    token: CancellationToken
+): Promise<{ node: AbstractNode; x: number; y: number } | null> => {
+    const vectors = await readGridVectors(member, token);
+    const vector = vectors[index];
+    return vector ? { node: vector.node, x: vector.x, y: vector.y } : null;
 };
 
-/** The nth readable pair element of a `VirtualInternalCells` member. */
-const pairElementAt = (member: AbstractNode, index: number): AbstractNode | null => {
+/**
+ * The nth pair element of a `VirtualInternalCells` member, counted the way the payload counts them.
+ *
+ * @param member the field's container node.
+ * @param index the index the webview sent.
+ * @param token cancels the reference resolution a computed cell needs.
+ * @returns the entry group, or null when the list is shorter than that.
+ */
+const pairElementAt = async (
+    member: AbstractNode,
+    index: number,
+    token: CancellationToken
+): Promise<AbstractNode | null> => {
     if (!isListNode(member) && !isGroupNode(member)) return null;
     let seen = 0;
     for (const element of member.elements) {
         if (!isGroupNode(element)) continue;
-        if (!readVector(childNamed(element, 'ExternalCell')) || !readVector(childNamed(element, 'InternalCell')))
+        if (
+            !(await readGridVector(childNamed(element, 'ExternalCell'), token)) ||
+            !(await readGridVector(childNamed(element, 'InternalCell'), token))
+        )
             continue;
         if (seen === index) return element;
         seen++;
@@ -566,6 +683,18 @@ export const buildPartGridEdit = async (
     token: CancellationToken,
     options: GridEditOptions = {}
 ): Promise<PartGridEditResult> => {
+    // The same gate the part table asks before it writes a cell: the part's own file is refused
+    // when it belongs to the game's install or to somebody else's installed mod. The webview shows
+    // the message, so a drag on a vanilla part says why nothing moved instead of quietly dirtying
+    // a file of the install.
+    const refusal = writeRefusalFor(uriToFsPath(uri));
+    if (refusal) return { status: 'error', message: refusal.message };
+
+    // The payload's own numbers and names are formatted into the file, so they are judged before
+    // any of them reaches a builder.
+    const rejected = mutationRefusal(mutation);
+    if (rejected) return { status: 'error', message: rejected };
+
     const part = locatePartGroup(document, anchorOffset);
     if (!part) return { status: 'notFound', message: l10n.t('No part was found in this document.') };
 
@@ -578,20 +707,26 @@ export const buildPartGridEdit = async (
  * Groups the built edits by the file each one lands in, and collects the notes a write that
  * followed a reference left behind.
  *
+ * A write that followed a reference into a file nobody has open carries that file's uri as the
+ * path its parse was rooted from. Every key of a WorkspaceEdit is a DocumentUri, and a client
+ * parsing `c:\mod\consts.rules` as one reads the drive letter as the scheme and applies the edit to
+ * nothing, so each key is spelled as a uri before it goes out.
+ *
  * @param edits the built edits, each naming its file when it is not the edited document.
  * @param uri the document being edited, which the untagged edits belong to.
  * @returns the WorkspaceEdit and the status note, if any.
  */
 const groupByFile = (edits: readonly TargetedEdit[], uri: string): { edit: WorkspaceEdit; note?: string } => {
     const changes: Record<string, TextEdit[]> = {};
-    const spellings = new Map<string, string>([[normalizeUri(uri), uri]]);
+    const own = filePathToUri(uri);
+    const spellings = new Map<string, string>([[normalizeUri(own), own]]);
     const notes: string[] = [];
     for (const edit of edits) {
         // A reference resolving inside this same file answers with the uri its parse carries, which
         // need not be spelled the way the request spelled it. Two spellings of one file would be two
         // change lists, and a client applying the second against the text the first already moved
         // writes over the wrong span, so one spelling wins here.
-        const written = edit.uri ?? uri;
+        const written = filePathToUri(edit.uri ?? own);
         const folded = normalizeUri(written);
         const target = spellings.get(folded) ?? (spellings.set(folded, written), written);
         (changes[target] ??= []).push({ range: edit.range, newText: edit.newText });
@@ -599,7 +734,7 @@ const groupByFile = (edits: readonly TargetedEdit[], uri: string): { edit: Works
     }
     // A gesture that changed nothing still answers `ok`, so the webview clears its queued click
     // rather than treating an empty edit as a failure.
-    if (!Object.keys(changes).length) changes[uri] = [];
+    if (!Object.keys(changes).length) changes[own] = [];
     return { edit: { changes }, note: notes.length ? notes.join(' ') : undefined };
 };
 
@@ -627,6 +762,7 @@ const mutationEdits = async (ctx: EditContext, mutation: GridMutation): Promise<
         case 'setSize':
             return sizeEdit(ctx, mutation.size);
         case 'setBool': {
+            if (!BOOL_FIELDS.has(mutation.field)) return { error: NOT_A_GRID_FIELD(mutation.field) };
             if (mutation.value === null) {
                 const member = localMember(part, mutation.field);
                 return member ? removeMemberEdit(text, member) : [];
@@ -639,6 +775,7 @@ const mutationEdits = async (ctx: EditContext, mutation: GridMutation): Promise<
             return scalarEdit(ctx, mutation.field, mutation.value ? 'true' : 'false');
         }
         case 'setIntList': {
+            if (!INT_LIST_FIELDS.has(mutation.field)) return { error: NOT_A_GRID_FIELD(mutation.field) };
             if (mutation.values) {
                 const inherited = await inheritedIntList(part, mutation.field, token);
                 if (
@@ -683,7 +820,13 @@ const mutationEdits = async (ctx: EditContext, mutation: GridMutation): Promise<
 
 /**
  * Resolves a layer's local field member, or reports why it cannot be edited. A missing component
- * container means the whole component is inherited, which stays read-only in this version.
+ * container means the whole component is inherited, which stays read-only in this version. A field
+ * name no layer carries is refused rather than created: the writers materialize whatever name they
+ * are handed, and an id that drifted out of an older payload would leave a junk field behind.
+ *
+ * @param part the part group.
+ * @param layerId the mutation's layer id.
+ * @returns the container with the field's local member, or the reason it cannot be edited.
  */
 const resolveLayerMember = (
     part: GroupNode,
@@ -692,10 +835,17 @@ const resolveLayerMember = (
     const { fieldPath, fieldName } = splitLayerId(layerId);
     const container = containerForPath(part, fieldPath);
     if (!container) {
+        if (!fieldPath.length || !GRID_LAYER_FIELDS.has(fieldName)) {
+            return { error: NOT_A_GRID_FIELD(layerId) };
+        }
         return {
             error: l10n.t('The owning component is inherited from a base part. Declare it locally first.'),
         };
     }
+    // Asked whether the field is drawn, never whether it happens to be there: a layer id naming a
+    // real field of the part that no layer draws (`Size`) would otherwise reach the writers, which
+    // append to whatever list they are handed, and a click would put a cell into the part's size.
+    if (!GRID_LAYER_FIELDS.has(fieldName)) return { error: NOT_A_GRID_FIELD(layerId) };
     return { container, fieldName, member: localMember(container, fieldName) };
 };
 
@@ -706,15 +856,20 @@ const cellSetEdit = async (ctx: EditContext, layerId: string, cell: GridCell, ad
     if ('error' in resolved) return resolved;
     const { container, fieldName, member } = resolved;
     if (member) {
-        if (add) return appendElementEdit(text, member.value as ListNode, vectorText(cell.x, cell.y));
-        const existing = (isListNode(member.value) || isGroupNode(member.value) ? member.value.elements : [])
-            .map((element) => ({ element, vector: readVector(element) }))
-            .find(({ vector }) => vector && cellEquals(vector, cell));
+        const written = await readGridVectors(member.value, token);
+        const existing = written.find((vector) => cellEquals(vector, cell));
+        // A cell the file already names stays named once. Appending a second element for it would
+        // leave the author a cell the next click cannot switch off.
+        if (add) {
+            if (existing) return [];
+            return appendElementEdit(text, member.value as ListNode, vectorText(cell.x, cell.y));
+        }
         if (!existing) return { error: l10n.t('The cell is not present in the local field.') };
-        return removeElementOrMemberEdit(text, container, fieldName, member, existing.element, token);
+        return removeElementOrMemberEdit(text, container, fieldName, member, existing.node, token);
     }
     // Absent locally: materialize the inherited cells (when any) with the toggle applied.
     const inherited = await buildEffectiveFieldState(container, fieldName, token);
+    if (inherited.lossy) return { error: UNCOPYABLE_INHERITED() };
     const cells = inherited.cells.filter((candidate) => !cellEquals(candidate, cell));
     if (add) cells.push(cell);
     else if (cells.length === inherited.cells.length) {
@@ -740,16 +895,18 @@ const mapEntryEdit = async (
     if ('error' in resolved) return resolved;
     const { container, fieldName, member } = resolved;
     if (member) {
-        const entry = readMapEntries(member.value).find(({ key }) => cellEquals(key, cell));
+        const entry = (await readGridMapEntries(member.value, token)).find(({ key }) => cellEquals(key, cell));
         if (entry) {
             if (!values.length)
                 return removeElementOrMemberEdit(text, container, fieldName, member, entry.entry, token);
             return writeValue(ctx, entry.value, enumListText(values));
         }
         if (!values.length) return { error: l10n.t('The cell has no entry to remove.') };
+        if (await hasUnreadableMapKey(member.value, token)) return { error: UNREADABLE_KEY() };
         return appendElementEdit(text, member.value as ListNode, mapEntryText(cell, values));
     }
     const inherited = await buildEffectiveFieldState(container, fieldName, token);
+    if (inherited.lossy) return { error: UNCOPYABLE_INHERITED() };
     const entries = inherited.entries.filter(({ key }) => !cellEquals(key, cell));
     if (values.length) entries.push({ key: cell, values: [...values] });
     else if (entries.length === inherited.entries.length) {
@@ -786,6 +943,7 @@ const pointAddEdit = async (ctx: EditContext, layerId: string, point: GridPoint)
     const { container, fieldName, member } = resolved;
     if (member) return appendElementEdit(text, member.value as ListNode, vectorText(point.x, point.y));
     const inherited = await buildEffectiveFieldState(container, fieldName, token);
+    if (inherited.lossy) return { error: UNCOPYABLE_INHERITED() };
     const points = inherited.cells.concat([point]);
     return materializeFieldEdit(
         text,
@@ -795,18 +953,23 @@ const pointAddEdit = async (ctx: EditContext, layerId: string, point: GridPoint)
     );
 };
 
-/** The nth entry-member vector of a list of groups (`ResourceLevels [ { Offset = [x, y] } ]`). */
-const entryMemberVectorAt = (member: AbstractNode, entryMember: string, index: number): AbstractNode | null => {
-    if (!isListNode(member) && !isGroupNode(member)) return null;
-    let seen = 0;
-    for (const element of member.elements) {
-        if (!isGroupNode(element)) continue;
-        const vector = readVector(childNamed(element, entryMember));
-        if (!vector) continue;
-        if (seen === index) return vector.node;
-        seen++;
-    }
-    return null;
+/**
+ * The nth entry-member vector of a list of groups (`ResourceLevels [ { Offset = [x, y] } ]`).
+ *
+ * @param member the field's container node.
+ * @param entryMember the member name each entry carries the vector under.
+ * @param index the index the webview sent.
+ * @param token cancels the reference resolution a computed offset needs.
+ * @returns the vector's node, or null when the list is shorter than that.
+ */
+const entryMemberVectorAt = async (
+    member: AbstractNode,
+    entryMember: string,
+    index: number,
+    token: CancellationToken
+): Promise<AbstractNode | null> => {
+    const vectors = await readGridMemberVectors(member, entryMember, token);
+    return vectors[index]?.node ?? null;
 };
 
 /** In-place move edit for a fractional point (form-preserving, entry-member lists supported). */
@@ -821,11 +984,11 @@ const pointMoveEdit = async (
     const { member } = resolved;
     const { entryMember } = splitLayerId(layerId);
     if (entryMember) {
-        const node = member && entryMemberVectorAt(member.value, entryMember, index);
+        const node = member && (await entryMemberVectorAt(member.value, entryMember, index, ctx.token));
         if (!node) return { error: l10n.t('The point is not present in the local field.') };
         return writeVector(ctx, node, point.x, point.y);
     }
-    const target = member && vectorElementAt(member.value, index);
+    const target = member && (await vectorElementAt(member.value, index, ctx.token));
     if (!target) return { error: l10n.t('The point is not present in the local field.') };
     return writeVector(ctx, target.node, point.x, point.y);
 };
@@ -836,7 +999,7 @@ const pointRemoveEdit = async (ctx: EditContext, layerId: string, index: number)
     const resolved = resolveGrowablePointLayer(part, layerId);
     if ('error' in resolved) return resolved;
     const { container, fieldName, member } = resolved;
-    const target = member && vectorElementAt(member.value, index);
+    const target = member && (await vectorElementAt(member.value, index, token));
     if (!target) return { error: l10n.t('The point is not present in the local field.') };
     return removeElementOrMemberEdit(text, container, fieldName, member!, target.node, token);
 };
@@ -855,7 +1018,7 @@ const pairSetEdit = async (
     const { container, fieldName, member } = resolved;
     if (member) {
         if (index === null) return appendElementEdit(text, member.value as ListNode, pairEntryText(external, internal));
-        const entry = pairElementAt(member.value, index);
+        const entry = await pairElementAt(member.value, index, token);
         if (!entry) return { error: l10n.t('The pair is not present in the local field.') };
         // A pair whose cells are written as references keeps them: each cell goes through its own
         // declaration instead of the whole entry being replaced with two literals.
@@ -875,6 +1038,7 @@ const pairSetEdit = async (
         return [replaceSpan(text, entry.position.start, entry.position.end, pairEntryText(external, internal))];
     }
     const inherited = await buildEffectiveFieldState(container, fieldName, token);
+    if (inherited.lossy) return { error: UNCOPYABLE_INHERITED() };
     const pairs = inherited.pairs.concat([{ external, internal }]);
     return materializeFieldEdit(
         text,
@@ -890,7 +1054,7 @@ const pairRemoveEdit = async (ctx: EditContext, layerId: string, index: number):
     const resolved = resolveLayerMember(part, layerId);
     if ('error' in resolved) return resolved;
     const { container, fieldName, member } = resolved;
-    const entry = member && pairElementAt(member.value, index);
+    const entry = member && (await pairElementAt(member.value, index, token));
     if (!entry) return { error: l10n.t('The pair is not present in the local field.') };
     return removeElementOrMemberEdit(text, container, fieldName, member!, entry, token);
 };
@@ -1051,6 +1215,7 @@ const numberFieldEdit = async (
     value: number | null
 ): Promise<EditOutcome> => {
     const { part, text } = ctx;
+    if (!NUMBER_SIBLING_FIELDS.has(field)) return { error: NOT_A_GRID_FIELD(field) };
     const resolved = resolveLayerMember(part, layerId);
     if ('error' in resolved) return resolved;
     const { container, member } = resolved;
@@ -1138,12 +1303,25 @@ const vertexRemoveEdit = async (ctx: EditContext, layerId: string, index: number
     return removeElementOrMemberEdit(text, container, fieldName, member!, target, token);
 };
 
-/** The nth tagged rect row (`[category, [x, y, w, h]]`) of a prohibit list. */
-const rectEntryAt = (member: AbstractNode, index: number): ListNode | null => {
+/**
+ * The nth tagged rect row (`[category, [x, y, w, h]]`) of a prohibit list, counting the rows the
+ * payload drew. The payload reads a row's rect through evaluation, so a row written with arithmetic
+ * is a row the author can see and point at, and skipping it here would move every later index by
+ * one and land the edit on the neighbouring rect.
+ *
+ * @param member the field's container node.
+ * @param index the index the webview sent.
+ * @param token cancels the reference resolution a computed rect needs.
+ * @returns the row, or null when the list holds fewer rows than that.
+ */
+const rectEntryAt = async (member: AbstractNode, index: number, token: CancellationToken): Promise<ListNode | null> => {
     if (!isListNode(member) && !isGroupNode(member)) return null;
     let seen = 0;
     for (const element of member.elements) {
-        if (!isListNode(element) || element.elements.length !== 2 || !readRect(element.elements[1])) continue;
+        if (!isListNode(element) || element.elements.length !== 2) continue;
+        const rect =
+            readRect(element.elements[1]) ?? (await readRectEvaluated(element.elements[1], token).catch(() => null));
+        if (!rect) continue;
         if (seen === index) return element;
         seen++;
     }
@@ -1162,19 +1340,19 @@ const rectEntryEdit = async (
     tag: string | null,
     rect: { x: number; y: number; width: number; height: number }
 ): Promise<EditOutcome> => {
-    const { part, text } = ctx;
+    const { part, text, token } = ctx;
     const resolved = resolveLayerMember(part, layerId);
     if ('error' in resolved) return resolved;
     const { container, fieldName, member } = resolved;
-    const firstTag = (): string | null => {
+    const firstTag = async (): Promise<string | null> => {
         if (!member || (!isListNode(member.value) && !isGroupNode(member.value))) return null;
-        const first = rectEntryAt(member.value, 0);
+        const first = await rectEntryAt(member.value, 0, token);
         return first ? (enumNameOf(first.elements[0]) ?? null) : null;
     };
-    const effectiveTag = tag ?? firstTag();
+    const effectiveTag = tag ?? (await firstTag());
     if (!effectiveTag) return { error: l10n.t('A prohibit category is needed for the first rect.') };
     if (member && index !== null) {
-        const entry = rectEntryAt(member.value, index);
+        const entry = await rectEntryAt(member.value, index, token);
         if (!entry) return { error: l10n.t('The rect is not present in the local field.') };
         if (tag)
             return [replaceSpan(text, entry.position.start, entry.position.end, rectEntryText(effectiveTag, rect))];
@@ -1190,7 +1368,7 @@ const rectEntryRemoveEdit = async (ctx: EditContext, layerId: string, index: num
     const resolved = resolveLayerMember(part, layerId);
     if ('error' in resolved) return resolved;
     const { container, fieldName, member } = resolved;
-    const entry = member && rectEntryAt(member.value, index);
+    const entry = member && (await rectEntryAt(member.value, index, token));
     if (!entry) return { error: l10n.t('The rect is not present in the local field.') };
     return removeElementOrMemberEdit(text, container, fieldName, member!, entry, token);
 };
@@ -1239,6 +1417,7 @@ const expandAdjacencyFlags = (names: readonly string[]): Set<string> => {
  */
 const flagsEdit = async (ctx: EditContext, field: string, values: readonly string[] | null): Promise<EditOutcome> => {
     const { part, text, token } = ctx;
+    if (!(field in FLAG_FIELD_DEFAULTS)) return { error: NOT_A_GRID_FIELD(field) };
     if (!values) {
         const member = localMember(part, field);
         if (!member) return [];

@@ -483,7 +483,14 @@ The rotation mapping applied when the part is flipped vertically.
 ## AIValueFactor
 `float` · optional · default `1`
 
-How much the AI wants to destroy this part on ships it considers enemies.
+How much the AI wants to destroy this part on ships it considers enemies. The score it competes on
+is this factor times the part's `Cost`, so raising it makes the part a more attractive target and
+lowering it makes the AI prefer something else.
+
+Only a part whose factor is above zero is scored at all, which is how the game's own armour keeps
+the AI from aiming at it. Zero does not make a part untargetable. A ship the AI finds no positive
+part on has one of its remaining parts picked at random instead, so zero means the part is never
+chosen on purpose rather than never shot at.
 
 ## ReceivableBuffs
 `→ BuffType[]` · optional

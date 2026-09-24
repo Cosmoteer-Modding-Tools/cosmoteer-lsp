@@ -1,7 +1,14 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { join } from 'path';
 import { CancellationToken } from 'vscode-languageserver';
-import { AbstractNodeDocument, GroupNode, isGroupNode, isListNode, isValueNode, ListNode } from '../../src/core/ast/ast';
+import {
+    AbstractNodeDocument,
+    GroupNode,
+    isGroupNode,
+    isListNode,
+    isValueNode,
+    ListNode,
+} from '../../src/core/ast/ast';
 import { parseFilePath } from '../../src/utils/ast.utils';
 import { documentRootClass } from '../../src/document/schema/document-root';
 import {
@@ -119,6 +126,44 @@ describe('AddBase and Overrides fragment rooting', () => {
     });
 });
 
+describe('polymorphic list rooting', () => {
+    const SHIP_SPAWNER = 'Cosmoteer.Generators.Simulation.ShipSpawner';
+
+    it('roots a whole-file fragment appended to a `list<SimSpawner>` by its own top-level Type', async () => {
+        const doc = await parseFilePath(modFile('spawner_ships.rules'));
+        expect(ActionRootingIndex.instance.rootType(doc.uri)).toEqual({
+            kind: 'polymorphicGroup',
+            ref: 'Cosmoteer.Generators.Simulation.SimSpawner',
+            name: 'SimSpawner',
+        });
+        // What a modder sees: the file has a class, so hover and completion have a scope at the top
+        // level and the members type through the dispatched class.
+        expect(documentRootClass(doc)).toBeUndefined();
+        expect(documentScopeClass(doc)).toBe(SHIP_SPAWNER);
+        expect(memberScopeClassAt(doc, 0)).toBe(SHIP_SPAWNER);
+        expect(memberTypeIn(doc, 'Retries')?.kind).toBe('int');
+        expect(memberTypeIn(doc, 'SpawnCrew')?.kind).toBe('bool');
+    });
+
+    it('roots nothing when the fragment Type names no member of the slot registry', async () => {
+        const doc = await parseFilePath(modFile('spawner_unknown_type.rules'));
+        expect(documentScopeClass(doc)).toBeUndefined();
+        expect(memberTypeIn(doc, 'Retries')).toBeUndefined();
+    });
+
+    it('roots nothing when the fragment Type belongs to another registry', async () => {
+        const doc = await parseFilePath(modFile('spawner_foreign_type.rules'));
+        expect(documentScopeClass(doc)).toBeUndefined();
+        expect(memberTypeIn(doc, 'Rotation')).toBeUndefined();
+    });
+
+    it('roots nothing when the dispatched class owns none of the fragment fields', async () => {
+        const doc = await parseFilePath(modFile('spawner_misfit.rules'));
+        expect(documentScopeClass(doc)).toBeUndefined();
+        expect(memberTypeIn(doc, 'Duration')).toBeUndefined();
+    });
+});
+
 describe('safe skips leave the fragment unrooted', () => {
     it('skips an index-based target', async () => {
         const doc = await parseFilePath(modFile('skip_index.rules'));
@@ -154,7 +199,7 @@ describe('the manifest itself parses the action vocabulary', () => {
     it('parses every fixture action to a known verb', async () => {
         const manifest = await parseFilePath(modFile('mod.rules'));
         const actions = parseModActions(manifest);
-        expect(actions.length).toBe(7);
+        expect(actions.length).toBe(8);
         expect(actions.every((action) => action.type !== 'Unknown')).toBe(true);
         expect(actions.filter((action) => isValueNode(action.sources[0])).length).toBeGreaterThan(0);
     });

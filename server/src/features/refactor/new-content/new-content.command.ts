@@ -2,14 +2,13 @@ import { constants, existsSync, statSync } from 'fs';
 import { copyFile, mkdir, readFile, writeFile } from 'fs/promises';
 import { dirname, join, relative } from 'path';
 import { CancellationToken, TextEdit } from 'vscode-languageserver';
-import { TextDocument } from 'vscode-languageserver-textdocument';
 import { AbstractNodeDocument } from '../../../core/ast/ast';
 import { identityOfMod, ModIdentity } from '../../mod-report/mod-dependencies';
 import { findModRoot } from '../../../mod/mod-root';
 import { parseText } from '../../../utils/ast.utils';
 import { isUnder } from '../../../utils/relative-path';
 import { CosmoteerWorkspaceData } from '../../../workspace/cosmoteer-workspace.service';
-import { insertEditForFile, modStringsFiles } from '../../diagnostics/localization-key-insert';
+import { insertOffsetEditsForFile, modStringsFiles } from '../../diagnostics/localization-key-insert';
 import { filePathToUri } from '../../../document/reference-path';
 import { normalizeUri } from '../../../document/reference-location';
 import { uriToFsPath } from '../../../workspace/workspace-files';
@@ -19,7 +18,8 @@ import { documentFor, lineEndingOf, openBuffers } from '../command-host';
 import { relativeRulesReference } from '../shared-base/base-file.emitter';
 import { dirOf, readRulesFile } from '../shared-base/base-index';
 import { editableModRootOf } from '../shared-base/shared-base.analysis-entry';
-import { addManyActionText, manifestActionInsert, overridesActionText } from '../register-part/manifest-action.emitter';
+import { overridesActionText } from '../override-in-mod/overrides-action.emitter';
+import { addManyActionText, manifestActionInsert } from '../register-part/manifest-action.emitter';
 import { registerPartInShip } from '../register-part/register-part.command';
 import { RegisterPartHost } from '../register-part/register-part.types';
 import { ShipClassEntry, shipClassesFor, shipPartsListOf } from '../register-part/ship-registry';
@@ -492,7 +492,6 @@ interface StringsFileEdit {
  * @returns the file's new text and the keys that were added.
  */
 const insertKeysInto = (fsPath: string, source: string, entries: readonly LocalizationEntry[]): StringsFileEdit => {
-    const lineEnding = lineEndingOf(source);
     let text = source;
     const added: string[] = [];
     for (const entry of entries) {
@@ -502,15 +501,12 @@ const insertKeysInto = (fsPath: string, source: string, entries: readonly Locali
         } catch {
             break;
         }
-        const edit = insertEditForFile(document, text, entry.key, entry.value);
-        if (!edit) continue;
-        const positions = TextDocument.create(filePathToUri(fsPath), 'rules', 0, text);
-        const start = positions.offsetAt(edit.range.start);
-        const end = positions.offsetAt(edit.range.end);
-        // The insert is written with plain newlines, so a language file written with `\r\n` keeps its
-        // own ending rather than gaining a second one halfway down.
-        const inserted = lineEnding === '\n' ? edit.newText : edit.newText.split('\n').join(lineEnding);
-        text = text.slice(0, start) + inserted + text.slice(end);
+        // The insert already carries the file's own line ending and the offset it was measured at,
+        // so it is spliced in as it stands. Rewriting its endings here wrote a second carriage
+        // return per line, and converting its position back to an offset moved every later insert.
+        const [inserted] = insertOffsetEditsForFile(document, text, [{ key: entry.key, value: entry.value }]);
+        if (!inserted) continue;
+        text = text.slice(0, inserted.offset) + inserted.edit.newText + text.slice(inserted.offset);
         added.push(entry.key);
     }
     return { fsPath, text, added };
@@ -607,15 +603,21 @@ const registerPart = async (
     if (result.kind !== 'apply') {
         return { route: 'ship', registeredIn: '', changedFiles: [], failure: result.failure ?? 'stale' };
     }
-    // The manifest route changes the manifest, the ship route changes the ship's own file, so what
-    // "registered in" names is whichever of the two was actually written.
-    const registeredIn = result.via === 'modAction' ? (result.changedFiles[0] ?? '') : result.shipFsPath;
+    if (result.failure) {
+        return {
+            route: 'ship',
+            registeredIn: '',
+            changedFiles: [],
+            failure: result.failure,
+            manifests: result.manifests,
+        };
+    }
     return {
         route: 'ship',
-        registeredIn: result.failure ? '' : registeredIn,
+        // The manifest route changes the manifest, the ship route changes the ship's own file, so what
+        // "registered in" names is whichever of the two was actually written.
+        registeredIn: result.via === 'modAction' ? (result.changedFiles[0] ?? '') : result.shipFsPath,
         changedFiles: result.changedFiles,
-        failure: result.failure,
-        manifests: result.manifests,
     };
 };
 
@@ -837,7 +839,7 @@ const registerBuff = async (target: Target, host: NewContentHost): Promise<Regis
         (manifestDir, indent, lineEnding) =>
             overridesActionText(
                 registryTarget,
-                `&${relativeRulesReference(manifestDir, target.fsPath)}`,
+                { kind: 'reference', reference: `&${relativeRulesReference(manifestDir, target.fsPath)}` },
                 indent,
                 lineEnding
             )

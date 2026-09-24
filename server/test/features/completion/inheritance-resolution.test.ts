@@ -1,7 +1,8 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { CancellationToken } from 'vscode-languageserver';
 import { AbstractNodeDocument, GroupNode, isAssignmentNode } from '../../../src/core/ast/ast';
-import { findNodeByIdentifier, parseFilePath } from '../../../src/utils/ast.utils';
+import { parseFilePath } from '../../../src/utils/ast.utils';
+import { findNodeByIdentifier } from '../../helpers';
 import { resolveClassThroughInheritance } from '../../../src/features/completion/inheritance-resolution';
 import { getHover } from '../../../src/features/hover/hover.service';
 import { globalSettings } from '../../../src/settings';
@@ -42,16 +43,16 @@ describe('resolveClassThroughInheritance: cross-file bases', () => {
     it('hover shows the schema field signature inside a whole-file-inherited group', async () => {
         // Hover on `ShakeAmount` in `MyShake : /BASE_SHAKE { … }`: the field belongs to the class
         // the whole-file base carries, which only the async inheritance resolution can reach.
-        const assignment = myShake.elements.find(
-            (e) => isAssignmentNode(e) && e.left.name === 'ShakeAmount'
-        ) as { left: { position: { line: number; characterStart: number } } } | undefined;
+        const assignment = myShake.elements.find((e) => isAssignmentNode(e) && e.left.name === 'ShakeAmount') as
+            { left: { position: { line: number; characterStart: number } } } | undefined;
         expect(assignment).toBeDefined();
         const hover = await getHover(
             consumer,
             { line: assignment!.left.position.line, character: assignment!.left.position.characterStart + 1 },
             token
         );
-        const text = hover && typeof hover.contents === 'object' && 'value' in hover.contents ? hover.contents.value : '';
+        const text =
+            hover && typeof hover.contents === 'object' && 'value' in hover.contents ? hover.contents.value : '';
         expect(text).toContain('ShakeAmount');
         expect(text).toContain('ModifiableValue');
     });

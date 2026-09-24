@@ -1,17 +1,25 @@
 import { registry } from '../../utils/registry';
 import {
+    DeclarationPosition,
     FunctionScope,
     ParsedShader,
     ShaderConstant,
     ShaderConstantKind,
     ShaderFunction,
     ShaderFunctionSignature,
+    ShaderMemberGuard,
     ShaderParam,
+    ShaderStruct,
+    ShaderStaticConstant,
+    ShaderStructMember,
+    ShaderTypeAlias,
+    ShaderTypes,
 } from './shader-parser.types';
 /**
- * A scanner for Cosmoteer `.shader` files (HLSL with a small preprocessor). It extracts the three
- * things the language server cares about: the `#include` chain, the entry-point function names, and
- * the top-level `_`-prefixed uniform declarations a material sets from its `.rules` file.
+ * A scanner for Cosmoteer `.shader` files (HLSL with a small preprocessor). It extracts what the
+ * language server cares about: the `#include` chain, the entry-point function names, the top-level
+ * `_`-prefixed uniform declarations a material sets from its `.rules` file, and, through
+ * {@link parseShaderTypes}, the named types and file-scope values a shader declares.
  *
  * It is deliberately a lexical scanner, not a real HLSL parser. It tracks brace depth so it can tell a
  * file-scope uniform from a local variable or a struct member, and it understands `cbuffer` blocks
@@ -299,4 +307,146 @@ export const functionScopeAt = (source: string, offset: number): FunctionScope |
         return { params: parseParamList(m[3]), bodyBeforeOffset: source.slice(bodyOpen, end) };
     }
     return null;
+};
+
+/** Matches a `typedef <type> <NAME>;` alias, capturing the aliased type and the alias name. */
+const TYPEDEF_RE = /^\s*typedef\s+([A-Za-z_]\w*)\s+([A-Za-z_]\w*)\s*;/;
+
+/** Matches a `static const <type> <NAME> [= value];` declaration, capturing type, name and initializer. */
+const STATIC_CONST_RE = /^\s*static\s+const\s+([A-Za-z_]\w*)\s+([A-Za-z_]\w*)\s*(?:=\s*([^;]+?))?\s*;/;
+
+/** Matches a `struct <NAME>` opener, capturing the declared type name. */
+const STRUCT_NAME_RE = /^\s*struct\s+([A-Za-z_]\w*)/;
+
+/** Matches one member declaration: optional qualifiers, a type token, then the member name. */
+const MEMBER_RE =
+    /^\s*(?:const\s+|static\s+|uniform\s+|nointerpolation\s+|centroid\s+|linear\s+|noperspective\s+)*([A-Za-z_]\w*)\s+([A-Za-z_]\w*)/;
+
+/** Matches a preprocessor directive line, capturing the keyword and the rest of the line. */
+const DIRECTIVE_RE = /^\s*#\s*(\w+)\b[ \t]*(.*)$/;
+
+/**
+ * Reads the condition of an `#if`/`#elif` as a single macro test. Only the two shapes the shaders
+ * use are understood, `defined(NAME)` and `!defined(NAME)`. Anything else yields an unnamed guard,
+ * which every consumer treats as satisfied rather than guessing.
+ *
+ * @param expression the text after the `#if`/`#elif` keyword.
+ * @returns the guard the condition stands for.
+ */
+const guardOfCondition = (expression: string): ShaderMemberGuard => {
+    const match = /^\s*(!?)\s*defined\s*(?:\(\s*([A-Za-z_]\w*)\s*\)|([A-Za-z_]\w*))\s*$/.exec(expression);
+    if (!match) return { macro: '', negated: false };
+    return { macro: match[2] ?? match[3], negated: match[1] === '!' };
+};
+
+/**
+ * Scans one shader file for the named types and file-scope values its `#include`rs can use: the
+ * `struct` declarations with their members, the `typedef` aliases, and the `static const` values.
+ * Struct members are collected with the preprocessor guards they sit behind, since a Cosmoteer base
+ * shader declares its optional channels under an `#ifdef` that the including file switches on.
+ *
+ * @param source the full text of a `.shader` file.
+ * @returns the structs, aliases and static constants this file alone declares.
+ */
+export const parseShaderTypes = (source: string): ShaderTypes => {
+    const clean = blankComments(source);
+    const lines = clean.split(/\r?\n/);
+    const rawLines = source.split(/\r?\n/);
+    const structs: ShaderStruct[] = [];
+    const typeAliases: ShaderTypeAlias[] = [];
+    const staticConstants: ShaderStaticConstant[] = [];
+
+    let depth = 0;
+    let open: { name: string; position: DeclarationPosition; members: ShaderStructMember[] } | null = null;
+    let guards: ShaderMemberGuard[] = [];
+
+    for (let index = 0; index < lines.length; index++) {
+        const line = lines[index];
+        const raw = rawLines[index] ?? line;
+        // The part of the line that belongs to a struct body: after the opening `{` on the line that
+        // opens the struct, before the closing `}` on the line that ends it, the whole line between.
+        let body = open ? line : '';
+
+        if (!open && depth === 0) {
+            const alias = TYPEDEF_RE.exec(line);
+            if (alias) {
+                typeAliases.push({
+                    name: alias[2],
+                    aliasedType: alias[1],
+                    position: { line: index, column: columnOf(raw, line, alias[2]) },
+                });
+            }
+            const constant = STATIC_CONST_RE.exec(line);
+            if (constant && !constant[2].startsWith('_')) {
+                staticConstants.push({
+                    name: constant[2],
+                    hlslType: constant[1],
+                    ...(constant[3] ? { value: constant[3].trim() } : {}),
+                    position: { line: index, column: columnOf(raw, line, constant[2]) },
+                });
+            }
+            const struct = STRUCT_NAME_RE.exec(line);
+            const brace = line.indexOf('{');
+            if (struct && (brace >= 0 || !line.includes(';'))) {
+                open = {
+                    name: struct[1],
+                    position: { line: index, column: columnOf(raw, line, struct[1]) },
+                    members: [],
+                };
+                guards = [];
+                body = brace >= 0 ? line.slice(brace + 1) : '';
+            }
+        }
+
+        if (open) {
+            const close = body.lastIndexOf('}');
+            collectStructBody(close >= 0 ? body.slice(0, close) : body, guards, open.members);
+        }
+
+        for (const char of line) {
+            if (char === '{') depth++;
+            else if (char === '}') {
+                depth--;
+                if (depth <= 0 && open) {
+                    structs.push({ name: open.name, members: open.members, position: open.position });
+                    open = null;
+                }
+                if (depth < 0) depth = 0;
+            }
+        }
+    }
+
+    return { structs, typeAliases, staticConstants };
+};
+
+/**
+ * Reads one line of a struct body, either updating the guard stack for a preprocessor directive or
+ * appending the members the line declares with the guards currently in force.
+ *
+ * @param body the part of the line that lies inside the struct's braces.
+ * @param guards the guard stack in force, updated in place by a directive line.
+ * @param members the member list to append to.
+ */
+const collectStructBody = (body: string, guards: ShaderMemberGuard[], members: ShaderStructMember[]): void => {
+    const directive = DIRECTIVE_RE.exec(body);
+    if (directive) {
+        const [, keyword, rest] = directive;
+        if (keyword === 'ifdef') guards.push({ macro: rest.trim(), negated: false });
+        else if (keyword === 'ifndef') guards.push({ macro: rest.trim(), negated: true });
+        else if (keyword === 'if') guards.push(guardOfCondition(rest));
+        else if (keyword === 'elif') {
+            guards.pop();
+            guards.push(guardOfCondition(rest));
+        } else if (keyword === 'else') {
+            const previous = guards.pop();
+            guards.push(
+                previous ? { macro: previous.macro, negated: !previous.negated } : { macro: '', negated: false }
+            );
+        } else if (keyword === 'endif') guards.pop();
+        return;
+    }
+    for (const segment of body.split(';')) {
+        const member = MEMBER_RE.exec(segment);
+        if (member) members.push({ type: member[1], name: member[2], guards: [...guards] });
+    }
 };

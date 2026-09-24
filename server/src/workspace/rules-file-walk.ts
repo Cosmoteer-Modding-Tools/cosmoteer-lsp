@@ -1,7 +1,7 @@
 import { Dirent } from 'fs';
 import { readFile } from 'fs/promises';
 import { resolve, sep } from 'path';
-import { isRulesFileName } from '../document/document-kind';
+import { isRulesFileName, isShaderDocument } from '../document/document-kind';
 import { cachedReaddir } from './fs-cache';
 
 // Walking the project tree for its rules files is a filesystem concern, not a navigation one: the
@@ -21,7 +21,28 @@ const READ_AHEAD = 16;
  * @param dir the directory to walk.
  * @returns each rules file path under `dir`.
  */
-export async function* collectRulesFiles(dir: string): AsyncGenerator<string> {
+export const collectRulesFiles = (dir: string): AsyncGenerator<string> => walkFiles(dir, isRulesFileName);
+
+/**
+ * Yield every file the diagnostics pass validates under `dir`: the rules files plus the `.shader`
+ * files, which carry their own HLSL checks. Only the pass walks this set. Every other walk (the
+ * mention index, the index cache, the migration command, the `.txt` reference scan) indexes Object
+ * Text and would push HLSL through the OT lexer if it saw a shader.
+ *
+ * @param dir the directory to walk.
+ * @returns each rules or shader file path under `dir`.
+ */
+export const collectScannedFiles = (dir: string): AsyncGenerator<string> =>
+    walkFiles(dir, (name) => isRulesFileName(name) || isShaderDocument(name));
+
+/**
+ * The walk both collectors share: every file under `dir` whose name `accept` claims.
+ *
+ * @param dir the directory to walk.
+ * @param accept decides by bare filename whether a file is yielded.
+ * @returns each accepted file path under `dir`.
+ */
+async function* walkFiles(dir: string, accept: (basename: string) => boolean): AsyncGenerator<string> {
     // One generator frame walking an explicit stack, rather than a generator per directory
     // delegating to the next: a project walk descends thousands of directories, and the delegation
     // chain costs a promise hop per level per file. The root is resolved once so the children can
@@ -40,7 +61,7 @@ export async function* collectRulesFiles(dir: string): AsyncGenerator<string> {
         const full = frame.dir.endsWith(sep) ? frame.dir + entry.name : frame.dir + sep + entry.name;
         if (entry.isDirectory()) {
             frames.push({ dir: full, entries: await cachedReaddir(full).catch(() => []), index: 0 });
-        } else if (entry.isFile() && isRulesFileName(entry.name)) {
+        } else if (entry.isFile() && accept(entry.name)) {
             yield full;
         }
     }

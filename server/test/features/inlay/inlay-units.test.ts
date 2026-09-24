@@ -91,4 +91,16 @@ describe('inlay hints take the unit from the declared field type', () => {
     it('leaves an untyped document on the written suffix alone', async () => {
         expect(labels(await hintsFor('Foo = 5 * 2'))).toEqual(['= 10']);
     });
+
+    // The game rewrites a `d` or `r` suffix with a regex that allows no space in front of the
+    // letter, so `90 d` reaches mXparser as written and throws while the file loads. Saying what
+    // such a value works out to would promise a number the game never gets to compute.
+    it('says nothing about an angle literal written with a space before its suffix', async () => {
+        expect(await hintsFor('Deg = 90 d')).toHaveLength(0);
+        expect(await hintsFor('Rad = 2 r')).toHaveLength(0);
+    });
+
+    it('still labels the same angle written the way the game reads it', async () => {
+        expect(labels(await hintsFor('Deg = 90d'))).toEqual(['= 1.570796 rad (90°)']);
+    });
 });

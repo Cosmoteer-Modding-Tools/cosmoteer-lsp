@@ -49,9 +49,18 @@ export const parseString = (
             token,
             additionalInfo: [
                 {
-                    message: l10n.t(
-                        'A quoted value ends at the end of its line. Close the quote, or end the line with a backslash to carry the value on'
-                    ),
+                    // A `\` inside the quotes is not a continuation: the game's in-string escape
+                    // refuses a line break and throws on it, while the same backslash outside the
+                    // quotes joins two quoted pieces into one value (verified against the shipped
+                    // HalflingCore parser). A verbatim string needs its own advice, since that one
+                    // really does span lines and only its closing quote is missing.
+                    message: token.verbatimString
+                        ? l10n.t(
+                              'A verbatim @" value runs on until its closing quote, so the game reads the rest of the file into it and fails to load the file. Close the quote where the text ends.'
+                          )
+                        : l10n.t(
+                              'A quoted value ends at the end of its line. Close the quote here, then end the line with a backslash and open a new quoted piece on the next line to carry the value on.'
+                          ),
                 },
             ],
         } as ParserError);

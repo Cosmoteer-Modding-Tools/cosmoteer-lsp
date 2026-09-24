@@ -69,7 +69,7 @@ export interface AsteroidLook {
 }
 
 /** What could be created in this mod. */
-export interface NewAsteroidTypeScanResult {
+export interface NewAsteroidTypeScan {
     kind: 'scan';
     modRoot: string;
     modId: string;
@@ -79,11 +79,12 @@ export interface NewAsteroidTypeScanResult {
     takenIds: string[];
     /** The author prefix every id is built with, empty when the manifest declares no dotted id. */
     authorPrefix: string;
-    failure?: NewAsteroidTypeFailure;
+    /** Never set here, the field that tells a report from a refusal. */
+    failure?: undefined;
 }
 
 /** What creating the type did. */
-export interface NewAsteroidTypeApplyResult {
+export interface NewAsteroidTypeApply {
     kind: 'apply';
     id: string;
     /** The folder the type's files were written under, empty when nothing was written. */
@@ -102,8 +103,15 @@ export interface NewAsteroidTypeApplyResult {
     localizationFiles: string[];
     createdFiles: string[];
     changedFiles: string[];
-    failure?: NewAsteroidTypeFailure;
+    /** Never set here, the field that tells a report from a refusal. */
+    failure?: undefined;
 }
+
+/** What the scan round answers: the report, or nothing but the reason there is none. */
+export type NewAsteroidTypeScanResult = NewAsteroidTypeScan | { kind: 'scan'; failure: NewAsteroidTypeFailure };
+
+/** What the apply round answers: what was made, or nothing but the reason nothing was. */
+export type NewAsteroidTypeApplyResult = NewAsteroidTypeApply | { kind: 'apply'; failure: NewAsteroidTypeFailure };
 
 export type NewAsteroidTypeResult = NewAsteroidTypeScanResult | NewAsteroidTypeApplyResult;
 

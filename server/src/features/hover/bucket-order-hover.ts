@@ -2,8 +2,7 @@ import * as l10n from '@vscode/l10n';
 import { CancellationToken } from 'vscode-languageserver';
 import { AbstractNode } from '../../core/ast/ast';
 import { BUCKET_REGISTRY_CLASS, bucketListsIn } from '../diagnostics/validator.effect-bucket';
-import { parseFilePath } from '../../utils/ast.utils';
-import { ParserResultRegistrar } from '../../document/parser-result-registrar';
+import { documentForPath } from '../../document/parser-result-registrar';
 import { uriToFsPath } from '../../workspace/workspace-files';
 import { resolveSchemaIdReference, schemaReferenceFieldOf } from '../navigation/schema-id-reference.navigation';
 
@@ -20,17 +19,6 @@ import { resolveSchemaIdReference, schemaReferenceFieldOf } from '../navigation/
  * validator's question, and it already answers it, so a name that resolves to nothing gets no hover
  * rather than a second opinion.
  */
-
-/**
- * The parsed document for a uri, preferring the live editor buffer over the file on disk.
- *
- * @param uri the document's uri.
- * @returns the parsed document, or null when it cannot be read.
- */
-const documentFor = async (uri: string) => {
-    const path = uriToFsPath(uri);
-    return ParserResultRegistrar.instance.getResultByPath(path) ?? (await parseFilePath(path).catch(() => null));
-};
 
 /**
  * Hover markdown naming where a bucket sits in its draw order.
@@ -52,7 +40,7 @@ export const bucketOrderHover = async (
 
     const location = await resolveSchemaIdReference(node, folderPaths, cancellationToken).catch(() => null);
     if (!location) return null;
-    const document = await documentFor(location.uri);
+    const document = await documentForPath(uriToFsPath(location.uri));
     if (!document) return null;
 
     for (const list of bucketListsIn(document)) {

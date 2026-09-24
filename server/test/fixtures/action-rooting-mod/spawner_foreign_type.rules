@@ -1,0 +1,7 @@
+// The same wiring with a `Type` that another registry declares (`Sprite` is a part/bullet sprite
+// component, never a spawner) over a body that fits that other class. The dispatch stays inside the
+// slot's own registry family, so this file roots to nothing rather than to the sprite class.
+Type = Sprite
+Rotation = 90
+RandomUVRotation = true
+BlueprintSortOrder = 2

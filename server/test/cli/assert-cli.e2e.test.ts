@@ -51,7 +51,7 @@ describe.skipIf(!existsSync(CLI_BUNDLE) || !existsSync(SERVER_BUNDLE))('the load
         const result = assertLoads('assert-clean-mod');
         expect(result.code, result.stdout + result.stderr).toBe(0);
         expect(result.stdout).toContain('The game loads this mod.');
-        expect(result.stdout).toContain('Nothing. Every action was judged.');
+        expect(result.stdout).toContain('Nothing. Every action was judged, and so was every file it adds content from.');
     }, RUN_TIMEOUT_MS);
 
     it('fails a mod the game would not load, and says which failure does what', () => {

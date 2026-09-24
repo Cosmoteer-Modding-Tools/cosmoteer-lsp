@@ -9,7 +9,7 @@ import {
 } from '../../core/ast/ast';
 import { parseModActions } from '../../mod/action-parser';
 import { normalizeTargetPath } from '../../mod/action-target-resolver';
-import { namedMembersOf } from '../../utils/ast.utils';
+import { memberValueNamed, namedMembersOf } from '../../utils/ast.utils';
 import { manifestsIn, referenceTextsOf } from '../refactor/register-part/ship-registry';
 import { dirOf, locationOf, readRulesFile, resolveBasePath } from '../refactor/shared-base/base-index';
 import { ShipLayerContext } from './ship-layer.index';
@@ -52,22 +52,9 @@ const ADDING_VERBS = new Set(['Add', 'AddMany']);
 /** The `<…>` span of a reference, whatever member path follows it. */
 const REFERENCE_FILE = /^\s*&?\s*<([^<>]+)>(.*)$/;
 
-/**
- * A member of a group, matched ignoring case.
- *
- * @param group the group.
- * @param name the member name.
- * @returns the member's value, or undefined.
- */
-const memberOf = (group: GroupNode, name: string): AbstractNode | undefined => {
-    const lower = name.toLowerCase();
-    for (const [memberName, node] of namedMembersOf(group)) if (memberName.toLowerCase() === lower) return node;
-    return undefined;
-};
-
 /** The text of a scalar member, or undefined when the group has none of that name. */
 const textMember = (group: GroupNode, name: string): string | undefined => {
-    const node = memberOf(group, name);
+    const node = memberValueNamed(group, name);
     return node && isValueNode(node) ? String(node.valueType.value).trim() : undefined;
 };
 

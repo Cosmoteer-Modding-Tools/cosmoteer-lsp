@@ -10,8 +10,8 @@ import {
     workspace,
 } from 'vscode';
 import { LanguageClient } from 'vscode-languageclient/node';
-import { createCosmoteerPanel, disposeAll, imageDataUri, stringsScript, webviewShell } from '../webview-util';
-import { shaderPreviewStrings } from '../webview-strings';
+import { createCosmoteerPanel, disposeAll, imageDataUri, panelHtml, webviewShell } from '../webview-util';
+import { webviewStrings } from '../webview-strings';
 import { ShaderPreviewData } from './preview-panel.types';
 import { ShaderPreviewPanelMessage } from './preview-panel.types';
 import { COSMOTEER_METHOD } from '../../../shared/lsp-methods';
@@ -120,7 +120,9 @@ export class ShaderPreviewPanel {
         }
         const sources = data.sourceUris?.length ? data.sourceUris : data.shaderUri ? [data.shaderUri] : [];
         this.previewedSourcePaths = new Set(sources.map((uri) => Uri.parse(uri).fsPath.toLowerCase()));
-        this.panel.title = l10n.t('Shader Preview: {0}', data.shaderName);
+        // The tab is narrow, so it carries the shader's own file name. The reference the material
+        // wrote, which says which copy was picked up, stays on the panel's meta line.
+        this.panel.title = l10n.t('Shader Preview: {0}', data.shaderLabel || data.shaderName);
         // Every bound texture is inlined as a data URI keyed by its sampler uniform, so noise and ramp
         // textures load in the webview the same way the base texture does.
         const textureData: Record<string, string | null> = {};
@@ -141,23 +143,14 @@ export class ShaderPreviewPanel {
 
     /** The webview shell HTML, wiring in the bundled script and stylesheet by webview URI. */
     private html(): string {
-        const { nonce, asset, csp } = webviewShell(this.panel.webview, this.context.extensionUri);
-        return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta http-equiv="Content-Security-Policy" content="${csp}" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<link rel="stylesheet" href="${asset('shader-preview.css')}" />
-<title>Shader Preview</title>
-</head>
-<body>
-<div id="stage"><canvas id="gl" width="320" height="320"></canvas><div id="status"></div></div>
+        return panelHtml(webviewShell(this.panel.webview, this.context.extensionUri), {
+            title: 'Shader Preview',
+            css: 'shader-preview.css',
+            script: 'shader-preview.js',
+            strings: webviewStrings(),
+            body: `<div id="stage"><canvas id="gl" width="320" height="320"></canvas><div id="status"></div></div>
 <div id="meta"></div>
-<div id="controls"></div>
-${stringsScript(nonce, shaderPreviewStrings())}
-<script nonce="${nonce}" src="${asset('dist', 'shader-preview.js')}"></script>
-</body>
-</html>`;
+<div id="controls"></div>`,
+        });
     }
 }

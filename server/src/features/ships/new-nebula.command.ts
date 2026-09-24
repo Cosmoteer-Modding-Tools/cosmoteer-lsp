@@ -30,16 +30,16 @@ import {
     registrationLineEnding,
     wireIntoManifest,
     resolveGameRoot,
+    takenIdsOf,
 } from './mod-wiring';
 import {
     NebulaBase,
     NebulaColor,
     NebulaColors,
+    NewNebulaApply,
     NewNebulaApplyResult,
     NewNebulaArgs,
-    NewNebulaFailure,
     NewNebulaResult,
-    NewNebulaScanResult,
 } from './new-nebula.types';
 
 /**
@@ -104,32 +104,6 @@ const FALLBACK_COLOR: NebulaColor = [128, 128, 128];
 
 /** The folder a nebula's own files go under, mirroring the game's own tree. */
 const NEBULAS_FOLDER = 'nebulas';
-
-/** A scan result carrying nothing but the reason there is nothing to report. */
-const scanFailed = (failure: NewNebulaFailure): NewNebulaScanResult => ({
-    kind: 'scan',
-    modRoot: '',
-    modId: '',
-    takenIds: [],
-    bases: [],
-    failure,
-});
-
-/** An apply result carrying nothing but the reason nothing was created. */
-const applyFailed = (id: string, failure: NewNebulaFailure): NewNebulaApplyResult => ({
-    kind: 'apply',
-    id,
-    nebulaFile: '',
-    spawnerFile: '',
-    doodadFile: '',
-    manifest: '',
-    wiring: { registry: 'noTarget', spawner: 'noTarget', doodad: 'noTarget' },
-    localizationKeys: [],
-    localizationFiles: [],
-    createdFiles: [],
-    changedFiles: [],
-    failure,
-});
 
 /**
  * A colour the client sent, taken only when it is three whole channels of 0 to 255.
@@ -408,28 +382,7 @@ const registryTarget = (
 };
 
 /** One manifest action to write, keyed by the wiring it reports as. */
-type Wiring = ManifestWiring<keyof NewNebulaApplyResult['wiring']>;
-
-/**
- * The nebula ids the game and the workspace mods already declare, folded.
- *
- * @param bases the game's own nebulas.
- * @param host the server facilities.
- * @param cancellationToken cancels the lookup.
- * @returns the ids.
- */
-const takenIdsOf = async (
-    bases: readonly NebulaBase[],
-    host: NewContentHost,
-    cancellationToken: CancellationToken
-): Promise<Set<string>> => {
-    const taken = new Set(bases.map((base) => base.id.toLowerCase()));
-    const declared = await host
-        .existingIds?.(NEBULA_CLASS, cancellationToken)
-        .catch((): ReadonlySet<string> => new Set());
-    for (const id of declared ?? []) taken.add(id.toLowerCase());
-    return taken;
-};
+type Wiring = ManifestWiring<keyof NewNebulaApply['wiring']>;
 
 /**
  * The spawner figures the client asked for, each falling back to the one the game's own storms use
@@ -555,21 +508,26 @@ const applyRound = async (
     cancellationToken: CancellationToken
 ): Promise<NewNebulaApplyResult> => {
     const id = (args.id ?? '').trim();
-    if (!BARE_RULES_ID.test(id)) return applyFailed(id, 'invalidId');
+    if (!BARE_RULES_ID.test(id)) return { kind: 'apply', failure: 'invalidId' };
     const game = await resolveGameRoot(host);
-    if (!game) return applyFailed(id, 'noGameRoot');
+    if (!game) return { kind: 'apply', failure: 'noGameRoot' };
     const { dataRoot } = game;
     const bases = await basesOf(dataRoot);
-    if (!bases || bases.length === 0) return applyFailed(id, 'noGameRoot');
-    const taken = await takenIdsOf(bases, host, cancellationToken);
-    if (taken.has(id.toLowerCase())) return applyFailed(id, 'idTaken');
+    if (!bases || bases.length === 0) return { kind: 'apply', failure: 'noGameRoot' };
+    const taken = await takenIdsOf(
+        bases.map((base) => base.id),
+        [NEBULA_CLASS],
+        host,
+        cancellationToken
+    );
+    if (taken.has(id.toLowerCase())) return { kind: 'apply', failure: 'idTaken' };
     const files = nebulaFilesOf(modRoot, id);
-    if (existsSync(files.folder)) return applyFailed(id, 'pathTaken');
+    if (existsSync(files.folder)) return { kind: 'apply', failure: 'pathTaken' };
 
     const wantedBase = (args.base ?? '').trim().toLowerCase();
     const base = bases.find((candidate) => candidate.id.toLowerCase() === wantedBase) ?? bases[0];
     const baseFile = await readRulesFile(base.file);
-    if (!baseFile) return applyFailed(id, 'noGameRoot');
+    if (!baseFile) return { kind: 'apply', failure: 'noGameRoot' };
     const identity = await identityOfMod(modRoot).catch((): ModIdentity => ({ root: modRoot }));
     const prefix = authorPrefixOf(identity.manifestId);
     const label = keyLabelOf(id);
@@ -590,7 +548,7 @@ const applyRound = async (
     const { choice, lineEnding } = await registrationLineEnding(modRoot);
 
     const created = await writeNebulaFiles(plan, files, lineEnding);
-    if (!created) return applyFailed(id, 'writeFailed');
+    if (!created) return { kind: 'apply', failure: 'writeFailed' };
     host.filesChanged(created);
 
     // The tooltip opens with the name in bold and goes on with a line to fill, and the hud text
@@ -606,7 +564,7 @@ const applyRound = async (
         cancellationToken
     ).catch(() => ({ keys: [], files: [] }));
 
-    const wiring: NewNebulaApplyResult['wiring'] = { registry: 'noTarget', spawner: 'noTarget', doodad: 'noTarget' };
+    const wiring: NewNebulaApply['wiring'] = { registry: 'noTarget', spawner: 'noTarget', doodad: 'noTarget' };
     let manifestPath = '';
     let manifests: string[] | undefined;
     const changed = [...created, ...localization.files];
@@ -653,13 +611,18 @@ export const newNebula = async (
     const scanning = args.id === undefined;
     const located = modRootFor(args.uri, host.dataRoot());
     if ('failure' in located)
-        return scanning ? scanFailed(located.failure) : applyFailed(args.id ?? '', located.failure);
+        return scanning ? { kind: 'scan', failure: located.failure } : { kind: 'apply', failure: located.failure };
     if (scanning) {
         const identity = await identityOfMod(located.modRoot).catch((): ModIdentity => ({ root: located.modRoot }));
         const dataRoot = host.dataRoot();
         const bases = dataRoot ? await basesOf(dataRoot) : undefined;
-        if (!bases || bases.length === 0) return scanFailed('noGameRoot');
-        const taken = await takenIdsOf(bases, host, cancellationToken);
+        if (!bases || bases.length === 0) return { kind: 'scan', failure: 'noGameRoot' };
+        const taken = await takenIdsOf(
+            bases.map((base) => base.id),
+            [NEBULA_CLASS],
+            host,
+            cancellationToken
+        );
         return {
             kind: 'scan',
             modRoot: located.modRoot,

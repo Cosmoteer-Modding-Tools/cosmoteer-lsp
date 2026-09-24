@@ -11,6 +11,7 @@ import {
     ValueNode,
     isValueNode,
     childNodesOf,
+    descendants,
 } from '../../core/ast/ast';
 import type { ValueType } from '../../document/schema/schema.types';
 import { isModRules } from '../../document/document-kind';
@@ -67,6 +68,9 @@ export const NON_SIBLING_FIELDS: ReadonlySet<string> = new Set(['overridepriorit
 
 /** The class of a whole-file bullet root, whose `Components` are named per bullet exactly like a part's. */
 const BULLET_RULES_CLASS = 'Cosmoteer.Bullets.BulletRules';
+
+/** The class of a part's `Part` group, whose fields say which members hanging off it the engine reads. */
+const PART_RULES_CLASS = 'Cosmoteer.Ships.Parts.PartRules';
 
 const isNode = (value: unknown): value is AbstractNode =>
     !!value && !isFile(value as FileWithPath) && typeof (value as AbstractNode).type === 'string';
@@ -321,6 +325,15 @@ interface SiblingCheckContext {
     readonly componentRegistry: string;
     /** True when the owner is a bullet, which only changes the wording. */
     readonly ownerIsBullet: boolean;
+    /** The node the engine reads the component set off: the `Part` group, or the document itself
+     *  for a whole-file bullet. Everything hanging off it under a name its class has no field for
+     *  is a prototype (see {@link prototypeOf}). */
+    readonly ownerRoot: AbstractNode;
+    /** The owner's class FullName, whose fields say which members hanging off it the engine reads. */
+    readonly ownerClass: string;
+    /** What each component that derives a prototype writes for itself, by the prototype name its
+     *  inheritance reference ends in (see {@link collectPrototypeDerivers}). */
+    readonly derivers: ReadonlyMap<string, ReadonlySet<string>[]>;
     /** Cancels the walk. */
     readonly cancellationToken: CancellationToken;
 }
@@ -418,10 +431,16 @@ const checkGroup = (ctx: SiblingCheckContext, group: GroupNode): void => {
     // A group that resolves its ids against another part cannot be judged against this one, so
     // its references are skipped rather than false-positived (see {@link reachesOutsideThisOwner}).
     if (reachesOutsideThisOwner(group)) return;
+    const prototype = prototypeOf(ctx, group);
+    // Anything below a prototype's own root is a value the deriving components rewrite piece by
+    // piece, which cannot be matched against what one of them wrote, so only the prototype's own
+    // fields are judged (see {@link prototypeOf}).
+    if (prototype && prototype.root !== group) return;
 
     for (const [fieldName, value] of componentFieldValuesOf(group, cls, ctx.componentRegistry)) {
         if (ctx.cancellationToken.isCancellationRequested) return;
         if (NON_SIBLING_FIELDS.has(fieldName.toLowerCase())) continue;
+        if (prototype && !reachesALiveComponent(ctx, prototype.name, fieldName)) continue;
         const written = String(value.valueType.value);
         if (!PLAIN_ID.test(written)) continue;
         if (RUNTIME_INJECTED_IDS.has(written.toLowerCase())) continue;
@@ -444,6 +463,9 @@ const checkGroup = (ctx: SiblingCheckContext, group: GroupNode): void => {
  */
 const checkTupleList = (ctx: SiblingCheckContext, list: ListNode): void => {
     if (list.inheritance?.length) return;
+    // A tuple inside a prototype is rewritten wholesale by every component that derives it, so the
+    // ids the prototype itself names are never the ones the engine looks up.
+    if (prototypeOf(ctx, list)) return;
     for (const [index, element] of list.elements.entries()) {
         if (ctx.cancellationToken.isCancellationRequested) return;
         if (!isValueNode(element) || element.valueType.type !== 'String') continue;
@@ -457,17 +479,17 @@ const checkTupleList = (ctx: SiblingCheckContext, list: ListNode): void => {
 };
 
 /**
- * Walks a node and its children, judging every group and tuple list on the way.
+ * Judges every group and tuple list below a node.
  *
  * @param ctx the findings and the part-wide ids of the run.
- * @param node the node to walk.
+ * @param root the node to walk.
  */
-const visitForSiblings = (ctx: SiblingCheckContext, node: AbstractNode): void => {
-    if (ctx.cancellationToken.isCancellationRequested) return;
-    if (isGroupNode(node)) checkGroup(ctx, node);
-    if (isListNode(node)) checkTupleList(ctx, node);
-    const children = childNodesOf(node);
-    for (const child of children) visitForSiblings(ctx, child);
+const visitForSiblings = (ctx: SiblingCheckContext, root: AbstractNode): void => {
+    for (const node of descendants(root)) {
+        if (ctx.cancellationToken.isCancellationRequested) return;
+        if (isGroupNode(node)) checkGroup(ctx, node);
+        if (isListNode(node)) checkTupleList(ctx, node);
+    }
 };
 
 /**
@@ -492,8 +514,9 @@ export const validateSchemaSiblingReferences = async (
     // Only validate documents that own a complete component set (a part, a bullet). A file with a
     // bare top-level `Components` is a fragment merged into a parent owner elsewhere, so its component
     // ids resolve against that parent, and checking it standalone would false-positive.
-    const componentRegistry = ownerComponentRegistryOf(document);
-    if (!componentRegistry) return [];
+    const owner = componentOwnerOf(document);
+    if (!owner) return [];
+    const componentRegistry = owner.registry;
 
     // A file other files inherit from (`Derived : <this_file.rules>/Part/…`) is a template: its
     // references may name components only the deriving parts declare (a mod's `jump_wire_stuff.rules`
@@ -512,6 +535,9 @@ export const validateSchemaSiblingReferences = async (
         componentRegistry,
         // A bullet owns its components exactly like a part does, so only the wording differs.
         ownerIsBullet: componentRegistry !== 'PartComponentRules',
+        ownerRoot: owner.root,
+        ownerClass: owner.cls,
+        derivers: collectPrototypeDerivers(document),
         cancellationToken,
     };
     for (const element of document.elements) visitForSiblings(ctx, element);
@@ -596,6 +622,116 @@ const componentTargetOfField = (cls: string, fieldName: string): string | undefi
     return valueType?.kind === 'list' ? targetOf(valueType.element) : targetOf(valueType);
 };
 
+/** The written name of a member, whatever container form it takes. */
+const memberNameOf = (node: AbstractNode): string | undefined =>
+    isGroupNode(node) || isListNode(node) ? node.identifier?.name : isAssignmentNode(node) ? node.left.name : undefined;
+
+/**
+ * The prototype a node sits in, if any: a member hanging off the owner under a name the owner's
+ * class has no field for, which is how a part with sixteen repeated components is written without
+ * sixteen copies. A bar writes one `BeerMugUpload` beside `Components` and each real component
+ * derives it with its own `ToStorage`.
+ *
+ * The engine reads nothing there. `PartRules` reads the `Components` member and its own fields, so
+ * a placeholder in a prototype is a value only the components that derive it ever carry, and each
+ * of them replaces it. Judging it where it is written reports a component that never exists.
+ *
+ * @param ctx the owner the run is judging against.
+ * @param node the node being judged.
+ * @returns the prototype's name and the node it starts at, or undefined when the engine reads the
+ *          node as part of the owner (the owner itself, one of its fields, a real component).
+ */
+const prototypeOf = (
+    ctx: SiblingCheckContext,
+    node: AbstractNode
+): { name: string; root: AbstractNode } | undefined => {
+    const chain: AbstractNode[] = [];
+    for (let current: AbstractNode | undefined = node; current; current = current.parent) chain.push(current);
+    const ownerIndex = chain.indexOf(ctx.ownerRoot);
+    if (ownerIndex === 0) return undefined;
+    // Below the owner the prototype starts at the owner's own child. A node the owner is no
+    // ancestor of sits beside it in the file, which the engine reads just as little, and there the
+    // top-level member is the prototype.
+    const topIndex = ownerIndex > 0 ? ownerIndex - 1 : chain.length - 2;
+    if (topIndex < 0) return undefined;
+    for (let index = 0; index <= topIndex; index++) {
+        if (memberNameOf(chain[index])?.toLowerCase() === 'components') return undefined;
+    }
+    const top = chain[topIndex];
+    const name = memberNameOf(top);
+    if (!name) return undefined;
+    if (ownerIndex > 0 && fieldOf(ctx.ownerClass, name)) return undefined;
+    return { name, root: top };
+};
+
+/**
+ * True when some component the engine does read carries the prototype's own value for `fieldName`,
+ * which is the one case where a value written in a prototype still reaches the game: a component
+ * derives the prototype and writes no value of its own for that field.
+ *
+ * With no deriver in the file the answer is no, so a prototype another file derives is left alone
+ * rather than judged against a set of overrides this file cannot see.
+ *
+ * @param ctx the derivers the run collected.
+ * @param prototypeName the name the derivers' inheritance references end in.
+ * @param fieldName the field whose written value is in question.
+ * @returns true when at least one deriver inherits the value unchanged.
+ */
+const reachesALiveComponent = (ctx: SiblingCheckContext, prototypeName: string, fieldName: string): boolean => {
+    const derivers = ctx.derivers.get(prototypeName.toLowerCase());
+    if (!derivers?.length) return false;
+    return derivers.some((written) => !written.has(fieldName.toLowerCase()));
+};
+
+/**
+ * What every component in the document writes for itself, keyed by the name its inheritance
+ * reference ends in: `BeerMug01Upload: &~/Part/BeerMugUpload { ToStorage=BeerMug01 }` records
+ * `beermugupload` with `toStorage` written, and the copy form `BeerMug04 = &~/Part/BeerMug`
+ * records the same name with nothing written.
+ *
+ * Only members of a `Components` container are collected, since only those are components the
+ * engine builds, and only a reference that stays inside this file, since a name another file's
+ * group happens to end in says nothing about this file's prototypes.
+ *
+ * @param document the part or bullet document being validated.
+ * @returns the written member names per derived name, lowercased.
+ */
+const collectPrototypeDerivers = (document: AbstractNodeDocument): Map<string, Set<string>[]> => {
+    const derivers = new Map<string, Set<string>[]>();
+    const record = (reference: string, written: Set<string>): void => {
+        const path = reference.replace(/^&/, '');
+        if (path.includes('<') || path.startsWith('/')) return;
+        const base = path.split('/').pop();
+        if (!base) return;
+        const key = base.toLowerCase();
+        const existing = derivers.get(key);
+        if (existing) existing.push(written);
+        else derivers.set(key, [written]);
+    };
+    const visit = (node: AbstractNode, inComponents: boolean): void => {
+        if (inComponents && (isGroupNode(node) || isListNode(node))) {
+            const written = new Set<string>();
+            for (const element of node.elements) {
+                const name = memberNameOf(element);
+                if (name) written.add(name.toLowerCase());
+            }
+            for (const base of node.inheritance ?? []) {
+                if (base.valueType.type === 'Reference') record(String(base.valueType.value), written);
+            }
+        }
+        if (inComponents && isAssignmentNode(node) && isValueNode(node.right)) {
+            if (node.right.valueType.type === 'Reference') record(String(node.right.valueType.value), new Set());
+        }
+        const below = inComponents || memberNameOf(node)?.toLowerCase() === 'components';
+        for (const child of childNodesOf(node)) visit(child, below);
+        if (isGroupNode(node) || isListNode(node)) {
+            for (const base of node.inheritance ?? []) visit(base, below);
+        }
+    };
+    for (const element of document.elements) visit(element, false);
+    return derivers;
+};
+
 /**
  * True when `group` resolves its component ids against some other part than the one it is written
  * in, so this part's ids cannot judge them. Every mechanism the engine has for that is structural,
@@ -644,12 +780,30 @@ export const tupleComponentTargetAt = (list: ListNode, index: number): boolean =
  * @param document the document to classify.
  * @returns the owned component registry name, or undefined when the document owns no component set.
  */
-export const ownerComponentRegistryOf = (document: AbstractNodeDocument): string | undefined => {
-    if (document.elements.some((element) => isGroupNode(element) && element.identifier?.name === 'Part')) {
-        return 'PartComponentRules';
+export const ownerComponentRegistryOf = (document: AbstractNodeDocument): string | undefined =>
+    componentOwnerOf(document)?.registry;
+
+/**
+ * The owner {@link ownerComponentRegistryOf} answers for, with the node and class the engine reads
+ * it as: the `Part` group of a part file, or the document itself for a whole-file bullet.
+ *
+ * @param document the document to classify.
+ * @returns the registry, the owning node and its class, or undefined when the document owns no
+ *          component set.
+ */
+const componentOwnerOf = (
+    document: AbstractNodeDocument
+): { registry: string; root: AbstractNode; cls: string } | undefined => {
+    const part = document.elements.find(
+        (element): element is GroupNode => isGroupNode(element) && element.identifier?.name === 'Part'
+    );
+    if (part) {
+        return { registry: 'PartComponentRules', root: part, cls: resolveGroupClass(part) ?? PART_RULES_CLASS };
     }
     const rootClass = documentRootClass(document);
-    return rootClass && isSameOrSubclass(rootClass, BULLET_RULES_CLASS) ? 'BulletComponentRules' : undefined;
+    return rootClass && isSameOrSubclass(rootClass, BULLET_RULES_CLASS)
+        ? { registry: 'BulletComponentRules', root: document, cls: rootClass }
+        : undefined;
 };
 
 /** The class of a group inside an owner document: the registry-hinted class when the group sits in a
@@ -695,33 +849,22 @@ function* componentFieldValuesOf(group: GroupNode, cls: string, registry: string
  *  or any list holds a plain-id string in a component tuple slot. The cheap pre-pass that keeps the
  *  cross-file id collection off the files that have no component reference at all. */
 const hasCandidateSiblingReference = (document: AbstractNodeDocument, registry: string): boolean => {
-    let found = false;
-    const visit = (node: AbstractNode): void => {
-        if (found) return;
+    for (const node of descendants(document)) {
         if (isListNode(node) && !node.inheritance?.length) {
             for (const [index, element] of node.elements.entries()) {
                 if (!isValueNode(element) || element.valueType.type !== 'String') continue;
                 if (!PLAIN_ID.test(String(element.valueType.value))) continue;
-                if (tupleComponentTargetAt(node, index)) {
-                    found = true;
-                    return;
-                }
+                if (tupleComponentTargetAt(node, index)) return true;
             }
         }
         if (isGroupNode(node)) {
             const cls = classOfPartGroup(node);
             if (cls) {
                 for (const [, value] of componentFieldValuesOf(node, cls, registry)) {
-                    if (PLAIN_ID.test(String(value.valueType.value))) {
-                        found = true;
-                        return;
-                    }
+                    if (PLAIN_ID.test(String(value.valueType.value))) return true;
                 }
             }
         }
-        const children = childNodesOf(node);
-        for (const child of children) visit(child);
-    };
-    for (const element of document.elements) visit(element);
-    return found;
+    }
+    return false;
 };

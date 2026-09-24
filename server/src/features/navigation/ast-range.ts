@@ -8,6 +8,7 @@ import {
     isListNode,
     isMathExpressionNode,
 } from '../../core/ast/ast';
+import { positionIn } from '../text-markup/markup-source';
 
 /**
  * Range arithmetic over the AST, shared by every feature that answers with a span rather than a
@@ -61,24 +62,52 @@ const walkPositions = (node: AbstractNode | null | undefined, visit: (position: 
 };
 
 /**
+ * Where an offset of a node really sits in the file.
+ *
+ * An {@link AstPosition} records one line and two columns, so a value carried across a line
+ * continuation ends at a column counted from its first line, which is a column that line does not
+ * have, and a verbatim string is stamped with the line it ends on while its start column belongs to
+ * the line it began on. The absolute offsets are right in both cases, so the file's own text places
+ * them whenever the caller holds it.
+ *
+ * @param offset the node's absolute offset.
+ * @param fallback the line and column the position records, used when there is no text to count in.
+ * @param source the file's text, when the caller holds it.
+ * @returns the position to use.
+ */
+const placed = (
+    offset: number,
+    fallback: { line: number; character: number },
+    source: string | undefined
+): { line: number; character: number } =>
+    source === undefined || offset < 0 || offset > source.length ? fallback : positionIn(source, offset);
+
+/**
  * The full span of a node, computed from the min start / max end of every descendant
  * position. {@link AstPosition} only records a single line per node, so a container's
  * own position doesn't cover its body, but the LSP requires a symbol's `range` to
  * enclose its `selectionRange` and ideally its children, so we derive the envelope.
+ *
+ * @param node the node to span.
+ * @param source the file's text, so a value that runs over several lines ends on the line it
+ *     really ends on rather than past the end of its first one.
+ * @returns the envelope covering the node and everything under it.
  */
-export const enclosingRange = (node: AbstractNode): Range => {
+export const enclosingRange = (node: AbstractNode, source?: string): Range => {
     let startLine = Infinity;
     let startChar = Infinity;
     let endLine = -Infinity;
     let endChar = -Infinity;
     const consider = (position: AstPosition) => {
-        if (position.line < startLine || (position.line === startLine && position.characterStart < startChar)) {
-            startLine = position.line;
-            startChar = position.characterStart;
+        const from = placed(position.start, { line: position.line, character: position.characterStart }, source);
+        const to = placed(position.end, { line: position.line, character: position.characterEnd }, source);
+        if (from.line < startLine || (from.line === startLine && from.character < startChar)) {
+            startLine = from.line;
+            startChar = from.character;
         }
-        if (position.line > endLine || (position.line === endLine && position.characterEnd > endChar)) {
-            endLine = position.line;
-            endChar = position.characterEnd;
+        if (to.line > endLine || (to.line === endLine && to.character > endChar)) {
+            endLine = to.line;
+            endChar = to.character;
         }
     };
     walkPositions(node, consider);

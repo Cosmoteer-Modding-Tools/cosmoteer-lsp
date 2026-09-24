@@ -11,7 +11,7 @@ import { filePathToUri } from '../../../document/reference-path';
 import { uriToFsPath } from '../../../workspace/workspace-files';
 import { documentFor, lineEndingOf, openBuffers } from '../command-host';
 import { relativeRulesReference } from '../shared-base/base-file.emitter';
-import { hasMultiLineString, memberSpanOf } from '../shared-base/member-record';
+import { hasMultiLineString, memberHitSpansOf, memberSpanOf } from '../shared-base/member-record';
 import { analyzeReferences, applyRebases } from '../shared-base/reference-safety';
 import { ExtractGroupHost } from './extract-group.types';
 import { ExtractGroupArgs, ExtractGroupFailure, ExtractGroupResult } from '../../../../../shared/extract-group.types';
@@ -40,16 +40,16 @@ const fileNameFor = (groupName: string): string =>
 
 /**
  * The innermost named group the offset falls in, so a caret inside a nested block moves that block
- * rather than the part around it.
+ * rather than the part around it. The indentation a block is written behind counts as part of it, so
+ * a selection that starts at the head of its declaration line names the block the author pointed at.
  *
  * @param container the group or document to search.
  * @param offset the caret's byte offset.
  * @returns the group, or undefined when the offset falls in no named group.
  */
 export const locateGroup = (container: AbstractNodeDocument | GroupNode, offset: number): GroupNode | undefined => {
-    for (const element of container.elements) {
-        const span = memberSpanOf(element);
-        if (!span || offset < span.start || offset >= span.end) continue;
+    for (const { element, start, end } of memberHitSpansOf(container)) {
+        if (offset < start || offset >= end) continue;
         if (!isGroupNode(element)) return undefined;
         const deeper = offset >= element.position.start ? locateGroup(element, offset) : undefined;
         return deeper ?? (element.identifier ? element : undefined);

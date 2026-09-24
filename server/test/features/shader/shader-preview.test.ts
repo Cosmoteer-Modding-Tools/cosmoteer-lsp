@@ -420,6 +420,27 @@ Sprite
         expect(data!.glsl).toBeNull();
     });
 
+    it.runIf(HAVE_DATA)('labels the preview with the file name while keeping the written reference', async () => {
+        clearShaderCache();
+        const path = join(DATA_DIR, 'common_effects/particles/sub/__test__.rules');
+        const src = SRC.replace('"particle_light_emissive.shader"', '"../particle_light_emissive.shader"');
+        const doc = parser(lexer(src), pathToFileURL(path).href).value;
+        const data = await buildShaderPreview(doc, src, offsetOf(src, 'Shader ='), token);
+        expect(data).not.toBeNull();
+        expect(data!.shaderName).toBe('../particle_light_emissive.shader');
+        expect(data!.shaderLabel).toBe('particle_light_emissive.shader');
+    });
+
+    it.runIf(HAVE_DATA)('labels an unresolvable shader with the reference as written', async () => {
+        clearShaderCache();
+        const src = SRC.replace('"particle_light_emissive.shader"', '"./Data/no_such_shader_12345.shader"');
+        const doc = parser(lexer(src), DOC_URI).value;
+        const data = await buildShaderPreview(doc, src, offsetOf(src, 'Shader ='), token);
+        expect(data).not.toBeNull();
+        expect(data!.translationOk).toBe(false);
+        expect(data!.shaderLabel).toBe('./Data/no_such_shader_12345.shader');
+    });
+
     it.runIf(HAVE_DATA)('leaves a colour constant whose components are math to the text path', async () => {
         // Vanilla's beacon writes `[0.09 * 255, …]`. Reporting only the elements that happen to be plain
         // numbers handed the webview a one-element list, which it read as pure red.

@@ -4,25 +4,66 @@ import { aliasRootIndex } from '../../document/schema/alias-root';
 import { invalidateSchemaContextCache } from '../../document/schema/schema-context';
 import { clearModRootCache } from '../../mod/mod-root';
 import { invalidateModContext } from '../../mod/mod-context';
-import { reachabilityKey } from '../../mod/mod-reachability';
-import { invalidateFsPath } from '../../workspace/fs-cache';
+import { foldPathCase, invalidateFsPath } from '../../workspace/fs-cache';
 import { basenameOf, isManifestBasename, isRulesFileName } from '../../document/document-kind';
 import { filePathToUri } from '../../document/reference-path';
 import { uriToFsPath } from '../../workspace/workspace-files';
-import { hasPullDiagnosticsCapability } from '../../capabilities';
 import { connection } from '../context';
 import { invalidateDerivedCaches } from '../document-caches';
+import { refreshDependentOpenDocuments } from '../push-diagnostics';
 import { codeModAutoRefreshEnabled, refreshModSchema } from '../mod-schema';
 import { markProjectIndexesDirty, openDocumentNorms } from '../open-documents';
 import { PROJECT_INDEXES } from '../project-indexes';
 import { invalidateShipLayersFor } from '../ship-layers';
 import { bumpWorkspaceScanEpoch } from '../scan-epoch';
-import { bumpValidationScopeEpoch, validationScopeKeys, wholeWorkspaceEnabled } from '../validation-scope';
+import { bumpValidationScopeEpoch, reachableFileFilter, wholeWorkspaceEnabled } from '../validation-scope';
+import { workspaceFolderUris } from '../workspace-folders';
 import {
     WORKSPACE_DIAGNOSTIC_CONCURRENCY,
     retractWorkspaceDiagnostics,
     validateWorkspaceFile,
 } from '../workspace-scan';
+
+/**
+ * How many mention-named dependents one notification may pull in. A file whose name is a common
+ * word is spelled by much of a mod, and without a bound a single save would queue a pass over the
+ * whole project.
+ *
+ * ponytail: fixed cap, swap in per-file reverse-dependency tracking if a project ever grows past
+ * it often enough for a real dependent to be dropped.
+ */
+const DEPENDENT_REVALIDATION_CAP = 250;
+
+/**
+ * The files whose own diagnostics can move because one of the changed files moved.
+ *
+ * A cross-file link in this language is written as a path: a `&<file.rules>/…` reference, a
+ * manifest `Overrides`/`AddTo` target, an `&<includes>` entry, an inheritance base. The referring
+ * file therefore spells the referred file's name, which is exactly the question the mention index
+ * already answers over the whole project, so the dependents come out of an index lookup rather
+ * than out of a second walk. A link that spells no file name (a `&/…` super path through a game
+ * alias) is not found this way and waits for the next full pass.
+ *
+ * @param changedUris the uris the watcher reported, deletions included: a file that was renamed
+ *     away is precisely what leaves its referrers dangling.
+ * @param token cancels the index lookups.
+ * @returns the on-disk paths to re-validate, capped.
+ */
+const dependentsOfChanged = async (changedUris: string[], token: CancellationToken): Promise<string[]> => {
+    const folderUris = await workspaceFolderUris();
+    if (folderUris.length === 0) return [];
+    const found = new Set<string>();
+    for (const uri of changedUris) {
+        const stem = basenameOf(uri).replace(/\.[^.]+$/, '');
+        if (!stem) continue;
+        const candidates = await MentionIndex.instance.candidateFiles(stem, folderUris, token).catch(() => undefined);
+        for (const candidate of candidates ?? []) {
+            found.add(candidate);
+            if (found.size >= DEPENDENT_REVALIDATION_CAP) return [...found];
+        }
+    }
+    return [...found];
+};
 
 /**
  * Registers the watched-file notification: disk changes the editor never surfaces as edits (a git
@@ -96,7 +137,22 @@ export function register(): void {
         if (params.changes.length > 0) {
             invalidateDerivedCaches();
             bumpWorkspaceScanEpoch();
-            if (hasPullDiagnosticsCapability) connection.languages.diagnostics.refresh();
+            refreshDependentOpenDocuments();
+        }
+        // A changed file decides what other files report: the group a manifest overrides into, the
+        // base a part inherits, the strings file a key is looked up in. Only the changed file was
+        // re-validated, so every one of those kept the answer it had before the change for the rest
+        // of the session, and nothing else in a session re-runs the pass. Re-validate them too.
+        if (openNorms && rulesChanges.length > 0) {
+            const known = new Set(toRevalidate.map(foldPathCase));
+            for (const dependent of await dependentsOfChanged(
+                rulesChanges.map((change) => change.uri),
+                CancellationToken.None
+            )) {
+                if (known.has(foldPathCase(dependent))) continue;
+                known.add(foldPathCase(dependent));
+                toRevalidate.push(dependent);
+            }
         }
         // Re-validate created/externally-changed files so their diagnostics stay current (files open
         // in the editor are skipped, the live-edit flow already covers those). A git-pull-sized burst
@@ -106,10 +162,10 @@ export function register(): void {
             // Only files inside the validation scope get their problems published. An out-of-scope
             // file (a dead backup a git operation touched, say) must not enter the panel, and any
             // entry it still holds from an earlier closure is cleared instead.
-            const scopeKeys = await validationScopeKeys(CancellationToken.None);
+            const scopeAllows = await reachableFileFilter(CancellationToken.None);
             const inScope: string[] = [];
             for (const file of toRevalidate) {
-                if (!scopeKeys || scopeKeys.has(reachabilityKey(file))) {
+                if (!scopeAllows || scopeAllows(file)) {
                     inScope.push(file);
                     continue;
                 }

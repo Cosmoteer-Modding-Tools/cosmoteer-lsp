@@ -35,10 +35,22 @@ describe('a string with no closing quote', () => {
         expect(isGroupNode(part) ? part.elements.length : 0).toBe(3);
     });
 
-    it('says nothing about a string the line continues', () => {
-        // A backslash before the break is ObjectText's line continuation, so the value really does
-        // carry on below and the quote that closes it is on the next line.
-        const { errors, document } = parse('Part\n{\n\tText = "one \\\n\ttwo"\n\tMaxHealth = 1\n}\n');
+    it('reports a backslash that tries to carry the value on from inside the quotes', () => {
+        // The game's in-string escape takes any character except a line break, so a `\` at the end
+        // of the line does not continue a quoted value. Running it through the shipped HalflingCore
+        // parser answers `OTParseException: Unexpected "\n" at position Line=3,Char=9`, so the file
+        // does not load and the editor has to say so.
+        const { errors } = parse('Part\n{\n\tText = "one \\\n\ttwo"\n\tMaxHealth = 1\n}\n');
+        expect(errors.length).toBeGreaterThan(0);
+        expect(errors[0].message).toMatch(/closing quote/);
+        expect(errors[0].token.lineNumber).toBe(2);
+    });
+
+    it('says nothing about a value the line continues outside the quotes', () => {
+        // The spelling the game does accept, which the advice on the missing-quote error names:
+        // close the quote, end the line with a backslash, open a new quoted piece below. The game
+        // reads the two pieces as the single value `onetwo`.
+        const { errors, document } = parse('Part\n{\n\tText = "one" \\\n\t"two"\n\tMaxHealth = 1\n}\n');
         expect(errors).toHaveLength(0);
         const part = document.elements[0];
         expect(isGroupNode(part) ? part.elements.length : 0).toBe(2);
@@ -46,6 +58,27 @@ describe('a string with no closing quote', () => {
 
     it('says nothing about a verbatim string, which may span lines', () => {
         expect(parse('A = @"multi\nline"\n').errors).toHaveLength(0);
+        expect(parse('A = @"say ""hi"""\nB = 1\n').errors).toHaveLength(0);
+    });
+
+    it('reports a verbatim string that never closes, and keeps the members below it', () => {
+        // The game answers `OTParseException: Unexpected "￿"` on this one, because the value
+        // runs to the end of the input. Reading it that way here would hand `B` and `C` to the
+        // value and leave the outline, completion and every whole-file check short of two members,
+        // so the token ends at its own line the way an unclosed plain string does.
+        const { errors, document } = parse('A = @"oops\nB = 1\nC = 2\n');
+        expect(errors).toHaveLength(1);
+        expect(errors[0].message).toMatch(/closing quote/);
+        expect(errors[0].additionalInfo?.[0].message).toMatch(/verbatim/);
+        expect(document.elements).toHaveLength(3);
+    });
+
+    it('reports a verbatim string that never closes inside a group', () => {
+        const { errors, document } = parse('G\n{\n\tA = @"oops\n\tB = 1\n}\nC = 2\n');
+        expect(errors).toHaveLength(1);
+        expect(errors[0].message).toMatch(/closing quote/);
+        const group = document.elements[0];
+        expect(isGroupNode(group) ? group.elements.length : 0).toBe(2);
     });
 
     it('reports a quote left open at the end of the file', () => {

@@ -12,7 +12,7 @@ import { ExtractGroupArgs, ExtractGroupFailure, ExtractGroupResult } from '../..
  * not claim it, so the editor runs this instead: what the new file is called is a name only the
  * author can give.
  */
-export const EXTRACT_GROUP_LOCAL_COMMAND = 'cosmoteer.extractGroupToFileFromAction';
+const EXTRACT_GROUP_LOCAL_COMMAND = 'cosmoteer.extractGroupToFileFromAction';
 
 /**
  * What to say when a block cannot be moved into a file of its own, one message per reason the server

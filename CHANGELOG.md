@@ -2,6 +2,262 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.1.1
+
+### Added
+
+- The completion list now offers the techniques a field supports, beside that field's own name. The
+  first is `AIValueFactor = 0` on a part, which is how the game's own armour keeps the enemy AI
+  aiming at something behind it, and the popup says what it does and what it does not do. An idiom
+  stops being offered once the file writes that field.
+
+- A shader's struct members are offered with the preprocessor guard they sit behind, ranked so the
+  ones this shader compiles come first. A member behind a guard the file never defines says so
+  rather than being offered as though it were available.
+
+- A shader diagnostic now carries a one-click fix where one can be worked out. A misspelled uniform
+  offers the declared name, and an include that names nothing offers the file of that name, taking
+  the mod's own copy over the game's.
+
+- A call to a built-in shader function with the wrong number of arguments is now reported.
+
+- Localization keys written inside a `mod.rules` action payload are checked against the strings
+  files, the same as keys written in a data file.
+
+- A translation the game will never offer is now reported. A strings file named after a language
+  nothing else declares has to open with `__Name` on its first line and `__DebugOnly` on its second,
+  and a comment above them is enough to keep the language out of the menu. A file overriding a
+  language the game already ships needs no header and is left alone. Turn it off with
+  `cosmoteerLSPRules.diagnostics.validateLocalizationCoverage`.
+
+### Fixed
+
+- The shader checks now run over a mod's whole folder, not only over the shader that happens to be
+  open. A broken `.shader` shows up in the Problems panel and fails the lint gate like any other
+  problem. A shader is checked when a material names it, so a copy nothing references stays quiet,
+  the way a dead `.rules` file does.
+
+- A mod kept on a network share is read as one file again. A path like `\\nas\mods\my_mod` lost its
+  host, so the server looked for the folder next to itself and found nothing, and the paths it wrote
+  back named a file nobody could open.
+
+- The `AI` group of a career ship spawner is now typed. `Type` is checked as an AI the project
+  declares, so `Type = Wandrer` is reported instead of crashing the game when the encounter spawns,
+  and `PatrolOriginTag` is offered beside the patrol settings. The unwritable `AI/Type` spelling is
+  gone from the completion list.
+
+- The child list of a widget is no longer reported as ignored. `Widgets` is the key the game reads
+  the children out of, so a gui mod writing it was being told to delete the one line that does the
+  work.
+
+- `PreMultiplyByAlpha` is no longer offered inside a `Texture` group. The game reads
+  `MultiplyByAlpha` and has no field of the other name, so the value was written and discarded.
+
+- The completion popup no longer hangs on a long value. A suggestion asked for with the cursor just
+  past a few thousand characters of unbroken value text took seconds to answer and now answers at
+  once.
+
+- A control character inside a value is no longer reported. The game folds one into the value it
+  reads, so a file carrying one loads, and only a control character where a member name belongs
+  stops it.
+
+- A reference path ending in `:` and a file path carrying a drive letter are read the way the game
+  reads them. `&<C:/mods/x.rules>/Member` used to be split apart and reported twice.
+
+- The part table's export writes a number too large or too small for a decimal as the exponent form
+  Excel reads, and cuts a very long text value to the longest one the format takes. Those cells used
+  to be written as a wrong number or make the workbook unopenable.
+
+- The dead-field hint, its hover and the schema search now say the same thing about a field the game
+  declares but does nothing with. The hover used to say the game never reads it, which is not true
+  of every field in that set.
+
+- The mod overview names a conflicting member the way the manifest writes it, group path included,
+  and says which checks were not run for an installed workshop mod instead of showing them as passed.
+
+- Removing a `Flammable` field no longer writes a second `non_flammable` category into a part that
+  already names one.
+
+- Adding a missing localization key writes it into each language file once. A mod whose manifest
+  spells its strings folder differently from the folder on disk, `StringsFolder = "Strings"` next
+  to a `strings` folder, was reached under both spellings on Windows and macOS, so the key landed
+  in every file twice. The same applies to the extract-to-key refactor and the content wizards.
+
+- Language coverage now only looks at the files the game loads as a language. A backup copy or a
+  note kept beside the translations, `en - Copy.rules` or `README.rules`, is no longer a language
+  of its own and is no longer counted against the real ones. The same goes for the key a quick fix
+  writes into the mod's strings files.
+
+- A mod language is measured against what the mod's other languages add. The keys the game already
+  renders from its own file of the same id count as declared, so a complete `en.rules` is no longer
+  reported as thousands of keys short and the fill fix no longer offers to paste the game's English
+  table into it.
+
+- Filling a language in writes each value with the escapes its source line carries. `\n` and `\"`
+  used to gain a backslash on the way in and reached the player as a backslash on screen.
+
+- Hovering a key one strings file hands to another shows the sentence it ends at. A key written as
+  `CantStartTip = &CantReadyTip`, the idiom the game's own English file uses, used to hover as the
+  reference itself while every other language read as a sentence.
+
+- Hovering a key spelled in another case shows its text. The game resolves a key without regard to
+  case and the diagnostics already do, so the hover calling it undeclared contradicted them.
+
+- The coverage hint says what a missing key costs the reader. A key a translation is short of comes
+  out in English, and the key path reaches the screen only where English is missing it as well.
+
+- Accepting a suggestion with the cursor inside a value you already wrote replaces that value. It
+  used to be written in front of whatever stood right of the cursor, so clicking into the middle of
+  `Parts/LaserBlaster` and taking the suggestion left `Parts/LaserBlasterBlaster`. An editor set to
+  insert rather than replace still keeps the tail, which is what that setting asks for.
+
+- Renaming the id in a component slot renames the id. It used to rewrite the name of the field the
+  id is written in, so the field was replaced by whatever was typed into the box and the part
+  quietly lost it. A rename that cannot be carried out is now refused instead.
+
+- Renaming a component rewrites every place the part names it, not only the declaration. The uses
+  used to be left pointing at a name nothing declared any more.
+
+- A fix applied to a value written inside parentheses keeps them. The closing parenthesis used to
+  be swallowed, and the game reads `(&Path)` only with both, so the part stopped loading while the
+  editor reported nothing.
+
+- The colour square beside a string rewrites the tag it sits on when the string runs over more than
+  one line, through a trailing backslash or a verbatim string. It used to be measured as though the
+  value were on one line, so picking a colour rewrote whatever happened to sit at that offset.
+
+- No refactoring writes into the game's own files or into somebody else's installed mod any more.
+  The rename repair, the migration command and the part grid editor each go through one check now,
+  and the run says which folder it left alone rather than passing over it in silence. Turn it off
+  with `cosmoteerLSPRules.rename.allowEditingVanillaFiles`.
+
+- Moving or renaming a file rewrites only the references that name it. References written with a
+  leading slash are left alone, since the game reads those from the install rather than from the
+  folder the file sits in, and markup written in a value is no longer mistaken for a path.
+
+- Every command that declares a localization key leaves a file's line endings as it found them. A
+  file written with carriage returns used to gain a second one on every line the command touched.
+
+- Making a value modifiable rebases the references nested along with it, and is not offered where
+  something in the file reads the value through a reference. The wrapped value becomes a group,
+  which the game's expression reader refuses, so the offer is withheld where that would happen.
+
+- A field the game never reads but still requires is no longer offered a fix that deletes it. The
+  hint says the key has to stay.
+
+- The part table writes the value you typed into the part you typed it on. A value typed against
+  one mod used to be written into whichever mod the table was opened on next, and a value typed
+  against a file with unsaved edits could land in a neighbouring field. A saved view no longer
+  carries typed values with it.
+
+- The part table's Excel export opens without a repair prompt. Each part's link back to its file
+  carried an encoded drive letter that Excel refused.
+
+- An edit made while the part table is still reading the parts is no longer lost. The table used to
+  serve the value from before the edit for the rest of the session.
+
+- The part table's narrowing dropdowns keep what you picked when the panel is reopened or the
+  window is reloaded, and so does the part it compares against.
+
+- `--assert-loads` no longer answers that a mod loads when an action adds content out of a file the
+  game refuses to read. A file that does not parse, or that names the same key twice, now stops the
+  mod the way the game stops it, and a file the check could not judge is named rather than counted
+  as a pass.
+
+- Import Game Log reads many more of the failures the game writes, including the ones that name the
+  file and the path inside it without a wrapper around them. A failure is placed on the line it
+  belongs to instead of on whatever file the message above it happened to name.
+
+- Import Game Log no longer reports that a run said nothing about your files when the run failed. A
+  failure it does not recognize is shown in the game's own words with a link to the line.
+
+- A field left with an `=` and nothing behind it in front of a closing brace is now reported. The
+  game reads that brace as the value, so the group never closes and the file does not load, while
+  the editor used to show a perfectly healthy document.
+
+- A `,` or `;` that ends nothing is now reported as the error it is. One on a line of its own,
+  a doubled one behind a value and one at the very start of a file all make the game refuse the
+  file, and the editor used to call it an unnecessary separator with no effect. The hint stays for
+  a separator that really is redundant, and it no longer offers to remove one that an empty `=`
+  reads as its value.
+
+- A verbatim `@"…"` value with no closing quote is now reported, and the members under it stay in
+  the outline. The value used to run to the end of the file and take every field below it along.
+
+- A backslash at the end of a line inside a quoted value is now reported. The game refuses a line
+  break there and drops the file, and the advice on a missing quote used to point at that very
+  spelling. It now names the one that works, which is to close the quote, end the line with a
+  backslash and open a new quoted piece on the next line.
+
+- An invisible character where a member name belongs is now reported, with its code point named. A
+  no-break space or a zero-width character pasted in front of a field makes the game refuse to load
+  the mod and nothing said so. Inside a value, a quoted text or a comment it is left alone, which
+  is where the game keeps it too.
+
+- A member named by a number is now reported outside a list. `Size { 0 = 2; 1 = 2 }` and
+  `Resources { 0 = [steel, 32] }` cannot be read at all, because a name may not start with a digit.
+  The positional spelling belongs inside `[ ]`.
+
+- A bare name written twice, or written beside a field of the same name, is now reported as the
+  duplicate it is. The game registers a bare name as a member of its own and refuses a name the
+  scope already holds. The word a group-level `X = a, b` leaves behind counts the same way.
+
+- A reference through `^` now resolves a base by its index and nothing else. `&^/Name` used to be
+  answered with a definition, a computed value, a reference list and a rename, while the game's own
+  navigator cannot reach it at all.
+
+- A whole-file `Type` that names nothing is now reported in a sector generator file as well. One
+  wrong character used to turn off every top-level check in that file while the game refused to
+  load the mod.
+
+- A vector, a point or an arc written as a group is now checked for the keys the game reads out of
+  it. `Size { X = 2 }` with no `Y` fails the load, and the editor used to treat the positional
+  spelling as a way out of writing both.
+
+- The part comparison table in JetBrains says when the parts could not be read, the way it does in
+  VS Code. The answer that carried nothing used to pass without a word.
+
+- A part comparison table that is empty because the game path was never read now says which setting
+  to fill in. In JetBrains it read "No parts found.", which blamed the mod for a path that was never
+  usable.
+
+- The resource flow and firing chain views in JetBrains now say that the cursor is not inside a part
+  they can draw. The view used to be wiped to an empty stage, which reads as a part with no wiring.
+
+- A value written across several lines keeps its colouring on every one of them. A verbatim string
+  broken over three lines was coloured on its first line alone.
+
+- A mod that factors its actions out into another file is no longer treated as dead content. A
+  manifest writing `Actions = &<acts/list.rules>/Actions` used to leave every file but the manifest
+  outside the mod, so the whole Problems panel for it was empty and each file was labelled as one
+  the mod does not load.
+
+- A file an action's value side inherits from is loaded by the game, so the editor counts it too. A
+  source written as `Overrides : &<fragment.rules>` used to leave the fragment outside the mod and
+  the code lens said outright that the mod does not load it.
+
+- A namespace built in two steps resolves. A manifest that adds a global with one action and fills
+  it with an `Overrides` in the next used to have every reference through that namespace reported
+  as an unknown name.
+
+- The grid editor refuses a click on a field it does not draw. A layer id naming a real field of
+  the part, `Size`, used to reach the writers and put a cell into the part's size.
+
+- Go to definition on a shader feature guard reaches the `#define` that switches it on, in the file
+  or anywhere in its include chain. A guard nothing defines still answers nothing, since the line
+  that tests it is a use.
+
+- Importing the game log no longer calls a run clean when it choked on a file you have since
+  deleted or renamed. The run said something about the mod, so the older run's findings stand
+  instead of an all clear.
+
+- A game-log finding lands on the file as the disk spells it. A path the game logged in another
+  casing used to open a second row in the Problems panel beside the file you have open, and stayed
+  there when you saved.
+
+- Running the game-log import from a file outside a mod leaves the findings already on screen
+  alone. It used to empty the panel and then explain something else.
+
 ## 1.1.0
 
 ### Added
@@ -19,7 +275,6 @@ All notable changes to this project will be documented in this file.
 - A storage handing a crew more of a resource than one crew member can carry is now reported. The storage works out the transfer from its own `MaxResourcesPickUp` or `InitPickUp` and subtracts that whole number from itself, while the crew keeps only a stack, so the difference is destroyed with nothing said anywhere. The stack is read out of the resource file the id names, with a manifest replacement of that member applied. Turn it off with `cosmoteerLSPRules.diagnostics.validateResourcePickups`.
 
 ### Fixed
-
 - A region or radius written as zero shows in the part grid editor again. `Distance = 0` says the
   region is exactly the part rect and `Radius = 0` is a circle with no reach, both of which the
   author wrote on purpose, but the layer list read a zero as nothing written: the layer opened
@@ -55,6 +310,8 @@ All notable changes to this project will be documented in this file.
 - A value left half written no longer takes the member below it. A line ending in an operator, in a sign, or in a call that is still open used to absorb the next field, which then disappeared.
 - A member written as `Name : Base` before its braces are typed is now kept, with the base it names, so completion and go to definition work while it is being written.
 - Colouring now covers exactly what is written. A negative number no longer paints the bracket after it, a value written across several lines no longer paints past its own line, and `90d` and `1.5r` read as the numbers they are.
+- The outline and the breadcrumb now cover the whole of a value written across several lines. Such a field used to end past the end of its first line, so the cursor on a continuation line belonged to no field at all. An unnamed element of a list is now picked out by the brace it opens with rather than by a span of the line it sits on.
+- `90 d` and `2 r` no longer show a computed value. The game reads an angle suffix only where it stands right behind the number and refuses to load a file that writes a space in front of it. `50 %` keeps its value, which is the one the game reads there.
 - The formatter no longer puts spaces around punctuation that belongs to a value, so `Key = a:b` and a written-out address keep their meaning.
 - Required now means what the game's deserializer means by it, which brings 319 more fields into the check, and the scaffold offered by completion lists the same fields the check reports as missing.
 - A component whose name happens to match an inheritance base somewhere else in the project is no longer skipped by the required-field check.

@@ -130,7 +130,13 @@ const ROOT_REGISTRY_BY_PATH: ReadonlyArray<{ readonly test: RegExp; readonly reg
     { test: /\/doodads\//i, registry: 'Cosmoteer.Simulation.Doodads.DoodadRules' },
     { test: /\/common_effects\//i, registry: 'Cosmoteer.Simulation.MediaEffects.MediaEffectRules' },
     { test: /\/music\//i, registry: 'Cosmoteer.Music.MusicTrackRules' },
-    { test: /\/name_generators\//i, registry: 'Cosmoteer.Generators.Names.NameGenerator' },
+    // A path rule that names a registry rather than a class is exactly a folder whose files dispatch
+    // on a top-level `Type=`, so the same folder answers here. Derived rather than written out a
+    // second time: `sectors/` was in the one table and not the other, so a typo in a sector file's
+    // `Type` left the file unrooted and unflagged, and every rule added later would have gone the
+    // same way. The game answers a typo there with `DeserializeException: Type name '…' is not a
+    // deserializable subclass of '…'` and refuses the mod.
+    ...PATH_ROOTS.flatMap((rule) => (rule.registry ? [{ test: rule.test, registry: rule.registry }] : [])),
 ];
 
 /** A top-level named member of the document, if present. The name matches case-insensitively like the game's node lookup. */

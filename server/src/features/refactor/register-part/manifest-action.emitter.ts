@@ -90,37 +90,6 @@ export const addManyActionText = (
         `${indent}}`,
     ].join(lineEnding);
 
-/**
- * One `Overrides` action entry, merging the members of a referenced group into a target group.
- *
- * This is the verb a map-shaped registry takes, the buff map being one: `AddMany` and a nameless
- * `Add` both throw at load on anything but a `[]` list, and `Overrides` is what every mod in the
- * corpus writes to add buffs. The game walks the source's members by name, replacing a member the
- * target already has and appending the rest, so a file holding one new member adds exactly that
- * member. The replacement half is why a caller checks the source's names against the registry
- * first, since a member named like a vanilla one would silently take its place.
- *
- * @param target the game-root path of the group the members are merged into.
- * @param sourceRef the reference to the group holding them, sigil included, resolved against the
- * manifest's directory.
- * @param indent the indentation the entry's own lines carry.
- * @param lineEnding the ending the manifest already uses, so the entry matches it.
- * @returns the entry's text, with no trailing line ending.
- */
-export const overridesActionText = (
-    target: string,
-    sourceRef: string,
-    indent: string,
-    lineEnding: '\n' | '\r\n' = '\n'
-): string =>
-    [
-        `${indent}{`,
-        `${indent}\tAction = Overrides`,
-        `${indent}\tOverrideIn = "${target}"`,
-        `${indent}\tOverrides = ${sourceRef}`,
-        `${indent}}`,
-    ].join(lineEnding);
-
 /** The byte offset of a list's opening bracket, or -1 when the text does not hold one. */
 export const openerOffset = (text: string, list: ListNode): number => {
     if (text[list.position.start] === '[') return list.position.start;

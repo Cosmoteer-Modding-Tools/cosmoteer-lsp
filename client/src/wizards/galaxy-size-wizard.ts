@@ -2,7 +2,7 @@ import { ExtensionContext, Uri, l10n, window, workspace } from 'vscode';
 import { LanguageClient } from 'vscode-languageclient/node';
 import { creationFailureMessage, wiringNotes } from './nebula-wizard';
 import { applyForWizard, scanForWizard, wizardAnchor } from './wizard-client';
-import { ID_SUGGESTS_NAME_SCRIPT, escapeHtml, modFolderName, scriptJson, showWizardForm } from './wizard-form';
+import { ID_SUGGESTS_NAME_SCRIPT, escapeHtml, field, modFolderName, scriptJson, showWizardForm } from './wizard-form';
 import { GalaxySizeForm, NewGalaxySizeApplyResult, NewGalaxySizeScanResult } from './galaxy-size-wizard.types';
 
 /**
@@ -46,21 +46,10 @@ export async function createNewGalaxySize(
         ),
         fieldsHtml: `
 <div class="row">
-<div class="field">
-<label for="id">${escapeHtml(l10n.t('Size id'))}</label>
-<input id="id" type="text" autocomplete="off" spellcheck="false" />
-<div class="hint">${escapeHtml(l10n.t('One word: letters, digits and underscores. Huge, Tiny, Sprawling.'))}</div>
+${field('id', l10n.t('Size id'), l10n.t('One word: letters, digits and underscores. Huge, Tiny, Sprawling.'), '<input id="id" type="text" autocomplete="off" spellcheck="false" />')}
+${field('name', l10n.t('Display name'), '', '<input id="name" type="text" autocomplete="off" />')}
 </div>
-<div class="field">
-<label for="name">${escapeHtml(l10n.t('Display name'))}</label>
-<input id="name" type="text" autocomplete="off" />
-</div>
-</div>
-<div class="field">
-<label for="systems">${escapeHtml(l10n.t('Solar systems'))}</label>
-<input id="systems" type="number" min="1" max="2000" value="${Math.round(scan.standardSystems * 2)}" />
-<div class="hint">${escapeHtml(l10n.t('The standard galaxy holds {0}.', String(scan.standardSystems)))}</div>
-</div>`,
+${field('systems', l10n.t('Solar systems'), l10n.t('The standard galaxy holds {0}.', String(scan.standardSystems)), `<input id="systems" type="number" min="1" max="2000" value="${Math.round(scan.standardSystems * 2)}" />`)}`,
         facts: [
             escapeHtml(l10n.t('Written into the mod {0}, under galaxy_map/.', modName)),
             escapeHtml(l10n.t('Its name and its tip are keys in the language files.')),

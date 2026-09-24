@@ -3,9 +3,9 @@ import { CancellationToken } from 'vscode-languageserver';
 import { completeReference } from '../../../src/features/completion/autocompletion.reference-path';
 import { navigate } from '../../../src/semantics/navigate-reference';
 import { AbstractNode, AbstractNodeDocument, ValueNode } from '../../../src/core/ast/ast';
-import { findNodeByIdentifier, parseFilePath } from '../../../src/utils/ast.utils';
+import { parseFilePath } from '../../../src/utils/ast.utils';
+import { findNodeByIdentifier, findReferenceNode, parseFixture } from '../../helpers';
 import { globalSettings } from '../../../src/settings';
-import { findReferenceNode, parseFixture } from '../../helpers';
 import { initWorkspace, valueOf, WORKSPACE_DATA_DIR, workspaceFile } from '../../workspace-helper';
 
 // Characterization tests for cross-file and cross-reference autocompletion. They
@@ -77,7 +77,14 @@ describe('completeReference, cross-file', () => {
 
         it('/… lists members of the workspace cosmoteer.rules root', async () => {
             const result = await complete('&/', docA);
-            expect(result).toEqual(['StringsFolder', 'RootMarker', 'Palette', 'BASE_AUDIO', 'BASE_SHAKE', 'INDICATORS']);
+            expect(result).toEqual([
+                'StringsFolder',
+                'RootMarker',
+                'Palette',
+                'BASE_AUDIO',
+                'BASE_SHAKE',
+                'INDICATORS',
+            ]);
         });
 
         it('/Palette/ drills into a nested group of cosmoteer.rules', async () => {
@@ -135,7 +142,9 @@ describe('completeReference, cross-file', () => {
         });
 
         it('<./Data/../workshop/…/wm.rules>/ workshop escape lists the target file root members', async () => {
-            expect((await complete('&<./Data/../workshop/wm/wm.rules>/', docA)).sort()).toEqual(['WM', 'WMList'].sort());
+            expect((await complete('&<./Data/../workshop/wm/wm.rules>/', docA)).sort()).toEqual(
+                ['WM', 'WMList'].sort()
+            );
         });
 
         it('<./Data/../workshop/…/wm.rules>/WM/ drills into a member of the workshop file', async () => {

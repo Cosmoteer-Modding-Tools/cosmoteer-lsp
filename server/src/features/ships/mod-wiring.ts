@@ -2,7 +2,7 @@ import { existsSync } from 'fs';
 import { relative } from 'path';
 import { LineEnding } from './builtin-ships.types';
 import { manifestForRegistration } from '../refactor/new-content/registration.emitter';
-import { TextEdit } from 'vscode-languageserver';
+import { CancellationToken, TextEdit } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { AbstractNode, AbstractNodeDocument, isIdentifierNode, isValueNode } from '../../core/ast/ast';
 import { findModRoot } from '../../mod/mod-root';
@@ -301,4 +301,29 @@ export const registrationLineEnding = async (
     const lineEnding: LineEnding =
         choice.kind === 'manifest' ? lineEndingOf((await readRulesFile(choice.fsPath))?.text ?? '') : '\n';
     return { choice, lineEnding };
+};
+
+/**
+ * The ids a new one must not repeat, folded: the ones read from the game's own files, plus every id
+ * the project already declares for the schema classes named.
+ *
+ * @param seedIds the ids the game's own registries and files carry.
+ * @param classNames the schema classes whose declared ids count as taken too.
+ * @param host the server facilities, whose id index is asked when it has one.
+ * @param cancellationToken cancels the lookups.
+ * @returns the ids, folded to lower case.
+ */
+export const takenIdsOf = async (
+    seedIds: Iterable<string>,
+    classNames: readonly string[],
+    host: { existingIds?(cls: string, cancellationToken: CancellationToken): Promise<ReadonlySet<string>> },
+    cancellationToken: CancellationToken
+): Promise<Set<string>> => {
+    const taken = new Set<string>();
+    for (const id of seedIds) taken.add(id.toLowerCase());
+    for (const cls of classNames) {
+        const declared = await host.existingIds?.(cls, cancellationToken).catch((): ReadonlySet<string> => new Set());
+        for (const id of declared ?? []) taken.add(id.toLowerCase());
+    }
+    return taken;
 };

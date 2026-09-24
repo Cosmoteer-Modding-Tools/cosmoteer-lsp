@@ -116,6 +116,10 @@ class PartTableService(private val project: Project) : Disposable {
         requestFromServer(project) { server -> server.partTable(params) }
             .whenComplete { _, _ -> waiting = false }
             .thenAccept { data ->
+                // The parts could not be read, which the reader hears the way the VS Code panel
+                // says it. The page is still told, so it clears its spinner and keeps the table it
+                // has rather than waiting on an answer that never comes.
+                if (data == null) notifyTable("The parts could not be read.", NotificationType.WARNING)
                 val message = JsonObject().apply {
                     addProperty("type", "table")
                     if (data != null) add("table", data)
@@ -123,6 +127,17 @@ class PartTableService(private val project: Project) : Disposable {
                     pendingFormula?.let { addProperty("pendingFormula", it) }
                 }
                 page.post(gson.toJson(message))
+                // The game path was never read, so the table is empty for a reason it cannot show:
+                // the page captions an empty table "No parts found.", which blames the mod. The
+                // balloon carries the real reason, the way the VS Code panel raises it, and reaches
+                // the reader whether or not the page has finished loading.
+                if (data?.get("emptyReason")?.takeIf { !it.isJsonNull }?.asString == "noGamePath") {
+                    notifyTable(
+                        "Set the Cosmoteer installation path in Settings > Tools > Cosmoteer Rules " +
+                            "before comparing parts.",
+                        NotificationType.WARNING
+                    )
+                }
             }
             .exceptionally { error ->
                 logger<PartTableService>().warn("Part table request failed", error)
@@ -178,11 +193,11 @@ class PartTableService(private val project: Project) : Disposable {
         requestFromServer(project) { server -> server.partTableWorkbook(model) }
             .thenAccept { built ->
                 if (built != null) saveWorkbook(built)
-                else notifyExport("The workbook could not be built.", NotificationType.WARNING)
+                else notifyTable("The workbook could not be built.", NotificationType.WARNING)
             }
             .exceptionally { error ->
                 logger<PartTableService>().warn("Part table export failed", error)
-                notifyExport("The workbook could not be built.", NotificationType.WARNING)
+                notifyTable("The workbook could not be built.", NotificationType.WARNING)
                 null
             }
     }
@@ -215,10 +230,10 @@ class PartTableService(private val project: Project) : Disposable {
                     if (project.isDisposed) return@invokeLater
                     if (failure != null) {
                         logger<PartTableService>().warn("Part table export could not be written", failure)
-                        notifyExport("The workbook could not be written.", NotificationType.WARNING)
+                        notifyTable("The workbook could not be written.", NotificationType.WARNING)
                         return@invokeLater
                     }
-                    notifyExport("The part table was exported to ${file.name}.", NotificationType.INFORMATION)
+                    notifyTable("The part table was exported to ${file.name}.", NotificationType.INFORMATION)
                     RevealFileAction.openFile(file)
                 }
             }
@@ -226,12 +241,12 @@ class PartTableService(private val project: Project) : Disposable {
     }
 
     /**
-     * Says how the export went.
+     * Says how the table fared, in the balloon group the rest of the plugin uses.
      *
      * @param content what to tell the reader.
      * @param type whether it went well.
      */
-    private fun notifyExport(content: String, type: NotificationType) {
+    private fun notifyTable(content: String, type: NotificationType) {
         ApplicationManager.getApplication().invokeLater {
             if (project.isDisposed) return@invokeLater
             NotificationGroupManager.getInstance()

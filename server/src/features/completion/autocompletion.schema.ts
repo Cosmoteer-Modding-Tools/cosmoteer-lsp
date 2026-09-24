@@ -12,10 +12,11 @@ import {
 import { AutoCompletion, Completion } from './autocompletion.service.types';
 import { documentScopeClass, registryForGroup, resolveGroupClass } from '../../document/schema/schema-context';
 import { documentRootRegistry } from '../../document/schema/document-root';
-import { enumDef, fieldOf } from '../../document/schema/schema';
+import { enumDef, fieldOf, schema } from '../../document/schema/schema';
 import { acceptedMembersAt } from '../../document/schema/refused-enum-values';
 import { SchemaField, SchemaRegistry, ValueType } from '../../document/schema/schema.types';
 import { componentIdCompletions } from './autocompletion.component-id';
+import { caretInValue, withValueEdit, writtenValueRange } from './completion-range';
 import { resolveClassThroughInheritance } from './inheritance-resolution';
 
 /**
@@ -32,8 +33,17 @@ import { resolveClassThroughInheritance } from './inheritance-resolution';
  * `Type=` completion is inferred from sibling groups in the same container. See {@link classOfGroup}.
  */
 export class AutoCompletionSchema implements AutoCompletion<AbstractNode> {
-    public async getCompletions(node: AbstractNode, cancellationToken: CancellationToken): Promise<Completion[]> {
+    public async getCompletions(
+        node: AbstractNode,
+        cancellationToken: CancellationToken,
+        cursorOffset?: number
+    ): Promise<Completion[]> {
         if (!isValueNode(node)) return [];
+        const value = node;
+        // Every answer below is a complete value, so it replaces the whole written one. Without that
+        // a caret parked inside `Mode = Li|near` would write the pick in front of the tail it left.
+        const ranged = (completions: Completion[]): Completion[] =>
+            withValueEdit(completions, writtenValueRange(value), caretInValue(value, cursorOffset));
 
         // Whole-file root dispatched by its top-level `Type=` (doodad/effect/music): the value's
         // parent is the document, and the registry is known by the canonical folder. Offer its
@@ -43,7 +53,7 @@ export class AutoCompletionSchema implements AutoCompletion<AbstractNode> {
             const registry = documentRootRegistry(documentParent);
             if (!registry) return [];
             const fieldName = fieldNameOf(documentParent.elements, node);
-            return fieldName === registry.typeField ? discriminatorCompletions(registry) : [];
+            return fieldName === registry.typeField ? ranged(discriminatorCompletions(registry)) : [];
         }
 
         // A value written inside a `[list]` (its parent is the list, not a group): offer the enum
@@ -52,7 +62,7 @@ export class AutoCompletionSchema implements AutoCompletion<AbstractNode> {
         // References inside a list (e.g. `ReceivableBuffs = [Engine]`) are served by the reference
         // completer, so this stays enum/bool only and does not double up.
         const parent = node.parent;
-        if (parent && isListNode(parent)) return completeListElementValue(parent);
+        if (parent && isListNode(parent)) return ranged(completeListElementValue(parent));
 
         // The parser links a value's `parent` to the enclosing group (not its assignment), so the
         // field name comes from the sibling assignment whose right-hand value is this node.
@@ -65,7 +75,7 @@ export class AutoCompletionSchema implements AutoCompletion<AbstractNode> {
         // A same-registry `ID<…>` reference field completes with the part's component ids
         // (siblings plus the part-wide union for the component registry).
         const componentIds = await componentIdCompletions(group, fieldName, cls, cancellationToken);
-        return componentIds ?? completeFieldValue(group, fieldName, cls);
+        return ranged(componentIds ?? completeFieldValue(group, fieldName, cls));
     }
 }
 
@@ -220,10 +230,35 @@ const fieldNameOf = (elements: AbstractNode[], node: AbstractNode): string | und
     return undefined;
 };
 
-/** Completion items for a registry's `Type=` discriminators. */
+/**
+ * The registries a slot of `registry`'s type also takes. `GetAllPolymorphicSubclasses` keeps every
+ * non-abstract type the slot's base type is assignable from, so a class that carries a
+ * `SerialBaseType` of its own under that base (`SimObjectSpawner` under `SimSpawner`) hands its
+ * discriminators to the base's slots as well, which is why vanilla writes `Type = Doodads` in a
+ * `SimSpawner[]`. The other direction does not hold, so a slot of the derived registry keeps to its
+ * own members.
+ *
+ * @param registry the registry the slot declares.
+ * @returns the contributing registries, the declared one first.
+ */
+const acceptedRegistries = (registry: SchemaRegistry): SchemaRegistry[] => {
+    const entries = Object.entries(schema.registries);
+    const base = entries.find(([, candidate]) => candidate === registry)?.[0];
+    if (!base) return [registry];
+    const descendsFromBase = (fullName: string): boolean => {
+        for (let cursor = schema.types[fullName]?.extends; cursor; cursor = schema.types[cursor]?.extends)
+            if (cursor === base) return true;
+        return false;
+    };
+    return [registry, ...entries.filter(([name]) => descendsFromBase(name)).map(([, derived]) => derived)];
+};
+
+/** Completion items for a registry's `Type=` discriminators, its derived registries' included. */
 export const discriminatorCompletions = (registry: SchemaRegistry): Completion[] =>
-    Object.keys(registry.members).map((disc) => ({
-        label: disc,
-        kind: CompletionItemKind.EnumMember,
-        detail: registry.name,
-    }));
+    acceptedRegistries(registry).flatMap((accepted) =>
+        Object.keys(accepted.members).map((disc) => ({
+            label: disc,
+            kind: CompletionItemKind.EnumMember,
+            detail: accepted.name,
+        }))
+    );

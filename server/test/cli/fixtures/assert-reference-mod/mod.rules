@@ -1,0 +1,33 @@
+// A mod whose actions carry a reference at each depth the game reads differently: one written on
+// the action, one written as an entry of an Overrides map, and one written inside the group an Add
+// hands over whole.
+ID = Test.AssertReference
+Name = "Assert Reference Fixture"
+Version = 1.0
+
+Actions
+[
+	{
+		Action = Add
+		AddTo = "<action_targets.rules>/Group"
+		Name = ON_THE_ACTION
+		ToAdd = &<content.rules>/Added
+	}
+	{
+		Action = Overrides
+		OverrideIn = "<action_targets.rules>/Group"
+		Overrides
+		{
+			Leaf = &<content.rules>/Added
+		}
+	}
+	{
+		Action = Add
+		AddTo = "<action_targets.rules>/Group"
+		Name = INSIDE_THE_CONTENT
+		ToAdd
+		{
+			Deeper = &<content.rules>/Added
+		}
+	}
+]

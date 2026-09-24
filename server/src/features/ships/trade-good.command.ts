@@ -13,12 +13,11 @@ import { memberOf } from '../refactor/new-content/registry-ids';
 import { actionEntryText } from './builtin-ships.emitter';
 import { appendManifestActions, elementTextOf, modRootFor, openManifest, scalarOf } from './mod-wiring';
 import {
+    TradeGoodApply,
     TradeGoodApplyResult,
     TradeGoodArgs,
-    TradeGoodFailure,
     TradeGoodHost,
     TradeGoodResult,
-    TradeGoodScanResult,
     TradeRarity,
     TradeResource,
 } from './trade-good.types';
@@ -88,25 +87,6 @@ const RARITIES: Record<TradeRarity, RarityFigures> = {
     uncommon: { weight: 10, quantity: '[75%, 100%]', stocked: '[0%, 5%]', bought: '[-5%, 0%]' },
     rare: { weight: 5, quantity: '[50%, 100%]', stocked: '[-0.5%, 0.5%]', bought: '[-0.5%, 0%]' },
 };
-
-/** A scan result carrying nothing but the reason there is nothing to report. */
-const scanFailed = (failure: TradeGoodFailure): TradeGoodScanResult => ({
-    kind: 'scan',
-    modRoot: '',
-    modId: '',
-    resources: [],
-    failure,
-});
-
-/** An apply result carrying nothing but the reason nothing was written. */
-const applyFailed = (resource: string, failure: TradeGoodFailure): TradeGoodApplyResult => ({
-    kind: 'apply',
-    resource,
-    manifest: '',
-    wiring: { cargo: 'noTarget', stations: 'noTarget' },
-    changedFiles: [],
-    failure,
-});
 
 /** A resource as its file declares it. */
 interface DeclaredResource {
@@ -400,18 +380,18 @@ const applyRound = async (
     const dataRoot = host.dataRoot();
     const root = await host.gameRoot().catch(() => undefined);
     const rootDocument = (root?.content as { parsedDocument?: AbstractNodeDocument } | undefined)?.parsedDocument;
-    if (!dataRoot || !root?.path || !rootDocument) return applyFailed(resourceId, 'noGameRoot');
+    if (!dataRoot || !root?.path || !rootDocument) return { kind: 'apply', failure: 'noGameRoot' };
     const resources = await resourcesOf(modRoot, rootDocument, root.path, dataRoot, host, cancellationToken);
-    if (!resources) return applyFailed(resourceId, 'noGameRoot');
+    if (!resources) return { kind: 'apply', failure: 'noGameRoot' };
     const resource = resources.find((candidate) => candidate.id.toLowerCase() === resourceId.toLowerCase());
-    if (!resource) return applyFailed(resourceId, 'unknownResource');
-    if (!resource.stackable) return applyFailed(resource.id, 'notStackable');
+    if (!resource) return { kind: 'apply', failure: 'unknownResource' };
+    if (!resource.stackable) return { kind: 'apply', failure: 'notStackable' };
 
     const rarity: TradeRarity = args.rarity && args.rarity in RARITIES ? args.rarity : 'uncommon';
     const figures = RARITIES[rarity];
     const untyped = args.stationsBuy === true ? figures.bought : figures.stocked;
     const targets = tradeTargetsOf(rootDocument, root.path, dataRoot);
-    const wiring: TradeGoodApplyResult['wiring'] = { cargo: 'noTarget', stations: 'noTarget' };
+    const wiring: TradeGoodApply['wiring'] = { cargo: 'noTarget', stations: 'noTarget' };
     const changed: string[] = [];
     let manifestPath = '';
     let manifests: string[] | undefined;
@@ -485,15 +465,15 @@ export const tradeGood = async (
     const scanning = args.resource === undefined;
     const located = modRootFor(args.uri, host.dataRoot());
     if ('failure' in located)
-        return scanning ? scanFailed(located.failure) : applyFailed(args.resource ?? '', located.failure);
+        return scanning ? { kind: 'scan', failure: located.failure } : { kind: 'apply', failure: located.failure };
     if (!scanning) return await applyRound(args, located.modRoot, host, cancellationToken);
 
     const identity = await identityOfMod(located.modRoot).catch((): ModIdentity => ({ root: located.modRoot }));
     const dataRoot = host.dataRoot();
     const root = await host.gameRoot().catch(() => undefined);
     const rootDocument = (root?.content as { parsedDocument?: AbstractNodeDocument } | undefined)?.parsedDocument;
-    if (!dataRoot || !root?.path || !rootDocument) return scanFailed('noGameRoot');
+    if (!dataRoot || !root?.path || !rootDocument) return { kind: 'scan', failure: 'noGameRoot' };
     const resources = await resourcesOf(located.modRoot, rootDocument, root.path, dataRoot, host, cancellationToken);
-    if (!resources) return scanFailed('noGameRoot');
+    if (!resources) return { kind: 'scan', failure: 'noGameRoot' };
     return { kind: 'scan', modRoot: located.modRoot, modId: identity.manifestId ?? '', resources };
 };

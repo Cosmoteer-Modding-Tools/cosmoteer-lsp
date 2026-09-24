@@ -29,7 +29,8 @@ import {
 } from '../../semantics/part-components';
 import { memberOrInherited } from '../../semantics/effective-member';
 import { evaluateNumericValue, formatNumber } from '../../semantics/value-evaluator';
-import { getStartOfAstNode, memberValueNamed, namedMembersOf } from '../../utils/ast.utils';
+import { memberValueNamed, namedMembersOf } from '../../utils/ast.utils';
+import { placeOfNode } from '../diagram/diagram-place';
 import { chainSeries, legendFor } from '../diagram/diagram-series';
 import { Diagram, DiagramEdge, DiagramNode } from '../diagram/diagram.types';
 import { partAt } from './part-at';
@@ -185,8 +186,6 @@ interface ChainBuild {
     readonly edges: DiagramEdge[];
     /** The boxes that have an arrow at either end, which are the ones that stay. */
     readonly wired: Set<string>;
-    /** The file the part is written in, which every box's place points into. */
-    readonly uri: string;
     /** How many of the names written in the part match no component of it. */
     unresolved: number;
 }
@@ -259,7 +258,7 @@ const boxFor = async (build: ChainBuild, reference: ComponentReference, token: C
         label: component.name,
         detail: detail || undefined,
         kind: plays ? 'component' : 'member',
-        place: { uri: build.uri, line: component.group.position.line + 1 },
+        place: placeOfNode(component.group),
     });
     return id;
 };
@@ -421,7 +420,6 @@ export const buildEffectChainDiagram = async (
         nodes: new Map<string, DiagramNode>(),
         edges: [],
         wired: new Set<string>(),
-        uri: getStartOfAstNode(part).uri,
         unresolved: 0,
     };
 

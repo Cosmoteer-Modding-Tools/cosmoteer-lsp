@@ -95,7 +95,9 @@ interface EvalContext {
 // runs for every unquoted value node of a parse. A regex literal inside it allocates a fresh RegExp
 // per call. A shared instance carries no state here: only `WHITESPACE_RUN` is global, and it is used
 // through `String.prototype.replace`, which resets `lastIndex` itself.
-const REFERENCE_SIGIL = /^[&<>/.~^]/;
+// A leading `.` opens a relative path (`./Data/…`, `../factory_he/…`) unless a digit follows it,
+// which is the decimal shorthand vanilla writes inside vectors (`.5-8/64`).
+const REFERENCE_SIGIL = /^(?:[&<>/~^]|\.(?!\d))/;
 const WHITESPACE_RUN = /\s+/g;
 const PERCENT_LITERAL = /^-?\d*\.?\d+%$/;
 const DEGREES_LITERAL = /^-?\d*\.?\d+d$/;
@@ -279,8 +281,10 @@ const evaluateArithmeticText = (text: string, zero?: ZeroDivisionSink): number |
                 sign = 1;
                 continue;
             }
-            // A sign directly in front of an operand belongs to it (`10*-2`), it is not an operator.
-            if ((rest[0] === '-' || rest[0] === '+') && items.length > 0) {
+            // A sign directly in front of an operand belongs to it (`10*-2`, and the leading one of
+            // `-0.38-0.015`), it is not an operator. A run of one signed literal is still the plain
+            // number the caller already handled, which the term count below keeps it as.
+            if (rest[0] === '-' || rest[0] === '+') {
                 if (rest[0] === '-') sign = -sign;
                 rest = rest.slice(1);
                 continue;

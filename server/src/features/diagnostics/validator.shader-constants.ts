@@ -4,7 +4,7 @@ import {
     AbstractNode,
     AbstractNodeDocument,
     GroupNode,
-    isAssignmentNode,
+    descendants,
     isGroupNode,
     isListNode,
     isValueNode,
@@ -96,25 +96,18 @@ export const shaderVariantSiblings = async (shaderPath: string): Promise<string[
  */
 const derivedShadersByBase = (document: AbstractNodeDocument): Map<string, ValueNode[]> => {
     const byBase = new Map<string, ValueNode[]>();
-    const visit = (node: AbstractNode): void => {
-        if (isGroupNode(node)) {
-            const shader = materialShaderNode(node);
-            for (const reference of shader ? (node.inheritance ?? []) : []) {
-                if (!isValueNode(reference) || reference.valueType.type !== 'Reference') continue;
-                const leaf = inheritanceBaseLeafName(String(reference.valueType.value));
-                if (!leaf) continue;
-                const list = byBase.get(leaf.toLowerCase());
-                if (list) list.push(shader!);
-                else byBase.set(leaf.toLowerCase(), [shader!]);
-            }
+    for (const node of descendants(document)) {
+        if (!isGroupNode(node)) continue;
+        const shader = materialShaderNode(node);
+        for (const reference of shader ? (node.inheritance ?? []) : []) {
+            if (!isValueNode(reference) || reference.valueType.type !== 'Reference') continue;
+            const leaf = inheritanceBaseLeafName(String(reference.valueType.value));
+            if (!leaf) continue;
+            const list = byBase.get(leaf.toLowerCase());
+            if (list) list.push(shader!);
+            else byBase.set(leaf.toLowerCase(), [shader!]);
         }
-        if (isGroupNode(node) || isListNode(node)) {
-            for (const child of node.elements) visit(child);
-        } else if (isAssignmentNode(node) && node.right) {
-            visit(node.right);
-        }
-    };
-    for (const element of document.elements) visit(element);
+    }
     return byBase;
 };
 
@@ -126,18 +119,11 @@ const derivedShadersByBase = (document: AbstractNodeDocument): Map<string, Value
  * @returns each group whose schema class accepts inline shader constants.
  */
 export function* materialGroupsOf(document: AbstractNodeDocument): Generator<GroupNode> {
-    const visit = function* (node: AbstractNode): Generator<GroupNode> {
-        if (isGroupNode(node)) {
-            const cls = resolveGroupClass(node);
-            if (cls && acceptsShaderConstants(cls)) yield node;
-        }
-        if (isGroupNode(node) || isListNode(node)) {
-            for (const child of node.elements) yield* visit(child);
-        } else if (isAssignmentNode(node) && node.right) {
-            yield* visit(node.right);
-        }
-    };
-    for (const element of document.elements) yield* visit(element);
+    for (const node of descendants(document)) {
+        if (!isGroupNode(node)) continue;
+        const cls = resolveGroupClass(node);
+        if (cls && acceptsShaderConstants(cls)) yield node;
+    }
 }
 
 /**

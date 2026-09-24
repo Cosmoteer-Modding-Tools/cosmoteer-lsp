@@ -1,9 +1,9 @@
 import { CancellationToken } from 'vscode-languageserver';
-import { AbstractNode, ListNode, isListNode, isGroupNode, GroupNode } from '../core/ast/ast';
+import { AbstractNode, ListNode, isListNode, isGroupNode, isValueNode, GroupNode } from '../core/ast/ast';
 import { getStartOfAstNode } from '../utils/ast.utils';
 import { FileWithPath, FileTree, isFile } from '../workspace/cosmoteer-workspace.service';
 import { getParsedFileDocument } from '../workspace/parsed-file-cache';
-import { stepIntoNode } from '../document/reference-resolver';
+import { inheritanceEntriesOf, inheritanceEntryScope, stepIntoNode } from '../document/reference-resolver';
 
 /**
  * A reference-resolution function (e.g. the navigation feature’s `navigate`) used to
@@ -21,7 +21,8 @@ export type ResolveReferenceFn = (
 ) => Promise<AbstractNode | null | { readonly type: string } | undefined>;
 
 /**
- * Resolves a node's own inheritance list to the containers the bases name, in declaration order.
+ * Resolves a node's inheritance list to the containers the bases name, in the order the game reads
+ * them: the node's own written entries first, then whatever a mod's `AddBase` actions append.
  * @param node the inheriting group or list.
  * @param resolveReference the reference resolver to reach a base with.
  * @param cancellationToken cancels reference resolution.
@@ -35,17 +36,16 @@ export async function* inheritanceBasesOf(
     cancellationToken: CancellationToken,
     visited: Set<AbstractNode>
 ): AsyncGenerator<AbstractNode> {
-    if (!node.inheritance) return;
-    for (const inheritance of node.inheritance) {
-        if (inheritance.valueType.type !== 'Reference') continue;
-        // Resolve the inheritance reference from the value node's own scope, not the
-        // group's. Relative refs (`^/0/…`, `&Name`, `..`) are written relative to the
-        // inheritance node, whose parent is the inheriting group. Passing the group
-        // instead would shift `^`/`&` up by one level and resolve in the wrong scope.
+    for (const inheritance of inheritanceEntriesOf(node)) {
+        if (!isValueNode(inheritance) || inheritance.valueType.type !== 'Reference') continue;
+        // Each base is resolved from its own scope and against its own file. A written entry lives
+        // in the inheriting file, where the scope is the one the game's `GetFindRoot` names. An
+        // entry a mod's `AddBase` appends lives in the manifest, so its path is written relative to
+        // the manifest and resolves against that file.
         const resolved = await resolveReference(
-            inheritance.valueType.value,
-            inheritance,
-            getStartOfAstNode(node).uri,
+            String(inheritance.valueType.value),
+            inheritanceEntryScope(inheritance),
+            getStartOfAstNode(inheritance).uri,
             cancellationToken,
             // Carry this lookup's `visited` set into the reference resolution so that, if it
             // loops back into inheritance, the same already-seen nodes terminate it.
@@ -118,8 +118,8 @@ export const findMemberThroughInheritance = async (
  * @param segment the member name to find.
  * @param resolveReference the reference resolver to reach a base with.
  * @param cancellationToken cancels reference resolution.
- * @returns the index into `node.inheritance`, or undefined when no base's chain declares the member
- * (or when the node inherits from nothing at all).
+ * @returns the index into the node's base list, counted the way `^/N` indexes it, or undefined when
+ * no base's chain declares the member (or when the node inherits from nothing at all).
  */
 export const inheritanceBaseIndexDeclaring = async (
     node: GroupNode | ListNode,
@@ -127,15 +127,15 @@ export const inheritanceBaseIndexDeclaring = async (
     resolveReference: ResolveReferenceFn,
     cancellationToken: CancellationToken
 ): Promise<number | undefined> => {
-    if (!node.inheritance) return undefined;
-    for (let index = 0; index < node.inheritance.length; index++) {
-        const inheritance = node.inheritance[index];
-        if (inheritance.valueType.type !== 'Reference') continue;
+    const entries = inheritanceEntriesOf(node);
+    for (let index = 0; index < entries.length; index++) {
+        const inheritance = entries[index];
+        if (!isValueNode(inheritance) || inheritance.valueType.type !== 'Reference') continue;
         const visited = new Set<AbstractNode>([node]);
         const resolved = await resolveReference(
-            inheritance.valueType.value,
-            inheritance,
-            getStartOfAstNode(node).uri,
+            String(inheritance.valueType.value),
+            inheritanceEntryScope(inheritance),
+            getStartOfAstNode(inheritance).uri,
             cancellationToken,
             visited
         ).catch(() => null);

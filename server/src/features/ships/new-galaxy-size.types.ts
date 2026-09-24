@@ -23,7 +23,7 @@ export interface NewGalaxySizeArgs {
 }
 
 /** What could be created in this mod. */
-export interface NewGalaxySizeScanResult {
+export interface NewGalaxySizeScan {
     kind: 'scan';
     modRoot: string;
     modId: string;
@@ -31,11 +31,12 @@ export interface NewGalaxySizeScanResult {
     takenIds: string[];
     /** How many systems the game's standard galaxy has, for the client to offer a figure against. */
     standardSystems: number;
-    failure?: NewGalaxySizeFailure;
+    /** Never set here, the field that tells a report from a refusal. */
+    failure?: undefined;
 }
 
 /** What creating the size did. */
-export interface NewGalaxySizeApplyResult {
+export interface NewGalaxySizeApply {
     kind: 'apply';
     id: string;
     /** The file the generator and the size are declared in, empty when nothing was written. */
@@ -52,7 +53,14 @@ export interface NewGalaxySizeApplyResult {
     localizationFiles: string[];
     createdFiles: string[];
     changedFiles: string[];
-    failure?: NewGalaxySizeFailure;
+    /** Never set here, the field that tells a report from a refusal. */
+    failure?: undefined;
 }
+
+/** What the scan round answers: the report, or nothing but the reason there is none. */
+export type NewGalaxySizeScanResult = NewGalaxySizeScan | { kind: 'scan'; failure: NewGalaxySizeFailure };
+
+/** What the apply round answers: what was made, or nothing but the reason nothing was. */
+export type NewGalaxySizeApplyResult = NewGalaxySizeApply | { kind: 'apply'; failure: NewGalaxySizeFailure };
 
 export type NewGalaxySizeResult = NewGalaxySizeScanResult | NewGalaxySizeApplyResult;

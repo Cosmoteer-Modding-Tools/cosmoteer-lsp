@@ -18,9 +18,9 @@ import {
     componentReferenceOf,
     componentsOfPart,
 } from '../../semantics/part-components';
-import { getStartOfAstNode } from '../../utils/ast.utils';
 import { memberOrInherited } from '../../semantics/effective-member';
 import { BUFF_PROXY_CLASS, proxyTargetsOf } from '../../semantics/part-components';
+import { placeOfNode } from '../diagram/diagram-place';
 import { legendFor } from '../diagram/diagram-series';
 import { Diagram, DiagramEdge, DiagramNode } from '../diagram/diagram.types';
 import { partAt } from './part-at';
@@ -490,8 +490,6 @@ interface FlowBuild {
     readonly nodes: DiagramNode[];
     /** The arrows drawn so far. */
     readonly edges: DiagramEdge[];
-    /** The file the part is written in, which every box's place points into. */
-    readonly uri: string;
     /** What the part cannot make for itself. */
     readonly takesIn: Set<string>;
     /** What the part offers the rest of the ship. */
@@ -1059,7 +1057,6 @@ export const buildResourceFlowDiagram = async (
         byName: new Map<string, FlowNode>(),
         nodes: [],
         edges: [],
-        uri: getStartOfAstNode(part).uri,
         takesIn: new Set<string>(),
         givesOut: new Set<string>(),
         token,
@@ -1097,7 +1094,7 @@ export const buildResourceFlowDiagram = async (
                 entry.role === 'storage' || entry.role === 'multi-storage' || entry.role === 'flex-grid'
                     ? 'resource'
                     : 'component',
-            place: { uri: build.uri, line: entry.component.group.position.line + 1 },
+            place: placeOfNode(entry.component.group),
         });
     }
 

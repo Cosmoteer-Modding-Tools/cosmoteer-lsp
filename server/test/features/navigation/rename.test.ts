@@ -85,15 +85,18 @@ describe('rename', () => {
         expect(edit!.changes![bFile].map(editText)).toContain('FromRef'); // declaration in b.rules
     });
 
-    it('rejects an invalid new name', async () => {
+    it('rejects an invalid new name with the reason', async () => {
         const inner = assignmentKey(bDoc, 'InnerValue');
-        const edit = await rename(bDoc, positionOf(inner.position), 'bad name/slash', FOLDERS, token);
-        expect(edit).toBeNull();
+        await expect(rename(bDoc, positionOf(inner.position), 'bad name/slash', FOLDERS, token)).rejects.toThrow(
+            "'bad name/slash' cannot be used as a name here."
+        );
     });
 
     it('rejects a bare index as a new name, which would move an element instead of naming one', async () => {
         const inner = assignmentKey(bDoc, 'InnerValue');
-        expect(await rename(bDoc, positionOf(inner.position), '0', FOLDERS, token)).toBeNull();
+        await expect(rename(bDoc, positionOf(inner.position), '0', FOLDERS, token)).rejects.toThrow(
+            "'0' cannot be used as a name here."
+        );
     });
 
     // The caret on `B` in `&<./Data/b.rules>/B/Nested/Deep/Leaf` names B, not the Leaf the path ends

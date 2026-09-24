@@ -51,12 +51,12 @@ import {
     numberOf,
     readEnumNames,
     readIntList,
-    readMapEntries,
     readRect,
     readRectEvaluated,
     readVector,
     readVectorEvaluated,
 } from '../../semantics/vector-forms';
+import { readGridMapEntries, readGridMemberVectors, readGridVector, readGridVectors } from './grid-value-reads';
 import { fieldOf } from '../../document/schema/schema';
 import { ADJACENCY_FLAGS_ENUM, CELL_SET_FIELDS, MAP_FIELDS, PART_RULES_CLASS, RECT_FIELDS } from './part-fields';
 
@@ -143,6 +143,38 @@ const GRAPHICS_OFFSET_SLOTS: readonly string[] = [
     'OperationalRoofLighting',
     'BlueprintSprite',
 ];
+
+/**
+ * Every field name a built layer can name, which is the set a mutation's layer id has to come out
+ * of. The edit service resolves a layer id to a container and a member name and writes that member,
+ * so an id no layer ever carried would materialize a field of that name in the part, and the author
+ * would be left chasing a field the game ignores. The synthetic point layers (the railgun segment
+ * ends) are in here too, they are ids with no field of their own.
+ */
+export const GRID_LAYER_FIELDS: ReadonlySet<string> = new Set<string>([
+    ...CELL_SET_FIELDS.map(({ field }) => field),
+    ...MAP_FIELDS.map(({ field }) => field),
+    ...RECT_FIELDS,
+    ...COMPONENT_POINT_FIELDS.map(({ field }) => field),
+    ...COMPONENT_CELL_FIELDS.map(({ field }) => field),
+    ...COMPONENT_RECT_FIELDS.map(({ field }) => field),
+    'BuffCenter',
+    'CrewDestinations',
+    'CustomCollider',
+    'DisableCells',
+    'Line',
+    'Location',
+    'Offset',
+    'PartNetworkOverlayMidpoint',
+    'ProhibitRects',
+    'Radius',
+    'RailgunEnd',
+    'RailgunStart',
+    'Region',
+    'ResourceLevels',
+    'Vertices',
+    'VirtualInternalCells',
+]);
 
 /**
  * The other files this view is read from: every file a reference or a base written inside the part
@@ -241,13 +273,8 @@ const cellSetLayer = async (
 ): Promise<CellSetLayerData> => {
     const member = await effectiveMember(part, spec.field, token);
     const cells: Array<{ cell: { x: number; y: number }; origin: AstProvenance }> = [];
-    if (member && (isListNode(member.node) || isGroupNode(member.node))) {
-        for (const element of member.node.elements) {
-            const vector = readVector(element);
-            if (vector) {
-                cells.push({ cell: { x: vector.x, y: vector.y }, origin: provenanceOf(vector.node, member.inherited) });
-            }
-        }
+    for (const vector of await readGridVectors(member?.node, token)) {
+        cells.push({ cell: { x: vector.x, y: vector.y }, origin: provenanceOf(vector.node, member!.inherited) });
     }
     return {
         kind: 'cellSet',
@@ -278,7 +305,7 @@ const mapLayer = async (
     const member = await effectiveMember(part, spec.field, token);
     const entries: Array<{ cell: { x: number; y: number }; values: string[]; origin: AstProvenance }> = [];
     if (member) {
-        for (const entry of readMapEntries(member.node)) {
+        for (const entry of await readGridMapEntries(member.node, token)) {
             const values = readEnumNames(entry.value);
             if (values) {
                 entries.push({
@@ -318,16 +345,8 @@ const crewLayers = async (part: GroupNode, token: CancellationToken): Promise<Po
     for (const { name, group } of await componentsOfClass(part, CREW_RULES_CLASS, token)) {
         const member = await effectiveMember(group, 'CrewDestinations', token);
         const points: Array<{ point: { x: number; y: number }; origin: AstProvenance }> = [];
-        if (member && (isListNode(member.node) || isGroupNode(member.node))) {
-            for (const element of member.node.elements) {
-                const vector = readVector(element);
-                if (vector) {
-                    points.push({
-                        point: { x: vector.x, y: vector.y },
-                        origin: provenanceOf(vector.node, member.inherited),
-                    });
-                }
-            }
+        for (const vector of await readGridVectors(member?.node, token)) {
+            points.push({ point: { x: vector.x, y: vector.y }, origin: provenanceOf(vector.node, member!.inherited) });
         }
         layers.push({
             kind: 'pointList',
@@ -360,8 +379,8 @@ const virtualCellsLayer = async (part: GroupNode, token: CancellationToken): Pro
     if (member && (isListNode(member.node) || isGroupNode(member.node))) {
         for (const element of member.node.elements) {
             if (!isGroupNode(element)) continue;
-            const external = readVector(childNamed(element, 'ExternalCell'));
-            const internal = readVector(childNamed(element, 'InternalCell'));
+            const external = await readGridVector(childNamed(element, 'ExternalCell'), token);
+            const internal = await readGridVector(childNamed(element, 'InternalCell'), token);
             if (external && internal) {
                 pairs.push({
                     external: { x: external.x, y: external.y },
@@ -577,7 +596,13 @@ const componentPointsLayer = async (part: GroupNode, token: CancellationToken): 
         visited.add(name);
         const entry = byName.get(name);
         if (!entry) return null;
-        const { point } = await ownLocation(entry.group);
+        const { point, isRef } = await ownLocation(entry.group);
+        // A location that is written but does not read is not the same as no location at all. The
+        // game defaults an absent one to the part's origin, which is what the zero below stands
+        // for, while an unreadable one is an offset the editor does not know. Folding that one to
+        // zero would put the marker on top of the component it is chained to, and the first drag
+        // would move it by whatever the offset was worth.
+        if (!point && isRef) return null;
         const own = point ?? { x: 0, y: 0 };
         const rotation = degreesOf(childNamed(entry.group, 'Rotation')) ?? 0;
         const chainedTo = enumNameOf(childNamed(entry.group, 'ChainedTo'));
@@ -694,16 +719,11 @@ const componentRectLayers = async (scope: ComponentScope, token: CancellationTok
         if (spec.field === 'GridRect' && hasField(group, cls, 'DisableCells')) {
             const disable = await effectiveMember(group, 'DisableCells', token);
             const cells: Array<{ cell: { x: number; y: number }; origin: AstProvenance }> = [];
-            if (disable && (isListNode(disable.node) || isGroupNode(disable.node))) {
-                for (const element of disable.node.elements) {
-                    const vector = readVector(element);
-                    if (vector) {
-                        cells.push({
-                            cell: { x: vector.x, y: vector.y },
-                            origin: provenanceOf(vector.node, disable.inherited),
-                        });
-                    }
-                }
+            for (const vector of await readGridVectors(disable?.node, token)) {
+                cells.push({
+                    cell: { x: vector.x, y: vector.y },
+                    origin: provenanceOf(vector.node, disable!.inherited),
+                });
             }
             layers.push({
                 kind: 'cellSet',
@@ -846,17 +866,8 @@ const componentSpriteLayers = async (scope: ComponentScope, token: CancellationT
     if (!inAncestry(cls, RESOURCE_SPRITES_CLASS) && !isListNode(childNamed(group, 'ResourceLevels'))) return [];
     const member = await effectiveMember(group, 'ResourceLevels', token);
     const points: Array<{ point: GridPoint; origin: AstProvenance }> = [];
-    if (member && (isListNode(member.node) || isGroupNode(member.node))) {
-        for (const element of member.node.elements) {
-            if (!isGroupNode(element)) continue;
-            const offset = readVector(childNamed(element, 'Offset'));
-            if (offset) {
-                points.push({
-                    point: { x: offset.x, y: offset.y },
-                    origin: provenanceOf(offset.node, member.inherited),
-                });
-            }
-        }
+    for (const offset of await readGridMemberVectors(member?.node, 'Offset', token)) {
+        points.push({ point: { x: offset.x, y: offset.y }, origin: provenanceOf(offset.node, member!.inherited) });
     }
     if (!points.length) return [];
     const label = componentLabel(scope, 'ResourceLevels offsets');
@@ -1143,6 +1154,13 @@ interface EffectiveFieldState {
     readonly entries: Array<{ key: { x: number; y: number }; values: string[] }>;
     /** The readable `{ExternalCell; InternalCell}` pairs. */
     readonly pairs: Array<{ external: { x: number; y: number }; internal: { x: number; y: number } }>;
+    /**
+     * True when an element cannot be written out again the way the file has it: an element no
+     * reader names, or one whose numbers came out of math or a reference. Materializing over such a
+     * field would drop the element or freeze a computed number into a literal, so the edit is
+     * refused instead.
+     */
+    readonly lossy: boolean;
 }
 
 /**
@@ -1158,33 +1176,46 @@ export const buildEffectiveFieldState = async (
     fieldName: string,
     token: CancellationToken
 ): Promise<EffectiveFieldState> => {
-    const state: EffectiveFieldState = { cells: [], entries: [], pairs: [] };
+    const cells: EffectiveFieldState['cells'] = [];
+    const entries: EffectiveFieldState['entries'] = [];
+    const pairs: EffectiveFieldState['pairs'] = [];
+    let lossy = false;
     const member = await effectiveMember(container, fieldName, token);
-    if (!member || (!isListNode(member.node) && !isGroupNode(member.node))) return state;
+    if (!member || (!isListNode(member.node) && !isGroupNode(member.node))) {
+        return { cells, entries, pairs, lossy };
+    }
     for (const element of member.node.elements) {
-        const vector = readVector(element);
+        const vector = await readGridVector(element, token);
         if (vector) {
-            state.cells.push({ x: vector.x, y: vector.y });
+            cells.push({ x: vector.x, y: vector.y });
+            lossy ||= vector.computed;
             continue;
         }
-        if (!isGroupNode(element)) continue;
-        const key = readVector(childNamed(element, 'Key'));
+        if (!isGroupNode(element)) {
+            lossy = true;
+            continue;
+        }
         const value = childNamed(element, 'Value');
-        if (key && value) {
+        if (value) {
+            const key = await readGridVector(childNamed(element, 'Key'), token);
             const values = readEnumNames(value);
-            if (values) state.entries.push({ key: { x: key.x, y: key.y }, values });
+            if (key && values) entries.push({ key: { x: key.x, y: key.y }, values });
+            lossy ||= !key || !values || key.computed;
             continue;
         }
-        const external = readVector(childNamed(element, 'ExternalCell'));
-        const internal = readVector(childNamed(element, 'InternalCell'));
+        const external = await readGridVector(childNamed(element, 'ExternalCell'), token);
+        const internal = await readGridVector(childNamed(element, 'InternalCell'), token);
         if (external && internal) {
-            state.pairs.push({
+            pairs.push({
                 external: { x: external.x, y: external.y },
                 internal: { x: internal.x, y: internal.y },
             });
+            lossy ||= external.computed || internal.computed;
+            continue;
         }
+        lossy = true;
     }
-    return state;
+    return { cells, entries, pairs, lossy };
 };
 
 /**

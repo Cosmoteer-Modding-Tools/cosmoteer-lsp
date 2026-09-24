@@ -1,0 +1,23 @@
+// A turret whose tooltip stats print the damage per second of the whole weapon and count its
+// barrels beside it, the way a multi barrel turret of a mod is written.
+Part : <./Data/ships/terran/armor/armor.rules>/Part
+{
+	ID = test.twin_cannon
+	StatsByCategory
+	[
+		{
+			Stats
+			{
+				DamagePerShot = 150
+				ROF = 2
+				DamagePerSecond = 300
+			}
+		}
+		{
+			Stats
+			{
+				Barrels = 2
+			}
+		}
+	]
+}

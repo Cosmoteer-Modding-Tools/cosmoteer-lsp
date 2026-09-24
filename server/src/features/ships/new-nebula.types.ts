@@ -48,7 +48,7 @@ export interface NebulaBase {
 }
 
 /** What could be created in this mod. */
-export interface NewNebulaScanResult {
+export interface NewNebulaScan {
     kind: 'scan';
     modRoot: string;
     modId: string;
@@ -56,11 +56,12 @@ export interface NewNebulaScanResult {
     takenIds: string[];
     /** The game's own nebulas, in the order the registry lists them. */
     bases: NebulaBase[];
-    failure?: NewNebulaFailure;
+    /** Never set here, the field that tells a report from a refusal. */
+    failure?: undefined;
 }
 
 /** What creating the nebula did. */
-export interface NewNebulaApplyResult {
+export interface NewNebulaApply {
     kind: 'apply';
     id: string;
     /** The file the nebula type is declared in, empty when nothing was written. */
@@ -81,7 +82,14 @@ export interface NewNebulaApplyResult {
     localizationFiles: string[];
     createdFiles: string[];
     changedFiles: string[];
-    failure?: NewNebulaFailure;
+    /** Never set here, the field that tells a report from a refusal. */
+    failure?: undefined;
 }
+
+/** What the scan round answers: the report, or nothing but the reason there is none. */
+export type NewNebulaScanResult = NewNebulaScan | { kind: 'scan'; failure: NewNebulaFailure };
+
+/** What the apply round answers: what was made, or nothing but the reason nothing was. */
+export type NewNebulaApplyResult = NewNebulaApply | { kind: 'apply'; failure: NewNebulaFailure };
 
 export type NewNebulaResult = NewNebulaScanResult | NewNebulaApplyResult;

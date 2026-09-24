@@ -121,6 +121,44 @@ describe('buildInsertSchemaFieldEdit', () => {
         expect(result).toEqual({ failure: 'noContext' });
     });
 
+    it('keeps the note the anchor member was written with on that member', async () => {
+        const source = 'Part\r\n{\r\n\tID = cosmoteer.probe // the save files name it\r\n\t|MaxHealth = 100\r\n}\r\n';
+        const result = await insertAt(source, partUri, fieldEntryId(PART, 'MaxDoors'));
+        expect(applied(source, partUri, editOf(result))).toBe(
+            'Part\r\n{\r\n\tID = cosmoteer.probe // the save files name it\r\n\tMaxDoors = 0\r\n\tMaxHealth = 100\r\n}\r\n'
+        );
+    });
+
+    it('leaves a sibling written on the same line where it is', async () => {
+        const source = 'Part\n{\n\tID = a; MaxHealth = 100|\n}\n';
+        const result = await insertAt(source, partUri, fieldEntryId(PART, 'MaxDoors'));
+        expect(applied(source, partUri, editOf(result))).toBe(
+            'Part\n{\n\tID = a; MaxHealth = 100\n\tMaxDoors = 0\n}\n'
+        );
+    });
+
+    it('refuses a field the group already writes, whatever it is spelled like', async () => {
+        const source = 'Part\n{\n\tmaxdoors = 2\n\tMaxHealth = 100|\n}\n';
+        const result = await insertAt(source, partUri, fieldEntryId(PART, 'MaxDoors'));
+        expect(result).toEqual({ failure: 'alreadyDeclared' });
+    });
+
+    it('refuses a field the whole-file root already writes', async () => {
+        const source = 'Type = Beam\nDelay = 0\nZ = 1|\n';
+        const result = await insertAt(source, 'file:///common_effects/test.rules', fieldEntryId(MEDIA_EFFECT, 'Delay'));
+        expect(result).toEqual({ failure: 'alreadyDeclared' });
+    });
+
+    it('writes a field the base declares, which is how an override is written', async () => {
+        // Only the group's own members are in the way. `MaxHealth` here is inherited, and rewriting
+        // an inherited field is the ordinary reason to reach for the picker at all.
+        const source = 'Part : &<./base.rules>/Part\n{\n\tMaxDoors = 1|\n}\n';
+        const result = await insertAt(source, partUri, fieldEntryId(PART, 'MaxHealth'));
+        expect(applied(source, partUri, editOf(result))).toBe(
+            'Part : &<./base.rules>/Part\n{\n\tMaxDoors = 1\n\tMaxHealth = 0\n}\n'
+        );
+    });
+
     it('refuses an entry that is not a field', async () => {
         const result = await insertAt('Part\n{\n\tMaxHealth = 100|\n}\n', partUri, `t:${PART}`);
         expect(result).toEqual({ failure: 'notAField' });

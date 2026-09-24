@@ -4,20 +4,40 @@ import {
     GroupNode,
     isAssignmentNode,
     isGroupNode,
+    isIdentifierNode,
     isListNode,
+    isValueNode,
 } from '../../core/ast/ast';
 import { Validation } from './validator';
 import * as l10n from '@vscode/l10n';
 
+/** A word the game reads as the name of a void member, which is its identifier shape. */
+const VOID_MEMBER_NAME = /^[A-Za-z_][\w.]*$/;
+
 /**
  * The name a child contributes to its enclosing scope, with the node that carries it (so the
- * diagnostic can point at the key itself). Assignments key by their left identifier; an identified
- * `{}`/`[]` keys by its identifier. Anonymous values and positional entries contribute nothing.
+ * diagnostic can point at the key itself). Assignments key by their left identifier, and an
+ * identified `{}`/`[]` keys by its identifier.
+ *
+ * A bare word with no value and no body keys too. The game builds an `OTVoidNode` for it and
+ * registers it under that name like any other member, so a file that writes `A` above `A = 1`
+ * fails to load on the duplicate. The same holds for the word after a `,` in a group-level
+ * `X = a, b`: the `,` ends the field, and running that through the shipped HalflingCore parser
+ * leaves `X` holding `"a"` plus a sibling void member named `b`, which then collides with a real
+ * `b` or `B` elsewhere in the scope. A quoted or number-shaped word is not a void member at all,
+ * and the game refuses it outright, so it keys nothing here.
+ *
+ * Positional entries of a `[]` list contribute nothing, which is why this is never asked about one.
  */
 const keyOf = (node: AbstractNode): { name: string; at: AbstractNode } | undefined => {
     if (isAssignmentNode(node)) return { name: node.left.name, at: node.left };
     if ((isGroupNode(node) || isListNode(node)) && node.identifier)
         return { name: node.identifier.name, at: node.identifier };
+    if (isIdentifierNode(node) && VOID_MEMBER_NAME.test(node.name)) return { name: node.name, at: node };
+    if (isValueNode(node) && !node.quoted) {
+        const written = node.valueType.value;
+        if (typeof written === 'string' && VOID_MEMBER_NAME.test(written)) return { name: written, at: node };
+    }
     return undefined;
 };
 

@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { TextEdit } from 'vscode-languageserver';
+import { TextDocument } from 'vscode-languageserver-textdocument';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
 import { AbstractNodeDocument, GroupNode, isAssignmentNode, isGroupNode, isListNode } from '../../../src/core/ast/ast';
@@ -21,6 +23,12 @@ const firstGroup = (document: AbstractNodeDocument): GroupNode => {
 };
 
 const lines = (...parts: string[]): string => parts.join('\n');
+
+/** The file as one edit leaves it, which is the only thing a reader of the file ever sees. */
+const applied = (text: string, edit: TextEdit | null): string => {
+    if (!edit) throw new Error('the writer answered with no edit');
+    return TextDocument.applyEdits(TextDocument.create('file:///t.rules', 'rules', 0, text), [edit]);
+};
 
 describe('appendMemberEdit indentation', () => {
     it('copies the indent of a plain sibling member', () => {
@@ -67,13 +75,24 @@ describe('appendMemberEdit placement', () => {
         expect(edit?.newText).toBe('\tB = 2\n');
     });
 
-    // The two placements differ only where the last member carries a trailing comment: appending
-    // after it would drag the comment onto the new member.
-    it('leaves a trailing comment alone when inserting before the closer', () => {
+    // A note the author wrote about one field used to end up on the line below, reading as a note
+    // about a field they never wrote, and a diff made it look as though they had edited it.
+    it('leaves a trailing line comment on the member it was written about', () => {
+        const text = lines('Part {', '\tA = 1 // the save files name it', '}');
+        const edit = appendMemberEdit(text, firstGroup(parse(text)), 'B = 2');
+        expect(applied(text, edit)).toBe(lines('Part {', '\tA = 1 // the save files name it', '\tB = 2', '}'));
+    });
+
+    it('leaves a trailing block comment on the member it was written about', () => {
+        const text = lines('Part {', '\tA = 1 /* the save files name it */', '}');
+        const edit = appendMemberEdit(text, firstGroup(parse(text)), 'B = 2');
+        expect(applied(text, edit)).toBe(lines('Part {', '\tA = 1 /* the save files name it */', '\tB = 2', '}'));
+    });
+
+    it('keeps a trailing comment where it is when inserting before the closer', () => {
         const text = lines('Part {', '\tA = 1 // note', '}');
-        const before = appendMemberEdit(text, firstGroup(parse(text)), 'B = 2', { placement: 'beforeCloser' });
-        const after = appendMemberEdit(text, firstGroup(parse(text)), 'B = 2');
-        expect(before?.newText).not.toBe(after?.newText);
+        const edit = appendMemberEdit(text, firstGroup(parse(text)), 'B = 2', { placement: 'beforeCloser' });
+        expect(applied(text, edit)).toBe(lines('Part {', '\tA = 1 // note', '\tB = 2', '}'));
     });
 
     it('appends inline into a one-line list when a separator is given', () => {
@@ -101,9 +120,7 @@ describe('valueSpan', () => {
         const assignment = firstGroup(parse(text)).elements.find(isAssignmentNode);
         const edit = overwriteValueEdit(text, assignment!.right!, '1');
         const start = text.indexOf('(9500)');
-        expect(text.slice(0, start) + edit.newText + text.slice(start + '(9500)'.length)).toBe(
-            'Part {\n\tCost = 1\n}'
-        );
+        expect(text.slice(0, start) + edit.newText + text.slice(start + '(9500)'.length)).toBe('Part {\n\tCost = 1\n}');
     });
 
     it('covers a plain value exactly', () => {

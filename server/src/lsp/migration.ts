@@ -3,7 +3,11 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { readFile } from 'fs/promises';
 import { lexer } from '../core/lexer/lexer';
 import { parser } from '../core/parser/parser';
-import { collectFileMigration, createMigrationPreview } from '../features/migration/migrate-workspace';
+import {
+    collectFileMigration,
+    createMigrationPreview,
+    migrationWriteScope,
+} from '../features/migration/migrate-workspace';
 import { applyMigrationChanges, narrowToSymbolScope } from '../features/migration/migrate-symbol';
 import { MigrationSummary } from '../../../shared/migration.types';
 import { MigrationChange } from '../features/migration/migration.types';
@@ -11,13 +15,12 @@ import { uriToFsPath } from '../workspace/workspace-files';
 import { collectRulesFiles } from '../workspace/rules-file-walk';
 import { filePathToUri } from '../document/reference-path';
 import { normalizeUri } from '../document/reference-location';
-import { reachabilityKey } from '../mod/mod-reachability';
 import { beginFsTrustWindow, endFsTrustWindow } from '../workspace/fs-cache';
 import { workspaceRelativePath } from '../utils/relative-path';
 import { connection, documents } from './context';
 import { ensureFragmentRooting } from './fragment-rooting';
 import { sharedBaseHost } from './hosts';
-import { isOutsideRulesPanel, validationScopeKeys } from './validation-scope';
+import { isOutsideRulesPanel, reachableFileFilter } from './validation-scope';
 import { workspaceFolderUris } from './workspace-folders';
 
 /** What a migration run was asked to do. */
@@ -54,37 +57,43 @@ interface MigrationRun {
 
 /**
  * The files the migration visits: every rules file of the opened folders, cut to the ones the game
- * can load, and cut again to the mod and the mentions a bulk fix for one deprecation cares about.
+ * can load, cut again to the trees the write gate allows, and cut once more to the mod and the
+ * mentions a bulk fix for one deprecation cares about.
  *
  * @param folderUris the workspace folders to walk.
  * @param folderPaths the same folders as paths, which the symbol narrowing reads.
  * @param options the run's options, whose `symbol` and `scopeFsPath` drive the narrowing.
  * @param token cancels the walk.
- * @returns the files to migrate, in walk order.
+ * @returns the files to migrate in walk order, and the trees that were left alone.
  */
 const filesToMigrate = async (
     folderUris: string[],
     folderPaths: string[],
     options: MigrationOptions,
     token: CancellationToken
-): Promise<string[]> => {
+): Promise<{ files: string[]; refusedTrees: string[] }> => {
     const files: string[] = [];
     for (const folder of folderUris) {
         for await (const file of collectRulesFiles(uriToFsPath(folder))) files.push(file);
     }
     // Same scope the diagnostics scan uses: only files the game can actually load.
-    const scopeKeys = await validationScopeKeys(token);
-    const loadable = scopeKeys ? files.filter((file) => scopeKeys.has(reachabilityKey(file))) : files;
+    const scopeAllows = await reachableFileFilter(token);
+    const loadable = scopeAllows ? files.filter((file) => scopeAllows(file)) : files;
     await ensureFragmentRooting(token).catch(() => undefined);
+    // The migration writes straight to disk, so the one gate that says which trees may be written
+    // decides here too. A folder the user opened that turns out to be the game's own install or
+    // somebody else's installed mod is walked and reported, never edited.
+    const { files: writable, refusedTrees } = migrationWriteScope(loadable);
     // A bulk fix for one deprecation stays inside the mod it was invoked from and only visits
     // the files that can mention the old name. Both gates belong to that command: the
-    // whole-workspace migration deliberately covers every folder the user opened.
-    if (options.symbol === undefined || options.scopeFsPath === undefined) return loadable;
-    return narrowToSymbolScope(
-        loadable,
+    // whole-workspace migration deliberately covers every other folder the user opened.
+    if (options.symbol === undefined || options.scopeFsPath === undefined) return { files: writable, refusedTrees };
+    const narrowed = await narrowToSymbolScope(
+        writable,
         { symbol: options.symbol, scopeFsPath: options.scopeFsPath, folderPaths },
         token
     );
+    return { files: narrowed, refusedTrees };
 };
 
 /**
@@ -182,7 +191,10 @@ export async function migrateWorkspace(options: MigrationOptions): Promise<Migra
     // (the WorkspaceEdit applies only at the end).
     beginFsTrustWindow();
     try {
-        const scoped = await filesToMigrate(folderUris, folderPaths, options, token);
+        const { files: scoped, refusedTrees } = await filesToMigrate(folderUris, folderPaths, options, token);
+        // Said out loud rather than left as a quietly smaller fix count, since a run that reports
+        // nothing in a folder the user opened otherwise reads as the migration having nothing to do.
+        for (const refusal of refusedTrees) connection.window.showWarningMessage(refusal);
         // An open editor buffer wins over the disk content, and its (possibly differently-encoded)
         // uri is the one the WorkspaceEdit must target, or the client would open a second buffer.
         const openByNorm = new Map<string, TextDocument>();

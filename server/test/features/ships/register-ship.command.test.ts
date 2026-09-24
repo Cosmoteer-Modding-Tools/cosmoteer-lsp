@@ -7,25 +7,32 @@ import { filePathToUri } from '../../../src/document/reference-path';
 import { partStatsIndex } from '../../../src/features/part-table/part-table.service';
 import { clearBaseFileCache } from '../../../src/features/refactor/shared-base/base-index';
 import { newFaction } from '../../../src/features/ships/new-faction.command';
-import { NewFactionApplyResult, NewFactionHost } from '../../../src/features/ships/new-faction.types';
+import { NewFactionApply, NewFactionFailure, NewFactionHost } from '../../../src/features/ships/new-faction.types';
 import { newGalaxySize } from '../../../src/features/ships/new-galaxy-size.command';
-import { NewGalaxySizeApplyResult } from '../../../src/features/ships/new-galaxy-size.types';
+import { NewGalaxySizeApply, NewGalaxySizeFailure } from '../../../src/features/ships/new-galaxy-size.types';
 import { newNebula } from '../../../src/features/ships/new-nebula.command';
-import { NewNebulaApplyResult } from '../../../src/features/ships/new-nebula.types';
+import { NewNebulaApply, NewNebulaFailure } from '../../../src/features/ships/new-nebula.types';
 import { decodePng } from '../../../src/features/ships/png';
 import { registerShip, RegisterShipHost } from '../../../src/features/ships/register-ship.command';
 import {
+    RegisterShipApply,
     RegisterShipApplyResult,
     RegisterShipArgs,
+    RegisterShipFailure,
+    RegisterShipScan,
     RegisterShipScanResult,
 } from '../../../src/features/ships/register-ship.types';
 import { parseModActions } from '../../../src/mod/action-parser';
 import { clearModRootCache } from '../../../src/mod/mod-root';
 import { globalSettings } from '../../../src/settings';
 import { parseText } from '../../../src/utils/ast.utils';
-import { CosmoteerWorkspaceData, CosmoteerWorkspaceService, FileWithPath } from '../../../src/workspace/cosmoteer-workspace.service';
+import {
+    CosmoteerWorkspaceData,
+    CosmoteerWorkspaceService,
+    FileWithPath,
+} from '../../../src/workspace/cosmoteer-workspace.service';
 import { clearFsCaches } from '../../../src/workspace/fs-cache';
-import { FIXTURES_DIR } from '../../helpers';
+import { Answer, FIXTURES_DIR } from '../../helpers';
 import { blueprintTree, shipPngBytes } from './blueprint.helper';
 
 // The two commands against a stand-in install laid out the way Steam lays one out, with saved ships
@@ -84,17 +91,24 @@ const saveShip = (name: string, parts: readonly string[], doors = 0): string => 
 };
 
 /** The scan round, asserting it answered as one. */
-const scan = async (blueprints: string[], host: RegisterShipHost, uri = filePathToUri(MOD_DIR)): Promise<RegisterShipScanResult> => {
+const scan = async (
+    blueprints: string[],
+    host: RegisterShipHost,
+    uri = filePathToUri(MOD_DIR)
+): Promise<Answer<RegisterShipScan, RegisterShipFailure>> => {
     const result = await registerShip({ uri, blueprints }, host, token);
     if (result.kind !== 'scan') throw new Error('expected the scan round');
-    return result;
+    return result as Answer<RegisterShipScan, RegisterShipFailure>;
 };
 
 /** The apply round, asserting it answered as one. */
-const apply = async (args: Omit<RegisterShipArgs, 'uri'>, host: RegisterShipHost): Promise<RegisterShipApplyResult> => {
+const apply = async (
+    args: Omit<RegisterShipArgs, 'uri'>,
+    host: RegisterShipHost
+): Promise<Answer<RegisterShipApply, RegisterShipFailure>> => {
     const result = await registerShip({ uri: filePathToUri(MOD_DIR), ...args }, host, token);
     if (result.kind !== 'apply') throw new Error('expected the apply round');
-    return result;
+    return result as Answer<RegisterShipApply, RegisterShipFailure>;
 };
 
 /** The parts of a ship, `n` of each id. */
@@ -117,11 +131,22 @@ beforeAll(async () => {
 
     WARSHIP = saveShip(
         'Warship',
-        [...times(4, 'cosmoteer.laser'), ...times(4, 'cosmoteer.thruster'), ...times(2, 'cosmoteer.armor'), 'cosmoteer.crew_quarters', ...times(2, 'cosmoteer.corridor')],
+        [
+            ...times(4, 'cosmoteer.laser'),
+            ...times(4, 'cosmoteer.thruster'),
+            ...times(2, 'cosmoteer.armor'),
+            'cosmoteer.crew_quarters',
+            ...times(2, 'cosmoteer.corridor'),
+        ],
         2
     );
     // The storage is named by its alias half the time, the way an older blueprint names a renamed part.
-    HAULER = saveShip('Hauler', [...times(3, 'cosmoteer.storage'), ...times(3, 'crate'), ...times(4, 'cosmoteer.thruster'), 'cosmoteer.crew_quarters']);
+    HAULER = saveShip('Hauler', [
+        ...times(3, 'cosmoteer.storage'),
+        ...times(3, 'crate'),
+        ...times(4, 'cosmoteer.thruster'),
+        'cosmoteer.crew_quarters',
+    ]);
     BUS = saveShip('Bus', [...times(6, 'cosmoteer.crew_quarters'), ...times(3, 'cosmoteer.thruster')]);
     OUTPOST = saveShip('Outpost Station', [...times(8, 'cosmoteer.storage'), 'cosmoteer.crew_quarters']);
     PLATFORM = saveShip('Small Laser Platform', [...times(2, 'cosmoteer.laser'), 'cosmoteer.thruster']);
@@ -215,9 +240,17 @@ describe('judging saved ships', () => {
         expect(result.factions.map((faction) => faction.id)).toEqual(['fringe', 'cabal']);
         expect(result.factions.every((faction) => faction.source === 'game' && !faction.own)).toBe(true);
 
-        const inGame = await registerShip({ uri: filePathToUri(`${DATA_DIR}/ships`), blueprints: [WARSHIP] }, makeHost(), token);
+        const inGame = await registerShip(
+            { uri: filePathToUri(`${DATA_DIR}/ships`), blueprints: [WARSHIP] },
+            makeHost(),
+            token
+        );
         expect(inGame.failure).toBe('notEditable');
-        const nothing = await registerShip({ uri: filePathToUri(MOD_DIR), blueprints: [`${ROOT}/steamapps`] }, makeHost(), token);
+        const nothing = await registerShip(
+            { uri: filePathToUri(MOD_DIR), blueprints: [`${ROOT}/steamapps`] },
+            makeHost(),
+            token
+        );
         expect(nothing.failure).toBe('noBlueprints');
     });
 });
@@ -275,7 +308,9 @@ describe('registering ships in a faction', () => {
             'AddBase <modes/career/career.rules>/TradeShips',
         ]);
         expect(read(`${MOD_DIR}/mod.rules`)).toContain('&<builtin_ships/cabal/builtins_cabal.rules>/Ships');
-        expect(read(`${MOD_DIR}/mod.rules`)).toContain('BaseToAdd = &<builtin_ships/cabal/Civilian/trade_ships_cabal.rules>/TradeShips');
+        expect(read(`${MOD_DIR}/mod.rules`)).toContain(
+            'BaseToAdd = &<builtin_ships/cabal/Civilian/trade_ships_cabal.rules>/TradeShips'
+        );
         expect(result.createdFiles).toContain(combat);
         expect(result.changedFiles).toContain(`${MOD_DIR}/mod.rules`);
         expect(host.announced).toContain(`${MOD_DIR}/mod.rules`);
@@ -289,7 +324,11 @@ describe('registering ships in a faction', () => {
         expect(again.ships[0].failure).toBe('alreadyRegistered');
 
         const more = await apply(
-            { blueprints: [], faction: 'cabal', ships: [{ fsPath: BUS, role: 'crew_transport', tier: 3, difficulty: 1 }] },
+            {
+                blueprints: [],
+                faction: 'cabal',
+                ships: [{ fsPath: BUS, role: 'crew_transport', tier: 3, difficulty: 1 }],
+            },
             makeHost()
         );
         expect(more.ships[0].failure).toBeUndefined();
@@ -327,7 +366,8 @@ describe('registering ships in a faction', () => {
             ':~{ File="Outpost Station.ship.png"; Tier=6; SpawnTier=4; Tags : ~/Tags [military_station, empty_storage]; StasisIcon="Outpost Station.png"; }'
         );
         const aggregatorText = read(`${MOD_DIR}/builtin_ships/cabal/builtins_cabal.rules`);
-        for (const role of ['combat', 'civilian', 'defense', 'stations']) expect(aggregatorText).toContain(`builtins_cabal_${role}.rules`);
+        for (const role of ['combat', 'civilian', 'defense', 'stations'])
+            expect(aggregatorText).toContain(`builtins_cabal_${role}.rules`);
     });
 
     it('prefixes a platform with the name the language files give the faction, and checks the id it really gets', async () => {
@@ -335,12 +375,18 @@ describe('registering ships in a faction', () => {
         host.localizedName = async (key) => (key === 'Factions/Fringe' ? 'Fringe Alliance' : undefined);
         host.existingIds = async () => new Set(['Fringe Alliance Watchpost']);
         const watchpost = saveShip('Watchpost', [...times(2, 'cosmoteer.laser'), 'cosmoteer.thruster']);
-        const choice = { blueprints: [], faction: 'fringe', ships: [{ fsPath: watchpost, role: 'defense' as const, tier: 2, difficulty: 2 as const }] };
+        const choice = {
+            blueprints: [],
+            faction: 'fringe',
+            ships: [{ fsPath: watchpost, role: 'defense' as const, tier: 2, difficulty: 2 as const }],
+        };
         expect((await apply(choice, host)).ships[0].failure).toBe('idTaken');
         host.existingIds = async () => new Set<string>();
         const result = await apply(choice, host);
         expect(result.ships[0].failure).toBeUndefined();
-        expect(read(`${MOD_DIR}/builtin_ships/fringe/Defense/builtins_fringe_defense.rules`)).toContain('IDPrefix = "Fringe Alliance"');
+        expect(read(`${MOD_DIR}/builtin_ships/fringe/Defense/builtins_fringe_defense.rules`)).toContain(
+            'IDPrefix = "Fringe Alliance"'
+        );
     });
 
     it('marks a ship whose name a built-in ship already has as blocked in the scan, before any faction is picked', async () => {
@@ -404,10 +450,16 @@ describe('registering ships in a faction', () => {
         expect(result.ships[1].starterDescriptionKey).toBe('StarterShips/FirstLight');
         const manifest = read(`${MOD_DIR}/mod.rules`);
         expect(manifest).toContain('AddTo = "<modes/career/career.rules>/StarterShips"');
-        expect(manifest).toContain('{ Ship = "builtin_ships/fringe/Starter/First Light.ship.png"; DescriptionKey = "StarterShips/FirstLight" }');
+        expect(manifest).toContain(
+            '{ Ship = "builtin_ships/fringe/Starter/First Light.ship.png"; DescriptionKey = "StarterShips/FirstLight" }'
+        );
         expect(read(`${MOD_DIR}/strings/en.rules`)).toContain('FirstLight = "First Light"');
         const again = await apply(
-            { blueprints: [], faction: 'fringe', ships: [{ fsPath: starter, role: 'starter', tier: 1, difficulty: 1 }] },
+            {
+                blueprints: [],
+                faction: 'fringe',
+                ships: [{ fsPath: starter, role: 'starter', tier: 1, difficulty: 1 }],
+            },
             host
         );
         expect(again.ships[0].failure).toBe('alreadyRegistered');
@@ -418,7 +470,11 @@ describe('registering ships in a faction', () => {
         const host = makeHost();
         const pod = saveShip('Small Crate Pod', ['cosmoteer.storage']);
         const result = await apply(
-            { blueprints: [], faction: 'fringe', ships: [{ fsPath: pod, role: 'storage_pod', tier: 1, difficulty: 1 }] },
+            {
+                blueprints: [],
+                faction: 'fringe',
+                ships: [{ fsPath: pod, role: 'storage_pod', tier: 1, difficulty: 1 }],
+            },
             host
         );
         expect(result.ships[0].failure).toBeUndefined();
@@ -432,7 +488,11 @@ describe('registering ships in a faction', () => {
         const host = makeHost();
         const station = saveShip('Waystation', ['cosmoteer.storage', 'cosmoteer.corridor', 'cosmoteer.armor']);
         const result = await apply(
-            { blueprints: [], faction: 'fringe', ships: [{ fsPath: station, role: 'trade_station', tier: 3, difficulty: 1 }] },
+            {
+                blueprints: [],
+                faction: 'fringe',
+                ships: [{ fsPath: station, role: 'trade_station', tier: 3, difficulty: 1 }],
+            },
             host
         );
         expect(result.ships[0].failure).toBeUndefined();
@@ -448,7 +508,10 @@ describe('registering ships in a faction', () => {
         const host = makeHost();
         host.existingIds = async () => new Set(['skiff mk2']);
         const path = `${SAVED}/Skiff Mk2.ship.png`;
-        writeFileSync(path, shipPngBytes(blueprintTree('A Name Saved Inside', ['cosmoteer.laser', 'cosmoteer.thruster'])));
+        writeFileSync(
+            path,
+            shipPngBytes(blueprintTree('A Name Saved Inside', ['cosmoteer.laser', 'cosmoteer.thruster']))
+        );
         const result = await apply(
             { blueprints: [], faction: 'fringe', ships: [{ fsPath: path, role: 'combat', tier: 1, difficulty: 1 }] },
             host
@@ -484,9 +547,16 @@ describe('registering ships in a faction', () => {
         const inside = `${MOD_DIR}/my_ships`;
         mkdirSync(inside, { recursive: true });
         const path = `${inside}/Outpost.ship.png`;
-        writeFileSync(path, shipPngBytes(blueprintTree('Outpost', ['cosmoteer.storage', 'cosmoteer.corridor', 'cosmoteer.armor'])));
+        writeFileSync(
+            path,
+            shipPngBytes(blueprintTree('Outpost', ['cosmoteer.storage', 'cosmoteer.corridor', 'cosmoteer.armor']))
+        );
         const result = await apply(
-            { blueprints: [], faction: 'fringe', ships: [{ fsPath: path, role: 'trade_station', tier: 3, difficulty: 1 }] },
+            {
+                blueprints: [],
+                faction: 'fringe',
+                ships: [{ fsPath: path, role: 'trade_station', tier: 3, difficulty: 1 }],
+            },
             makeHost()
         );
         expect(result.ships[0].failure).toBeUndefined();
@@ -502,7 +572,7 @@ describe('registering ships in a faction', () => {
 describe('creating a faction', () => {
     it('reports what is taken and offers the first free index block', async () => {
         const result = await newFaction({ uri: filePathToUri(MOD_DIR) }, makeHost(), token);
-        if (result.kind !== 'scan') throw new Error('expected the scan round');
+        if (result.kind !== 'scan' || result.failure) throw new Error('expected a scan that reported something');
         expect(result.failure).toBeUndefined();
         expect(result.takenIds).toEqual(['fringe', 'cabal']);
         expect(result.takenPlayerIndexes).toEqual([200, 201, 400, 401]);
@@ -515,7 +585,7 @@ describe('creating a faction', () => {
             { uri: filePathToUri(MOD_DIR), id: 'nova_union', name: 'Nova Union', color: [10, 20, 30] },
             host,
             token
-        )) as NewFactionApplyResult;
+        )) as Answer<NewFactionApply, NewFactionFailure>;
         expect(result.failure).toBeUndefined();
         expect(result.militaryPlayerIndex).toBe(1000);
         expect(result.civilianPlayerIndex).toBe(1001);
@@ -535,7 +605,14 @@ describe('creating a faction', () => {
         expect(galaxy).toContain('{ Type=test.ftl_beacon_nova_union; Faction=nova_union; }');
         expect(read(result.beaconFile)).toContain('ID = test.ftl_beacon_nova_union');
 
-        expect(result.wiring).toEqual({ registry: 'written', territory: 'written', tiers: 'written', beacon: 'written', beaconSpawner: 'written', lore: 'skipped' });
+        expect(result.wiring).toEqual({
+            registry: 'written',
+            territory: 'written',
+            tiers: 'written',
+            beacon: 'written',
+            beaconSpawner: 'written',
+            lore: 'skipped',
+        });
         const manifestEdit = host.changes[filePathToUri(`${MOD_DIR}/mod.rules`)];
         expect(manifestEdit).toHaveLength(1);
         const written = manifestEdit[0].newText;
@@ -547,7 +624,9 @@ describe('creating a faction', () => {
         expect(written).toContain('ManyToAdd = &<factions/nova_union/galaxy_nova_union.rules>/Tiers');
         expect(written).toContain('AddTo = "<doodads/doodads.rules>/Doodads"');
         expect(written).toContain('ManyToAdd [ &<factions/nova_union/ftl_beacon_nova_union.rules> ]');
-        expect(written).toContain('AddTo = "<modes/career/sectors/sysgen_ftl_beacons.rules>/SubSpawners/0/DoodadTypes"');
+        expect(written).toContain(
+            'AddTo = "<modes/career/sectors/sysgen_ftl_beacons.rules>/SubSpawners/0/DoodadTypes"'
+        );
         expect(written).toContain('ManyToAdd = &<factions/nova_union/galaxy_nova_union.rules>/Beacons');
 
         expect(result.localizationFiles.map((file) => file.split('/').pop())).toEqual(['de.rules', 'en.rules']);
@@ -556,10 +635,15 @@ describe('creating a faction', () => {
 
     it('falls back to the default border colour when the client sends a colour that is not three channels', async () => {
         const result = (await newFaction(
-            { uri: filePathToUri(MOD_DIR), id: 'garbled', name: 'Garbled', color: [1, 999, 'x'] as unknown as [number, number, number] },
+            {
+                uri: filePathToUri(MOD_DIR),
+                id: 'garbled',
+                name: 'Garbled',
+                color: [1, 999, 'x'] as unknown as [number, number, number],
+            },
             makeHost(),
             token
-        )) as NewFactionApplyResult;
+        )) as Answer<NewFactionApply, NewFactionFailure>;
         expect(result.failure).toBeUndefined();
         expect(read(result.factionFile)).toContain('BorderColor = [143, 48, 220]');
     });
@@ -573,7 +657,7 @@ describe('creating a faction', () => {
             { uri: filePathToUri(MOD_DIR), id: 'red_hand', name: 'Red Hand', icon, beaconShip: beacon, lore: true },
             host,
             token
-        )) as NewFactionApplyResult;
+        )) as Answer<NewFactionApply, NewFactionFailure>;
         expect(result.failure).toBeUndefined();
         expect(result.iconFile).toBe(`${MOD_DIR}/factions/red_hand/red_hand.png`);
         expect(result.beaconShipFile).toBe(`${MOD_DIR}/factions/red_hand/ftl_beacon_red_hand.ship.png`);
@@ -589,7 +673,12 @@ describe('creating a faction', () => {
         expect(lore).toContain('TabNameKey = "Codex/Lore"');
         expect(lore).toContain('File = "red_hand.png"');
         expect(lore).toContain('{ TextKey = "Lore/RedHand/Lore3" }');
-        expect(result.loreKeys).toEqual(['Lore/RedHand/Title', 'Lore/RedHand/Lore1', 'Lore/RedHand/Lore2', 'Lore/RedHand/Lore3']);
+        expect(result.loreKeys).toEqual([
+            'Lore/RedHand/Title',
+            'Lore/RedHand/Lore1',
+            'Lore/RedHand/Lore2',
+            'Lore/RedHand/Lore3',
+        ]);
         expect(result.wiring.lore).toBe('written');
         const manifest = host.changes[filePathToUri(`${MOD_DIR}/mod.rules`)][0].newText;
         expect(manifest).toContain('AddTo = "<codex/lore/lore.rules>/CodexPages"');
@@ -600,7 +689,11 @@ describe('creating a faction', () => {
     });
 
     it('leaves the lore page out and the wiring skipped when none was asked for', async () => {
-        const result = (await newFaction({ uri: filePathToUri(MOD_DIR), id: 'quiet', name: 'Quiet' }, makeHost(), token)) as NewFactionApplyResult;
+        const result = (await newFaction(
+            { uri: filePathToUri(MOD_DIR), id: 'quiet', name: 'Quiet' },
+            makeHost(),
+            token
+        )) as Answer<NewFactionApply, NewFactionFailure>;
         expect(result.failure).toBeUndefined();
         expect(result.loreFile).toBeUndefined();
         expect(result.wiring.lore).toBe('skipped');
@@ -625,7 +718,10 @@ describe('creating a faction', () => {
         await newFaction({ uri: filePathToUri(MOD_DIR), id: 'orion', name: 'Orion' }, earlier, token);
         const edit = earlier.changes[manifestUri][0];
         const lines = before.split('\n');
-        const offset = lines.slice(0, edit.range.start.line).join('\n').length + (edit.range.start.line > 0 ? 1 : 0) + edit.range.start.character;
+        const offset =
+            lines.slice(0, edit.range.start.line).join('\n').length +
+            (edit.range.start.line > 0 ? 1 : 0) +
+            edit.range.start.character;
         writeFileSync(`${MOD_DIR}/mod.rules`, before.slice(0, offset) + edit.newText + before.slice(offset));
         clearBaseFileCache();
         clearFsCaches();
@@ -638,12 +734,21 @@ describe('creating a faction', () => {
 });
 
 describe('creating a nebula', () => {
-    it('offers the game\'s own nebulas with their colours and reports their ids as taken', async () => {
+    it("offers the game's own nebulas with their colours and reports their ids as taken", async () => {
         const result = await newNebula({ uri: filePathToUri(MOD_DIR) }, makeHost(), token);
-        if (result.kind !== 'scan') throw new Error('expected the scan round');
+        if (result.kind !== 'scan' || result.failure) throw new Error('expected a scan that reported something');
         expect(result.failure).toBeUndefined();
         expect(result.modId).toBe('test.shipmod');
-        expect(result.bases).toEqual([{ id: 'cloudy', colors: [[98, 150, 214], [160, 233, 209], [216, 140, 155]] }]);
+        expect(result.bases).toEqual([
+            {
+                id: 'cloudy',
+                colors: [
+                    [98, 150, 214],
+                    [160, 233, 209],
+                    [216, 140, 155],
+                ],
+            },
+        ]);
         expect(result.takenIds).toEqual(['cloudy']);
     });
 
@@ -655,13 +760,17 @@ describe('creating a nebula', () => {
                 id: 'violet_haze',
                 name: 'Violet Haze',
                 base: 'cloudy',
-                colors: [[1, 2, 3], [4, 5, 6], [7, 8, 9]],
+                colors: [
+                    [1, 2, 3],
+                    [4, 5, 6],
+                    [7, 8, 9],
+                ],
                 radius: 50000,
                 count: [1, 3],
             },
             host,
             token
-        )) as NewNebulaApplyResult;
+        )) as Answer<NewNebulaApply, NewNebulaFailure>;
         expect(result.failure).toBeUndefined();
         expect(result.nebulaFile).toBe(`${MOD_DIR}/nebulas/violet_haze/nebula_violet_haze.rules`);
         expect(result.spawnerFile).toBe(`${MOD_DIR}/nebulas/violet_haze/spawner_violet_haze.rules`);
@@ -689,7 +798,9 @@ describe('creating a nebula', () => {
         expect(spawner).toContain('Distance = [10000, 25000]');
         expect(spawner).toContain('NebulaType = violet_haze');
         expect(spawner).toContain('NebulaRadius = 50000');
-        expect(spawner).toContain('MaxDistanceFromWorldOrigin = &<./Data/modes/career/career.rules>/Exploration/UnexploredRadius');
+        expect(spawner).toContain(
+            'MaxDistanceFromWorldOrigin = &<./Data/modes/career/career.rules>/Exploration/UnexploredRadius'
+        );
 
         const doodad = read(result.doodadFile);
         expect(doodad).toContain('ID = test.nebula_violet_haze');
@@ -717,21 +828,27 @@ describe('creating a nebula', () => {
         expect(strings).toContain('VioletHazeHudFmt = "<s14>{0:0.}%</s14>\\n<s12><gray>violet haze</gray></s12>"');
     });
 
-    it('falls back to the base\'s colours and writes the spawner figures the client chose', async () => {
+    it("falls back to the base's colours and writes the spawner figures the client chose", async () => {
         const result = (await newNebula(
             {
                 uri: filePathToUri(MOD_DIR),
                 id: 'dim',
                 name: 'Dim',
-                colors: [[1, 999, 'x'], [4, 5, 6], [7, 8]] as unknown as [[number, number, number], [number, number, number], [number, number, number]],
+                colors: [
+                    [1, 999, 'x'],
+                    [4, 5, 6],
+                    [7, 8],
+                ] as unknown as [[number, number, number], [number, number, number], [number, number, number]],
                 spawnChance: 40,
                 avoidStartingSector: false,
             },
             makeHost(),
             token
-        )) as NewNebulaApplyResult;
+        )) as Answer<NewNebulaApply, NewNebulaFailure>;
         expect(result.failure).toBeUndefined();
-        expect(read(result.nebulaFile)).toContain('MaterialLow { _color1 = [98, 150, 214, 255]; _color2 = [4, 5, 6, 255]; _color3 = [216, 140, 155, 255]; }');
+        expect(read(result.nebulaFile)).toContain(
+            'MaterialLow { _color1 = [98, 150, 214, 255]; _color2 = [4, 5, 6, 255]; _color3 = [216, 140, 155, 255]; }'
+        );
         const spawner = read(result.spawnerFile);
         expect(spawner).toContain('SpawnChance = 40%');
         expect(spawner).not.toContain('IsInitNode');
@@ -750,9 +867,9 @@ describe('creating a nebula', () => {
 });
 
 describe('creating a galaxy size', () => {
-    it('reports the standard galaxy\'s system count and the size names in use', async () => {
+    it("reports the standard galaxy's system count and the size names in use", async () => {
         const result = await newGalaxySize({ uri: filePathToUri(MOD_DIR) }, makeHost(), token);
-        if (result.kind !== 'scan') throw new Error('expected the scan round');
+        if (result.kind !== 'scan' || result.failure) throw new Error('expected a scan that reported something');
         expect(result.failure).toBeUndefined();
         expect(result.modId).toBe('test.shipmod');
         expect(result.standardSystems).toBe(75);
@@ -761,7 +878,11 @@ describe('creating a galaxy size', () => {
 
     it('writes the cloned generator, the size entry, its texts and both manifest actions', async () => {
         const host = makeHost();
-        const result = (await newGalaxySize({ uri: filePathToUri(MOD_DIR), id: 'huge', name: 'Huge', systems: 150 }, host, token)) as NewGalaxySizeApplyResult;
+        const result = (await newGalaxySize(
+            { uri: filePathToUri(MOD_DIR), id: 'huge', name: 'Huge', systems: 150 },
+            host,
+            token
+        )) as Answer<NewGalaxySizeApply, NewGalaxySizeFailure>;
         expect(result.failure).toBeUndefined();
         expect(result.file).toBe(`${MOD_DIR}/galaxy_map/huge/galaxy_huge.rules`);
 
@@ -793,15 +914,23 @@ describe('creating a galaxy size', () => {
 
     it('lists the size it wrote as taken, and refuses its folder, a game size and an odd id', async () => {
         const scanned = await newGalaxySize({ uri: filePathToUri(MOD_DIR) }, makeHost(), token);
-        if (scanned.kind !== 'scan') throw new Error('expected the scan round');
+        if (scanned.kind !== 'scan' || scanned.failure) throw new Error('expected a scan that reported something');
         expect(scanned.takenIds).toContain('huge');
         const again = await newGalaxySize({ uri: filePathToUri(MOD_DIR), id: 'Huge', name: 'x' }, makeHost(), token);
         expect(again.failure).toBe('pathTaken');
-        const taken = await newGalaxySize({ uri: filePathToUri(MOD_DIR), id: 'standard', name: 'x' }, makeHost(), token);
+        const taken = await newGalaxySize(
+            { uri: filePathToUri(MOD_DIR), id: 'standard', name: 'x' },
+            makeHost(),
+            token
+        );
         expect(taken.failure).toBe('idTaken');
         const odd = await newGalaxySize({ uri: filePathToUri(MOD_DIR), id: 'my size', name: 'x' }, makeHost(), token);
         expect(odd.failure).toBe('invalidId');
-        const wide = (await newGalaxySize({ uri: filePathToUri(MOD_DIR), id: 'vast', name: 'Vast', systems: 5000 }, makeHost(), token)) as NewGalaxySizeApplyResult;
+        const wide = (await newGalaxySize(
+            { uri: filePathToUri(MOD_DIR), id: 'vast', name: 'Vast', systems: 5000 },
+            makeHost(),
+            token
+        )) as Answer<NewGalaxySizeApply, NewGalaxySizeFailure>;
         expect(wide.failure).toBeUndefined();
         expect(read(wide.file)).toContain('Count = 150');
     });

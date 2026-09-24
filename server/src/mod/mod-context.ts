@@ -199,7 +199,8 @@ export class ModContext {
                     // (a sub-group inside a file), so a true nested-container merge stays unhandled.
                     const members = await overrideMembers(source);
                     if (members.length) {
-                        const targetKey = await resolveOverrideTargetKey(target);
+                        const targetKey =
+                            (await resolveOverrideTargetKey(target)) ?? (await actionCreatedTargetKey(additions, fc));
                         if (targetKey)
                             for (const [name2, src2] of members)
                                 addFileOverride(targetKey, name2, src2 as ActionSource);
@@ -233,21 +234,35 @@ export class ModContext {
     ): Promise<AbstractNode | null | FileWithPath> {
         const split = splitEffectivePath(path);
         if (!split || split.segments.length === 0) return null;
-        const byName = this.additions.get(split.fileKey);
-        if (byName) {
-            const [first, ...rest] = split.segments;
-            const sources = membersNamed(byName, first);
-            // A group-merge global maps to several sources; the member may live in any of them, so
-            // try each and return the first that yields the remaining path.
-            if (sources)
-                for (const source of sources) {
-                    const resolved = await this.resolveSource(source, rest, cancellationToken);
-                    if (resolved) return resolved;
-                }
-        }
+        const direct = await this.resolveAddition(split, cancellationToken);
+        if (direct) return direct;
         // Not a direct file-root addition. Try members the mod merged into a concrete vanilla file
         // via a whole-file Override, which a reference reaches through a vanilla global.
         return this.resolveThroughFileOverride(split, node, cancellationToken);
+    }
+
+    /**
+     * Resolve a path against the mod's direct file-root additions, without vanilla navigation and
+     * without the file-override store.
+     *
+     * @param split the path's file key and member segments.
+     * @param cancellationToken cancels the navigation into a source.
+     * @returns the node the path names among the additions, or null.
+     */
+    private async resolveAddition(
+        split: { fileKey: string; segments: string[] },
+        cancellationToken: CancellationToken
+    ): Promise<AbstractNode | null | FileWithPath> {
+        const byName = this.additions.get(split.fileKey);
+        if (!byName) return null;
+        const [first, ...rest] = split.segments;
+        // A group-merge global maps to several sources; the member may live in any of them, so
+        // try each and return the first that yields the remaining path.
+        for (const source of membersNamed(byName, first) ?? []) {
+            const resolved = await this.resolveSource(source, rest, cancellationToken);
+            if (resolved) return resolved;
+        }
+        return null;
     }
 
     /**
@@ -268,16 +283,27 @@ export class ModContext {
         // Candidate (prefix that names a file, remaining member segments) pairs. A super-path may
         // reach the file through any leading global, so try each split point; a direct file ref
         // names the file up front, so its whole segment list is the member path.
-        const candidates: { prefix: string; rest: string[] }[] = [];
+        const candidates: { prefix: string; head: string[]; rest: string[] }[] = [];
         if (split.fileKey === COSMOTEER_RULES_KEY) {
             for (let i = 1; i < split.segments.length; i++)
-                candidates.push({ prefix: '/' + split.segments.slice(0, i).join('/'), rest: split.segments.slice(i) });
+                candidates.push({
+                    prefix: '/' + split.segments.slice(0, i).join('/'),
+                    head: split.segments.slice(0, i),
+                    rest: split.segments.slice(i),
+                });
         } else {
-            candidates.push({ prefix: split.fileKey, rest: split.segments });
+            candidates.push({ prefix: split.fileKey, head: [], rest: split.segments });
         }
-        for (const { prefix, rest } of candidates) {
+        for (const { prefix, head, rest } of candidates) {
             if (rest.length === 0) continue;
-            const fileNode = await navigate(prefix, node, uri, cancellationToken).catch(() => null);
+            // The leading global may be one the mod itself created with an `Add`, which vanilla
+            // navigation answers nothing for, so the additions answer for the prefix too. The file
+            // that global aliases is where an override into it put its members.
+            const fileNode =
+                (await navigate(prefix, node, uri, cancellationToken).catch(() => null)) ??
+                (head.length > 0
+                    ? await this.resolveAddition({ fileKey: split.fileKey, segments: head }, cancellationToken)
+                    : null);
             const key = fileKeyOfResolved(fileNode);
             if (!key) continue;
             const byName = this.fileOverrides.get(key);
@@ -395,6 +421,33 @@ const dereferenceSourceToDocument = async (source: ActionSource): Promise<Abstra
     if (isFile(resolved as unknown as FileTree))
         return parseFilePath((resolved as FileWithPath).path).catch(() => null);
     if (isDocumentNode(resolved as AbstractNode)) return resolved as AbstractNodeDocument;
+    return null;
+};
+
+/**
+ * The file key for an `Overrides` target whose container segment names a global an earlier `Add` in
+ * the same mod created (`Add Name=NS ToAdd=&<ns.rules>`, then `OverrideIn=<cosmoteer.rules>/NS`).
+ * Vanilla navigation answers nothing for such a target, yet the game applies the actions in order
+ * over one merged file, so the member the `Add` created is there and `ModOverridesAction` puts the
+ * override's members into the file that `Add`'s `ToAdd` named. Only a whole-file `ToAdd` is keyed:
+ * a `ToAdd` naming a group inside a file would put the members in that group, a sub-path the
+ * file-level store cannot express.
+ *
+ * @param additions the file-root additions harvested from the actions taken so far.
+ * @param fc the override target's file key and container segments.
+ * @returns the key of the file the members land in, or null.
+ */
+const actionCreatedTargetKey = async (
+    additions: Map<string, Map<string, ActionSource[]>>,
+    fc: { fileKey: string; container: string[] }
+): Promise<string | null> => {
+    if (fc.container.length !== 1) return null;
+    const byName = additions.get(fc.fileKey);
+    for (const source of (byName && membersNamed(byName, fc.container[0])) ?? []) {
+        if (!isValueNode(source) || source.valueType.type !== 'Reference') continue;
+        const doc = await dereferenceSourceToDocument(source);
+        if (doc) return normFileKey(uriToFsPath(doc.uri));
+    }
     return null;
 };
 

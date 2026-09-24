@@ -3,6 +3,7 @@ import { CancellationToken, Range, TextEdit } from 'vscode-languageserver';
 import { join } from 'path';
 import { readFileSync } from 'fs';
 import { parseText } from '../../../src/utils/ast.utils';
+import { filePathToUri } from '../../../src/document/reference-path';
 import { buildPartGridData } from '../../../src/features/part-editor/part-grid-data.service';
 import { buildPartGridEdit } from '../../../src/features/part-editor/grid-edit.service';
 import {
@@ -55,7 +56,7 @@ const mutate = async (
     const document = parseText(text, path);
     const result = await buildPartGridEdit(document, text, path, 0, mutation, token);
     expect(result.status, result.message).toBe('ok');
-    const edits = result.edit!.changes![path];
+    const edits = result.edit!.changes![filePathToUri(path)];
     const edited = applyEdits(text, edits);
     const data = (await buildPartGridData(parseText(edited, path), 0, 1, token))!;
     expect(data).toBeTruthy();
@@ -264,6 +265,24 @@ describe('buildPartGridEdit', () => {
         );
         expect(result.status).toBe('error');
         expect(result.message).toBeTruthy();
+    });
+
+    it('refuses a layer id naming a real field of the part that no layer draws', async () => {
+        // `Size` is a list the part really has, so the presence of a local member is no licence to
+        // write into it: the cell writers append to whatever list they are handed, and this one
+        // would have put a cell into the part's size.
+        const text = readFileSync(basePath, 'utf-8');
+        const result = await buildPartGridEdit(
+            parseText(text, basePath),
+            text,
+            basePath,
+            0,
+            { op: 'addCell', layerId: 'Size', cell: { x: 7, y: 7 } },
+            token
+        );
+        expect(result.status).toBe('error');
+        expect(result.edit).toBeUndefined();
+        expect(text).toContain('Size = [1, 2]');
     });
 
     it('removes the whole field when the last cell of a non-inherited field is removed', async () => {

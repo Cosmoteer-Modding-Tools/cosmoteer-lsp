@@ -14,7 +14,13 @@ import { getStartOfAstNode } from '../utils/ast.utils';
 import { FileTree, FileWithPath, isFile } from '../workspace/cosmoteer-workspace.service';
 import { getParsedFileDocument } from '../workspace/parsed-file-cache';
 import { resolveReference } from './effective-member';
-import { inheritanceEntriesOf, injectedMembersOf, memberNameOf, memberValueOf } from '../document/reference-resolver';
+import {
+    inheritanceEntriesOf,
+    inheritanceEntryScope,
+    injectedMembersOf,
+    memberNameOf,
+    memberValueOf,
+} from '../document/reference-resolver';
 import {
     EffectiveGroup,
     EffectiveList,
@@ -83,19 +89,18 @@ const basesOf = async (
             unreadable.push({ reference, reason: 'cancelled', node: entry, hop: hop + 1 });
             continue;
         }
-        // An `AddBase`-appended base is already a resolved node rather than a reference to follow.
-        if (isGroupNode(entry) || isListNode(entry)) {
-            bases.push({ node: entry, ref: entry });
-            continue;
-        }
         if (!isReferenceEntry(entry)) {
             unreadable.push({ reference, reason: 'unresolvable-form', node: entry, hop: hop + 1 });
             continue;
         }
+        // Each base is resolved from its own scope and against its own file. A written entry lives
+        // in this container's file, where the scope is the one the game's `GetFindRoot` names. An
+        // entry a mod's `AddBase` appends lives in the manifest, so `&<booster_components.rules>`
+        // is looked for beside the manifest rather than beside the part it is folded into.
         const resolved = await resolveReference(
             entry.valueType.value,
-            entry,
-            getStartOfAstNode(container).uri,
+            inheritanceEntryScope(entry),
+            getStartOfAstNode(entry).uri,
             token
         ).catch(() => null);
         if (!resolved) {

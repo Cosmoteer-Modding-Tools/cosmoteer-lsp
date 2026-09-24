@@ -25,6 +25,11 @@ export interface CompletionSuggestion {
      *  is the whole value passes the value's range, one whose label is a path segment passes that
      *  segment's. */
     range?: Range;
+    /** The narrower range an editor set to `insertMode: insert` writes over, which ends at the caret
+     *  while {@link range} covers the whole written value or segment. Both are shipped together as an
+     *  insert/replace edit to a client that takes one, so the editor's own setting decides whether a
+     *  caret parked inside a value keeps its tail or overwrites it. */
+    insertRange?: Range;
     /** The text the client matches the typed prefix against. Defaults to the label. */
     filterText?: string;
     /** Marks the item the popup opens on. */

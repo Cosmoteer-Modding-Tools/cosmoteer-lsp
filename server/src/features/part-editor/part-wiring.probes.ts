@@ -30,7 +30,7 @@ import {
     isGroupNode,
     isListNode,
     isValueNode,
-    childNodesOf,
+    descendants,
 } from '../../core/ast/ast';
 import { basenameOf } from '../../document/document-kind';
 import { aliasRootIndex } from '../../document/schema/alias-root';
@@ -500,20 +500,14 @@ const collectNameSites = (
     names: ReadonlySet<string>,
     out: PartReferenceSite[]
 ): void => {
-    const visit = (node: AbstractNode): void => {
-        if (isValueNode(node)) {
-            if (node.valueType.type === 'String' && names.has(String(node.valueType.value))) {
-                const declaring = declaringFieldOfValue(node);
-                if (declaring.fieldName && WIRING_FIELD_NAMES.has(declaring.fieldName.toLowerCase())) {
-                    out.push({ uri: document.uri, node, ...declaring });
-                }
-            }
-            return;
+    for (const node of descendants(document)) {
+        if (!isValueNode(node)) continue;
+        if (node.valueType.type !== 'String' || !names.has(String(node.valueType.value))) continue;
+        const declaring = declaringFieldOfValue(node);
+        if (declaring.fieldName && WIRING_FIELD_NAMES.has(declaring.fieldName.toLowerCase())) {
+            out.push({ uri: document.uri, node, ...declaring });
         }
-        const children = childNodesOf(node);
-        for (const child of children) visit(child);
-    };
-    for (const element of document.elements) visit(element);
+    }
 };
 
 /**

@@ -1,7 +1,7 @@
 import { CompletionItem, CompletionList, MarkupKind } from 'vscode-languageserver/node';
 import { Completion } from '../features/completion/autocompletion.service.types';
 import { toCompletionItem } from '../features/completion/completion-item';
-import { hasCompletionDocResolveCapability, hasSnippetCapability } from '../capabilities';
+import { hasCompletionDocResolveCapability, hasInsertReplaceCapability, hasSnippetCapability } from '../capabilities';
 
 /** Upper bound of completion items shipped in one response. Larger lists (every localization key,
  *  every project id) are prefix-filtered and truncated, and marked incomplete so the client
@@ -91,7 +91,9 @@ export const finishCompletionList = (completions: Completion[], wordPrefix: stri
         // The served set depends on the typed prefix, so the client must re-request as it changes.
         isIncomplete = true;
     }
-    const items = completions.map<CompletionItem>((completion) => toCompletionItem(completion, hasSnippetCapability));
+    const items = completions.map<CompletionItem>((completion) =>
+        toCompletionItem(completion, hasSnippetCapability, hasInsertReplaceCapability)
+    );
     if (hasCompletionDocResolveCapability) deferCompletionDocumentation(items);
     return { isIncomplete, items };
 };

@@ -230,6 +230,23 @@ const xml = (text: string): string =>
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&apos;');
 
+/** The longest text the format takes in one cell. */
+const LONGEST_TEXT = 32767;
+
+/**
+ * A text cell's text, cut to the longest one the format takes. Excel refuses a whole workbook over
+ * one longer cell, so a value that cannot be written whole costs itself rather than the file.
+ *
+ * @param text the text.
+ * @returns the text, with an ellipsis where it was cut.
+ */
+const cellText = (text: string): string => {
+    if (text.length <= LONGEST_TEXT) return text;
+    const kept = text.slice(0, LONGEST_TEXT - 1);
+    // A cut between the halves of a surrogate pair leaves a character XML has no place for.
+    return `${/[\uD800-\uDBFF]$/.test(kept) ? kept.slice(0, -1) : kept}…`;
+};
+
 /**
  * The column's letters, `A` for the first and `AA` for the twenty seventh.
  *
@@ -257,16 +274,27 @@ export const columnLetters = (column: number): string => {
 export const cellAddress = (row: number, column: number): string => `${columnLetters(column)}${row}`;
 
 /**
- * A number as the format writes it: a plain decimal, never an exponent, since the format reads
- * only decimals and a very small number would otherwise reach the file as `1e-7`.
+ * A number as the format writes it: a plain decimal wherever one says the same thing, since a
+ * reader takes `0.0000001` better than `1e-7`.
+ *
+ * The exponent form stands at both ends of the range, where a decimal cannot say it. Excel reads
+ * either, in a cell value and in a formula alike, and writing the decimal there would be writing a
+ * different number: a fixed twelve places answers an exponent of its own from 1e21 up and rounds
+ * everything under 1e-12 away to nothing.
  *
  * @param value the number.
  * @returns the text of the number.
  */
-const numberText = (value: number): string => {
-    if (Number.isInteger(value) && Math.abs(value) < 1e15) return String(value);
+export const numberText = (value: number): string => {
     const text = String(value);
-    return text.includes('e') || text.includes('E') ? value.toFixed(12).replace(/0+$/, '').replace(/\.$/, '') : text;
+    if (!/e/i.test(text)) return text;
+    const size = Math.abs(value);
+    if (size >= 1e21 || size < 1e-12) return text;
+    // Only the zeroes behind the last digit that says something go, never a digit of the number.
+    return value
+        .toFixed(12)
+        .replace(/(\.\d*[1-9])0+$/, '$1')
+        .replace(/\.0*$/, '');
 };
 
 /**
@@ -393,7 +421,7 @@ const sheetXml = (
                         tooltip: cell.link.tooltip,
                     });
                 }
-                return `<c r="${reference}"${style} t="inlineStr"><is><t xml:space="preserve">${xml(cell.text)}</t></is></c>`;
+                return `<c r="${reference}"${style} t="inlineStr"><is><t xml:space="preserve">${xml(cellText(cell.text))}</t></is></c>`;
             }
             if (cell.kind === 'number') {
                 const formula = cell.formula ? `<f>${xml(cell.formula)}</f>` : '';
@@ -481,6 +509,20 @@ const tableXml = (table: XlsxTable, id: number): string => {
 };
 
 /**
+ * A column's name as a structured reference writes it, with the characters Excel reads as syntax
+ * quoted by the single quote it uses for that.
+ *
+ * Excel writes the name itself raw, both in the column's own declaration and in the header cell,
+ * and escapes it only where a formula names the column. A name carrying a bracket, a hash, a quote
+ * or an at sign therefore reaches the totals row as syntax rather than as a name, and Excel refuses
+ * the whole workbook over it, which a column a reader named after their own metric easily does.
+ *
+ * @param name the column's header.
+ * @returns the name as a reference writes it.
+ */
+const specifier = (name: string): string => name.replace(/['[\]#@]/g, "'$&");
+
+/**
  * The formula a totals row cell holds, which is the one Excel writes itself: a subtotal over the
  * table's column, so hiding rows with the filter changes the number.
  *
@@ -491,7 +533,7 @@ const tableXml = (table: XlsxTable, id: number): string => {
 export const totalsFormula = (table: XlsxTable, column: number): string | null => {
     const total = table.totals?.[column];
     if (!total) return null;
-    return `SUBTOTAL(${TOTALS_FUNCTION[total]},${table.name}[${table.headers[column]}])`;
+    return `SUBTOTAL(${TOTALS_FUNCTION[total]},${table.name}[${specifier(table.headers[column])}])`;
 };
 
 /**

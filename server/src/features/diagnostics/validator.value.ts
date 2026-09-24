@@ -10,12 +10,12 @@ import {
     isInheritanceInSameFile,
     isRuntimeRootReference,
 } from '../navigation/reference-shape';
-import { AbstractNode, IdentifierNode, isListNode, isGroupNode, ValueNode } from '../../core/ast/ast';
+import { AbstractNode, IdentifierNode, isAssignmentNode, isListNode, isGroupNode, ValueNode } from '../../core/ast/ast';
 import { globalSettings } from '../../settings';
 import { getStartOfAstNode } from '../../utils/ast.utils';
 import { isValidReference } from '../../utils/reference.utils';
-import { didYouMeanFix, Validation, ValidationError } from './validator';
-import { isActionNameValueNode, isActionTargetValueNode } from '../../mod/action';
+import { didYouMeanFix, expressionOperands, Validation, ValidationError } from './validator';
+import { isActionEntryGroup, isActionNameValueNode, isActionTargetValueNode, VERB_SCHEMA } from '../../mod/action';
 import { findModRoot } from '../../mod/mod-root';
 import { resolveFromModContextOnly } from '../../mod/mod-context';
 import { isStringsFile } from '../../mod/strings-folder';
@@ -26,6 +26,14 @@ import * as l10n from '@vscode/l10n';
 export const ValidationForValue: Validation<ValueNode> = {
     type: 'Value',
     callback: async (node: ValueNode, cancellationToken) => {
+        // An operand of an expression is judged on its reference alone. Everything else here reads
+        // the value as a member of a list or a group, which an operand is not, and the shape of the
+        // expression itself is the math validator's to judge.
+        if (expressionOperands.has(node)) {
+            return node.valueType.type === 'Reference' && !rootedInTheInheritanceList(node.valueType.value)
+                ? await checkReference(node, cancellationToken)
+                : undefined;
+        }
         if (node.valueType.type === 'Reference') {
             return await checkReference(node, cancellationToken);
         }
@@ -53,6 +61,61 @@ export const ValidationForIdentifier: Validation<IdentifierNode> = {
         return undefined;
     },
 };
+
+/** The fields a mod action writes its new content in, one lower-cased set across every verb. */
+const SOURCE_FIELDS = new Set(
+    Object.values(VERB_SCHEMA).flatMap((verb) => verb.sources.map((field) => field.toLowerCase()))
+);
+
+/**
+ * Whether a value is the content a mod action installs: the right-hand side of a source field
+ * (`ToAdd`, `ManyToAdd`, `Overrides`, `With`, `BaseToAdd`) on an action entry, or one element of
+ * such a field written as a list. The enclosing group has to be a real action entry, which is a
+ * property of where the node sits rather than of the file it sits in, so an action list a manifest
+ * includes from somewhere else answers the same way the manifest does.
+ *
+ * @param node the value to place.
+ * @returns true when the value is an action's source.
+ */
+const isActionSourceValueNode = (node: AbstractNode): boolean => {
+    const parent = node.parent;
+    if (!parent) return false;
+    if (isListNode(parent)) {
+        const owner = parent.parent;
+        return (
+            !!parent.identifier &&
+            SOURCE_FIELDS.has(parent.identifier.name.toLowerCase()) &&
+            !!owner &&
+            isGroupNode(owner) &&
+            isActionEntryGroup(owner)
+        );
+    }
+    return (
+        isGroupNode(parent) &&
+        isActionEntryGroup(parent) &&
+        parent.elements.some(
+            (element) =>
+                isAssignmentNode(element) &&
+                element.right === node &&
+                SOURCE_FIELDS.has(element.left.name.toLowerCase())
+        )
+    );
+};
+
+// A path rooted in the node's own inheritance list (`(&^/0/MaxHealth) * 2`). Vanilla writes the
+// idiom in 89 places and in every one of them the base it counts from is itself a relative path, a
+// chain the resolver does not follow, so it answers "not found" for paths the game resolves. The
+// idiom is written nowhere but in an operand, which is why it never showed before, and reporting it
+// would put a warning on eleven files the game ships.
+const INHERITANCE_LIST_ROOT = /(^|\/)\^($|\/)/;
+
+/**
+ * Whether a reference counts from the node's own inheritance list.
+ *
+ * @param written the reference as the author wrote it.
+ * @returns true for a `^` rooted path.
+ */
+const rootedInTheInheritanceList = (written: string): boolean => INHERITANCE_LIST_ROOT.test(written.replace(/^&/, ''));
 
 /**
  * Flags a list element name written on the same line as its `{`/`[` body (`Foo { X = 1 }`
@@ -262,7 +325,12 @@ const unresolvedReferenceFinding = async (
         // The game tolerates an unresolved reference at load time (it simply contributes
         // nothing. Vanilla even ships dangling refs like `&<Overlays/overlays.rules>`),
         // so surface this as a warning + quick-fix rather than a hard error.
-        severity: 'warning',
+        // The content a mod action installs is the exception. `BaseSerializer.Read` hands every
+        // member it reads to `ObjectTextSerializer.DereferenceSource`, which calls
+        // `OTReferenceNode.FindFinalTarget` and throws when the target is not there. The throw
+        // lands in the `ModInfo` constructor and `ModInfo.TryLoadMod` catches it, so the game
+        // starts without the mod rather than loading past the reference.
+        severity: isActionSourceValueNode(node) ? 'error' : 'warning',
         additionalInfo: suggestion ? `${base} ${l10n.t('Did you mean "{0}"?', suggestion.suggestion)}` : base,
         data: suggestion
             ? {

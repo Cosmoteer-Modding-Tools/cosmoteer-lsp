@@ -72,7 +72,7 @@ export interface ScannedShip {
 }
 
 /** What the blueprints are and where they could go. */
-export interface RegisterShipScanResult {
+export interface RegisterShipScan {
     kind: 'scan';
     /** The mod the ships would be registered in, empty when there is none. */
     modRoot: string;
@@ -85,8 +85,8 @@ export interface RegisterShipScanResult {
     balanceFallback: boolean;
     /** True when the part walk stopped at its cap, so an unknown part may be a missing one. */
     partsTruncated: boolean;
-    /** Why nothing could be reported, absent on success. */
-    failure?: RegisterShipFailure;
+    /** Never set here, the field that tells a report from a refusal. */
+    failure?: undefined;
 }
 
 /** What registering one blueprint did. */
@@ -110,7 +110,7 @@ export interface RegisteredShip {
 }
 
 /** What the apply round did. */
-export interface RegisterShipApplyResult {
+export interface RegisterShipApply {
     kind: 'apply';
     faction: string;
     ships: RegisteredShip[];
@@ -126,9 +126,15 @@ export interface RegisterShipApplyResult {
     localizationFiles?: string[];
     /** Every file the command changed, created ones included. */
     changedFiles: string[];
-    /** Why nothing was registered, absent on success. */
-    failure?: RegisterShipFailure;
+    /** Never set here, the field that tells a report from a refusal. */
+    failure?: undefined;
 }
+
+/** What the scan round answers: the report, or nothing but the reason there is none. */
+export type RegisterShipScanResult = RegisterShipScan | { kind: 'scan'; failure: RegisterShipFailure };
+
+/** What the apply round answers: what was made, or nothing but the reason nothing was. */
+export type RegisterShipApplyResult = RegisterShipApply | { kind: 'apply'; failure: RegisterShipFailure };
 
 /** Either round's answer. */
 export type RegisterShipResult = RegisterShipScanResult | RegisterShipApplyResult;

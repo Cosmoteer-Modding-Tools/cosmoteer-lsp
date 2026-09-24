@@ -17,13 +17,11 @@ export type BuildGroup = 'project' | 'modAction';
 
 /**
  * One project-wide index, described by the operations the shared sites may run on it. Every field
- * but the name is optional, and an absent one is a statement about that index rather than an
- * oversight: it either has no such operation, or the shared site is the wrong place to run it. The
- * entry says which in a comment.
+ * is optional, and an absent one is a statement about that index rather than an oversight: it
+ * either has no such operation, or the shared site is the wrong place to run it. The entry says
+ * which in a comment.
  */
 export interface ProjectIndex {
-    /** The index's module path under `server/src`, so the list reads as the set it stands for. */
-    readonly name: string;
     /** Drops everything the index holds, for the case where the resolved file set itself moved. */
     readonly reset?: () => void;
     /** Marks one file stale by uri, so the index re-reads it at its next query. */
@@ -53,7 +51,6 @@ export interface ProjectIndex {
  */
 export const PROJECT_INDEXES: readonly ProjectIndex[] = [
     {
-        name: 'mod/reverse-include.index',
         reset: () => ReverseIncludeIndex.instance.reset(),
         markDirty: (uri) => ReverseIncludeIndex.instance.markDirty(uri),
         remove: (uri) => ReverseIncludeIndex.instance.remove(uri),
@@ -62,7 +59,6 @@ export const PROJECT_INDEXES: readonly ProjectIndex[] = [
         watched: () => ReverseIncludeIndex.instance,
     },
     {
-        name: 'features/completion/schema-id.index',
         reset: () => SchemaIdIndex.instance.reset(),
         markDirty: (uri) => SchemaIdIndex.instance.markDirty(uri),
         remove: (uri) => SchemaIdIndex.instance.remove(uri),
@@ -71,7 +67,6 @@ export const PROJECT_INDEXES: readonly ProjectIndex[] = [
         watched: () => SchemaIdIndex.instance,
     },
     {
-        name: 'workspace/template-base.index',
         reset: () => TemplateBaseIndex.instance.reset(),
         markDirty: (uri) => TemplateBaseIndex.instance.markDirty(uri),
         remove: (uri) => TemplateBaseIndex.instance.remove(uri),
@@ -80,7 +75,6 @@ export const PROJECT_INDEXES: readonly ProjectIndex[] = [
         watched: () => TemplateBaseIndex.instance,
     },
     {
-        name: 'features/completion/localization-key.index',
         reset: () => LocalizationKeyIndex.instance.reset(),
         markDirty: (uri) => LocalizationKeyIndex.instance.markDirty(uri),
         remove: (uri) => LocalizationKeyIndex.instance.remove(uri),
@@ -92,7 +86,6 @@ export const PROJECT_INDEXES: readonly ProjectIndex[] = [
         // No revision. The symbol table answers navigation, and nothing a scanned file's
         // diagnostics are computed from reads it, so summing it would stale the scan-result cache
         // on every edit for nothing.
-        name: 'features/navigation/workspace-symbol.service',
         reset: () => WorkspaceSymbolService.instance.reset(),
         markDirty: (uri) => WorkspaceSymbolService.instance.markDirty(uri),
         remove: (uri) => WorkspaceSymbolService.instance.remove(uri),
@@ -101,7 +94,6 @@ export const PROJECT_INDEXES: readonly ProjectIndex[] = [
         // No revision, like the member-injection index below: the two feed the reference
         // resolver's extensions, and what that changes for a scanned file arrives through the
         // rooting revisions that are summed.
-        name: 'mod/add-base.index',
         reset: () => AddBaseIndex.instance.reset(),
         markDirty: (uri) => AddBaseIndex.instance.markDirty(uri),
         remove: (uri) => AddBaseIndex.instance.remove(uri),
@@ -109,7 +101,6 @@ export const PROJECT_INDEXES: readonly ProjectIndex[] = [
         watched: () => AddBaseIndex.instance,
     },
     {
-        name: 'mod/member-injection.index',
         reset: () => MemberInjectionIndex.instance.reset(),
         markDirty: (uri) => MemberInjectionIndex.instance.markDirty(uri),
         remove: (uri) => MemberInjectionIndex.instance.remove(uri),
@@ -120,7 +111,6 @@ export const PROJECT_INDEXES: readonly ProjectIndex[] = [
         // Deliberately in no build group. It resolves its targets through the two indexes above,
         // so sharing their walk would let it answer from a half-built extension state. See the
         // note in fragment-rooting.ts for what that breaks and how to measure it.
-        name: 'mod/action-rooting.index',
         reset: () => ActionRootingIndex.instance.reset(),
         markDirty: (uri) => ActionRootingIndex.instance.markDirty(uri),
         remove: (uri) => ActionRootingIndex.instance.remove(uri),
@@ -133,7 +123,6 @@ export const PROJECT_INDEXES: readonly ProjectIndex[] = [
         // matches and would re-read a file whose disk text never moved. The disk-change paths mark
         // it themselves with the path, which is also how a deletion reaches it: the next sync
         // finds the file gone and drops it, so there is nothing for a remove to do.
-        name: 'workspace/mention.index',
         reset: () => MentionIndex.instance.reset(),
         revision: () => MentionIndex.instance.revision,
     },
@@ -142,20 +131,22 @@ export const PROJECT_INDEXES: readonly ProjectIndex[] = [
         // unsaved edit cannot move it, and dropping it per keystroke re-walked the game tree for
         // every edit under `ships/`. The disk-change paths drop it through
         // `invalidateShipLayersFor`, which also decides whether the changed file could move it.
-        name: 'features/ships/ship-layer.index',
         reset: () => invalidateShipLayers(),
     },
     {
         // Revision only. The alias walk is rebuilt from `cosmoteer.rules` changes through
         // `aliasRootIndex.invalidate()`, which the paths that see such a change call themselves.
-        name: 'document/schema/alias-root',
         revision: () => aliasRootIndex.revision,
     },
     {
-        // Dirty marks only. The part table is a derived view rather than an index the server
-        // builds up front, so there is nothing to reset, remove from or revision-sum.
-        name: 'features/part-table/part-table.service',
+        // Dirty marks and removals, which are the same call. The part table is a derived view
+        // rather than an index the server builds up front, so there is nothing to reset or to
+        // revision-sum, and a deleted file is a changed one: marking the parts written in it stale
+        // is what makes the next build read them again, find nothing where the file stood, and
+        // drop their rows. Without it a part deleted on disk keeps its row, its values and the
+        // link to the file that is gone.
         markDirty: (uri) => invalidatePartTableFor(uri),
+        remove: (uri) => invalidatePartTableFor(uri),
     },
 ];
 

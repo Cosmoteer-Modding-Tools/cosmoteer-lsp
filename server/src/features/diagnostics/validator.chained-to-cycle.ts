@@ -1,9 +1,9 @@
 import * as l10n from '@vscode/l10n';
 import { CancellationToken } from 'vscode-languageserver';
 import { AbstractNodeDocument, GroupNode, isGroupNode, isValueNode, ValueNode } from '../../core/ast/ast';
-import { getStartOfAstNode } from '../../utils/ast.utils';
+import { getStartOfAstNode, memberValueNamed } from '../../utils/ast.utils';
 import { flattenGroup } from '../../semantics/effective-group';
-import { memberOf, partComponentGroupsIn } from './part-component-graph';
+import { partComponentGroupsIn } from './part-component-graph';
 import { PLAIN_ID } from './validator.schema-sibling';
 import { ValidationError } from './validator';
 
@@ -25,7 +25,7 @@ interface ChainNode {
  * @returns the value node naming the next component, or undefined.
  */
 const chainedToOf = (group: GroupNode): ValueNode | undefined => {
-    const written = memberOf(group, CHAINED_TO);
+    const written = memberValueNamed(group, CHAINED_TO);
     if (!written || !isValueNode(written)) return undefined;
     if (written.valueType.type === 'Reference') return undefined;
     return PLAIN_ID.test(String(written.valueType.value).trim()) ? written : undefined;

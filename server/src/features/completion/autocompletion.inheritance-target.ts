@@ -1,10 +1,11 @@
-import { CancellationToken, CompletionItemKind, Position, Range } from 'vscode-languageserver';
+import { CancellationToken, CompletionItemKind, Position } from 'vscode-languageserver';
 import { AbstractNode, AbstractNodeDocument, GroupNode, ListNode, isGroupNode, isListNode } from '../../core/ast/ast';
 import { findEnclosingGroup } from '../../document/schema/schema-context';
 import { namedMembersOf } from '../../utils/ast.utils';
 import { AddBaseIndex } from '../../mod/add-base.index';
 import { Completion } from './autocompletion.service.types';
 import { completeRawPath } from './autocompletion.reference-path';
+import { SegmentSpan, withSegmentEdit } from './completion-range';
 
 /**
  * An inheritance-target header line up to the cursor: `<indent><Name> : <typed>`. The `:` (not `=`)
@@ -43,21 +44,55 @@ export const inheritanceHeaderAt = (linePrefix: string): InheritanceHeader | und
 };
 
 /**
- * The range a header completion replaces: the path segment the cursor sits in. The labels are single
- * segments (`Components`, `base.rules>`, `^/0/`), so without this the client measures the range with
- * its own word pattern, which breaks at `.` and `^` and appends the pick to what is already typed.
+ * The segment a header completion replaces: the path segment the cursor sits in. The labels are
+ * single segments (`Components`, `base.rules>`, `^/0/`), so without this the client measures the
+ * range with its own word pattern, which breaks at `.` and `^` and appends the pick to what is
+ * already typed. The segment runs past the cursor to its own delimiter, so a caret parked inside
+ * `ships/ter|ran/base.rules>` replaces `terran` and leaves the file name standing.
  *
  * @param position the cursor position.
- * @param typed the base path typed after the `:`.
- * @returns the range the pick replaces.
+ * @param typed the base path typed after the `:`, up to the cursor.
+ * @param tail the base path written past the cursor.
+ * @returns the segment the pick replaces.
  */
-const segmentRange = (position: Position, typed: string): Range => {
+const segmentSpan = (position: Position, typed: string, tail: string): SegmentSpan => {
     let start = typed.length;
     while (start > 0 && !SEGMENT_BOUNDARIES.includes(typed[start - 1])) start--;
+    let end = 0;
+    while (end < tail.length && !SEGMENT_BOUNDARIES.includes(tail[end])) end++;
     return {
-        start: { line: position.line, character: Math.max(0, position.character - (typed.length - start)) },
-        end: position,
+        line: position.line,
+        start: Math.max(0, position.character - (typed.length - start)),
+        end: position.character + end,
+        caret: position.character,
+        delimiter: tail[end],
     };
+};
+
+/**
+ * The base path written past the cursor, read off the base node the parser kept for the header. A
+ * header whose body braces are still missing parses into a body-less group carrying its bases, so
+ * the text right of the caret is in the tree either way. A base whose node text does not map
+ * character for character onto the line (a quoted base) is reported as having no tail, which leaves
+ * the replaced segment ending at the cursor.
+ *
+ * @param container the container the inheriting member lives in.
+ * @param offset the cursor byte offset.
+ * @returns the text the base carries right of the cursor, empty when there is none.
+ */
+const writtenBaseTail = (container: GroupNode | ListNode | AbstractNodeDocument, offset: number): string => {
+    const members: AbstractNode[] = [container as AbstractNode, ...container.elements];
+    for (const member of members) {
+        if (!isGroupNode(member) && !isListNode(member)) continue;
+        for (const base of member.inheritance ?? []) {
+            const position = base.position;
+            if (!position || offset < position.start || offset > position.end) continue;
+            const value = String(base.valueType.value ?? '');
+            if (base.quoted || position.characterEnd - position.characterStart !== value.length) return '';
+            return value.slice(Math.max(0, offset - position.start));
+        }
+    }
+    return '';
 };
 
 /**
@@ -92,19 +127,20 @@ export const inheritanceTargetCompletionsAt = async (
     if (!header) return undefined;
     const container = containerOf(document, offset, header.declaredName);
     if (!container) return undefined;
-    const range = segmentRange(position, header.typed);
+    const span = segmentSpan(position, header.typed, writtenBaseTail(container, offset));
     // A path (it carries a separator or opens a file token) is resolved by the reference completer
     // against the container the inheriting member lives in, the same scope the game reads the base
     // in. Everything else is still a bare name, where the siblings and the prefixes are the answer.
     if (isPath(header.typed)) {
         const options = await completeRawPath(header.typed, container, cancellationToken).catch(() => []);
-        return options.map((option) =>
-            typeof option === 'string'
-                ? { label: option, kind: CompletionItemKind.Reference, range }
-                : { ...option, range }
+        return withSegmentEdit(
+            options.map((option) =>
+                typeof option === 'string' ? { label: option, kind: CompletionItemKind.Reference } : option
+            ),
+            span
         );
     }
-    return startCompletions(container, header.declaredName, range);
+    return withSegmentEdit(startCompletions(container, header.declaredName), span);
 };
 
 /**
@@ -121,20 +157,18 @@ const isPath = (typed: string): boolean => typed.includes('/') || typed.startsWi
  *
  * @param container the container the inheriting member lives in.
  * @param declaredName the name being declared, never offered as its own base.
- * @param range the range a pick replaces.
  * @returns the completions.
  */
 const startCompletions = (
     container: GroupNode | ListNode | AbstractNodeDocument,
-    declaredName: string,
-    range: Range
+    declaredName: string
 ): Completion[] => {
     const self = declaredName.toLowerCase();
     const out: Completion[] = [];
     // Sibling members of the container (in a Components map these are the sibling component ids).
     for (const [name] of namedMembersOf(container)) {
         if (name.toLowerCase() === self) continue;
-        out.push({ label: name, kind: CompletionItemKind.Reference, detail: 'sibling', sortText: `0_${name}`, range });
+        out.push({ label: name, kind: CompletionItemKind.Reference, detail: 'sibling', sortText: `0_${name}` });
     }
     // `^/N/` caret paths: `^` selects the container's own inheritance anchor, `/N` its Nth base
     // (its written bases plus any a mod's AddBase action appends).
@@ -145,7 +179,6 @@ const startCompletions = (
             kind: CompletionItemKind.Keyword,
             detail: 'inherited base',
             sortText: `1_^${i}`,
-            range,
         });
     }
     for (const prefix of PATH_PREFIXES) {
@@ -154,7 +187,6 @@ const startCompletions = (
             kind: CompletionItemKind.Keyword,
             detail: 'reference path',
             sortText: `2_${prefix}`,
-            range,
         });
     }
     return out;

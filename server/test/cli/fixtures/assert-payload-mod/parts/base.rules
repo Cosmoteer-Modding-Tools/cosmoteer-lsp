@@ -1,0 +1,5 @@
+// One hop past the file the action names, which the game reads too.
+Base
+{
+	MaxHealth = 10
+}

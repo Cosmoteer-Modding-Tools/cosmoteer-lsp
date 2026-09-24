@@ -1,6 +1,7 @@
 import { existsSync } from 'fs';
 import { DocumentSymbol, Hover, Location, Position, Range, SymbolKind } from 'vscode-languageserver';
-import { parseShader } from './shader-parser';
+import { parseShader, parseShaderTypes } from './shader-parser';
+import { DeclarationPosition, ShaderStruct } from './shader-parser.types';
 import { resolveInclude } from './shader-source';
 import { findShaderDeclaration, ReadOverride } from './shader-index';
 import { HLSL_INTRINSICS, TEXTURE_METHODS, ENGINE_UNIFORMS, describeHlslType } from './shader-intrinsics';
@@ -38,6 +39,28 @@ const lineAt = (text: string, offset: number): { line: string; lineStart: number
     return { line: text.slice(lineStart, lineEnd), lineStart };
 };
 
+/**
+ * Renders a struct declaration for a hover: its members in declaration order, each guarded one
+ * marked with the macro that decides whether this shader compiles it and whether that macro is
+ * defined here. Listing a guarded member unmarked would claim a channel the shader does not have.
+ *
+ * @param struct the struct to render.
+ * @param scope the shader text plus its includes, read for the `#define`s in force.
+ * @returns the declaration as HLSL source, ready for a code block.
+ */
+const renderStruct = (struct: ShaderStruct, scope: string): string => {
+    const defined = new Set<string>();
+    for (const m of scope.matchAll(/^\s*#\s*define\s+([A-Za-z_]\w*)/gm)) defined.add(m[1]);
+    const lines = struct.members.map((member) => {
+        const named = member.guards.filter((guard) => guard.macro !== '');
+        if (named.length === 0) return `    ${member.type} ${member.name};`;
+        const active = named.every((guard) => defined.has(guard.macro) !== guard.negated);
+        const conditions = named.map((guard) => `${guard.negated ? '!' : ''}${guard.macro}`).join(' && ');
+        return `    ${member.type} ${member.name}; // guarded by ${conditions}${active ? '' : ', not defined here'}`;
+    });
+    return [`struct ${struct.name}`, '{', ...lines, '};'].join('\n');
+};
+
 /** Wraps a code line and an explanation into a markdown hover. */
 const codeHover = (code: string, explanation: string): Hover => ({
     contents: { kind: 'markdown', value: `\`\`\`hlsl\n${code}\n\`\`\`\n\n${explanation}` },
@@ -46,7 +69,8 @@ const codeHover = (code: string, explanation: string): Hover => ({
 /**
  * Hover for a `.shader` file. Explains whatever the cursor is on: a `_`-uniform (its declared type, or
  * that it is engine-provided), an HLSL intrinsic or texture method (its signature and what it does), an
- * HLSL type, or a function the file defines. Returns null for ordinary locals and keywords.
+ * HLSL type, a struct, a `typedef` alias or a `static const` the chain declares, or a function the file
+ * defines. Returns null for ordinary locals and keywords.
  *
  * @param text the full source of the file being edited.
  * @param offset the cursor byte offset in `text`.
@@ -86,6 +110,32 @@ export const shaderDocumentHover = (text: string, offset: number, includeText = 
         if (description) return codeHover(word, description);
     }
 
+    // A type or a file-scope value the shader or one of its includes declares.
+    const scope = includeText ? `${text}\n${includeText}` : text;
+    const declared = parseShaderTypes(scope);
+    const struct = declared.structs.find((s) => s.name === word);
+    if (struct) {
+        return codeHover(
+            renderStruct(struct, scope),
+            'A struct declared in this shader or an include. A member marked as guarded exists only while its macro is defined above the `#include`.'
+        );
+    }
+    const alias = declared.typeAliases.find((a) => a.name === word);
+    if (alias) {
+        return codeHover(
+            `typedef ${alias.aliasedType} ${alias.name};`,
+            'A type alias declared in this shader or an include.'
+        );
+    }
+    const staticConstant = declared.staticConstants.find((c) => c.name === word);
+    if (staticConstant) {
+        const value = staticConstant.value ? ` = ${staticConstant.value}` : '';
+        return codeHover(
+            `static const ${staticConstant.hlslType} ${staticConstant.name}${value}`,
+            'A shader constant declared in this shader or an include.'
+        );
+    }
+
     // A function the file or one of its includes defines.
     if (shader.functions.includes(word))
         return codeHover(`${word}(…)`, 'A function defined in this shader or an include.');
@@ -94,8 +144,7 @@ export const shaderDocumentHover = (text: string, offset: number, includeText = 
     // replacement), or a guard an included base shader tests (the defining-before-include pattern).
     const engineMacro = ENGINE_MACROS.find(([name]) => name === word);
     if (engineMacro) return codeHover(word, engineMacro[1]);
-    const scopeText = includeText ? `${text}\n${includeText}` : text;
-    const definition = new RegExp(`^\\s*#\\s*define\\s+${word}\\b[ \\t]*(.*)$`, 'm').exec(scopeText);
+    const definition = new RegExp(`^\\s*#\\s*define\\s+${word}\\b[ \\t]*(.*)$`, 'm').exec(scope);
     if (definition) {
         const replacement = definition[1].trim();
         return codeHover(
@@ -103,7 +152,7 @@ export const shaderDocumentHover = (text: string, offset: number, includeText = 
             'Preprocessor macro defined in this shader or an include.'
         );
     }
-    if (new RegExp(`#\\s*(?:ifdef|ifndef)\\s+${word}\\b|\\bdefined\\s*\\(\\s*${word}\\s*\\)`).test(scopeText)) {
+    if (new RegExp(`#\\s*(?:ifdef|ifndef)\\s+${word}\\b|\\bdefined\\s*\\(\\s*${word}\\s*\\)`).test(scope)) {
         return codeHover(
             word,
             'Preprocessor guard tested in this shader or an include — define it before the `#include` to switch the guarded path on.'
@@ -178,12 +227,13 @@ export const shaderSymbolDefinition = async (
 };
 
 /**
- * The outline of a `.shader` file: its file-scope `_`-uniforms and its functions, with the position of
- * each so the breadcrumb bar and Outline view can jump to them. Only the file's own declarations are
- * listed (not those pulled in through includes), matching how a document outline works elsewhere.
+ * The outline of a `.shader` file: its file-scope `_`-uniforms, its functions, and the types and
+ * constants it declares (`struct`, `typedef`, `static const`), with the position of each so the
+ * breadcrumb bar and Outline view can jump to them. Only the file's own declarations are listed (not
+ * those pulled in through includes), matching how a document outline works elsewhere.
  *
  * @param text the full shader source.
- * @returns the flat list of uniform and function symbols the file declares.
+ * @returns the flat list of symbols the file declares.
  */
 export const shaderDocumentSymbols = (text: string): DocumentSymbol[] => {
     const shader = parseShader(text);
@@ -209,6 +259,43 @@ export const shaderDocumentSymbols = (text: string): DocumentSymbol[] => {
             Position.create(fn.position.line, fn.position.column + fn.name.length)
         );
         symbols.push({ name: fn.name, kind: SymbolKind.Function, range, selectionRange: range });
+    }
+
+    const declared = parseShaderTypes(text);
+    const rangeOf = (position: DeclarationPosition, name: string): Range =>
+        Range.create(
+            Position.create(position.line, position.column),
+            Position.create(position.line, position.column + name.length)
+        );
+    for (const struct of declared.structs) {
+        const range = rangeOf(struct.position, struct.name);
+        symbols.push({
+            name: struct.name,
+            detail: `${struct.members.length} member(s)`,
+            kind: SymbolKind.Struct,
+            range,
+            selectionRange: range,
+        });
+    }
+    for (const alias of declared.typeAliases) {
+        const range = rangeOf(alias.position, alias.name);
+        symbols.push({
+            name: alias.name,
+            detail: alias.aliasedType,
+            kind: SymbolKind.Struct,
+            range,
+            selectionRange: range,
+        });
+    }
+    for (const constant of declared.staticConstants) {
+        const range = rangeOf(constant.position, constant.name);
+        symbols.push({
+            name: constant.name,
+            detail: constant.hlslType,
+            kind: SymbolKind.Constant,
+            range,
+            selectionRange: range,
+        });
     }
     return symbols;
 };

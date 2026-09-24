@@ -1,6 +1,9 @@
 import {
     AbstractNode,
+    AbstractNodeDocument,
     GroupNode,
+    IdentifierNode,
+    ListNode,
     isAssignmentNode,
     isGroupNode,
     isIdentifierNode,
@@ -34,6 +37,68 @@ export const memberSpanOf = (node: AbstractNode): { start: number; end: number }
     if (!named) return undefined;
     const span = memberSpan(node);
     return span && span.end > span.start ? span : undefined;
+};
+
+/**
+ * The node a member's name is written in, which is also the anchor for the line it starts on: an
+ * assignment carries no position of its own, and a container's own position starts at its `{`, which
+ * can sit on the line below the name.
+ *
+ * @param element a member of a group, list or document.
+ * @returns the name node, or undefined when the element is not a named member.
+ */
+const nameNodeOf = (element: AbstractNode): IdentifierNode | undefined =>
+    isAssignmentNode(element)
+        ? element.left
+        : (isGroupNode(element) || isListNode(element)) && element.identifier
+          ? element.identifier
+          : isIdentifierNode(element)
+            ? element
+            : undefined;
+
+/** A member of a container with the span a caret is read against. */
+export interface MemberHitSpan {
+    readonly element: AbstractNode;
+    /** The first offset that counts as being in the member, the start of its indentation. */
+    readonly start: number;
+    /** The offset one past the member's last character. */
+    readonly end: number;
+}
+
+/**
+ * The members of a container with the span a caret is read against, which takes in the indentation
+ * the member is written behind.
+ *
+ * A member's own span starts at its name, so the tab in front of it belongs to no member and a caret
+ * there reads as sitting in the container instead. That tab is where `Home`, `Shift+End` and a triple
+ * click all start, so selecting a block's own declaration line either offered nothing or offered the
+ * block around it, which is not the block the author pointed at.
+ *
+ * The indentation is taken in only as far as the line the member starts, and never past the member
+ * before it or the container's own bracket, so a member written beside its siblings on one line
+ * claims nothing that is not its own.
+ *
+ * @param container the group, list or document whose direct members are read.
+ * @returns one entry per member that has a usable span, in the order they are written.
+ */
+export const memberHitSpansOf = (container: AbstractNodeDocument | GroupNode | ListNode): MemberHitSpan[] => {
+    const spans: MemberHitSpan[] = [];
+    // Nothing in front of the opening bracket is inside the container at all, and a container's own
+    // position starts at that bracket.
+    let floor = isGroupNode(container) || isListNode(container) ? container.position.start + 1 : 0;
+    for (const element of container.elements) {
+        const span = memberSpanOf(element);
+        if (!span) {
+            if (element.position) floor = Math.max(floor, element.position.end);
+            continue;
+        }
+        const named = nameNodeOf(element);
+        const lineStart = named ? named.position.start - named.position.characterStart : span.start;
+        const start = lineStart >= floor && lineStart < span.start ? lineStart : span.start;
+        spans.push({ element, start, end: span.end });
+        floor = Math.max(floor, span.end);
+    }
+    return spans;
 };
 
 /**
@@ -192,15 +257,7 @@ export const topLevelMembersOf = (container: GroupNode, text: string): Array<Mem
     for (const element of container.elements) {
         const span = memberSpanOf(element);
         if (!span) continue;
-        // The name node is also the line anchor: an assignment carries no position of its own, and a
-        // container's own position starts at its `{`, which can sit on the line below the name.
-        const named = isAssignmentNode(element)
-            ? element.left
-            : (isGroupNode(element) || isListNode(element)) && element.identifier
-              ? element.identifier
-              : isIdentifierNode(element)
-                ? element
-                : undefined;
+        const named = nameNodeOf(element);
         if (!named) continue;
         const raw = detach(text.slice(span.start, span.end));
         let indentStart = span.start;

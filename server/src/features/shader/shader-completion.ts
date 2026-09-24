@@ -1,9 +1,11 @@
 import { readdir } from 'fs/promises';
-import { basename, dirname, resolve as resolvePath } from 'path';
+import { basename } from 'path';
 import { CompletionItem, CompletionItemKind } from 'vscode-languageserver';
 import { ENGINE_UNIFORMS, HLSL_INTRINSICS, TEXTURE_METHODS } from './shader-intrinsics';
 import { HLSL_KEYWORDS, HLSL_TYPES } from '../semantic/shader-semantic-tokens';
-import { functionScopeAt, parseShader } from './shader-parser';
+import { functionScopeAt, parseShader, parseShaderTypes } from './shader-parser';
+import { resolveInclude } from './shader-source';
+import { ShaderStructMember } from './shader-parser.types';
 
 /** The preprocessor directives the game's shader loader understands, with what each does. */
 const DIRECTIVES: ReadonlyArray<readonly [string, string]> = [
@@ -158,11 +160,11 @@ const macroCompletions = (scope: string, kind: 'macro' | 'define' | 'condition')
 /**
  * Path completion inside an `#include "…"` string: the sibling directories and `.shader` files of the
  * directory the typed prefix resolves to. Both include forms work: a path relative to the edited
- * file and the root-anchored `./Data/…` form resolved against the game data directory.
+ * file and the game-anchored `./Data/…` form resolved against the game folder.
  *
  * @param typedPath the part of the include path already written (may be empty or end mid-segment).
  * @param documentPath the absolute path of the `.shader` being edited.
- * @param dataDir the game `Data` directory, for root-anchored includes.
+ * @param dataDir the game `Data` directory, for game-anchored includes.
  * @returns folder and `.shader` file completions for the path's directory, empty when unresolvable.
  */
 export const shaderIncludePathCompletions = async (
@@ -173,11 +175,9 @@ export const shaderIncludePathCompletions = async (
     // Complete within the directory part; the segment being typed is the client-side filter word.
     const lastSlash = Math.max(typedPath.lastIndexOf('/'), typedPath.lastIndexOf('\\'));
     const dirPart = lastSlash >= 0 ? typedPath.slice(0, lastSlash + 1) : '';
-    const rooted = /^\.?[\\/]?[Dd]ata[\\/]/.exec(dirPart);
-    const baseDir =
-        rooted && dataDir
-            ? resolvePath(dataDir, dirPart.slice(rooted[0].length))
-            : resolvePath(dirname(documentPath), dirPart);
+    // The typed prefix is resolved by the same rule the engine applies to the finished include, so a
+    // bare `Data/` prefix completes next to the file being edited rather than out of the game tree.
+    const baseDir = resolveInclude(documentPath, dirPart, dataDir);
     let entries;
     try {
         entries = await readdir(baseDir, { withFileTypes: true });
@@ -296,6 +296,23 @@ const globalCompletions = (text: string, locals: readonly LocalSymbol[] = []): C
     for (const constant of shader.constants)
         add(constant.name, CompletionItemKind.Variable, `${constant.hlslType} (uniform)`);
     for (const fn of shader.functions) add(fn, CompletionItemKind.Function, 'shader function');
+    // The named types and file-scope values the shader and its includes declare. Every entry point
+    // names one of these in its signature, so they belong in the same list as the HLSL builtins.
+    const declared = parseShaderTypes(text);
+    for (const struct of declared.structs) add(struct.name, CompletionItemKind.Struct, 'shader struct');
+    for (const alias of declared.typeAliases) {
+        add(alias.name, CompletionItemKind.Struct, `type alias for \`${alias.aliasedType}\``);
+    }
+    for (const constant of declared.staticConstants) {
+        add(
+            constant.name,
+            CompletionItemKind.Constant,
+            `${constant.hlslType} (constant)`,
+            constant.value
+                ? `A shader constant, \`${constant.hlslType} ${constant.name} = ${constant.value}\`.`
+                : undefined
+        );
+    }
     // Engine-provided uniforms (`_texture`, `_time`, …) live in an include, so the file scan above
     // misses them. Offer them here so they still autocomplete. Added last so a file redeclaration wins.
     for (const [name, info] of Object.entries(ENGINE_UNIFORMS)) {
@@ -327,6 +344,7 @@ const memberAccess = (text: string, offset: number): string | null => {
  */
 const memberCompletions = (scope: string, currentText: string, base: string): CompletionItem[] => {
     const type = base ? resolveType(scope, currentText, base) : undefined;
+    const structName = type ?? '';
 
     if (type && /^Texture(2D|3D|Cube|2DArray)/.test(type)) {
         // Show the return type inline (`float4 Sample(sampler, uv)`) and the explanation on expand.
@@ -340,12 +358,20 @@ const memberCompletions = (scope: string, currentText: string, base: string): Co
 
     const structMembers = type ? structMembersOf(scope, type) : undefined;
     if (structMembers) {
-        return structMembers.map((m) => ({
-            label: m.name,
-            kind: CompletionItemKind.Field,
-            detail: m.type,
-            documentation: `Struct member of \`${type}\`, of type \`${m.type}\`.`,
-        }));
+        const defined = definedMacros(scope);
+        return structMembers.map((member, index) => {
+            const inScope = member.guards.every(
+                (guard) => guard.macro === '' || defined.has(guard.macro) !== guard.negated
+            );
+            return {
+                label: member.name,
+                kind: CompletionItemKind.Field,
+                detail: member.type,
+                documentation: memberDocumentation(structName, member, inScope),
+                // A channel this shader has actually switched on ranks above one that is guarded out.
+                sortText: `${inScope ? '0' : '1'}${String(index).padStart(3, '0')}`,
+            };
+        });
     }
 
     // A vector gets its swizzles, limited to its component count; a scalar has no members; an unknown
@@ -424,21 +450,40 @@ const resolveType = (scope: string, currentText: string, name: string): string |
     return type;
 };
 
-/** A struct member (its type and name), read from a `struct` definition. */
-interface StructMember {
-    readonly type: string;
-    readonly name: string;
-}
+/** Every macro name the scope `#define`s, for deciding whether a guarded struct member is compiled here. */
+const definedMacros = (scope: string): Set<string> => {
+    const names = new Set<string>();
+    for (const m of scope.matchAll(/^\s*#\s*define\s+([A-Za-z_]\w*)/gm)) names.add(m[1]);
+    return names;
+};
 
-/** The members of the struct named `typeName`, or undefined when no such struct is defined in the file. */
-const structMembersOf = (text: string, typeName: string): StructMember[] | undefined => {
-    const escaped = typeName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const struct = new RegExp(`\\bstruct\\s+${escaped}\\s*\\{([^}]*)\\}`).exec(text);
-    if (!struct) return undefined;
-    const members: StructMember[] = [];
-    for (const line of struct[1].split(';')) {
-        const field = /^\s*(?:const\s+|static\s+)*([A-Za-z_]\w*)\s+([A-Za-z_]\w*)/.exec(line);
-        if (field) members.push({ type: field[1], name: field[2] });
-    }
-    return members.length ? members : undefined;
+/**
+ * The explanation shown for a struct member: what it belongs to, and, when it sits behind a
+ * preprocessor guard, which macro decides whether this shader compiles it. A guarded member is still
+ * offered, since the file that includes the base shader is what switches the channel on, but it says
+ * what has to be written for the member to exist.
+ *
+ * @param typeName the struct the member belongs to.
+ * @param member the member, with the guards it is declared under.
+ * @param inScope whether this shader's own `#define`s satisfy those guards.
+ * @returns the markdown-free documentation string for the completion item.
+ */
+const memberDocumentation = (typeName: string, member: ShaderStructMember, inScope: boolean): string => {
+    const base = `Struct member of \`${typeName}\`, of type \`${member.type}\`.`;
+    if (member.guards.length === 0) return base;
+    const named = member.guards.filter((guard) => guard.macro !== '');
+    if (named.length === 0) return base;
+    const conditions = named
+        .map((guard) => `\`${guard.macro}\` ${guard.negated ? 'is not defined' : 'is defined'}`)
+        .join(' and ');
+    const advice = inScope
+        ? ''
+        : ` This shader does not, so write the matching \`#define\` above the \`#include\` before reading it.`;
+    return `${base} Compiled only when ${conditions}.${advice}`;
+};
+
+/** The members of the struct named `typeName`, or undefined when no such struct is defined in the scope. */
+const structMembersOf = (text: string, typeName: string): readonly ShaderStructMember[] | undefined => {
+    const struct = parseShaderTypes(text).structs.find((s) => s.name === typeName);
+    return struct && struct.members.length ? struct.members : undefined;
 };

@@ -63,6 +63,16 @@ describe('AutoCompletionMathFunction, function names inside expressions', () => 
         expect(found).toContain('sqrt');
     });
 
+    it('offers function names for a plain value of a schema-float field', async () => {
+        const source = 'Turret { Type = TurretWeapon; BlueprintArcRadius = sq }';
+        expect(await completeAt(source, source.indexOf('sq') + 2)).toContain('sqrt');
+    });
+
+    it('offers function names inside an expression on a float field', async () => {
+        const source = 'Turret { Type = TurretWeapon; BlueprintArcRadius = 2 * sq }';
+        expect(await completeAt(source, source.indexOf('* sq') + 4)).toContain('sqrt');
+    });
+
     it('offers nothing for a plain value of an enum field', async () => {
         const source = 'Toggle { Type = MultiToggle; Mode = A }';
         const document = parser(lexer(source), 'file:///t.rules').value;
@@ -125,6 +135,36 @@ describe('AutoCompletionMathFunction, function names inside expressions', () => 
         const node = findNodeAtPosition(document, { line: 0, character: 17 });
         if (!node) return;
         expect(labels(await completer.getCompletions(node as never, token))).toEqual([]);
+    });
+});
+
+describe('AutoCompletionMathFunction, the caret behind an open parenthesis', () => {
+    /** Runs the completer on the node at `character`, with the caret offset the router passes. */
+    const completeWithCaret = async (source: string, character: number): Promise<string[]> => {
+        const document = parser(lexer(source), 'file:///t.rules').value;
+        const node = findNodeAtPosition(document, { line: 0, character });
+        expect(node).toBeDefined();
+        return labels(await completer.getCompletions(node as never, token, character));
+    };
+
+    it('offers function names right behind an unspaced open parenthesis', async () => {
+        const source = 'Damage = ceil(';
+        expect(await completeWithCaret(source, source.length)).toContain('sqrt');
+    });
+
+    it('offers function names between the parentheses of an empty call', async () => {
+        const source = 'Damage = ceil()';
+        expect(await completeWithCaret(source, source.indexOf(')'))).toContain('sqrt');
+    });
+
+    it('offers nothing while the caret is still on the call name', async () => {
+        const source = 'Damage = ceil(';
+        expect(await completeWithCaret(source, source.indexOf('ceil') + 2)).toEqual([]);
+    });
+
+    it('offers nothing behind an open parenthesis on a schema-string field', async () => {
+        const source = 'Consumer { Type = ResourceConsumer; OverridePriorityName = ceil( }';
+        expect(await completeWithCaret(source, source.indexOf('ceil(') + 5)).toEqual([]);
     });
 });
 

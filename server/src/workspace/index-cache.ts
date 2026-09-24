@@ -148,7 +148,7 @@ declare const __CACHE_BUILD_ID__: string | undefined;
  *
  * @returns the build identity string, or '' when it can't be determined (cache then disabled).
  */
-const serverBuildId = (): string => {
+export const serverBuildId = (): string => {
     if (serverBuildIdMemo === undefined) {
         try {
             serverBuildIdMemo =
@@ -176,9 +176,6 @@ export const cacheArtifactPath = (dataRoot: string, name: string): string => {
     const base = process.env.LOCALAPPDATA ?? tmpdir();
     return join(base, 'cosmoteer-lsp', `${name}-${key}.json`);
 };
-
-/** The running server build's identity, for cache invalidation across rebuilds. */
-export const currentServerBuildId = (): string => serverBuildId();
 
 /** Whether this process already pruned the cache directory (once per session is plenty). */
 let pruned = false;
@@ -317,6 +314,16 @@ export const saveIndexCache = async (dataRoot: string, states: Record<string, un
 // gate cannot see. An unsaved buffer's cross-file influence is baked into the saved results,
 // which matches the next session when the client restores the buffer (hot exit) and self-heals
 // on the first edit otherwise.
+//
+// A file's identity is its size plus its mtime, so content put in place under a stamp the cache
+// already recorded for other content is the gate's known blind spot: the saved results are served
+// as current until something else moves. An ordinary edit, a backup restore, a git checkout and an
+// archive extraction all bring a stamp of their own and are caught. Reaching the blind spot needs
+// a timestamp forced back to the exact recorded value at an unchanged byte count, which a
+// `touch -r`-style pipeline or a filesystem with a coarse timestamp can do. Hashing the content
+// instead would mean reading every workspace and game `.rules` file before the cache could be
+// served, which is the whole cost the stat-only sweep exists to avoid, so the limit is accepted
+// and named here rather than closed. Opening the file publishes the true answer at once.
 
 /** One persisted scan result: the file's identity at validation time and its diagnostics. */
 export type ScanCacheEntry = [path: string, size: number, mtimeMs: number, diagnostics: Diagnostic[]];

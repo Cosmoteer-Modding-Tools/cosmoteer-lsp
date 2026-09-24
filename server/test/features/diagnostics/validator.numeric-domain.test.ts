@@ -5,7 +5,8 @@ import { join } from 'path';
 import { CancellationToken } from 'vscode-languageserver';
 import { parseText } from '../../../src/utils/ast.utils';
 import { filePathToUri } from '../../../src/document/reference-path';
-import { validateNumericDomains } from '../../../src/features/diagnostics/validator.numeric-domain';
+import { messageFor, validateNumericDomains } from '../../../src/features/diagnostics/validator.numeric-domain';
+import { NUMERIC_DOMAIN_RULES } from '../../../src/document/schema/numeric-domains';
 import { initWorkspace, workspaceFile } from '../../workspace-helper';
 
 const token = CancellationToken.None;
@@ -130,6 +131,28 @@ describe('validateNumericDomains', () => {
             const found = await messages(resource('2', 3), 'resources/probe/probe.rules');
             expect(found).toHaveLength(1);
             expect(found[0]).toContain('sliced into 3 tiers');
+        });
+    });
+
+    // A rule whose floor is the smallest number the format holds asks for any positive value. The
+    // game ships .75 for `ShipIconGlowShipScale` itself, so a sentence naming 1 as the floor tells
+    // the author to raise a legal value.
+    describe('the floor the sentence names', () => {
+        const ruleFor = (field: string) => {
+            const rule = NUMERIC_DOMAIN_RULES.find((entry) => entry.field === field);
+            if (!rule) throw new Error(`no rule for ${field}`);
+            return rule;
+        };
+
+        it('is zero for a rule that only asks for a positive number', () => {
+            const message = messageFor(ruleFor('ShipIconGlowShipScale'), 0);
+            expect(message).toContain('has to be above zero');
+            expect(message).not.toContain('at least');
+        });
+
+        it("is the rule's own number where the rule names one", () => {
+            const message = messageFor(ruleFor('FromQuantity'), 0);
+            expect(message).toContain('has to be at least 1');
         });
     });
 });

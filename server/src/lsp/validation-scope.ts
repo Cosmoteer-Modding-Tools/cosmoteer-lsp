@@ -18,8 +18,8 @@ export const workspaceValidationScope = (): 'allFiles' | 'modRulesReachable' =>
 
 /** Bumped whenever the on-disk `.rules` state or the folder set changes, staling the scope cache. */
 let validationScopeEpoch = 0;
-/** The cached result of {@link validationScopeKeys}, valid while its epoch is current. */
-let validationScopeCache: { epoch: number; keys: Set<string> | undefined } | undefined;
+/** The cached result of {@link reachableFileFilter}, valid while its epoch is current. */
+let validationScopeCache: { epoch: number; allows: ((fsPath: string) => boolean) | undefined } | undefined;
 /** The cached result of {@link referencedTxtKeys}, valid while {@link validationScopeEpoch} holds. */
 let referencedTxtCache: { epoch: number; keys: Set<string> | undefined } | undefined;
 
@@ -31,7 +31,7 @@ export function bumpValidationScopeEpoch(): void {
 /**
  * The `.txt` files something in the project references by path, or undefined when the project holds
  * no `.txt` and the gate is moot. Cached until a disk or folder change bumps the scope epoch, like
- * {@link validationScopeKeys}.
+ * {@link reachableFileFilter}.
  *
  * @param token cancels the text scan. A cancelled (possibly partial) scan is not cached.
  * @returns the referenced keys, or undefined when no gate applies.
@@ -79,47 +79,73 @@ export async function isOutsideRulesPanel(file: string, token: CancellationToken
     return isUnreferencedTxt(file, token);
 }
 
+/** One workspace folder's closure, keyed the way {@link reachabilityKey} keys a file. */
+interface FolderScope {
+    /** The folder's path as a reachability key, without a trailing separator, for attribution. */
+    readonly prefix: string;
+    /** What the folder's manifest reaches, or undefined when the folder declares no manifest. */
+    readonly keys: Set<string> | undefined;
+}
+
+/**
+ * The scope predicate over the folders, which answers per folder rather than from one shared set.
+ *
+ * A file is judged by the closure of the folder it lies in, so a folder that declares no manifest
+ * keeps every file it holds. One shared set silenced such a folder entirely as soon as any other
+ * folder had a manifest, which is a whole folder reporting nothing with no way to tell that from a
+ * clean one. Folders may nest, so the longest matching one owns the file, and a file under none of
+ * them is judged by every closure together, which is what it was judged by before.
+ *
+ * @param scopes one entry per workspace folder, in the client's order.
+ * @param union every folder closure's keys together, for a file outside all of them.
+ * @returns the predicate.
+ */
+const scopePredicate =
+    (scopes: FolderScope[], union: Set<string>) =>
+    (fsPath: string): boolean => {
+        const key = reachabilityKey(fsPath);
+        let owner: FolderScope | undefined;
+        for (const scope of scopes) {
+            if (key !== scope.prefix && !key.startsWith(scope.prefix + '/')) continue;
+            if (!owner || scope.prefix.length > owner.prefix.length) owner = scope;
+        }
+        if (!owner) return union.has(key);
+        return owner.keys ? owner.keys.has(key) : true;
+    };
+
 /**
  * A predicate telling whether a file is one the game actually loads, for a feature that must not act
- * on backups, templates and other dead content. Undefined when the workspace has no manifest to scope
- * by, or when the user asked for every file, which both mean "no restriction".
+ * on backups, templates and other dead content. Undefined when no workspace folder has a manifest to
+ * scope by, or when the user asked for every file, which both mean "no restriction".
  *
- * @param token cancels the reachability computation.
+ * The closure walk parses every manifest and reached file, so the predicate is cached until a disk
+ * or folder change bumps {@link validationScopeEpoch}.
+ *
+ * @param token cancels the closure walk. A cancelled (possibly partial) walk is not cached.
  * @returns the predicate, or undefined when nothing is out of scope.
  */
 export async function reachableFileFilter(
     token: CancellationToken
 ): Promise<((fsPath: string) => boolean) | undefined> {
-    const keys = await validationScopeKeys(token).catch(() => undefined);
-    return keys ? (fsPath: string) => keys.has(reachabilityKey(fsPath)) : undefined;
-}
-
-/**
- * The reachability keys the 'modRulesReachable' validation scope allows, or undefined when every
- * file is in scope (allFiles scope, or no workspace folder carries a mod manifest to scope by).
- * The closure walk parses every manifest and reached file, so the result is cached until a disk
- * or folder change bumps {@link validationScopeEpoch}.
- *
- * @param token cancels the closure walk. A cancelled (possibly partial) walk is not cached.
- * @returns the allowed reachability keys, or undefined when unrestricted.
- */
-export async function validationScopeKeys(token: CancellationToken): Promise<Set<string> | undefined> {
     if (workspaceValidationScope() !== 'modRulesReachable') return undefined;
-    if (validationScopeCache?.epoch === validationScopeEpoch) return validationScopeCache.keys;
+    if (validationScopeCache?.epoch === validationScopeEpoch) return validationScopeCache.allows;
     const epoch = validationScopeEpoch;
-    const folders = await getWorkspaceFoldersCached();
-    const reachableKeys = new Set<string>();
+    const folders = await getWorkspaceFoldersCached().catch(() => null);
+    const scopes: FolderScope[] = [];
+    const union = new Set<string>();
     let anyManifest = false;
     for (const folder of folders ?? []) {
         const folderPath = uriToFsPath(folder.uri);
         const modRoot = findModRoot(join(folderPath, 'probe.rules'));
-        if (!modRoot) continue;
-        const reachability = await computeModReachability(modRoot, token);
-        if (!reachability) continue;
-        anyManifest = true;
-        for (const key of reachability.reachable) reachableKeys.add(key);
+        const reachability = modRoot ? await computeModReachability(modRoot, token).catch(() => undefined) : undefined;
+        const keys = reachability?.reachable;
+        if (keys) {
+            anyManifest = true;
+            for (const key of keys) union.add(key);
+        }
+        scopes.push({ prefix: reachabilityKey(folderPath).replace(/\/+$/, ''), keys });
     }
-    const keys = anyManifest ? reachableKeys : undefined;
-    if (!token.isCancellationRequested) validationScopeCache = { epoch, keys };
-    return keys;
+    const allows = anyManifest ? scopePredicate(scopes, union) : undefined;
+    if (!token.isCancellationRequested) validationScopeCache = { epoch, allows };
+    return allows;
 }

@@ -32,11 +32,10 @@ import {
     wireIntoManifest,
 } from './mod-wiring';
 import {
+    NewGalaxySizeApply,
     NewGalaxySizeApplyResult,
     NewGalaxySizeArgs,
-    NewGalaxySizeFailure,
     NewGalaxySizeResult,
-    NewGalaxySizeScanResult,
 } from './new-galaxy-size.types';
 
 /**
@@ -83,30 +82,6 @@ const SIZES_FOLDER = 'galaxy_map';
 
 /** A reference's file part, when it names a rules file. */
 const RULES_REFERENCE = /<([^<>]+\.rules)>/gi;
-
-/** A scan result carrying nothing but the reason there is nothing to report. */
-const scanFailed = (failure: NewGalaxySizeFailure): NewGalaxySizeScanResult => ({
-    kind: 'scan',
-    modRoot: '',
-    modId: '',
-    takenIds: [],
-    standardSystems: VANILLA_STANDARD_SYSTEMS,
-    failure,
-});
-
-/** An apply result carrying nothing but the reason nothing was created. */
-const applyFailed = (id: string, failure: NewGalaxySizeFailure): NewGalaxySizeApplyResult => ({
-    kind: 'apply',
-    id,
-    file: '',
-    manifest: '',
-    wiring: { career: 'noTarget', creative: 'noTarget' },
-    localizationKeys: [],
-    localizationFiles: [],
-    createdFiles: [],
-    changedFiles: [],
-    failure,
-});
 
 /** The game's standard generator, read once for both rounds. */
 interface StandardGenerator {
@@ -311,7 +286,7 @@ const modeSizesTarget = (
 };
 
 /** One manifest action to write, keyed by the mode it reports as. */
-type Wiring = ManifestWiring<keyof NewGalaxySizeApplyResult['wiring']>;
+type Wiring = ManifestWiring<keyof NewGalaxySizeApply['wiring']>;
 
 /**
  * Create the size and wire it in.
@@ -329,19 +304,19 @@ const applyRound = async (
     cancellationToken: CancellationToken
 ): Promise<NewGalaxySizeApplyResult> => {
     const id = (args.id ?? '').trim();
-    if (!BARE_RULES_ID.test(id)) return applyFailed(id, 'invalidId');
+    if (!BARE_RULES_ID.test(id)) return { kind: 'apply', failure: 'invalidId' };
     const game = await resolveGameRoot(host);
-    if (!game) return applyFailed(id, 'noGameRoot');
+    if (!game) return { kind: 'apply', failure: 'noGameRoot' };
     const { dataRoot, rootPath, rootDocument } = game;
     const generator = await standardGeneratorOf(dataRoot);
-    if (!generator) return applyFailed(id, 'noGameRoot');
+    if (!generator) return { kind: 'apply', failure: 'noGameRoot' };
     // The mod's own sizes are known by their folders, so a folder that is there is reported as the
     // path it is rather than as a name in use.
     const segment = factionSegment(id);
     const folder = `${modRoot}/${SIZES_FOLDER}/${segment}`;
-    if (existsSync(folder)) return applyFailed(id, 'pathTaken');
+    if (existsSync(folder)) return { kind: 'apply', failure: 'pathTaken' };
     const taken = await takenIdsOf(modRoot, dataRoot);
-    if (taken.has(id.toLowerCase())) return applyFailed(id, 'idTaken');
+    if (taken.has(id.toLowerCase())) return { kind: 'apply', failure: 'idTaken' };
     const file = `${folder}/galaxy_${segment}.rules`;
 
     const systems =
@@ -360,7 +335,7 @@ const applyRound = async (
         await writeFile(file, sizeFileText(label, generator, systems, lineEnding), { encoding: 'utf-8', flag: 'wx' });
         created.push(file);
     } catch {
-        return applyFailed(id, 'writeFailed');
+        return { kind: 'apply', failure: 'writeFailed' };
     }
     host.filesChanged(created);
 
@@ -374,7 +349,7 @@ const applyRound = async (
         cancellationToken
     ).catch(() => ({ keys: [], files: [] }));
 
-    const wiring: NewGalaxySizeApplyResult['wiring'] = { career: 'noTarget', creative: 'noTarget' };
+    const wiring: NewGalaxySizeApply['wiring'] = { career: 'noTarget', creative: 'noTarget' };
     let manifestPath = '';
     let manifests: string[] | undefined;
     const changed = [...created, ...localization.files];
@@ -433,12 +408,12 @@ export const newGalaxySize = async (
     const scanning = args.id === undefined;
     const located = modRootFor(args.uri, host.dataRoot());
     if ('failure' in located)
-        return scanning ? scanFailed(located.failure) : applyFailed(args.id ?? '', located.failure);
+        return scanning ? { kind: 'scan', failure: located.failure } : { kind: 'apply', failure: located.failure };
     if (scanning) {
         const identity = await identityOfMod(located.modRoot).catch((): ModIdentity => ({ root: located.modRoot }));
         const dataRoot = host.dataRoot();
         const generator = dataRoot ? await standardGeneratorOf(dataRoot) : undefined;
-        if (!generator) return scanFailed('noGameRoot');
+        if (!generator) return { kind: 'scan', failure: 'noGameRoot' };
         const taken = await takenIdsOf(located.modRoot, dataRoot);
         return {
             kind: 'scan',

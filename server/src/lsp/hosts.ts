@@ -24,6 +24,7 @@ import { invalidateFsPath } from '../workspace/fs-cache';
 import { filePathToUri } from '../document/reference-path';
 import { connection, documents } from './context';
 import { invalidateDerivedCaches } from './document-caches';
+import { refreshDependentOpenDocuments } from './push-diagnostics';
 import { markProjectIndexesDirty } from './open-documents';
 import { invalidateShipLayersFor } from './ship-layers';
 import { bumpWorkspaceScanEpoch } from './scan-epoch';
@@ -67,6 +68,9 @@ export function sharedBaseHost(
             invalidateDerivedCaches();
             bumpWorkspaceScanEpoch();
             clearSharedBaseScanCache();
+            // The write happened outside the edit flow, so no open document's version moved with it
+            // and nothing would ask for the results that were just dropped.
+            refreshDependentOpenDocuments();
         },
     };
 }

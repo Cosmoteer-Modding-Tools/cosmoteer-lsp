@@ -2,6 +2,7 @@ import { CancellationToken, CompletionItemKind } from 'vscode-languageserver';
 import {
     AbstractNode,
     AbstractNodeDocument,
+    FunctionCallNode,
     ValueNode,
     isAssignmentNode,
     isDocumentNode,
@@ -103,10 +104,16 @@ const enclosingExpression = (
  * On any other resolved type (string, enum, bool, reference, ...) the game reads the call text
  * literally, so offering function names there would only invite a broken file.
  *
+ * The three numeric kinds are one set everywhere else in the server, and the game backs that up:
+ * `SingleSerializer` runs a `float` field through `ExpressionEvaluator.Evaluate<float>` exactly as
+ * `Int32Serializer` runs an `int` field through `Evaluate<int>`, so a formula is as legal in one as
+ * in the other.
+ *
  * @param valueType the resolved schema type of the field being assigned.
  * @returns true for the numeric kinds.
  */
-const allowsMath = (valueType: ValueType): boolean => valueType.kind === 'number' || valueType.kind === 'int';
+const allowsMath = (valueType: ValueType): boolean =>
+    valueType.kind === 'number' || valueType.kind === 'int' || valueType.kind === 'float';
 
 /**
  * Resolves the schema type of `fieldName` in `container` (a group's class through inheritance, or
@@ -143,9 +150,19 @@ const fieldTypeIn = async (
  *  - a whole value on a schema field typed numeric (`Damage = sq`), where a formula may be starting.
  * A quoted string, a reference, an inheritance base and any field the schema types as string,
  * enum, bool or reference never take a function, so they stay silent.
+ *
+ * The empty argument list of a call whose `(` the caret sits right behind (`X = ceil(`) is served
+ * too. There the caret has no value leaf of its own and resolves to the call node instead, which
+ * used to end the request although one space further along (`X = ceil( `) the offset fallback
+ * answers with the whole registry.
  */
 export class AutoCompletionMathFunction implements AutoCompletion<ValueNode> {
-    public async getCompletions(node: ValueNode, cancellationToken: CancellationToken): Promise<Completion[]> {
+    public async getCompletions(
+        node: ValueNode,
+        cancellationToken: CancellationToken,
+        cursorOffset?: number
+    ): Promise<Completion[]> {
+        if (isFunctionCallNode(node)) return this.emptyArgumentCompletions(node, cursorOffset, cancellationToken);
         if (!isValueNode(node) || node.quoted) return [];
         if (node.valueType.type !== 'String') return [];
         const written = String(node.valueType.value);
@@ -165,6 +182,33 @@ export class AutoCompletionMathFunction implements AutoCompletion<ValueNode> {
         }
         const fieldType = (await fieldOfValueNode(node, cancellationToken))?.valueType;
         return fieldType !== undefined && allowsMath(fieldType) ? mathItems() : [];
+    }
+
+    /**
+     * The registry for the still empty argument list of `call`, where the caret sits behind the `(`
+     * and no value node holds it. An argument the modder has begun writing is a value leaf of its
+     * own and is served by the value path above, so only a call with no argument at all answers
+     * here, under the same schema gate the operand path uses.
+     *
+     * @param call the function call the caret resolved to.
+     * @param cursorOffset the caret's byte offset, absent when the caller does not know it.
+     * @param cancellationToken cancellation for the field's inheritance walk.
+     * @returns the math items, or none when the caret is outside the argument list.
+     */
+    private async emptyArgumentCompletions(
+        call: FunctionCallNode,
+        cursorOffset: number | undefined,
+        cancellationToken: CancellationToken
+    ): Promise<Completion[]> {
+        const position = call.position;
+        if (call.arguments.length > 0 || cursorOffset === undefined || !position) return [];
+        if (cursorOffset <= position.start + call.name.length || cursorOffset > position.end) return [];
+        const container = call.parent;
+        if (!container || !('elements' in container)) return [];
+        const expression = enclosingExpression(container as { elements: AbstractNode[] }, call);
+        if (!expression?.fieldName) return mathItems();
+        const fieldType = await fieldTypeIn(container, expression.fieldName, cancellationToken);
+        return fieldType === undefined || allowsMath(fieldType) ? mathItems() : [];
     }
 }
 

@@ -14,6 +14,7 @@ import { parseText } from '../../utils/ast.utils';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
 import { foldPathCase } from '../../workspace/fs-cache';
 import { globalSettings } from '../../settings';
+import { writeRefusalFor } from '../../mod/write-gate';
 import { ModConflict } from './mod-conflicts';
 import { ModReachability, reachabilityKey } from '../../mod/mod-reachability';
 import * as l10n from '@vscode/l10n';
@@ -49,7 +50,26 @@ export interface HealthRow {
     readonly places: readonly HealthPlace[];
     /** True when the check ran and found nothing to act on. */
     readonly clear: boolean;
+    /** True when the check did not run at all, so the row states neither a pass nor a finding. */
+    readonly unchecked?: boolean;
 }
+
+/**
+ * The row a check gets when it never ran for this mod, so the table says so rather than printing
+ * the clear wording of a pass nobody made.
+ *
+ * @param check the row's first cell.
+ * @returns the row.
+ */
+const uncheckedRow = (check: string): HealthRow => ({
+    check,
+    finding: l10n.t(
+        'Not checked. This mod is an installed copy in the Steam workshop folder, which the editor neither compares against other mods nor rewrites.'
+    ),
+    places: [],
+    clear: false,
+    unchecked: true,
+});
 
 /** How many places one row links before the reader is left to the editor's own problem list. */
 const HEALTH_PLACE_LIMIT = 3;
@@ -328,7 +348,7 @@ const reachabilityRow = (reachability: ModReachability): HealthRow => {
             reachability.unreachable.length === 0
                 ? l10n.t('The manifest reaches every `.rules` file in the mod.')
                 : l10n.t(
-                      'The manifest reaches {0} of the {1} `.rules` files. The game never opens the rest.',
+                      'The manifest reaches {0} of the {1} `.rules` and `.txt` files. The game never opens the rest.',
                       String(reached),
                       String(total)
                   ),
@@ -481,6 +501,11 @@ export const modHealthRows = async (
     conflicts?: readonly ModConflict[]
 ): Promise<HealthRow[]> => {
     const withGameIndex = !!CosmoteerWorkspaceService.instance.dataRootPath;
+    // Two of the rows below are fed by passes that are switched off for a mod opened inside the
+    // Steam workshop tree: the conflict sweep skips it, since it would be compared against its own
+    // installed copy, and the shared-base analysis only runs where the base file it would generate
+    // may be written. Neither found nothing, neither ran.
+    const installedCopy = writeRefusalFor(reachability.modRoot)?.reason === 'installedMod';
     const passes = await runPasses(reachability, folderPaths, withGameIndex, token, scanned);
     const rows: HealthRow[] = [actionRow(actions), reachabilityRow(reachability)];
     // Two files of one mod registering the same id is only decidable against the game's own
@@ -515,20 +540,22 @@ export const modHealthRows = async (
             l10n.t('One field is written that the game never reads.'),
             (count) => l10n.t('{0} fields are written that the game never reads.', count)
         ),
-        countedRow(
-            l10n.t('Repeated field sets'),
-            passes.duplicateFields,
-            l10n.t('No group repeats a field set another file of this mod writes.'),
-            l10n.t(
-                'One group repeats a field set other files write word for word, which the Cosmoteer: Extract Shared Base Files command turns into one shared base.'
-            ),
-            (count) =>
-                l10n.t(
-                    '{0} groups repeat a field set other files write word for word, which the Cosmoteer: Extract Shared Base Files command turns into one shared base.',
-                    count
-                )
-        ),
-        conflictRow(conflicts),
+        installedCopy
+            ? uncheckedRow(l10n.t('Repeated field sets'))
+            : countedRow(
+                  l10n.t('Repeated field sets'),
+                  passes.duplicateFields,
+                  l10n.t('No group repeats a field set another file of this mod writes.'),
+                  l10n.t(
+                      'One group repeats a field set other files write word for word, which the Cosmoteer: Extract Shared Base Files command turns into one shared base.'
+                  ),
+                  (count) =>
+                      l10n.t(
+                          '{0} groups repeat a field set other files write word for word, which the Cosmoteer: Extract Shared Base Files command turns into one shared base.',
+                          count
+                      )
+              ),
+        installedCopy ? uncheckedRow(l10n.t('Installed mods')) : conflictRow(conflicts),
         countedRow(
             l10n.t('Overrides that change nothing'),
             passes.redundantOverrides,

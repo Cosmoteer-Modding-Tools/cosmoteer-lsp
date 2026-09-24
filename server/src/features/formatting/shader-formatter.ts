@@ -8,6 +8,8 @@
  * macro (after a trailing `\`). Preprocessor directives themselves go to column 0, HLSL style.
  */
 
+import { lineEndingOf } from '../refactor/command-host';
+
 interface ShaderFormattingOptions {
     tabSize: number;
     insertSpaces: boolean;
@@ -68,7 +70,7 @@ const scanLine = (line: string, state: ScanState): void => {
  */
 export const formatShaderDocument = (text: string, options: ShaderFormattingOptions): string => {
     if (!text.trim()) return text;
-    const eol = text.includes('\r\n') ? '\r\n' : '\n';
+    const eol = lineEndingOf(text);
     const indentUnit = options.insertSpaces ? ' '.repeat(Math.max(1, options.tabSize)) : '\t';
     const lines = text.split('\n').map((l) => (l.endsWith('\r') ? l.slice(0, -1) : l));
     // Drop the empty pseudo-line a trailing newline produces, the final newline is re-added below.

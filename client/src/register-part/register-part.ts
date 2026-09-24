@@ -4,6 +4,7 @@ import { ExecuteCommandRequest, LanguageClient } from 'vscode-languageclient/nod
 import { offerToOpen, warnOfUnsavedFiles } from '../command-util';
 import { ApplyCleanup, openDocumentPaths, saveAndTidy } from '../shared-base/apply-cleanup';
 import {
+    RegisterPartApply,
     RegisterPartApplyResult,
     RegisterPartArgs,
     RegisterPartFailure,
@@ -20,7 +21,7 @@ import {
  * The command the server's "register this part in a ship class" refactoring carries. The server does
  * not claim it, so the editor runs this instead and the author picks the ship class first.
  */
-export const REGISTER_PART_IN_SHIP_LOCAL_COMMAND = 'cosmoteer.registerPartInShipFromAction';
+const REGISTER_PART_IN_SHIP_LOCAL_COMMAND = 'cosmoteer.registerPartInShipFromAction';
 
 /**
  * What registering into a ship would do, shown under its entry in the picker.
@@ -70,7 +71,7 @@ async function pickShipCandidate(candidates: ShipCandidate[]): Promise<ShipCandi
  * @param result the server's registration summary.
  * @param cleanup what the tidy-up did.
  */
-async function showRegisterPartSummary(result: RegisterPartApplyResult, cleanup?: ApplyCleanup): Promise<void> {
+async function showRegisterPartSummary(result: RegisterPartApply, cleanup?: ApplyCleanup): Promise<void> {
     warnOfUnsavedFiles(cleanup);
     const changed = result.changedFiles[0] ?? result.shipFsPath;
     const note =

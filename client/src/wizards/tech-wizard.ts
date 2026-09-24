@@ -2,7 +2,7 @@ import { ExtensionContext, Uri, l10n, window, workspace } from 'vscode';
 import { LanguageClient } from 'vscode-languageclient/node';
 import { creationFailureMessage, wiringNotes } from './nebula-wizard';
 import { applyForWizard, scanForWizard, wizardAnchor } from './wizard-client';
-import { escapeHtml, modFolderName, showWizardForm } from './wizard-form';
+import { escapeHtml, field, modFolderName, showWizardForm } from './wizard-form';
 import { NewTechApplyResult, NewTechPart, NewTechScanResult, TechForm } from './tech-wizard.types';
 
 /**
@@ -86,16 +86,8 @@ export async function createNewTech(context: ExtensionContext, client: LanguageC
             'Pick the part the tech unlocks, what it costs at a station and the techs a player needs first. Until a tech names it, the part is buildable from the start of a career.'
         ),
         fieldsHtml: `
-<div class="field">
-<label for="part">${escapeHtml(l10n.t('Part to unlock'))}</label>
-<select id="part">${partOptions}</select>
-<div class="hint">${escapeHtml(l10n.t('The tech takes its name, description, icon and toolbar group from the part.'))}</div>
-</div>
-<div class="field">
-<label for="cost">${escapeHtml(l10n.t('Cost'))}</label>
-<input id="cost" type="number" min="1" step="1" value="${DEFAULT_COST}" />
-<div class="hint">${escapeHtml(l10n.t("Before the station's reputation factor. The game's mid-tree techs cost {0}.", String(DEFAULT_COST)))}</div>
-</div>
+${field('part', l10n.t('Part to unlock'), l10n.t('The tech takes its name, description, icon and toolbar group from the part.'), `<select id="part">${partOptions}</select>`)}
+${field('cost', l10n.t('Cost'), l10n.t("Before the station's reputation factor. The game's mid-tree techs cost {0}.", String(DEFAULT_COST)), `<input id="cost" type="number" min="1" step="1" value="${DEFAULT_COST}" />`)}
 <div class="field">
 <label for="filter">${escapeHtml(l10n.t('Prerequisites'))}</label>
 <input id="filter" type="text" autocomplete="off" spellcheck="false" placeholder="${escapeHtml(l10n.t('Filter the techs'))}" />

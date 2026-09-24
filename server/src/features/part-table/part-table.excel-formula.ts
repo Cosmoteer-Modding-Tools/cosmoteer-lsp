@@ -1,4 +1,5 @@
 import { Node, parseFormula } from './part-table.formula';
+import { numberText } from './xlsx';
 
 /**
  * Writes a part table formula out as an Excel formula, so a formula column of the exported
@@ -36,6 +37,12 @@ export interface ExcelFormulaContext {
     readonly idColumn: string;
     /** The id of the compared part, absent when the view compares nothing. */
     readonly referenceId?: string;
+    /**
+     * Whether the compared part is none of the exported rows. `ref` looks the part up by its id in
+     * the sheet itself, so a comparison the filter or the search left off the sheet has nothing to
+     * find and every cell of the column would read `#N/A`.
+     */
+    readonly referenceOffSheet?: boolean;
 }
 
 /** The longest formula Excel holds in a cell. */
@@ -106,17 +113,6 @@ type Mode = 'row' | 'column' | 'reference';
 const specifier = (name: string): string => name.replace(/['[\]#@]/g, "'$&");
 
 /**
- * The text of a number, never in exponent form, since an Excel formula reads only decimals.
- *
- * @param value the number.
- * @returns the number as a formula writes it.
- */
-const numberText = (value: number): string => {
-    const text = String(value);
-    return text.includes('e') || text.includes('E') ? value.toFixed(12).replace(/0+$/, '').replace(/\.$/, '') : text;
-};
-
-/**
  * The reference to one column, written the way the mode asks for.
  *
  * @param column the exported column.
@@ -131,6 +127,9 @@ const reference = (column: ExcelColumn, mode: Mode, context: ExcelFormulaContext
     let read = `${context.table}[[#This Row],[${specifier(column.name)}]]`;
     if (mode === 'reference') {
         if (!context.referenceId) throw new ExcelFormulaError('no part is being compared against');
+        if (context.referenceOffSheet) {
+            throw new ExcelFormulaError(`the compared part "${context.referenceId}" is not one of the exported rows`);
+        }
         const id = context.referenceId.replace(/"/g, '""');
         read = `INDEX(${whole},MATCH("${id}",${context.table}[${specifier(context.idColumn)}],0))`;
     }

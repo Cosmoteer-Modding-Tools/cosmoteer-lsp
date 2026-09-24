@@ -5,6 +5,7 @@ import {
     CodeActionKind,
     CodeActionParams,
     Diagnostic,
+    Range,
     TextEdit,
 } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
@@ -83,6 +84,55 @@ export const quotedLikeSource = (current: string, newText: string): string => {
     // A raw string takes its body verbatim, a plain one needs its quotes and backslashes escaped.
     const body = quoted[1] === '@' ? newText : newText.replace(/["\\]/g, (char) => `\\${char}`);
     return `${quoted[1]}"${body}"`;
+};
+
+/**
+ * How many closing parens sit at the end of a span that the span never opened itself. A
+ * parenthesized value is parsed with its `)` inside the value node's span while the `(` stays
+ * outside it, so a span that ends on such a `)` covers more text than the value it names. A `)` the
+ * span opened itself, as in `ceil(&A)`, is matched and counts for nothing.
+ *
+ * @param text the text the span covers.
+ * @returns the number of characters at the end of the span that belong to enclosing parens.
+ */
+const unmatchedTrailingParens = (text: string): number => {
+    let depth = 0;
+    let trailing = 0;
+    for (const char of text) {
+        if (char === '(') {
+            depth++;
+            trailing = 0;
+        } else if (char !== ')') {
+            trailing = 0;
+        } else if (depth > 0) {
+            depth--;
+            trailing = 0;
+        } else {
+            trailing++;
+        }
+    }
+    return trailing;
+};
+
+/**
+ * The span a replacement fix writes over, narrowed to the value the replacement stands for.
+ *
+ * The parser spans a parenthesized value over its closing `)` so that an end-of-expression marker
+ * lands after the whole group, and it leaves the opening `(` outside the span. Writing a bare
+ * suggestion over that span therefore used to turn `A = (&/INDICATORS/Scorche)` into
+ * `A = (&/INDICATORS/Scorched`, which the game's expression evaluator reads as an unbalanced
+ * expression and refuses to load. Nesting is covered too, since `((&A))` leaves two such parens.
+ *
+ * @param doc the buffer the fix would be applied to.
+ * @param range the span as the finding underlines it.
+ * @returns the span to write over, which is the flagged one whenever its parens balance.
+ */
+const replacedRange = (doc: TextDocument, range: Range): Range => {
+    const text = doc.getText(range);
+    const enclosing = unmatchedTrailingParens(text);
+    // A span that is nothing but closing parens names no value, so it is left to the producer.
+    if (enclosing === 0 || enclosing >= text.length) return range;
+    return { start: range.start, end: doc.positionAt(doc.offsetAt(range.end) - enclosing) };
 };
 
 /**
@@ -170,6 +220,8 @@ const editOf = (doc: TextDocument, insertion: { offset: number; newText: string 
 
 /**
  * One edit of a rewrite fix, with the whole-line widening a removal gets so it leaves no blank line.
+ * A replacement is narrowed to the value it names, so a rewrite of a parenthesized value keeps the
+ * parens the author wrote.
  *
  * @param doc the buffer the fix would be applied to.
  * @param edit the byte-offset edit the fix carries.
@@ -179,7 +231,7 @@ const rewriteEdit = (doc: TextDocument, edit: { start: number; end: number; newT
     edit.newText === ''
         ? { range: removalRange(doc, edit.start, edit.end), newText: '' }
         : {
-              range: { start: doc.positionAt(edit.start), end: doc.positionAt(edit.end) },
+              range: replacedRange(doc, { start: doc.positionAt(edit.start), end: doc.positionAt(edit.end) }),
               newText: edit.newText,
           };
 
@@ -197,15 +249,17 @@ export const textFixActions = (doc: TextDocument, uri: string, diagnostic: Diagn
     const data = diagnostic.data as ValidationErrorData | undefined;
     const actions: CodeAction[] = [];
     if (data?.quickFix) {
-        // The suggestion is a bare name and the flagged range can cover a quoted value, so the
-        // quoting the author wrote is put back around it.
-        const newText = quotedLikeSource(doc.getText(diagnostic.range), data.quickFix.newText);
+        // The suggestion is a bare name and the flagged range can cover more than the value it
+        // stands for, so the range is narrowed to the value and the quoting the author wrote is put
+        // back around it.
+        const range = replacedRange(doc, diagnostic.range);
+        const newText = quotedLikeSource(doc.getText(range), data.quickFix.newText);
         actions.push({
             title: data.quickFix.title,
             kind: CodeActionKind.QuickFix,
             diagnostics: [diagnostic],
             isPreferred: true,
-            edit: { changes: { [uri]: [{ range: diagnostic.range, newText }] } },
+            edit: { changes: { [uri]: [{ range, newText }] } },
         });
     }
     // A rewrite (multi-edit migration, e.g. `Flammable = false` → TypeCategories entry) is offered
@@ -511,7 +565,7 @@ const refactorActions = async (
  * @param cancellationToken cancels the sweeps with the request.
  * @returns the actions, in the order they are offered.
  */
-const crossFileFixActions = async (
+export const crossFileFixActions = async (
     params: CodeActionParams,
     diagnostic: Diagnostic,
     data: ValidationErrorData | undefined,
@@ -551,16 +605,21 @@ const crossFileFixActions = async (
             });
         }
     }
-    // A mod this file leans on without saying so: write it into the manifest's Dependencies, so
-    // the mod states what it needs instead of only working where that mod happens to be
-    // installed. The edit lands in the manifest, not in the file the diagnostic sits in.
+    // A mod this file leans on without saying so: record it under the manifest's Dependencies, so
+    // the mod states what it needs instead of only working where that mod happens to be installed.
+    // The game reads no dependency field, so the entry is a statement of the requirement and the
+    // player still has to install the other mod. The edit lands in the manifest, not in the file
+    // the diagnostic sits in.
     if (data?.addModDependency) {
         const { token, name } = data.addModDependency;
         const modRoot = findModRoot(params.textDocument.uri);
         const insert = modRoot ? await addDependencyEdit(modRoot, token).catch(() => null) : null;
         if (insert) {
             actions.push({
-                title: l10n.t("Add '{0}' to the manifest's Dependencies", name),
+                title: l10n.t(
+                    "Record '{0}' under the manifest's Dependencies (the player still has to install it)",
+                    name
+                ),
                 kind: CodeActionKind.QuickFix,
                 diagnostics: [diagnostic],
                 edit: { changes: { [insert.uri]: [insert.edit] } },

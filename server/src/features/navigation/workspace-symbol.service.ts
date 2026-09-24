@@ -60,18 +60,37 @@ export class WorkspaceSymbolService extends WatchedDocumentIndex {
             'Indexing symbols'
         );
 
-        // Substring pre-filter over the cache. The client still applies its own fuzzy
-        // ranking. An empty query matches everything (bounded by MAX_RESULTS).
+        // Substring pre-filter over the cache. The client still applies its own fuzzy ranking.
         const needle = query.toLowerCase();
-        const results: WorkspaceSymbol[] = [];
+        // An empty query matches everything and has nothing to rank by, so the first files' symbols
+        // are as good an answer as any and the walk stops as soon as the cap is full.
+        if (!needle) {
+            const all: WorkspaceSymbol[] = [];
+            for (const symbols of this.bySource.values()) {
+                for (const symbol of symbols) {
+                    all.push(symbol);
+                    if (all.length >= MAX_RESULTS) return all;
+                }
+            }
+            return all;
+        }
+        // A common field name matches far more symbols than the cap holds, and cutting the walk at
+        // the cap answered whichever files the index happened to walk first. Typing the name in
+        // full did not help, because the exact matches sit behind thousands of substring ones. So
+        // the matches are collected by how well they match and cut afterwards, which puts every
+        // exact match in the answer before a single substring one.
+        const exact: WorkspaceSymbol[] = [];
+        const prefix: WorkspaceSymbol[] = [];
+        const substring: WorkspaceSymbol[] = [];
         for (const symbols of this.bySource.values()) {
             for (const symbol of symbols) {
-                if (needle && !symbol.name.toLowerCase().includes(needle)) continue;
-                results.push(symbol);
-                if (results.length >= MAX_RESULTS) return results;
+                const name = symbol.name.toLowerCase();
+                if (name === needle) exact.push(symbol);
+                else if (name.startsWith(needle)) prefix.push(symbol);
+                else if (name.includes(needle)) substring.push(symbol);
             }
         }
-        return results;
+        return [...exact, ...prefix, ...substring].slice(0, MAX_RESULTS);
     }
 
     /** (Re)build one document's symbols, replacing any prior set from the same source. */

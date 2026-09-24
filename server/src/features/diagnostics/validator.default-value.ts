@@ -1,13 +1,12 @@
 import { CancellationToken } from 'vscode-languageserver';
 import {
-    AbstractNode,
     AbstractNodeDocument,
     GroupNode,
     isAssignmentNode,
     isGroupNode,
     isValueNode,
     ValueNode,
-    childNodesOf,
+    descendants,
 } from '../../core/ast/ast';
 import { isModRules } from '../../document/document-kind';
 import { resolveGroupClass } from '../../document/schema/schema-context';
@@ -133,8 +132,8 @@ export const validateDefaultValuedFields = async (
 ): Promise<ValidationError[]> => {
     if (isModRules(document.uri)) return [];
     const errors: ValidationError[] = [];
-    const visit = (node: AbstractNode): void => {
-        if (cancellationToken.isCancellationRequested) return;
+    for (const node of descendants(document)) {
+        if (cancellationToken.isCancellationRequested) break;
         if (isGroupNode(node) && !node.inheritance?.length) {
             const cls = resolveGroupClass(node);
             if (cls) {
@@ -164,9 +163,6 @@ export const validateDefaultValuedFields = async (
                 }
             }
         }
-        const children = childNodesOf(node);
-        for (const child of children) visit(child);
-    };
-    visit(document);
+    }
     return errors;
 };

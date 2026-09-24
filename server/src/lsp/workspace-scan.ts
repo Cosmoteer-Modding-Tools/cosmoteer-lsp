@@ -3,11 +3,10 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { readFile, stat } from 'fs/promises';
 import { pathToFileURL } from 'url';
 import { uriToFsPath } from '../workspace/workspace-files';
-import { collectRulesFiles } from '../workspace/rules-file-walk';
+import { collectScannedFiles } from '../workspace/rules-file-walk';
 import { MentionIndex } from '../workspace/mention.index';
 import { filePathToUri } from '../document/reference-path';
 import { normalizeUri } from '../document/reference-location';
-import { reachabilityKey } from '../mod/mod-reachability';
 import { CosmoteerWorkspaceService } from '../workspace/cosmoteer-workspace.service';
 import { beginFsTrustWindow, endFsTrustWindow, foldPathCase } from '../workspace/fs-cache';
 import { workshopContentDir } from '../workspace/workshop-dir';
@@ -30,7 +29,6 @@ import { validateTextDocument } from './validate-document';
 import {
     isOutsideRulesPanel,
     reachableFileFilter,
-    validationScopeKeys,
     wholeWorkspaceEnabled,
     workspaceValidationScope,
 } from './validation-scope';
@@ -41,9 +39,9 @@ import { COSMOTEER_METHOD } from '../../../shared/lsp-methods';
 
 // ── Whole-workspace diagnostics ─────────────────────────────────────────────────────────────
 // On by default. Besides the file open in the editor (see `documents.onDidChangeContent`), the
-// server walks every `.rules` file the configured scope covers in the open workspace folder(s) and
-// publishes diagnostics for them, so problems surface in the Problems panel without opening each
-// file. Results are cached on disk per file, so only the first open of a project pays for the walk.
+// server walks every `.rules` and `.shader` file the configured scope covers in the open workspace
+// folder(s) and publishes diagnostics for them, so problems surface in the Problems panel without
+// opening each file. Results are cached on disk per file, so only the first open of a project pays for the walk.
 // Turn `cosmoteerLSPRules.diagnostics.validateWholeWorkspace` off on a low-memory machine: the pass
 // holds every scanned file's AST while it runs.
 
@@ -149,11 +147,12 @@ export const currentScanCacheEntries = (): ScanCacheEntry[] => {
 };
 
 /**
- * Validate a single `.rules` file from disk and publish its diagnostics. Skips files open in the
- * editor (the live-edit flow already covers them). Reuses {@link validateTextDocument} so on-disk
- * files go through the exact same lexer/parser/validator path as open ones.
+ * Validate a single file from disk and publish its diagnostics. Skips files open in the editor (the
+ * live-edit flow already covers them). Reuses {@link validateTextDocument} so on-disk files go
+ * through the exact same path as open ones, which is the HLSL checks for a `.shader` and the
+ * lexer/parser/validator chain for everything else.
  *
- * @param file the on-disk path of the `.rules` file to validate.
+ * @param file the on-disk path of the file to validate.
  * @param openNorms normalized uris of documents open in the editor, which are skipped. A snapshot
  *        the caller took, so it only pre-filters. {@link isDocumentOpen} re-asks at publish time
  *        for the file that was opened after the snapshot.
@@ -292,7 +291,7 @@ export async function runWorkspaceValidation(): Promise<void> {
     try {
         let files: string[] = [];
         for (const folder of folderUris) {
-            for await (const file of collectRulesFiles(uriToFsPath(folder))) {
+            for await (const file of collectScannedFiles(uriToFsPath(folder))) {
                 if (token.isCancellationRequested) return;
                 files.push(file);
             }
@@ -300,15 +299,15 @@ export async function runWorkspaceValidation(): Promise<void> {
         // In 'modRulesReachable' scope, restrict the pass to files the game can actually load (the
         // manifest's reachability closure), so dead backups and templates stay out of the Problems
         // panel. A folder without a manifest keeps every file (nothing to scope by).
-        const scopeKeys = await validationScopeKeys(token);
-        if (scopeKeys) files = files.filter((file) => scopeKeys.has(reachabilityKey(file)));
+        const scopeAllows = await reachableFileFilter(token);
+        if (scopeAllows) files = files.filter((file) => scopeAllows(file));
         const openNorms = openDocumentNorms();
         // Problems published for files that are no longer in scope (the closure shrank, or a tab
         // close or watcher event validated them before the scope gates existed) are not refreshed
         // by this pass, so they would stick in the panel forever. Clear them instead.
-        if (scopeKeys) {
+        if (scopeAllows) {
             for (const stored of [...workspaceDiagnosticUris]) {
-                if (scopeKeys.has(reachabilityKey(uriToFsPath(stored)))) continue;
+                if (scopeAllows(uriToFsPath(stored))) continue;
                 if (openNorms.has(normalizeUri(stored))) continue;
                 workspaceDiagnosticUris.delete(stored);
                 await connection.sendDiagnostics({ uri: stored, diagnostics: [] });

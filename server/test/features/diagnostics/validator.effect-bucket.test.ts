@@ -82,6 +82,66 @@ describe('the media effect bucket registry', () => {
     });
 });
 
+const MANIFEST_PATH = workspaceFile('mod.rules');
+
+const manifestFindings = async (...members: string[]): Promise<string[]> =>
+    (
+        await validateEffectBuckets(
+            parse(
+                ['Actions', '[', '\t{', ...members.map((line) => `\t\t${line}`), '\t}', ']', ''].join('\n'),
+                MANIFEST_PATH
+            ),
+            token
+        )
+    ).map((error) => error.message);
+
+// An `AddMany` appends its payload to the list the path names, so the payload is read for a
+// repeated name the same way a list written in the registry file is.
+describe('buckets a mod action appends', () => {
+    it('flags a name the payload repeats', async () => {
+        expect(
+            await manifestFindings(
+                'Action = AddMany',
+                'AddTo = "<common_effects/effect_buckets.rules>/MiddleBuckets"',
+                'ManyToAdd [ audit_middle, audit_middle ]'
+            )
+        ).toEqual([
+            "The effect bucket 'audit_middle' is already declared in MiddleBuckets. The game refuses to load a registry that names one bucket twice.",
+        ]);
+    });
+
+    it('says nothing when the payload names each bucket once', async () => {
+        expect(
+            await manifestFindings(
+                'Action = AddMany',
+                'AddTo = "<common_effects/effect_buckets.rules>/MiddleBuckets"',
+                'ManyToAdd [ audit_middle, audit_upper ]'
+            )
+        ).toEqual([]);
+    });
+
+    it('says nothing about a payload that lands anywhere but a bucket list', async () => {
+        expect(
+            await manifestFindings(
+                'Action = AddMany',
+                'AddTo = "<ships/terran/terran.rules>/Parts"',
+                'ManyToAdd [ audit_middle, audit_middle ]'
+            )
+        ).toEqual([]);
+    });
+
+    it('never measures an appended list against the band cap, since it is a part of the list', async () => {
+        const entries = Array.from({ length: 98 }, (_, index) => `Surface${index}`).join(', ');
+        expect(
+            await manifestFindings(
+                'Action = AddMany',
+                'AddTo = "<common_effects/effect_buckets.rules>/InteriorSurfaceBuckets"',
+                `ManyToAdd [ ${entries} ]`
+            )
+        ).toEqual([]);
+    });
+});
+
 describe('the default bullet bucket', () => {
     it('is reported missing when the file is the whole registry', async () => {
         const text = 'MiddleBuckets [ BulletMiddle1 ]\n';

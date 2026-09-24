@@ -12,6 +12,11 @@ interface Intrinsic {
     readonly params: readonly string[];
     /** One-line description shown in completion detail and the signature-help popup. */
     readonly doc: string;
+    /**
+     * True when HLSL accepts the intrinsic with more than the one argument count listed here, so a
+     * call to it must never be argument-checked against `params`.
+     */
+    readonly multiForm?: boolean;
 }
 
 export const HLSL_INTRINSICS: Readonly<Record<string, Intrinsic>> = registry({
@@ -64,7 +69,8 @@ export const HLSL_INTRINSICS: Readonly<Record<string, Intrinsic>> = registry({
     step: { params: ['edge', 'x'], doc: '0 when x < edge, else 1.' },
     tan: { params: ['x'], doc: 'Tangent of each component (radians).' },
     tanh: { params: ['x'], doc: 'Hyperbolic tangent of each component.' },
-    tex2D: { params: ['sampler', 'uv'], doc: 'Sample a 2D texture at uv (legacy DX9 form).' },
+    // Also takes the four-argument gradient form, so its calls carry no single arity to check.
+    tex2D: { params: ['sampler', 'uv'], doc: 'Sample a 2D texture at uv (legacy DX9 form).', multiForm: true },
     transpose: { params: ['m'], doc: 'Transpose of a matrix.' },
     trunc: { params: ['x'], doc: 'Truncate each component toward zero.' },
 });

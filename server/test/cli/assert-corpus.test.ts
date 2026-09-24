@@ -63,7 +63,7 @@ describe.skipIf(!HAVE)('every installed mod', () => {
             for (const candidate of candidates) {
                 const { records } = await collectManifestActions(candidate.parsed, folder, cache);
                 for (const record of records) {
-                    const { verdict } = judgeAction(record, [], context);
+                    const { verdict } = judgeAction(record, [], context, { files: [], blockers: [], unchecked: [] });
                     summary.actions++;
                     summary.marks[verdict.mark]++;
                     expect(verdict.detail.length, `${verdict.path}:${verdict.line}`).toBeGreaterThan(0);

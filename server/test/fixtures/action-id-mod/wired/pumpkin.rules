@@ -1,0 +1,5 @@
+// Overrides-merged over resources/testiron.rules, which renames the resource: the whole file roots
+// as ResourceRules, so its `ID` belongs to the project's resource ids.
+ID = pumpkin
+NameKey = "Resources/Pumpkin"
+SellPrice = 12

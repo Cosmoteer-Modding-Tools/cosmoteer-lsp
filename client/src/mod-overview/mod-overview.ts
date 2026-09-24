@@ -1,21 +1,4 @@
-import {
-    CancellationToken,
-    CodeLens,
-    CodeLensProvider,
-    Position,
-    Range,
-    TextDocument,
-    Uri,
-    commands,
-    l10n,
-    window,
-} from 'vscode';
-import { LanguageClient } from 'vscode-languageclient/node';
-import { VirtualContentProvider } from '../virtual-content-provider';
-import { COSMOTEER_METHOD } from '../../../shared/lsp-methods';
-
-/** The virtual-document scheme the rendered overview markdown is served under. */
-export const MOD_OVERVIEW_SCHEME = 'cosmoteer-mod-overview';
+import { CancellationToken, CodeLens, CodeLensProvider, Position, Range, TextDocument, l10n } from 'vscode';
 
 /** Whether a document is a mod manifest (`mod.rules` or a version-specific `mod_*.rules`). */
 const isManifestDocument = (document: TextDocument): boolean =>
@@ -45,50 +28,4 @@ export class ModOverviewCodeLensProvider implements CodeLensProvider {
             }),
         ];
     }
-}
-
-/**
- * Serves the generated overview markdown as a read-only virtual document, so the built-in markdown
- * preview can render it without writing a file into the user's mod.
- */
-export class ModOverviewContentProvider extends VirtualContentProvider {
-    public constructor() {
-        super(() => l10n.t('The mod overview is no longer available. Run the command again.'));
-    }
-}
-
-/**
- * Requests the overview markdown for a manifest from the server and opens it in the markdown
- * preview. Bound to the `cosmoteer.showModOverview` command (the CodeLens passes the manifest uri;
- * from the palette the active editor's document is used).
- *
- * @param client the running language client the request is sent through.
- * @param provider the content provider the rendered markdown is served from.
- * @param uri the manifest uri, or undefined to use the active editor.
- */
-export async function showModOverview(
-    client: LanguageClient,
-    provider: ModOverviewContentProvider,
-    uri?: Uri
-): Promise<void> {
-    const targetUri = uri ?? window.activeTextEditor?.document.uri;
-    if (!targetUri) return;
-    const markdown = await client.sendRequest<string | null>(COSMOTEER_METHOD.modOverview, {
-        textDocument: { uri: targetUri.toString() },
-    });
-    if (!markdown) {
-        void window.showWarningMessage(
-            l10n.t('No mod overview available: the file is not inside a mod with a mod.rules.')
-        );
-        return;
-    }
-    // One stable overview uri per manifest, so re-running the command refreshes the open preview
-    // instead of stacking new tabs. The manifest uri rides along in the query for reference.
-    const overviewUri = Uri.from({
-        scheme: MOD_OVERVIEW_SCHEME,
-        path: '/Mod Overview.md',
-        query: targetUri.toString(),
-    });
-    provider.set(overviewUri, markdown);
-    await commands.executeCommand('markdown.showPreview', overviewUri);
 }

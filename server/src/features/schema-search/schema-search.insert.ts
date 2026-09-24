@@ -11,8 +11,10 @@ import { findEnclosingContainer } from '../../document/schema/schema-context';
 import { classAncestry } from '../../document/schema/schema';
 import { fieldSnippet } from '../completion/autocompletion.schema-fields';
 import { memberIndentAt, placeholderValue } from '../diagnostics/required-field-insert';
+import { memberNameOf } from '../../document/reference-resolver';
+import { lineEndingOf } from '../refactor/command-host';
 import { memberSpanOf } from '../refactor/shared-base/member-record';
-import { closerOffset, memberIndentOf, openerOffset } from '../refactor/rules-edit';
+import { closerOffset, memberIndentOf, openerOffset, pastTrailingRun } from '../refactor/rules-edit';
 import { resolveSchemaSearchContext } from './schema-search';
 import { schemaSearchEntryById } from './schema-search.index';
 
@@ -31,7 +33,8 @@ export interface InsertSchemaFieldArgs {
 }
 
 /** Why an insert did nothing, in a word the client turns into a sentence. */
-type InsertSchemaFieldFailure = 'stale' | 'notAField' | 'noContext' | 'classMismatch' | 'noAnchor' | 'editRejected';
+type InsertSchemaFieldFailure =
+    'stale' | 'notAField' | 'noContext' | 'classMismatch' | 'alreadyDeclared' | 'noAnchor' | 'editRejected';
 
 /** What the command answers with. */
 export interface InsertSchemaFieldResult {
@@ -69,6 +72,21 @@ const lastMemberEndBefore = (elements: readonly AbstractNode[], offset: number):
 };
 
 /**
+ * Whether a container already writes a member of that name itself. The game keys a group's children
+ * by name through a case-insensitive dictionary and throws on the second one, so a scaffold written
+ * next to a name the file already holds leaves a mod the game refuses to load.
+ *
+ * Only the container's own members count. A group that names a base legally rewrites a field the
+ * base supplies, which is how an override is written, and the picker offers those on purpose.
+ *
+ * @param elements the container's members.
+ * @param name the field name about to be written.
+ * @returns true when the name is already written there.
+ */
+const alreadyDeclares = (elements: readonly AbstractNode[], name: string): boolean =>
+    elements.some((element) => memberNameOf(element)?.toLowerCase() === name.toLowerCase());
+
+/**
  * Where a new member of a group goes: after the last member the caret has passed, or right after the
  * opening brace when the caret sits before every member or the group is still empty.
  *
@@ -86,7 +104,9 @@ const groupPlacement = (text: string, group: GroupNode, offset: number): Placeme
     if (open < 0 || close < 0 || close < open) return undefined;
     const anchor = lastMemberEndBefore(group.elements, offset);
     if (anchor !== undefined && anchor > open && anchor < close) {
-        return { offset: anchor, indent: memberIndentAt(text, anchor), leadingNewline: true };
+        // Past whatever trails the anchor on its line, so the note the author wrote about that member
+        // stays with it instead of being carried onto the scaffolded field.
+        return { offset: pastTrailingRun(text, anchor), indent: memberIndentAt(text, anchor), leadingNewline: true };
     }
     // Before the first member (or in an empty group): open a line right under the brace, indented the
     // way the group's own members are indented.
@@ -105,7 +125,7 @@ const groupPlacement = (text: string, group: GroupNode, offset: number): Placeme
 const documentPlacement = (text: string, document: AbstractNodeDocument, offset: number): Placement => {
     const anchor = lastMemberEndBefore(document.elements, offset);
     return anchor !== undefined
-        ? { offset: anchor, indent: memberIndentAt(text, anchor), leadingNewline: true }
+        ? { offset: pastTrailingRun(text, anchor), indent: memberIndentAt(text, anchor), leadingNewline: true }
         : { offset: 0, indent: '', leadingNewline: false };
 };
 
@@ -142,6 +162,8 @@ export const buildInsertSchemaFieldEdit = async (
     const container = findEnclosingContainer(parserResult, offset);
     // A list element is a value, not a named member, so a field name written there is not a field.
     if (container && isListNode(container)) return { failure: 'noContext' };
+    const members = container && isGroupNode(container) ? container.elements : parserResult.elements;
+    if (alreadyDeclares(members, entry.field.name)) return { failure: 'alreadyDeclared' };
     const placement =
         container && isGroupNode(container)
             ? groupPlacement(text, container, offset)
@@ -155,7 +177,7 @@ export const buildInsertSchemaFieldEdit = async (
         entry.field.valueType,
         placeholderValue(entry.field.valueType) ?? ''
     );
-    const lineEnding = text.includes('\r\n') ? '\r\n' : '\n';
+    const lineEnding = lineEndingOf(text);
     const body = snippet
         .split('\n')
         .map((line) => `${placement.indent}${line}`)

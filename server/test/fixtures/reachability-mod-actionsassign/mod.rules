@@ -1,0 +1,8 @@
+ID = Test.ActionsAssignMod
+
+Name = "Actions-by-assignment Fixture"
+
+// The manifest factors its whole action list out into another file and assigns it. The game
+// dereferences the path and reads that file as the action list, so it and everything its actions
+// add are loaded.
+Actions = &<acts/list.rules>/Actions
