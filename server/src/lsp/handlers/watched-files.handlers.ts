@@ -162,7 +162,7 @@ export function register(): void {
             // Only files inside the validation scope get their problems published. An out-of-scope
             // file (a dead backup a git operation touched, say) must not enter the panel, and any
             // entry it still holds from an earlier closure is cleared instead.
-            const scopeAllows = await reachableFileFilter(CancellationToken.None);
+            const scopeAllows = await reachableFileFilter();
             const inScope: string[] = [];
             for (const file of toRevalidate) {
                 if (!scopeAllows || scopeAllows(file)) {

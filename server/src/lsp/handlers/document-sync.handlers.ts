@@ -57,14 +57,14 @@ export function register(): void {
             // uri the full pass uses, so the file isn't tracked twice under different uri encodings.
             const path = uriToFsPath(e.document.uri);
             const canonicalUri = filePathToUri(path);
-            const inScope = await reachableFileFilter(CancellationToken.None);
+            const inScope = await reachableFileFilter();
             // A `.txt` nothing references leaves with its tab for the same reason an out-of-scope file
             // does. It validated while open, since opening it as `rules` is a deliberate "this is rules",
             // but the game would never load it, so nothing persists it once the tab is gone. Without this
             // its problems stick forever: the scan gate below never publishes the file, so no later pass
             // is left to retract what the open flow pushed.
             const outOfScope = !!inScope && !inScope(path);
-            if (outOfScope || (await isOutsideRulesPanel(path, CancellationToken.None))) {
+            if (outOfScope || (await isOutsideRulesPanel(path))) {
                 // The file is outside what the panel persists. It validated while it was open
                 // (open files always validate), but its problems leave the panel with the tab instead
                 // of persisting the way scanned files' problems do.

@@ -18,10 +18,10 @@ export const workspaceValidationScope = (): 'allFiles' | 'modRulesReachable' =>
 
 /** Bumped whenever the on-disk `.rules` state or the folder set changes, staling the scope cache. */
 let validationScopeEpoch = 0;
-/** The cached result of {@link reachableFileFilter}, valid while its epoch is current. */
-let validationScopeCache: { epoch: number; allows: ((fsPath: string) => boolean) | undefined } | undefined;
-/** The cached result of {@link referencedTxtKeys}, valid while {@link validationScopeEpoch} holds. */
-let referencedTxtCache: { epoch: number; keys: Set<string> | undefined } | undefined;
+/** The pending or settled result of {@link reachableFileFilter}, valid while its epoch is current. */
+let validationScopeCache: { epoch: number; allows: Promise<((fsPath: string) => boolean) | undefined> } | undefined;
+/** The pending or settled result of {@link referencedTxtKeys}, valid while {@link validationScopeEpoch} holds. */
+let referencedTxtCache: { epoch: number; keys: Promise<Set<string> | undefined> } | undefined;
 
 /** Stales the scope caches, after a disk or folder change moved what the manifest can reach. */
 export function bumpValidationScopeEpoch(): void {
@@ -31,17 +31,18 @@ export function bumpValidationScopeEpoch(): void {
 /**
  * The `.txt` files something in the project references by path, or undefined when the project holds
  * no `.txt` and the gate is moot. Cached until a disk or folder change bumps the scope epoch, like
- * {@link reachableFileFilter}.
+ * {@link reachableFileFilter}, and shared while still pending for the same reason.
  *
- * @param token cancels the text scan. A cancelled (possibly partial) scan is not cached.
  * @returns the referenced keys, or undefined when no gate applies.
  */
-async function referencedTxtKeys(token: CancellationToken): Promise<Set<string> | undefined> {
-    if (referencedTxtCache?.epoch === validationScopeEpoch) return referencedTxtCache.keys;
-    const epoch = validationScopeEpoch;
-    const keys = await collectReferencedTxtKeys(await workspaceFolderPaths(), token).catch(() => undefined);
-    if (!token.isCancellationRequested) referencedTxtCache = { epoch, keys };
-    return keys;
+function referencedTxtKeys(): Promise<Set<string> | undefined> {
+    if (referencedTxtCache?.epoch !== validationScopeEpoch) {
+        const keys = workspaceFolderPaths()
+            .then((paths) => collectReferencedTxtKeys(paths, CancellationToken.None))
+            .catch(() => undefined);
+        referencedTxtCache = { epoch: validationScopeEpoch, keys };
+    }
+    return referencedTxtCache.keys;
 }
 
 /**
@@ -55,12 +56,11 @@ async function referencedTxtKeys(token: CancellationToken): Promise<Set<string> 
  * diagnostics rather than hiding them.
  *
  * @param file the on-disk path of the walked file.
- * @param token cancels the reference scan the first call runs.
  * @returns true when the file is a `.txt` nothing references.
  */
-async function isUnreferencedTxt(file: string, token: CancellationToken): Promise<boolean> {
+async function isUnreferencedTxt(file: string): Promise<boolean> {
     if (!file.toLowerCase().endsWith('.txt')) return false;
-    const keys = await referencedTxtKeys(token);
+    const keys = await referencedTxtKeys();
     if (!keys) return false;
     return !keys.has(foldPathCase(file));
 }
@@ -71,12 +71,11 @@ async function isUnreferencedTxt(file: string, token: CancellationToken): Promis
  * the former already, so this is what retracts anything published for one before the gate applied.
  *
  * @param file the on-disk path of the file.
- * @param token cancels the reference scan the `.txt` gate may run.
  * @returns true when the file's problems must not enter (or stay in) the panel.
  */
-export async function isOutsideRulesPanel(file: string, token: CancellationToken): Promise<boolean> {
+export async function isOutsideRulesPanel(file: string): Promise<boolean> {
     if (isDocumentationFileName(basenameOf(file))) return true;
-    return isUnreferencedTxt(file, token);
+    return isUnreferencedTxt(file);
 }
 
 /** One workspace folder's closure, keyed the way {@link reachabilityKey} keys a file. */
@@ -118,18 +117,28 @@ const scopePredicate =
  * on backups, templates and other dead content. Undefined when no workspace folder has a manifest to
  * scope by, or when the user asked for every file, which both mean "no restriction".
  *
- * The closure walk parses every manifest and reached file, so the predicate is cached until a disk
- * or folder change bumps {@link validationScopeEpoch}.
+ * The closure walk reads every file of every mod, so it runs once per {@link validationScopeEpoch}
+ * and every caller shares it, the ones arriving while it is still running included. Each keystroke
+ * asks for the scope, and a walk per asker queued up behind one another on the event loop and
+ * stalled every request after startup. The walk is never cancelled for the same reason: one
+ * caller giving up must not leave the others a partial closure.
  *
- * @param token cancels the closure walk. A cancelled (possibly partial) walk is not cached.
  * @returns the predicate, or undefined when nothing is out of scope.
  */
-export async function reachableFileFilter(
-    token: CancellationToken
-): Promise<((fsPath: string) => boolean) | undefined> {
-    if (workspaceValidationScope() !== 'modRulesReachable') return undefined;
-    if (validationScopeCache?.epoch === validationScopeEpoch) return validationScopeCache.allows;
-    const epoch = validationScopeEpoch;
+export function reachableFileFilter(): Promise<((fsPath: string) => boolean) | undefined> {
+    if (workspaceValidationScope() !== 'modRulesReachable') return Promise.resolve(undefined);
+    if (validationScopeCache?.epoch !== validationScopeEpoch) {
+        validationScopeCache = { epoch: validationScopeEpoch, allows: computeScopeFilter() };
+    }
+    return validationScopeCache.allows;
+}
+
+/**
+ * Walks every workspace folder's manifest closure into the scope predicate.
+ *
+ * @returns the predicate, or undefined when no folder has a manifest.
+ */
+async function computeScopeFilter(): Promise<((fsPath: string) => boolean) | undefined> {
     const folders = await getWorkspaceFoldersCached().catch(() => null);
     const scopes: FolderScope[] = [];
     const union = new Set<string>();
@@ -137,7 +146,9 @@ export async function reachableFileFilter(
     for (const folder of folders ?? []) {
         const folderPath = uriToFsPath(folder.uri);
         const modRoot = findModRoot(join(folderPath, 'probe.rules'));
-        const reachability = modRoot ? await computeModReachability(modRoot, token).catch(() => undefined) : undefined;
+        const reachability = modRoot
+            ? await computeModReachability(modRoot, CancellationToken.None).catch(() => undefined)
+            : undefined;
         const keys = reachability?.reachable;
         if (keys) {
             anyManifest = true;
@@ -145,7 +156,5 @@ export async function reachableFileFilter(
         }
         scopes.push({ prefix: reachabilityKey(folderPath).replace(/\/+$/, ''), keys });
     }
-    const allows = anyManifest ? scopePredicate(scopes, union) : undefined;
-    if (!token.isCancellationRequested) validationScopeCache = { epoch, allows };
-    return allows;
+    return anyManifest ? scopePredicate(scopes, union) : undefined;
 }

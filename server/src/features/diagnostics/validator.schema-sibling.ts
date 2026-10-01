@@ -162,9 +162,46 @@ const unconditionalIdsByDocument: WeakMap<AbstractNodeDocument, { epoch: number;
  *  the memo carries an epoch the server bumps whenever any other file may have changed. */
 let componentIdEpoch = 0;
 
-/** Starts a fresh memo epoch for the part-wide component-id unions after a cross-file change. */
-export const invalidateComponentIdCache = (): void => {
+/**
+ * The override targets and includers each document's union folds in, by uri. Both are read off
+ * other files alone, so an edit to the document itself leaves them as they were. Finding the
+ * includers reads every file that mentions the document's name, which on a large mod cost a few
+ * hundred milliseconds on every keystroke in the part, completion included.
+ */
+const crossFileRootsByUri = new Map<string, Promise<AbstractNode[]>>();
+
+/**
+ * Starts a fresh memo epoch for the part-wide component-id unions after a cross-file change.
+ *
+ * @param exceptUri the edited document, whose cross-file roots survive its own edit.
+ */
+export const invalidateComponentIdCache = (exceptUri?: string): void => {
     componentIdEpoch++;
+    for (const uri of [...crossFileRootsByUri.keys()]) {
+        if (uri !== exceptUri) crossFileRootsByUri.delete(uri);
+    }
+};
+
+/**
+ * The nodes merged into a document from other files: the targets its mod's `Overrides` actions
+ * patch, and the parts that include it as a fragment. Memoized per uri, see {@link crossFileRootsByUri}.
+ *
+ * @param uri the document whose cross-file roots are wanted.
+ * @param token cancels the manifest reads and the includer search. A cancelled result is not kept.
+ * @returns the override targets first, then the includers.
+ */
+const crossFileRootsOf = (uri: string, token: CancellationToken): Promise<AbstractNode[]> => {
+    const cached = crossFileRootsByUri.get(uri);
+    if (cached) return cached;
+    const roots = (async () => [
+        ...(await overrideTargetsOf(uri, token).catch(() => [])),
+        ...(await includingDocumentsOf(uri, token).catch(() => [])),
+    ])();
+    crossFileRootsByUri.set(uri, roots);
+    void roots.then(() => {
+        if (token.isCancellationRequested && crossFileRootsByUri.get(uri) === roots) crossFileRootsByUri.delete(uri);
+    });
+    return roots;
 };
 
 /**
@@ -192,12 +229,10 @@ const collectComponentIdsUncached = async (
     // A sparse override-patch file merges into a vanilla part at runtime (a manifest action pairs
     // `OverrideIn = <vanilla part>` with `Overrides = &<this file>`), so its component references
     // resolve against the merged result. The override target joins the union like an inherited base.
-    for (const target of await overrideTargetsOf(document.uri, token).catch(() => [])) queue.push(target);
-
     // A fragment another part includes as a whole member (`Components { <jump_wire_stuff.rules>/Part/Components }`)
     // merges into that part at load, so its references resolve against the including part. Each
     // includer joins the union the same way an override target does.
-    for (const includer of await includingDocumentsOf(document.uri, token).catch(() => [])) queue.push(includer);
+    queue.push(...(await crossFileRootsOf(document.uri, token)));
 
     // A `Components` container's named members are the part's actual component declarations: named
     // group/list members, plus assignment-form (`X = { … }`) and reference-form (`X = &…`) members,

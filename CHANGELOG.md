@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.1.2
+
+### Fixed
+
+- Completion and the other editor requests no longer stall after startup on a large mod. Every
+  keystroke worked out again which files the game loads, and those walks queued up behind one
+  another. The answer is now worked out once and shared until a file on disk changes.
+
+- Typing in a part no longer slows every keystroke down. The parts that include a fragment were
+  searched for again on each edit, although only a change to another file can move them.
+
 ## 1.1.1
 
 ### Added

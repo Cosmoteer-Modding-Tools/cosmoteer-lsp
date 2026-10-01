@@ -60,7 +60,7 @@ export function invalidateDerivedCaches(exceptUri?: string): void {
             if (uri !== exceptUri) inlayHintCache.delete(uri);
         }
     }
-    invalidateComponentIdCache();
+    invalidateComponentIdCache(exceptUri);
     invalidateEffectiveChainCache();
     invalidateLooseDeclarationCache();
 }

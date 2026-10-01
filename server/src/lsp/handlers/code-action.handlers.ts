@@ -462,7 +462,7 @@ const commandRefactorActions = async (
                 document.offsetAt(params.range.start),
                 await searchFolderUris(),
                 cancellationToken,
-                await reachableFileFilter(cancellationToken)
+                await reachableFileFilter()
             ).catch(() => []))
         );
     }

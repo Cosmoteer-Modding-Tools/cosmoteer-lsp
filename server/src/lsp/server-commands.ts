@@ -187,7 +187,7 @@ export const SERVER_COMMAND_TABLE: readonly ServerCommand[] = [
             const progress = args.plan ? undefined : await connection.window.createWorkDoneProgress();
             progress?.begin('Looking for shared bases', 0, '', false);
             try {
-                const inScope = await reachableFileFilter(token);
+                const inScope = await reachableFileFilter();
                 return await extractSharedBase(args, sharedBaseHost(progress, inScope), token);
             } finally {
                 progress?.done();
