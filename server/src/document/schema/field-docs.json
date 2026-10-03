@@ -252,7 +252,10 @@
         "ReduceEffectsByPenetration": "Scales this hit's effect scale and media intensity by the fraction of [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.Penetration]] the projectile has left, so deeper hits are weaker. Only hits of a `PenetratingHit` component honor it.",
         "Bounce": "Whether the projectile ricochets off instead of being destroyed by this hit. When true the collision is handed back to the physics engine so the projectile bounces away after the effects play. No vanilla shot uses it.",
         "FrameOfReference": "Velocity frame the spawned effects inherit, so particles drift along with the chosen object. When unset, `HitObject` is used, which takes the velocity of whatever was hit at the hit point. `Bullet` uses the projectile's velocity, `Inherit` the frame of reference the projectile itself inherited, and `Grid` the stationary world frame.",
-        "Offset": "Offset in tiles added to the hit point before effects are placed, rotated to the projectile's facing. The point defense shot uses `[-0.15, 0]` to pull its impact effects slightly back along the shot. Volume hits ignore it."
+        "Offset": "Offset in tiles added to the hit point before effects are placed, rotated to the projectile's facing. The point defense shot uses `[-0.15, 0]` to pull its impact effects slightly back along the shot. Volume hits ignore it.",
+        "StructuralDamageRetentionPerHit": "Fraction of the effect scale kept for each further structural part a penetrating projectile or beam hits. The first structural hit runs at full scale and hit number `n` runs at this value raised to the power `n - 1`, floored at [[Cosmoteer.Bullets.Hits.HitRules.MinStructuralDamageScale]]. Defaults to 0, so with neither field set every structural hit after the first runs at zero scale. Vanilla shots use `60%`, the railgun `80%` and the ion beam `50%`. Only counted on `PenetratingHit` projectiles and on beams with `PenetratesStructure`, and only against structural parts.",
+        "MinStructuralDamageScale": "The lowest effect scale [[Cosmoteer.Bullets.Hits.HitRules.StructuralDamageRetentionPerHit]] can decay to across successive structural hits, as a 0..1 fraction. Defaults to 0, which lets the falloff approach zero. Vanilla shots use `3%` and the railgun `5%`.",
+        "MaxStructuralPenetrations": "The number of structural parts this hit applies to before further structural hits are skipped. On a penetrating projectile, structural hits past the limit run no effects. On a beam with `PenetratesStructure`, the value on its `HitStructural` stops collecting structural tiles along the beam once the count is reached. Unset means no limit."
     },
     "Cosmoteer.Bullets.Physics.BulletAccelerationRules": {
         "T:": "Speeds the bullet up or slows it down over time, along its facing, its velocity or the line to its target.",
@@ -579,6 +582,38 @@
         "FactionBorderPointUnifyTolerance": "Distance, in galaxy map units, within which nearby border points are merged into one so segments from neighboring nodes join up cleanly.",
         "FactionCurveSegmentsPerDistance": "Number of straight segments used per map unit of length when tessellating the smoothed border curves. Higher values make rounder borders."
     },
+    "Cosmoteer.Game.AdjustWeaponCoverageGuiRules": {
+        "T:": "Stores shared presentation rules for Adjust Range & Arc editors.",
+        "CoverageHitTolerance": "Distance, in screen pixels, within which the mouse grabs a coverage handle when the editor has full interaction.",
+        "CoverageExtendedHitTolerance": "Larger grab distance, in screen pixels, tried when nothing lies within [[Cosmoteer.Game.AdjustWeaponCoverageGuiRules.CoverageHitTolerance]]. The closest range handle within it wins.",
+        "CoveragePartObstructedHitTolerance": "Grab distance, in screen pixels, used instead of [[Cosmoteer.Game.AdjustWeaponCoverageGuiRules.CoverageHitTolerance]] when the mouse is over a part and the editor is in its reduced interaction mode.",
+        "CoverageMinimumRange": "The shortest custom range, in tiles, a player can set. Dragged ranges are clamped to it and shorter custom ranges are refused.",
+        "CoverageInfiniteRangeFallback": "Range, in tiles, the editor draws and edits for a weapon whose range is infinite.",
+        "CoverageRangeSnapIncrement": "Step, in tiles, that dragged ranges snap to in normal precision.",
+        "CoverageFineRangeSnapIncrement": "Step, in tiles, that dragged ranges snap to in fine precision. Half of it is also the tolerance for treating two ranges as equal.",
+        "CoverageAngleSnapIncrement": "Step, in degrees, that dragged arc edges snap to in normal precision.",
+        "CoverageFineAngleSnapIncrement": "Step, in degrees, that dragged arc edges snap to in fine precision. Half of it is also the tolerance for treating two arcs as equal and for treating an arc's two edges as converged into one line.",
+        "CoverageIcon": "Icon of the weapon coverage editor button in the build screen and on the parts card.",
+        "CoverageCursor": "Mouse cursor shown while a coverage handle is hovered or dragged.",
+        "CoverageResetSound": "Sound played when weapon coverages are reset to their defaults.",
+        "CoverageThicknessScale": "Thickness multiplier for coverage lines and rims, applied after the zoom scaling from [[Cosmoteer.Game.AdjustWeaponCoverageGuiRules.CoverageThicknessScaleExponent]].",
+        "CoverageHandleThickness": "Thickness multiplier used instead of [[Cosmoteer.Game.AdjustWeaponCoverageGuiRules.CoverageThicknessScale]] for the hovered or dragged handle.",
+        "CoveragePhysicalLimitThicknessScale": "Thickness multiplier for the dashed lines and rim that show a weapon's physical range and arc limits.",
+        "CoverageThicknessScaleExponent": "Exponent applied to the camera's world scale before it multiplies every coverage line and rim thickness. 0 keeps a constant world width and 1 scales fully with zoom.",
+        "CoverageColor": "Color of coverage lines and rims, also used for the floating text shown on reset.",
+        "CoverageHandleColor": "Color of the hovered or dragged handle.",
+        "CoverageMirroredColor": "Color used instead of [[Cosmoteer.Game.AdjustWeaponCoverageGuiRules.CoverageColor]] for weapons that are edited as a symmetry mirror of the dragged one.",
+        "CoveragePhysicalLimitColor": "Color of the dashed lines and rim that show a weapon's physical limits.",
+        "CoverageRim": "Renderer for the curved outer edge of a coverage sector at its range.",
+        "CoverageHandleRim": "Renderer used instead of [[Cosmoteer.Game.AdjustWeaponCoverageGuiRules.CoverageRim]] when the range edge is the hovered or dragged handle.",
+        "CoverageLine": "Line drawn along the straight sides of each coverage sector, and along a single direction when the arc has converged to zero width.",
+        "CoverageArcFill": "Renderer for the translucent fill over each turret's coverage sector. Its thickness is rescaled to fill the sector out to its range.",
+        "CoverageArcFillMaxOverlap": "Maximum number of arc fills drawn over each other at any point, enforced with the stencil buffer. Values above 255 do not work.",
+        "CoverageUnaffectedAlphaMultiplier": "Opacity multiplier for the coverage lines of weapons the hovered or dragged handle will not change.",
+        "CoveragePhysicalLimitRim": "Renderer for the dashed rim at a turret's physical range. Drawn only when that range is finite.",
+        "CoveragePhysicalLimitLine": "Line drawn dashed along the sides of a weapon's physical arc, or along its direction for a fixed weapon.",
+        "CoveragePhysicalLimitDashLengthPerThickness": "Target dash length of the physical limit rim and lines, as a multiple of their thickness. The dash count snaps to a power of two so dashes are inserted between existing ones as the length grows."
+    },
     "Cosmoteer.Game.BrushRules": {
         "T:": "Stores the rules for a single part or decal brush/",
         "ID": "Identifies this brush. The game registers one rebindable hotkey per brush id and stores the player's binding under `Brushes/<ID>` in the input settings, so ids must be unique across every brush group and renaming one loses existing bindings. Vanilla uses names like `block1` and `line`.",
@@ -652,6 +687,7 @@
         "CancelPartSelectionIcon": "Icon of the cancel button in the ship GUI tool button row, which clears the current part selection. Temporarily replaced by [[Cosmoteer.Game.GameGuiRules.ErrorFlashSprite]] during an error flash.",
         "TargetIcon": "Icon of the target command button in the parts card command box, which enters the weapon targeting mode for the selected weapons.",
         "CancelTargetIcon": "Icon of the cancel targets button in the parts card command box, which clears the explicit targets of the selected weapons.",
+        "AdjustWeaponCoverage": "Settings for the weapon coverage editor, the tool that sets a weapon's custom range, firing arc or fixed direction from the build screen or the parts card. Holds its snap increments, hit tolerances, icon, cursor, sound and line and arc graphics.",
         "AutoThrustOffIcon": "Icon of the auto thrust toggle button in the parts card command box while auto thrust is disabled for the selected thrusters.",
         "AutoThrustOnIcon": "Icon of the auto thrust toggle button in the parts card command box while auto thrust is enabled for the selected thrusters.",
         "MenuIcon": "Icon of the menu button in the top left menu bar, which opens the in game menu.",
@@ -1286,9 +1322,7 @@
         "TargetTypes": "Which kinds of things clicking can pick as the target. The flags are evaluated in a fixed order regardless of how they are listed, and the `SelectParts` modifier, Control by default, switches between them. With `Ships` and `Parts` both set, ships are targeted normally and holding the modifier targets individual parts. With `Parts` and `ShipLocalPoint` both set, parts are targeted normally and holding the modifier drops to a free ship-relative point.",
         "TargetPartCategories": "Restricts part targeting to parts that list one of these categories in their `TypeCategories`. Leaving it unset lets any part be targeted, and it has no effect on `Ships` or `ShipLocalPoint` targeting.",
         "AllowAppend": "Whether holding the `AppendSelection` modifier, Shift by default, adds the clicked target to the weapons' existing target list instead of replacing it. With this false the modifier is simply ignored and every click replaces the target.",
-        "AllowSameShipTarget": "Whether the targeter may pick a target on the same ship it lives on. With this false, such targets are skipped when validating the click, so the button also stops showing a tentative highlight over them. The targeting part can never target itself either way.",
-        "SnapToAngles": "The directions, relative to the targeting part's own facing, that a `ShipLocalPoint` target snaps onto. The point snaps to the nearest ray cast from the first weapon's ship location along one of these directions, and holding the `SelectParts` modifier suppresses snapping so the point can be placed freely.",
-        "SnapToAngleDistance": "How close, in tiles, the cursor's ship-relative point must be to one of the `SnapToAngles` rays for it to snap onto that ray. Nothing snaps when the nearest ray is further away than this."
+        "AllowSameShipTarget": "Whether the targeter may pick a target on the same ship it lives on. With this false, such targets are skipped when validating the click, so the button also stops showing a tentative highlight over them. The targeting part can never target itself either way."
     },
     "Cosmoteer.Game.PartToggleChoice": {
         "T:": "Stores rules for a particular choice in a part toggle setting.",
@@ -3128,6 +3162,8 @@
         "PerimeterDamageFractionPerTick": "The fraction of a part's max health destroyed each time the perimeter of death hits it, before the distance term is added. Only parts whose own center lies outside the current perimeter are eligible.",
         "PerimeterDamageFractionPerTickPerDistance": "Extra damage fraction added per world unit that the ship's center sits beyond the perimeter, on top of `PerimeterDamageFractionPerTick`. The distance is measured once per ship, so every eligible part on that ship takes the same amount.",
         "PerimeterDamageChancePerTick": "The chance per physics tick that any one part outside the perimeter is hit. Vanilla writes it as a per-second figure divided by `PhysicsUpdatesPerSecond`.",
+        "PerimeterCrewDamagePerTick": "Damage dealt each physics tick to every crew member floating in space outside the perimeter of death, before the distance term is added. The sum is rounded up to a whole number and nothing is dealt when it is 0 or less. Vanilla uses 5.",
+        "PerimeterCrewDamagePerTickPerDistance": "Extra crew damage per physics tick for each world unit the crew member sits beyond the perimeter, added to [[Cosmoteer.Modes.Pvp.PvpModeRules.PerimeterCrewDamagePerTick]]. Vanilla uses .02.",
         "PerimeterDamageMediaEffects": "The effects played at each part the perimeter of death damages. Domination mode reuses this same list for the damage enemy ships take inside a spawn point, despite the name.",
         "PerimeterCircle": "The ring drawn at the perimeter of death, rendered only when the perimeter is not fully on screen. Its `UVRect` width is recomputed at match start from the circumference and `Thickness` so the texture repeats evenly all the way round.",
         "PerimeterCircleThicknessZoomExponent": "The exponent applied to the camera's world scale before it multiplies the perimeter ring's thickness. 0 keeps the ring a constant width in world units and 1 makes it scale fully with zoom, and vanilla uses .4 for something in between.",
@@ -5413,13 +5449,12 @@
     "Cosmoteer.Ships.Parts.Weapons.FixedWeaponRules": {
         "T:": "A weapon that cannot turn and fires only at targets inside the arc it already faces.",
         "TargetingArc": "The angular width, centered on the weapon's facing, of the sector in which the weapon searches for enemy parts to auto-fire at, accounting for aim lead against each candidate ship. When unset the weapon only checks a single ray along its exact firing line. The vanilla railgun launcher uses `90d`.",
-        "TargetingRange": "The radius, in tiles, of the target search sector used with [[Cosmoteer.Ships.Parts.Weapons.FixedWeaponRules.TargetingArc]]. When unset it falls back to the targeting emitter's current range times [[Cosmoteer.Ships.ShipRules.DefaultTargetingRangeFactor]].",
+        "TargetingRange": "The radius, in tiles, of the target search sector used with [[Cosmoteer.Ships.Parts.Weapons.FixedWeaponRules.TargetingArc]]. When unset it falls back to the weapon's effective range, plus the ship's [[Cosmoteer.Ships.ShipRules.DefaultTargetingRangeExtension]] when the targeting emitter leads its target.",
         "AutoTarget": "How the weapon acquires targets automatically. Fixed weapons require the [[Cosmoteer.Ships.Parts.Weapons.WeaponAutoTargetRules.TargetType]] to be `ShipParts` and honor the optional [[Cosmoteer.Ships.Parts.Weapons.WeaponAutoTargetRules.Toggle]], a toggle component that enables firing at anything in the weapon's sights. While that toggle is off the weapon only fires at its explicitly assigned target.",
         "AllowFireInFogOfWar": "Lets the weapon auto-fire at parts hidden by fog of war. When false, the default, a part in the weapon's sights only counts as a valid auto-fire target while its position is inside the team's sensor vision.",
         "ChainFireToggleComponent": "A toggle component looked up on allied parts caught in the weapon's line of fire. When such a part's toggle is on, the weapon treats the allied part as something to fire at, chaining its shot into it. The vanilla ion beam emitter and prism both name `IonBeamChainToggle` here so emitters keep firing into a prism that is set to relay the beam.",
         "TargetSearchInterval": "Seconds between full enemy-in-sights searches while deciding whether to auto-fire. Defaults to 1, with cheaper cached checks between searches and a random initial phase per weapon so searches spread across ticks.",
-        "AutoExplicitTargetPartsFilter": "A filter tested against the part hit by the weapon's targeting ray. A part that passes is automatically made the weapon's confirmed explicit target. The vanilla ion beam emitter uses a friendly-prism filter so it locks onto a prism placed in its firing line.",
-        "CoverageLine": "The line visual drawn along the weapon's firing path when the game shows its coverage, reaching out to the weapon's range and clipped where friendly parts block the line of fire. Used by the vanilla chaingun, railgun launcher, and ion beam parts."
+        "AutoExplicitTargetPartsFilter": "A filter tested against the part hit by the weapon's targeting ray. A part that passes is automatically made the weapon's confirmed explicit target. The vanilla ion beam emitter uses a friendly-prism filter so it locks onto a prism placed in its firing line."
     },
     "Cosmoteer.Ships.Parts.Weapons.OscillatorRules": {
         "T:": "Rocks back and forth by `Angle` every `Interval` while operational, sweeping whatever is chained to it.",
@@ -5448,7 +5483,9 @@
     "Cosmoteer.Ships.Parts.Weapons.TurretWeaponRules": {
         "T:": "A weapon on a turret that rotates at `RotateSpeed` to bear on its target before firing.",
         "FiringArc": "Total width, in degrees, of the arc the turret can rotate through, centered on its mount direction. `360d` lets it spin all the way around.",
-        "TargetingRange": "Maximum distance, in tiles, at which the turret searches for new targets. Defaults to [[Cosmoteer.Ships.Parts.Weapons.TurretWeaponRules.ValidRange]] if that is set, otherwise to the targeting emitter's range multiplied by the ship's [[Cosmoteer.Ships.ShipRules.DefaultTargetingRangeFactor]].",
+        "AllowCustomCoverageArcEditing": "Whether players can narrow or rotate this turret's firing arc in the weapon coverage editor. When false only the range handle is offered, and a custom arc is refused. Has no effect unless [[Cosmoteer.Ships.Parts.Weapons.WeaponRules.AllowCustomCoverageEditing]] is also true.",
+        "ForceCustomCoverageWidthZero": "Restricts this turret's coverage to a single direction instead of an arc. A custom arc must have zero width, the editor drags both sides together, and without any custom arc the turret covers only its mount direction. Vanilla sets it on the roof headlight. A zero-width coverage accepts targets within half of [[Cosmoteer.Ships.ShipRules.MinWeaponCoverageArcTargetWidth]] of the chosen direction.",
+        "TargetingRange": "Maximum distance, in tiles, at which the turret searches for new targets. Defaults to the turret's valid range ([[Cosmoteer.Ships.Parts.Weapons.TurretWeaponRules.ValidRange]], or the emitter's range when that is unset) clamped to the player's coverage, plus the ship's [[Cosmoteer.Ships.ShipRules.DefaultTargetingRangeExtension]] when the targeting emitter leads its target.",
         "TargetingArc": "Width, in degrees, of the arc within which the turret searches for new targets. Defaults to [[Cosmoteer.Ships.Parts.Weapons.TurretWeaponRules.ValidArc]] if that is set, otherwise to [[Cosmoteer.Ships.Parts.Weapons.TurretWeaponRules.FiringArc]].",
         "ValidRange": "Maximum distance, in tiles, at which an acquired target remains valid to keep and fire at. Defaults to the targeting emitter's current range.",
         "ValidArc": "Width, in degrees, of the arc within which an acquired target remains valid to keep and fire at. Defaults to [[Cosmoteer.Ships.Parts.Weapons.TurretWeaponRules.FiringArc]], and missile launchers widen it to `360d` beyond their launch arc.",
@@ -5483,6 +5520,11 @@
         "Overridable": "Lets earlier, higher-priority entries in [[Cosmoteer.Ships.Parts.Weapons.TurretWeaponRules.AutoTargets]] keep searching while the weapon holds a target acquired through this entry, replacing the target when one of them finds a match. When false the weapon keeps this entry's target until it becomes invalid. The vanilla point defense turret marks its ship-parts entry overridable so intercepting bullets always takes priority.",
         "EnableInDirectControlMode": "Keeps this entry acquiring targets while the player is directly controlling the weapon. By default auto-targeting pauses under direct control. The vanilla missile launchers set this so their missiles still pick their own targets while the launcher is player-controlled."
     },
+    "Cosmoteer.Ships.Parts.Weapons.WeaponCoverage": {
+        "T:": "A range and arc restriction on a weapon, set as its default in rules or by the player in the weapon coverage editor.",
+        "Range": "Maximum range, in tiles, the weapon may fire at. The weapon's real range is clamped down to this value and never extended. Unset leaves the weapon's own range.",
+        "Arc": "The allowed firing arc as `[nearEdge, width]`, relative to the turret's mount direction, so `[-45d, 90d]` covers 45 degrees to either side of it. The result is intersected with the turret's [[Cosmoteer.Ships.Parts.Weapons.TurretWeaponRules.ValidArc]] (or [[Cosmoteer.Ships.Parts.Weapons.TurretWeaponRules.FiringArc]]). A width of `0d` aims the turret along a single direction. Only turrets use it."
+    },
     "Cosmoteer.Ships.Parts.Weapons.WeaponRules": {
         "T:": "Shared setup for weapons, covering fire interval, what may be targeted and whether the player can take direct control. A modder writes `FixedWeapon` or `TurretWeapon`.",
         "FireInterval": "Seconds between shots. A newly built weapon starts fully unloaded and must wait one full interval before its first shot.",
@@ -5506,22 +5548,22 @@
         "EstimateFirepowerToggle": "The component ID of a toggle component. When set, the weapon only counts toward firepower estimation while that toggle is on.",
         "AutoFireToggle": "The component ID of the toggle that enables autonomous fire. The weapon only wants to fire on its own while that toggle is on.",
         "AlwaysShowCoverage": "Draws the weapon's coverage area while giving commands even when the weapon is excluded from firepower estimation. Used by the mining laser and the flak cannon.",
+        "AllowCustomCoverageEditing": "Whether players can set a custom range or arc for this weapon in the weapon coverage editor. When false the weapon is left out of the editor and only a reset to defaults is accepted. Also false in effect whenever [[Cosmoteer.Ships.Parts.Weapons.WeaponRules.MatchWeaponCoverage]] is set. Vanilla turns it off on the chaingun's hidden turret and the manipulator beam.",
+        "AllowCustomCoverageRangeEditing": "Whether players can shorten this weapon's range in the weapon coverage editor. When false the range handle is hidden and a custom range is refused, while the arc can still be edited. Vanilla turns it off on the roof headlight.",
+        "DefaultWeaponCoverage": "The range and arc restriction the weapon starts with before any player customization, written as a group such as `DefaultWeaponCoverage { Range = 150, Arc = [-45d, 90d] }`. A player's custom coverage overrides `Range` and `Arc` separately and falls back to this value for the one left unset. The vanilla mine launcher uses it to start with a 90 degree, 150 tile coverage.",
+        "MatchWeaponCoverage": "The ID of another weapon component on the same part whose player-set coverage this weapon follows. The coverage is read from that component's entry and applied against this weapon's own range and arc limits, and this weapon can no longer be edited on its own. Vanilla points the chaingun's fixed barrel, the ion prism, the resonance beam and the dual missile launchers at their primary weapon.",
+        "MatchWeaponCoverageStrictFire": "Stops a fixed weapon from firing when its current coverage arc does not include the weapon's forward direction. The effective range drops to 0 in that case, which blocks firing and targeting. A zero-width arc counts as including it when it lies within half of [[Cosmoteer.Ships.ShipRules.MinWeaponCoverageArcTargetWidth]]. Only fixed weapons read it, normally together with [[Cosmoteer.Ships.Parts.Weapons.WeaponRules.MatchWeaponCoverage]] as on the vanilla chaingun.",
+        "CoverageLine": "Replaces [[Cosmoteer.Simulation.SimGuiRules.DefaultWeaponCoverageLine]] for this weapon when its coverage is drawn as a line while giving commands. That happens for fixed weapons and for turrets whose coverage has zero width.",
         "IgnoreFriendlyShipLowLOSChecks": "Lets the weapon's line-of-sight rays pass through the low colliders of ships it cannot damage, so it can shoot over low parts of friendly ships like the deck cannon does. Also accepted under the older name `IgnoreSourceShipLowLOSChecks`.",
         "IgnoreFriendlyShipHighLOSChecks": "Lets the weapon's line-of-sight rays pass through even the high colliders of ships it cannot damage, so friendly ships never block its fire. The manipulator beam enables this together with [[Cosmoteer.Ships.Parts.Weapons.WeaponRules.IgnoreFriendlyShipLowLOSChecks]]. Also accepted under the older name `IgnoreSourceShipHighLOSChecks`.",
         "IgnoreFriendlyStructureLOSChecks": "Lets the weapon's line-of-sight rays pass through structure cells of ships it cannot damage, so friendly structure does not block fire.",
         "IgnoreJunkLOSChecks": "Junk debris never blocks this weapon's line of sight, even junk whose [[Cosmoteer.Ships.ShipRules.JunkBlocksWeaponLOS]] setting says it should.",
         "AllowEnemyStructureAutoTargeting": "Lets auto-targeting pick structure cells on enemy ships. When false, enemy structure is only targeted once the ship has no operational parts left. FixedWeapon flips this default to true.",
         "ProhibitTargetPartsFilter": "Filter for parts the weapon refuses to target. The ion beam emitter uses it to avoid force-firing on friendly ion prisms.",
-        "ProhibitShipRelativePointTargets": "Refuses explicit targets that are points pinned relative to a ship rather than actual parts.",
         "SuppressShipWideExplicitTargetsWhenTargetingPartsFilter": "While the weapon's current target matches this filter, it stops accepting ship-wide explicit targets, so whole-ship attack orders do not override a special assignment such as a friendly ion prism.",
-        "SuppressShipWideExplicitTargetsWhenTargetingShipRelativePoints": "While the weapon is targeting a ship-relative point, it stops accepting ship-wide explicit targets.",
         "SuppressDirectControlWhenTargetingPartsFilter": "While the weapon's current target matches this filter, direct control ignores the weapon so manual fire does not override the assignment.",
-        "SuppressDirectControlWhenTargetingShipRelativePoints": "While the weapon is targeting a ship-relative point, direct control ignores it.",
         "SuppressFirepowerEstimationWhenTargetingPartsFilter": "Excludes the weapon from firepower estimation while its current target matches this filter, for example an ion beam aimed into a friendly prism.",
-        "SuppressFirepowerEstimationWhenTargetingShipRelativePoints": "Excludes the weapon from firepower estimation while it is targeting a ship-relative point. The ion prism uses this so the same prism is not counted for both its turret mode and its fixed mode.",
-        "SuppressFirepowerEstimationWhenNotTargetingShipRelativePoints": "Excludes the weapon from firepower estimation unless it is targeting a ship-relative point. The counterpart of [[Cosmoteer.Ships.Parts.Weapons.WeaponRules.SuppressFirepowerEstimationWhenTargetingShipRelativePoints]] used by a part's chained or fixed mode.",
         "SaveSelfTargetPartCategories": "Part categories for which a target on the weapon's own ship is saved with the ship design and restored on load. Ion beams and prisms use it to keep beam-into-prism setups intact.",
-        "SaveShipRelativeTargets": "Saves the weapon's ship-relative point targets with the ship design so they are restored on load.",
         "ToggleOnMode": "The condition under which this weapon counts as on when other components read it as a toggle source. Defaults to `WantsAndReadyToFire`, meaning the weapon both wants to fire and is reloaded with resources and permission to shoot.",
         "OverrideTargetNineSlice": "Replaces the standard rectangle drawn around this weapon's explicit targets in the targeting overlay.",
         "OverrideTargetCircle": "Replaces the standard circle drawn around this weapon's explicit targets in the targeting overlay.",
@@ -5737,7 +5779,8 @@
         "BaseRadarRadius": "Radar radius, in tiles beyond the ship's bounding radius, available without sensor parts. Sensor parts with a larger radius take precedence, and nebulas scale the result.",
         "MinCommsRadius": "Minimum communication radius, in tiles beyond the ship's bounding radius. The effective comms radius is the larger of this and the ship's sight radius.",
         "WeaponActivationEnemyCheckRadius": "Distance beyond the ship's bounding radius scanned for visible enemy ships. Whether an enemy is inside drives weapon activation and gates behavior that requires safety, such as automatic crew exit.",
-        "DefaultTargetingRangeFactor": "Multiplies a weapon's emitter range to get its default auto-targeting acquisition range when the weapon does not define its own TargetingRange.",
+        "DefaultTargetingRangeExtension": "Distance, in tiles, added to a weapon's range when it searches for targets, so it can pick up targets that are about to move into range. Only applies when the weapon's emitter leads its target, that is a bullet emitter with [[Cosmoteer.Ships.Parts.Weapons.BulletEmitterRules.TargetLeadPrediction]], and the weapon sets no `TargetingRange` of its own. Vanilla `base_ship.rules` uses 400.",
+        "MinWeaponCoverageArcTargetWidth": "The width a zero-width weapon coverage is widened to for targeting, centered on its direction. A turret aimed along a single direction accepts targets within half this angle of it. Vanilla `base_ship.rules` uses `2d`.",
         "MapJumpFuelCostPerMass": "Distance-independent term of the galaxy-map FTL jump fuel cost, charged per unit of ship mass. The total cost also scales with the ship's FTL jump efficiency.",
         "MapJumpFuelCostPerMassDistance": "Fuel charged per unit of ship mass per unit of galaxy-map distance jumped. Vanilla is tuned to 1 fuel per 100 mass to jump 10 light-years at 100% efficiency.",
         "MapJumpDistanceExponent": "Exponent applied to the map jump distance before it is multiplied by [[Cosmoteer.Ships.ShipRules.MapJumpFuelCostPerMassDistance]]. 1 makes fuel cost linear in distance.",
@@ -5906,7 +5949,8 @@
         "SpeedFactor": "The fraction of the difference between two neighbouring occupied cells that moves across per tick, before the per-part factors are applied. The final factor is clamped to 0 to 1, and each of the four neighbours exchanges one fifth of the gap, so 1 means near instant equalization.",
         "MinDeltaThreshold": "The smallest per-tick transfer that is actually applied between two occupied cells. Anything smaller is dropped to zero, which keeps tiny residual values from spreading forever. It is not applied to transfers into empty cells.",
         "EmptyCellSpeedFactor": "The speed factor used when the neighbouring cell holds no part, and also for the dissipation of partly occupied cells back toward `Basis`. This is how a status bleeds off into space at the hull edge. Vanilla heat uses 0.004 against 0.01 for cell-to-cell conduction.",
-        "PartSpeedFactors": "Per-part-type overrides of the diffusion speed, keyed by part id. Vanilla heat gives structure an `Occupied` factor of 25 so heat conducts through armor far faster than through machinery."
+        "PartSpeedFactors": "Per-part-type overrides of the diffusion speed, keyed by part id. Vanilla heat gives structure an `Occupied` factor of 25 so heat conducts through armor far faster than through machinery.",
+        "UseContiguity": "Whether diffusion between tiles requires contiguity between the parts on those tiles."
     },
     "Cosmoteer.Ships.Statuses.StatusType/DiffusionSpeedFactors": {
         "T:": "How fast the status diffuses through one part, given separately for tiles that are occupied and tiles that are empty.",
@@ -6347,6 +6391,7 @@
         "PartIDTileCosts": "The pathing costs of tiles by part ID.",
         "PartCategoryTileCosts": "The pathing costs of tiles by part TypeCategories, not otherwise included in PartIDTileCosts. A part's categories are evaluated in order.",
         "BlockedByWalls": "Whether pathing between tiles is blocked by walls.",
+        "UseContiguity": "Whether pathing between tiles requires part contiguity according to AllowedContiguity.",
         "AllowDiagonals": "Whether pathing across diagonals is allowed."
     },
     "Cosmoteer.Simulation.HitEffects.HitEffectRules": {
@@ -6911,6 +6956,8 @@
         "ShipCrewWarningCircle": "Replaces [[Cosmoteer.Simulation.SimGuiRules.SelectedShipCrewCircle]] or [[Cosmoteer.Simulation.SimGuiRules.TentativeShipCrewCircle]] around an off-ship crew member whose distance warning is active, meaning they are straying too far from their ship.",
         "ShipCrewWarningLine": "The line drawn from a ship to an off-ship crew member whose distance warning is active. Unlike [[Cosmoteer.Simulation.SimGuiRules.SelectedShipCrewLine]] it is drawn regardless of the show space crew lines setting.",
         "FocusShipCircle": "The circle drawn around ships under the mouse cursor while the camera focus cursor mode is active, previewing which ship a click would focus the camera on. Not drawn when the camera is already focused on or inside that ship. Drawn at 1.5 times the ship's bounding radius.",
+        "DefaultWeaponCoverageLine": "Line drawn for a weapon's coverage while giving commands when the coverage is a line, which is the case for fixed weapons and zero-width turret coverage. Its thickness grows with the camera zoom raised to the power .25. A weapon's own [[Cosmoteer.Ships.Parts.Weapons.WeaponRules.CoverageLine]] replaces it.",
+        "DefaultWeaponCoverageSectorArc": "Renderer for a turret's coverage sector while giving commands, used when the turret sets no [[Cosmoteer.Ships.Parts.Weapons.TurretWeaponRules.CoverageSectorArc]]. Its thickness is overridden to fill the whole sector out to the weapon's range.",
         "TentativeAttackCommandCircle": "Circle drawn around a hovered enemy ship to preview that a right click would issue an attack command, tinted with the player's enemy color. Also drawn around each target while dragging an attack command.",
         "TentativeFollowCommandCircle": "Circle drawn around a hovered friendly or neutral ship to preview that a right click would issue a follow command, tinted with the player's own color. Also drawn around target ships while dragging a move command with collision avoidance active on them.",
         "TentativeFtlCommandCircle": "Circle drawn around an FTL gate under the mouse cursor when the selected ships have FTL drives, previewing a jump command through the gate. It replaces the default attack or follow context circle.",
@@ -7162,9 +7209,11 @@
         "BeginCapLength": "The length of the cap rendered at the start of the dash, as a distance along the circumference in the same units as the circle's radius. Added to the result of [[Halfling.Graphics.CircleDashInfo.BeginCapLengthPerThickness]]. When the begin and end caps together would exceed the dash's length they are scaled down proportionally to fit. Defaults to 0.",
         "BeginCapLengthPerThickness": "Extra begin-cap length per unit of the circle's [[Halfling.Graphics.CircleRenderer.Thickness]]. The product is added to [[Halfling.Graphics.CircleDashInfo.BeginCapLength]], so a value of 1 makes the cap as long as the ring is thick. Defaults to 0.",
         "BeginCapURange": "The horizontal texture coordinate range `[from, to]` mapped along the begin cap, as 0..1 fractions across the width of the renderer's [[Halfling.Graphics.CircleRenderer.UVRect]]. Defaults to `[0, 0]`.",
+        "BeginCapOverhangFraction": "The fraction of the begin cap that extends before the start of the dash's slice of the arc instead of inside it. 0 places the cap fully inside the dash, 1 fully outside and .5 centers it on the dash's start. The overhanging part does not count toward the cap shrinking that keeps caps within the dash length. Defaults to 0.",
         "EndCapLength": "The length of the cap rendered at the end of the dash, as a distance along the circumference in the same units as the circle's radius. Added to the result of [[Halfling.Graphics.CircleDashInfo.EndCapLengthPerThickness]]. Defaults to 0.",
         "EndCapLengthPerThickness": "Extra end-cap length per unit of the circle's [[Halfling.Graphics.CircleRenderer.Thickness]]. The product is added to [[Halfling.Graphics.CircleDashInfo.EndCapLength]]. Defaults to 0.",
-        "EndCapURange": "The horizontal texture coordinate range `[from, to]` mapped along the end cap, as 0..1 fractions across the width of the renderer's [[Halfling.Graphics.CircleRenderer.UVRect]]. Defaults to `[0, 0]`."
+        "EndCapURange": "The horizontal texture coordinate range `[from, to]` mapped along the end cap, as 0..1 fractions across the width of the renderer's [[Halfling.Graphics.CircleRenderer.UVRect]]. Defaults to `[0, 0]`.",
+        "EndCapOverhangFraction": "The fraction of the end cap that extends past the end of the dash's slice of the arc instead of inside it. 0 places the cap fully inside the dash, 1 fully outside and .5 centers it on the dash's end. The overhanging part does not count toward the cap shrinking that keeps caps within the dash length. Defaults to 0."
     },
     "Halfling.Graphics.CircleRenderer": {
         "T:": "Utility class for rendering circles to the screen.",

@@ -101,8 +101,15 @@ const LOCAL_REFERENCE = /^&([~/]?)\/?([A-Za-z_]\w*(?:\/[^<>&]*)?)$/;
  * one-time build, so it must not re-read manifests per file.
  */
 export const isStringsDocument = (document: AbstractNodeDocument): boolean =>
-    STRINGS_PATH_SEGMENT.test(normalizeUri(document.uri)) ||
-    namedMembersOf(document).some(([name]) => name === '__Name');
+    isStringsPath(document.uri) || namedMembersOf(document).some(([name]) => name === '__Name');
+
+/**
+ * Whether `uri` sits in a `strings/` folder, the path half of {@link isStringsDocument}.
+ *
+ * @param uri the file's uri.
+ * @returns true for a file under a strings folder.
+ */
+export const isStringsPath = (uri: string): boolean => STRINGS_PATH_SEGMENT.test(normalizeUri(uri));
 
 /** The language label of a strings file: its `__Name` value, else its basename without extension. */
 export const languageOf = (document: AbstractNodeDocument): string => {
@@ -319,8 +326,44 @@ export class LocalizationKeyIndex extends WatchedDocumentIndex {
     /** This index's slot in the persistent game-tree cache. */
     public readonly cacheId = 'localizationKeys';
 
+    /**
+     * Keys some strings file gained or lost since the build, waiting for {@link takeChangedKeys}.
+     * The build itself records nothing, or the first drain would hand over the whole table.
+     */
+    private readonly changedKeys = new Set<string>();
+
     protected clear(): void {
         this.bySource.clear();
+        this.changedKeys.clear();
+    }
+
+    /**
+     * Notes the keys one strings file gained or lost, once the index is built.
+     *
+     * @param before the keys the file declared before.
+     * @param after the keys it declares now.
+     */
+    private noteChangedKeys(before: ReadonlyMap<string, string>, after: ReadonlyMap<string, string>): void {
+        if (!this.built) return;
+        for (const key of after.keys()) if (!before.has(key)) this.changedKeys.add(key);
+        for (const key of before.keys()) if (!after.has(key)) this.changedKeys.add(key);
+    }
+
+    /**
+     * The keys strings files gained or lost since the last call, with the files marked changed taken
+     * in first. A file that writes one of them is judged differently now, and it names no strings
+     * file, so this is how a watcher finds it.
+     *
+     * @param folderPaths the project folders the strings index is built from.
+     * @param cancellationToken cancellation for the re-ingest.
+     * @returns the changed keys, empty while the index is not built yet.
+     */
+    public async takeChangedKeys(folderPaths: string[], cancellationToken: CancellationToken): Promise<string[]> {
+        if (!this.built) return [];
+        await this.ensureBuilt(folderPaths, cancellationToken);
+        const keys = [...this.changedKeys];
+        this.changedKeys.clear();
+        return keys;
     }
 
     /**
@@ -374,6 +417,8 @@ export class LocalizationKeyIndex extends WatchedDocumentIndex {
     }
 
     protected removeSource(source: string): void {
+        const prior = this.bySource.get(source);
+        if (prior) this.noteChangedKeys(prior.keys, new Map());
         this.bySource.delete(source);
     }
 
@@ -381,7 +426,10 @@ export class LocalizationKeyIndex extends WatchedDocumentIndex {
         const source = normalizeUri(document.uri);
         const prior = this.bySource.get(source);
         this.bySource.delete(source);
-        if (!isStringsDocument(document)) return prior !== undefined;
+        if (!isStringsDocument(document)) {
+            if (prior) this.noteChangedKeys(prior.keys, new Map());
+            return prior !== undefined;
+        }
         const keys = new Map<string, string>();
         const links: KeyLink[] = [];
         for (const declaration of keyDeclarationsOf(document)) {
@@ -394,6 +442,7 @@ export class LocalizationKeyIndex extends WatchedDocumentIndex {
             if (isValueNode(declaration.node) && declaration.node.valueType.type === 'Reference')
                 links.push({ path: declaration.path, ref: declaration.text });
         }
+        this.noteChangedKeys(prior?.keys ?? new Map(), keys);
         const language = languageOf(document);
         const declares = declaresLanguage(document);
         if (keys.size) this.bySource.set(source, { id: languageIdOf(document), language, declares, keys, links });
@@ -682,23 +731,6 @@ export class LocalizationKeyIndex extends WatchedDocumentIndex {
         const ids = new Set<string>();
         for (const file of this.bySource.values()) if (file.declares) ids.add(file.id);
         return ids;
-    }
-
-    /**
-     * The language ids the project's strings files declare, which is the list the game's picker
-     * offers. An id missing from it is a language the player cannot choose, however complete the
-     * file behind it is.
-     *
-     * @param folderPaths the project folders the strings index is built from.
-     * @param cancellationToken cancellation for the index build.
-     * @returns the declared ids, folded to lower case.
-     */
-    public async declaredLanguages(
-        folderPaths: string[],
-        cancellationToken: CancellationToken
-    ): Promise<ReadonlySet<string>> {
-        await this.ensureBuilt(folderPaths, cancellationToken);
-        return this.declaredLanguageIds();
     }
 
     /**

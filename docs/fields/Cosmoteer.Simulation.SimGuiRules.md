@@ -160,6 +160,16 @@ The line drawn from a ship to an off-ship crew member whose distance warning is 
 
 The circle drawn around ships under the mouse cursor while the camera focus cursor mode is active, previewing which ship a click would focus the camera on. Not drawn when the camera is already focused on or inside that ship. Drawn at 1.5 times the ship's bounding radius.
 
+## DefaultWeaponCoverageLine
+`CappedLine` · required
+
+Line drawn for a weapon's coverage while giving commands when the coverage is a line, which is the case for fixed weapons and zero-width turret coverage. Its thickness grows with the camera zoom raised to the power .25. A weapon's own [[Cosmoteer.Ships.Parts.Weapons.WeaponRules.CoverageLine]] replaces it.
+
+## DefaultWeaponCoverageSectorArc
+`CircleRenderer` · required
+
+Renderer for a turret's coverage sector while giving commands, used when the turret sets no [[Cosmoteer.Ships.Parts.Weapons.TurretWeaponRules.CoverageSectorArc]]. Its thickness is overridden to fill the whole sector out to the weapon's range.
+
 ## TentativeAttackCommandCircle
 `CircleRenderer` · required
 

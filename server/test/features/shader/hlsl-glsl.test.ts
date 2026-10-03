@@ -98,6 +98,25 @@ PIX_OUTPUT pix(in VERT_OUTPUT input) : SV_TARGET
         expect(glsl.glsl).toContain('half_');
     });
 
+    it('lowers SampleGrad through its helper (the 0.30.5 fractal dashed line pattern)', () => {
+        const glsl = translateToGlsl(`
+typedef float4 PIX_OUTPUT;
+struct VERT_OUTPUT { float2 uv : TEXCOORD0; float4 color : COLOR0; };
+Texture2D _texture;
+SamplerState _texture_SS;
+PIX_OUTPUT pix(in VERT_OUTPUT input) : SV_TARGET
+{
+    float2 uvDx = ddx(input.uv);
+    float2 uvDy = ddy(input.uv);
+    return _texture.SampleGrad(_texture_SS, input.uv, uvDx, uvDy) * input.color;
+}
+`);
+        expect(glsl.ok).toBe(true);
+        expect(glsl.glsl).toContain('pvTexGrad(_texture, vsIn.uv, uvDx, uvDy)');
+        expect(glsl.glsl).toContain('{ vec4 c = texture2D(t, uv); return c; }');
+        expect(glsl.glsl).not.toMatch(/SampleGrad|_texture_SS/);
+    });
+
     it('lowers SampleLevel, GetDimensions and texture parameters (the decals shader pattern)', () => {
         // Explicit-LOD sampling and texture-size queries have no fragment-stage equivalent in GLSL ES
         // 1.00, so both route through the pvTexLod/pvTexSize helpers, whose ES 1.00 fallback bodies

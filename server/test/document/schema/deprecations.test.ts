@@ -63,9 +63,8 @@ describe('deprecation registries', () => {
         expect(allDeprecationSymbols().every((symbol) => deprecationBySymbol(symbol))).toBe(true);
     });
 
-    // The enum-rename registry is empty, so this guards whatever is added to it rather than what it
-    // holds today: an entry naming a member the enum still has, or a replacement it does not, would
-    // report a rename the game never made.
+    // An entry naming a member the enum still has, or a replacement it does not, would report a
+    // rename the game never made.
     it('keeps every recorded enum rename pointing from a gone member to a real one', () => {
         for (const [key, entry] of Object.entries(DEPRECATED_ENUM_VALUES)) {
             expect(key, key).toBe(entry.name.toLowerCase());

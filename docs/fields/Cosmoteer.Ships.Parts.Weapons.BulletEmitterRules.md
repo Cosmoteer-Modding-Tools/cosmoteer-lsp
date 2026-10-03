@@ -21,7 +21,7 @@ The bullet this emitter spawns each shot. Its [[Cosmoteer.Bullets.BulletRules.Ra
 Leads the target when aiming, using the bullet's speed (the average of Min and Max for ranged speeds), the target's motion, and the firing ship's own velocity. When false the emitter aims straight at the target's center, as the vanilla missile launchers do since their missiles steer themselves.
 
 ## Spread
-`range<number>` · optional
+`range<number (degrees)>` · optional
 
 A random angular deviation added to the shot's direction, rolled between Min and Max once per shot and shared by all pellets of that shot. Angles are written with a `d` suffix for degrees.
 
@@ -41,7 +41,7 @@ The distance, in tiles, behind the muzzle from which a raycast is cast forward t
 Makes the anti-phasing raycast test only high part colliders instead of operational part colliders, so parts with only low colliders no longer catch the spawn point.
 
 ## PelletSpread
-`range<number>` · optional
+`range<number (degrees)>` · optional
 
 An extra angular deviation rolled between Min and Max for each pellet when [[Cosmoteer.Ships.Parts.Weapons.EmitterRules.Pellets]] emits more than one, applied on top of [[Cosmoteer.Ships.Parts.Weapons.BulletEmitterRules.Spread]]. With a single pellet, or when unset, no per-pellet deviation is applied.
 

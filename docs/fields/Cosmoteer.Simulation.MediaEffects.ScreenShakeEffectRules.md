@@ -16,7 +16,7 @@ Shakes the camera, harder the closer the view is to the effect and fading out ov
 Strength multiplier for the shake fed into the camera's screen shake controller, which converts it into positional and angular jitter. The applied amount is further scaled by the effect's intensity, the distance factor, and the remaining-duration falloff. Defaults to 1.
 
 ## Duration
-`number` · optional
+`number (seconds)` · optional
 
 Seconds the shake lasts after it starts, decaying to nothing over this time following [[Cosmoteer.Simulation.MediaEffects.ScreenShakeEffectRules.DurationFalloff]]. A continuously played shake instead holds full strength until ended and then decays over this duration. Defaults to 1.
 

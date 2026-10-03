@@ -34,3 +34,8 @@ The speed factor used when the neighbouring cell holds no part, and also for the
 `map<→ PartRules, DiffusionSpeedFactors>` · optional
 
 Per-part-type overrides of the diffusion speed, keyed by part id. Vanilla heat gives structure an `Occupied` factor of 25 so heat conducts through armor far faster than through machinery.
+
+## UseContiguity
+`bool` · optional
+
+Whether diffusion between tiles requires contiguity between the parts on those tiles.

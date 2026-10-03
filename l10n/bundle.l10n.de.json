@@ -633,8 +633,6 @@
   "Add CompatibleGameVersions for the current game version": "CompatibleGameVersions für die aktuelle Spielversion hinzufügen",
   "No localization key \"{0}\" is defined in any strings file.": "Kein Lokalisierungsschlüssel \"{0}\" ist in einer Sprachdatei definiert.",
   "Localization key not found": "Lokalisierungsschlüssel nicht gefunden",
-  "The game offers no language \"{0}\", so a player cannot pick this one.": "Das Spiel bietet keine Sprache \"{0}\" an, also kann ein Spieler diese hier nicht auswählen.",
-  "A file that introduces a language has to open with __Name on its first line and __DebugOnly on its second, ahead of any comment.": "Eine Datei, die eine Sprache einführt, muss mit __Name in der ersten Zeile und __DebugOnly in der zweiten beginnen, noch vor jedem Kommentar.",
   "{0} declares {1} key(s) fewer than the languages beside it. A player reading it gets the English text for those, or the key path where English lacks them too.": "{0} deklariert {1} Schlüssel weniger als die Sprachen daneben. Wer in dieser Sprache spielt, bekommt dafür den englischen Text, oder den Schlüsselpfad, wo er auch auf Englisch fehlt.",
   "{0} declares {1} key(s) fewer than the languages beside it. Nothing falls back for those, so a player sees the key path instead of a sentence.": "{0} deklariert {1} Schlüssel weniger als die Sprachen daneben. Dafür greift nichts zurück, also sieht ein Spieler den Schlüsselpfad statt eines Satzes.",
   "Missing: {0} and {1} more.": "Fehlend: {0} und {1} weitere.",
@@ -1697,5 +1695,6 @@
   "The ship class that was picked is no longer there, so nothing lists it yet.": "Die gewählte Schiffsklasse gibt es nicht mehr, daher führt sie noch nichts auf.",
   "The registration would have gone into a manifest, and this folder is in no mod.": "Die Registrierung wäre in ein Manifest gegangen, und dieser Ordner gehört zu keiner Mod.",
   "The registration would have gone into a file that is not yours to edit.": "Die Registrierung wäre in eine Datei gegangen, die du nicht bearbeiten kannst.",
-  "This part could not be drawn. Reopen the editor to try again.": "Dieses Teil konnte nicht gezeichnet werden. Öffne den Editor erneut, um es noch einmal zu versuchen."
+  "This part could not be drawn. Reopen the editor to try again.": "Dieses Teil konnte nicht gezeichnet werden. Öffne den Editor erneut, um es noch einmal zu versuchen.",
+  "A bare name is only looked up in the group it is written in and the groups that group inherits, not in the groups around it. \"{0}\" starts at the file root.": "Ein bloßer Name wird nur in der Gruppe gesucht, in der er steht, und in den Gruppen, von denen diese erbt, nicht in den umgebenden Gruppen. \"{0}\" beginnt an der Dateiwurzel."
 }

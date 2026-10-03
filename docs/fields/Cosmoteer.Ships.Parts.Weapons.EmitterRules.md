@@ -21,7 +21,7 @@ The trigger component whose triggering makes this emitter fire. Written either a
 The weapon component on the same part that supplies this emitter's fire target, ship target, permission to fire, and direct control state. The vanilla chaingun's bullet emitter reads these from its `Turret` component.
 
 ## FireDelay
-`number` · optional
+`number (seconds)` · optional
 
 Seconds between the fire trigger and the actual emission, counted down tick by tick. Triggers arriving while a delayed shot is still pending are ignored, and the delay is also included when predicting aim lead. At 0, the default, the shot is emitted immediately.
 

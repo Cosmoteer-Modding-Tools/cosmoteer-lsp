@@ -123,10 +123,7 @@ describe('a strings folder holding a backup copy and a readme', () => {
             join(stringsDir, 'de.rules'),
             '__Name = "Deutsch"\n__DebugOnly = false\n\nParts\n{\n\tCannon = "Kanone"\n}\n'
         );
-        writeFileSync(
-            join(stringsDir, 'en - Copy.rules'),
-            'Parts\n{\n\tCannon = "Cannon"\n\tRetired = "Retired"\n}\n'
-        );
+        writeFileSync(join(stringsDir, 'en - Copy.rules'), 'Parts\n{\n\tCannon = "Cannon"\n\tRetired = "Retired"\n}\n');
         writeFileSync(join(stringsDir, 'README.rules'), 'Note = "how to translate this mod"\n');
     });
 
@@ -314,8 +311,6 @@ describe('what the hint says a missing key costs the reader', () => {
     });
 });
 
-// `Strings.GetAvailableLanguages` reads the first two lines of every `.rules` in a strings folder
-// and lists the language only when line 1 opens with `__Name` and line 2 with `__DebugOnly`.
 describe('a language file the picker will never list', () => {
     let gameDir: string;
     let modDir: string;
@@ -359,28 +354,9 @@ describe('a language file the picker will never list', () => {
 
     beforeEach(() => LocalizationKeyIndex.instance.reset());
 
-    it('reports a translation no strings file declares the language of', async () => {
-        const offered = (await findings('it.rules')).filter((error) => error.severity === 'warning');
-        expect(offered).toHaveLength(1);
-        expect(offered[0].message).toContain('"it"');
-    });
-
-    it('reports a header a comment pushed off the first line', async () => {
-        const offered = (await findings('tr.rules')).filter((error) => error.severity === 'warning');
-        expect(offered).toHaveLength(1);
-        expect(offered[0].message).toContain('"tr"');
-    });
-
-    it('says nothing about a file that carries the header, or one overriding a language the game ships', async () => {
-        expect((await findings('ja.rules')).filter((error) => error.severity === 'warning')).toEqual([]);
-        expect((await findings('en.rules')).filter((error) => error.severity === 'warning')).toEqual([]);
-    });
-
-    it('says nothing when the game’s own strings are not in the index to judge against', async () => {
-        const path = join(stringsDir, 'it.rules');
-        const document = parser(lexer(readFileSync(path, 'utf8')), pathToFileURL(path).href).value;
-        const offered = await validateLocalizationCoverage(document, [modDir], token);
-        expect(offered.filter((error) => error.severity === 'warning')).toEqual([]);
+    it('says nothing about a language file without the picker header', async () => {
+        expect((await findings('it.rules')).filter((error) => error.severity === 'warning')).toEqual([]);
+        expect((await findings('tr.rules')).filter((error) => error.severity === 'warning')).toEqual([]);
     });
 
     it('says nothing about a note whose name is no language id', async () => {

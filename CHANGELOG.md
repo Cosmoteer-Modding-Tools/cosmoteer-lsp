@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 
 ## 1.1.2
 
+### Added
+
+- Cosmoteer 0.30.5 support. The new fields for custom weapon ranges and arcs, structure
+  penetration falloff, `UseContiguity` and PvP perimeter crew damage complete, hover with docs and
+  validate.
+
+- The fields 0.30.5 removed with the old Aim button, such as `SaveShipRelativeTargets`, and
+  `DefaultTargetingRangeFactor` are hinted as removed in 0.30.5. `HasTargetExceptShipRelative` is
+  offered as `HasTarget`, which now means the same, and the migration command applies it.
+
+- The shader preview handles `SampleGrad`, which the new dashed line shaders use.
+
+- A bare reference like `&COLOR_BASE/…` inside a nested group now explains why it is not found and
+  offers `&~/COLOR_BASE/…`. The game looks a bare name up only in the group it is written in and
+  what that group inherits, so a constant at the file root is out of its reach.
+
+- A missing asset that sits one or two folders up is offered with the `../` path that reaches it.
+  This is the usual result of copying a file into a sub-folder.
+
 ### Fixed
 
 - Completion and the other editor requests no longer stall after startup on a large mod. Every
@@ -12,6 +31,22 @@ All notable changes to this project will be documented in this file.
 
 - Typing in a part no longer slows every keystroke down. The parts that include a fragment were
   searched for again on each edit, although only a change to another file can move them.
+
+- A localization key added to a strings file now clears the "not found" warning in every file that
+  uses it. On a large mod those files kept the warning until they were opened, while hover already
+  showed the text.
+
+- A member name holding a character the game refuses, such as the `-` in `sw-curved01 = { … }` or
+  an `ü`, is now an error. The game reads only the letters A to Z, digits, `_` and `.` in a name and
+  fails to load the whole file on anything else.
+
+- A line of notes ending in parentheses, such as `Sprite Def by Cody (VSCode Extension)`, is now an
+  error. It used to pass as a function call, while the game fails to load the file on it.
+
+### Removed
+
+- The warning that the game offers no language for a strings file without the `__Name` and
+  `__DebugOnly` header is gone.
 
 ## 1.1.1
 

@@ -36,17 +36,17 @@ The lower activation bound enforced while the ship is unable to execute commands
 The upper activation bound enforced while the ship is unable to execute commands. See [[Cosmoteer.Ships.Parts.Thrusters.ThrusterRules.MinUncommandedActivation]]. Vanilla thrusters reference their normal [[Cosmoteer.Ships.Parts.Thrusters.ThrusterRules.MaxActivation]] here.
 
 ## ActivationIncreaseTime
-`number` · optional
+`number (seconds)` · optional
 
 Seconds to ramp the activation level from 0 to full when throttling up. The thrust solver also uses it to know how much activation is reachable within a tick and to plan when to begin decelerating. At 0, the default, throttle-up is instantaneous, while the vanilla rocket thruster ramps up over 4 seconds.
 
 ## ActivationDecreaseTime
-`number` · optional
+`number (seconds)` · optional
 
 Seconds to ramp the activation level from full back to 0 when throttling down. At 0, the default, throttle-down is instantaneous, while the vanilla rocket thruster ramps down over 2 seconds.
 
 ## ActivationRecoveryTime
-`number` · optional
+`number (seconds)` · optional
 
 Seconds for the thruster's recovery ceiling to drain from full to 0 after throttling down. Until it drains, the activation can jump straight back up to the recently held level without ramping through [[Cosmoteer.Ships.Parts.Thrusters.ThrusterRules.ActivationIncreaseTime]] again. At 0, the default, no such memory is kept.
 

@@ -21,7 +21,7 @@ The hit effects to perform every repetition.
 The media effects to play every repetition.
 
 ## Interval
-`number` · required
+`number (seconds)` · required
 
 The period between one repetition and the next.
 
@@ -31,7 +31,7 @@ The period between one repetition and the next.
 The number of total repetition.
 
 ## InitialDelay
-`number` · optional
+`number (seconds)` · optional
 
 The delay before starting the first repetition.
 

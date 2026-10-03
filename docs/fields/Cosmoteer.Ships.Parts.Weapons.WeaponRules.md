@@ -11,7 +11,7 @@ Shared setup for weapons, covering fire interval, what may be targeted and wheth
 > [Cosmoteer modding wiki](https://cosmoteer.wiki.gg/wiki/Modding).
 
 ## FireInterval
-`number` · required
+`number (seconds)` · required
 
 Seconds between shots. A newly built weapon starts fully unloaded and must wait one full interval before its first shot.
 
@@ -115,6 +115,36 @@ The component ID of the toggle that enables autonomous fire. The weapon only wan
 
 Draws the weapon's coverage area while giving commands even when the weapon is excluded from firepower estimation. Used by the mining laser and the flak cannon.
 
+## AllowCustomCoverageEditing
+`bool` · optional · default `true`
+
+Whether players can set a custom range or arc for this weapon in the weapon coverage editor. When false the weapon is left out of the editor and only a reset to defaults is accepted. Also false in effect whenever [[Cosmoteer.Ships.Parts.Weapons.WeaponRules.MatchWeaponCoverage]] is set. Vanilla turns it off on the chaingun's hidden turret and the manipulator beam.
+
+## AllowCustomCoverageRangeEditing
+`bool` · optional · default `true`
+
+Whether players can shorten this weapon's range in the weapon coverage editor. When false the range handle is hidden and a custom range is refused, while the arc can still be edited. Vanilla turns it off on the roof headlight.
+
+## DefaultWeaponCoverage
+`WeaponCoverage` · optional
+
+The range and arc restriction the weapon starts with before any player customization, written as a group such as `DefaultWeaponCoverage { Range = 150, Arc = [-45d, 90d] }`. A player's custom coverage overrides `Range` and `Arc` separately and falls back to this value for the one left unset. The vanilla mine launcher uses it to start with a 90 degree, 150 tile coverage.
+
+## MatchWeaponCoverage
+`→ PartComponentRules` · optional
+
+The ID of another weapon component on the same part whose player-set coverage this weapon follows. The coverage is read from that component's entry and applied against this weapon's own range and arc limits, and this weapon can no longer be edited on its own. Vanilla points the chaingun's fixed barrel, the ion prism, the resonance beam and the dual missile launchers at their primary weapon.
+
+## MatchWeaponCoverageStrictFire
+`bool` · optional
+
+Stops a fixed weapon from firing when its current coverage arc does not include the weapon's forward direction. The effective range drops to 0 in that case, which blocks firing and targeting. A zero-width arc counts as including it when it lies within half of [[Cosmoteer.Ships.ShipRules.MinWeaponCoverageArcTargetWidth]]. Only fixed weapons read it, normally together with [[Cosmoteer.Ships.Parts.Weapons.WeaponRules.MatchWeaponCoverage]] as on the vanilla chaingun.
+
+## CoverageLine
+`CappedLine` · optional
+
+Replaces [[Cosmoteer.Simulation.SimGuiRules.DefaultWeaponCoverageLine]] for this weapon when its coverage is drawn as a line while giving commands. That happens for fixed weapons and for turrets whose coverage has zero width.
+
 ## IgnoreFriendlyShipLowLOSChecks
 `bool` · optional
 
@@ -145,58 +175,28 @@ Lets auto-targeting pick structure cells on enemy ships. When false, enemy struc
 
 Filter for parts the weapon refuses to target. The ion beam emitter uses it to avoid force-firing on friendly ion prisms.
 
-## ProhibitShipRelativePointTargets
-`bool` · optional
-
-Refuses explicit targets that are points pinned relative to a ship rather than actual parts.
-
 ## SuppressShipWideExplicitTargetsWhenTargetingPartsFilter
 `EffectFilter` · optional
 
 While the weapon's current target matches this filter, it stops accepting ship-wide explicit targets, so whole-ship attack orders do not override a special assignment such as a friendly ion prism.
-
-## SuppressShipWideExplicitTargetsWhenTargetingShipRelativePoints
-`bool` · optional
-
-While the weapon is targeting a ship-relative point, it stops accepting ship-wide explicit targets.
 
 ## SuppressDirectControlWhenTargetingPartsFilter
 `EffectFilter` · optional
 
 While the weapon's current target matches this filter, direct control ignores the weapon so manual fire does not override the assignment.
 
-## SuppressDirectControlWhenTargetingShipRelativePoints
-`bool` · optional
-
-While the weapon is targeting a ship-relative point, direct control ignores it.
-
 ## SuppressFirepowerEstimationWhenTargetingPartsFilter
 `EffectFilter` · optional
 
 Excludes the weapon from firepower estimation while its current target matches this filter, for example an ion beam aimed into a friendly prism.
-
-## SuppressFirepowerEstimationWhenTargetingShipRelativePoints
-`bool` · optional
-
-Excludes the weapon from firepower estimation while it is targeting a ship-relative point. The ion prism uses this so the same prism is not counted for both its turret mode and its fixed mode.
-
-## SuppressFirepowerEstimationWhenNotTargetingShipRelativePoints
-`bool` · optional
-
-Excludes the weapon from firepower estimation unless it is targeting a ship-relative point. The counterpart of [[Cosmoteer.Ships.Parts.Weapons.WeaponRules.SuppressFirepowerEstimationWhenTargetingShipRelativePoints]] used by a part's chained or fixed mode.
 
 ## SaveSelfTargetPartCategories
 `→ PartCategory[]` · optional
 
 Part categories for which a target on the weapon's own ship is saved with the ship design and restored on load. Ion beams and prisms use it to keep beam-into-prism setups intact.
 
-## SaveShipRelativeTargets
-`bool` · optional
-
-Saves the weapon's ship-relative point targets with the ship design so they are restored on load.
-
 ## ToggleOnMode
-`enum WeaponToggleOnMode` · optional · one of: `WantsAndReadyToFire`, `WantsToFire`, `HasTarget`, `HasTargetExceptShipRelative`, `IsReloaded`
+`enum WeaponToggleOnMode` · optional · one of: `WantsAndReadyToFire`, `WantsToFire`, `HasTarget`, `IsReloaded`
 
 The condition under which this weapon counts as on when other components read it as a toggle source. Defaults to `WantsAndReadyToFire`, meaning the weapon both wants to fire and is reloaded with resources and permission to shoot.
 
@@ -229,3 +229,4 @@ Shorthand that registers one emitter as both the [[Cosmoteer.Ships.Parts.Weapons
 `→ PartComponentRules` · optional
 
 Shorthand that adds one more emitter to [[Cosmoteer.Ships.Parts.Weapons.WeaponRules.ResourceCheckEmitters]].
+

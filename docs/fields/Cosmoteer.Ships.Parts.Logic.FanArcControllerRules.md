@@ -21,17 +21,17 @@ A weapon component on the same part whose current ship target determines the fan
 The chainable components that are spread across the arc. Each listed component must be chained to this controller and receives a rotation offset, evenly spaced in list order from one edge of the arc to the other. The vanilla tractor beam fans its five beam emitters this way.
 
 ## MinArc
-`number` · optional
+`number (degrees)` · optional
 
 The minimum fan arc, as an angle such as `5d`. The arc computed from the target's hull width is clamped to at least this. Defaults to 0. Being modifiable, it can be driven by buffs.
 
 ## MaxArc
-`number` · optional
+`number (degrees)` · optional
 
 The maximum fan arc, as an angle such as `10d`. The arc computed from the target's hull width is clamped to at most this. Defaults to 360 degrees. Being modifiable, it can be driven by buffs.
 
 ## DefaultArc
-`number` · optional
+`number (degrees)` · optional
 
 The arc used whenever the weapon in [[Cosmoteer.Ships.Parts.Logic.FanArcControllerRules.GetTargetFrom]] has no ship target. Defaults to 0, which collapses the fan so all components point straight ahead. The vanilla tractor beam sets it to its `MaxArc`.
 

@@ -50,6 +50,21 @@ describe('did-you-mean diagnostics', () => {
             expect(error?.data).toBeUndefined();
         });
 
+        // The game looks a bare first name up in the enclosing group and what it inherits, never in
+        // the groups around it, so a root constant read from a nested group resolves nowhere.
+        it('offers the file-root form when a bare name only exists at the root', async () => {
+            const src = 'COLOR = &Other\nOther { X = 1 }\nA\n{\n    B\n    {\n        Y = &COLOR/X\n    }\n}\n';
+            const error = await validate(src, '&COLOR/X');
+            expect(error?.message).toBe('Reference name is not known');
+            expect(error?.additionalInfo).toContain('file root');
+            expect(error?.data?.quickFix?.newText).toBe('&~/COLOR/X');
+        });
+
+        it('offers no file-root form when the root does not have the name either', async () => {
+            const error = await validate('A\n{\n    Y = &MISSING/X\n}\n', '&MISSING/X');
+            expect(error?.additionalInfo).not.toContain('file root');
+        });
+
         it('omits a suggestion when nothing in scope is close', async () => {
             const error = await validate('Root = 1\nBad = &Zzzzzzzzz\n', '&Zzzzzzzzz');
             expect(error?.message).toBe('Reference name is not known');

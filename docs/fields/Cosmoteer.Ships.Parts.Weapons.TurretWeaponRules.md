@@ -11,17 +11,27 @@ A weapon on a turret that rotates at `RotateSpeed` to bear on its target before 
 > [Cosmoteer modding wiki](https://cosmoteer.wiki.gg/wiki/Modding).
 
 ## FiringArc
-`number` · required
+`number (degrees)` · required
 
 Total width, in degrees, of the arc the turret can rotate through, centered on its mount direction. `360d` lets it spin all the way around.
+
+## AllowCustomCoverageArcEditing
+`bool` · optional · default `true`
+
+Whether players can narrow or rotate this turret's firing arc in the weapon coverage editor. When false only the range handle is offered, and a custom arc is refused. Has no effect unless [[Cosmoteer.Ships.Parts.Weapons.WeaponRules.AllowCustomCoverageEditing]] is also true.
+
+## ForceCustomCoverageWidthZero
+`bool` · optional
+
+Restricts this turret's coverage to a single direction instead of an arc. A custom arc must have zero width, the editor drags both sides together, and without any custom arc the turret covers only its mount direction. Vanilla sets it on the roof headlight. A zero-width coverage accepts targets within half of [[Cosmoteer.Ships.ShipRules.MinWeaponCoverageArcTargetWidth]] of the chosen direction.
 
 ## TargetingRange
 `number` · optional
 
-Maximum distance, in tiles, at which the turret searches for new targets. Defaults to [[Cosmoteer.Ships.Parts.Weapons.TurretWeaponRules.ValidRange]] if that is set, otherwise to the targeting emitter's range multiplied by the ship's [[Cosmoteer.Ships.ShipRules.DefaultTargetingRangeFactor]].
+Maximum distance, in tiles, at which the turret searches for new targets. Defaults to the turret's valid range ([[Cosmoteer.Ships.Parts.Weapons.TurretWeaponRules.ValidRange]], or the emitter's range when that is unset) clamped to the player's coverage, plus the ship's [[Cosmoteer.Ships.ShipRules.DefaultTargetingRangeExtension]] when the targeting emitter leads its target.
 
 ## TargetingArc
-`number` · optional
+`number (degrees)` · optional
 
 Width, in degrees, of the arc within which the turret searches for new targets. Defaults to [[Cosmoteer.Ships.Parts.Weapons.TurretWeaponRules.ValidArc]] if that is set, otherwise to [[Cosmoteer.Ships.Parts.Weapons.TurretWeaponRules.FiringArc]].
 
@@ -31,12 +41,12 @@ Width, in degrees, of the arc within which the turret searches for new targets. 
 Maximum distance, in tiles, at which an acquired target remains valid to keep and fire at. Defaults to the targeting emitter's current range.
 
 ## ValidArc
-`number` · optional
+`number (degrees)` · optional
 
 Width, in degrees, of the arc within which an acquired target remains valid to keep and fire at. Defaults to [[Cosmoteer.Ships.Parts.Weapons.TurretWeaponRules.FiringArc]], and missile launchers widen it to `360d` beyond their launch arc.
 
 ## RotateSpeed
-`number` · required
+`number (degrees)` · required
 
 Degrees per second the turret rotates toward its desired aim direction.
 
@@ -46,7 +56,7 @@ Degrees per second the turret rotates toward its desired aim direction.
 With nothing to aim at, the turret rotates back to its centered rest direction. When false it stays at whatever rotation it last had, as on the manipulator beam.
 
 ## FireThresholdAngle
-`number` · required
+`number (degrees)` · required
 
 Maximum angular distance, in degrees, between the turret's current facing and the aim direction for it to be willing to fire. Vanilla turrets use small values like `1d`.
 

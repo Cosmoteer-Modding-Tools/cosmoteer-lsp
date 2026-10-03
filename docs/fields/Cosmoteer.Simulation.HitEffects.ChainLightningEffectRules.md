@@ -46,7 +46,7 @@ The number of initial lightning strikes launched from the hit point, rolled rand
 The radius, in tiles, of a circle around the hit point within which each initial strike's origin is randomly placed. The origin is where the strike visually starts and where the [[Cosmoteer.Simulation.HitEffects.ChainLightningEffectRules.RaycastInitialTargets]] raycast begins. Defaults to 0, meaning all strikes start exactly at the hit point.
 
 ## MaxInitialAngle
-`number` · optional
+`number (degrees)` · optional
 
 The maximum angle, in degrees, between the triggering hit's travel direction and the direction to a candidate target for that target to be eligible for an initial strike. Values of 180 or more allow targets in all directions, which is the default. The vanilla overclocked Ion Prism lightning uses `60d`.
 
@@ -71,7 +71,7 @@ The number of follow-up strikes launched from each target that chains, rolled ra
 The exponent controlling how the effect scale decays along the chain. A chained strike at hop N uses scale `(1 - N / MaxChainLength) ^ ChainEffectFalloff`, so 1 gives linear decay toward zero at [[Cosmoteer.Simulation.HitEffects.ChainLightningEffectRules.MaxChainLength]] and larger values decay faster. A value of exactly 0 disables falloff entirely. The reduced scale shrinks modifiable values in [[Cosmoteer.Simulation.HitEffects.ChainLightningEffectRules.HitEffects]] and the intensity of [[Cosmoteer.Simulation.HitEffects.ChainLightningEffectRules.ChainMediaEffects]].
 
 ## MaxChainAngle
-`number` · optional
+`number (degrees)` · optional
 
 The maximum angle, in degrees, between the previous hop's travel direction and the direction to a candidate target for the lightning to chain to it, making arcs prefer to continue forward. Values of 180 or more allow chaining in all directions, which is the default.
 

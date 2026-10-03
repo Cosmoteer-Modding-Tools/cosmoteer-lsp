@@ -9,8 +9,7 @@ import { parser } from '../../../src/core/parser/parser';
 // of a workshop file the game refuses.
 const parse = (src: string) => parser(lexer(src), 'file:///t.rules');
 
-const errorsMatching = (src: string, message: string) =>
-    parse(src).parserErrors.filter((e) => e.message === message);
+const errorsMatching = (src: string, message: string) => parse(src).parserErrors.filter((e) => e.message === message);
 
 const NAME_MESSAGE = 'A member name must be followed by "=", ":", "{", "[" or the end of the line';
 const NUMBER_MESSAGE = 'A number cannot name a member';
@@ -24,9 +23,9 @@ describe('prose where a member name belongs', () => {
     });
 
     it('flags a paragraph of prose (wookiepedia.rules)', () => {
-        expect(findings('A baradium missile was a type of missile used by the Galactic Alliance Guard.\n')).toHaveLength(
-            1
-        );
+        expect(
+            findings('A baradium missile was a type of missile used by the Galactic Alliance Guard.\n')
+        ).toHaveLength(1);
     });
 
     it('flags a name followed by another word on the same line', () => {
@@ -34,7 +33,21 @@ describe('prose where a member name belongs', () => {
     });
 
     it('flags a hand-written note table (origin_list.rules), once per name it leaves behind', () => {
-        expect(findings('chaingun_bullet.shader\t<- ./Data/shots/chaingun_shot\n')).toHaveLength(2);
+        // The second name starts with `<`, which earns the sharper refused-character message.
+        expect(parse('chaingun_bullet.shader\t<- ./Data/shots/chaingun_shot\n').parserErrors).toHaveLength(2);
+    });
+
+    it('flags a prose line ending in parentheses (Sprite_def.rules)', () => {
+        // It reads as a call, but in member position the game answers `Unexpected "Def"`.
+        expect(findings('Sprite Def by SkipperWraith & Cody (VSCode Extension)\n')).toHaveLength(1);
+    });
+
+    it('flags a call where a member name belongs', () => {
+        expect(findings('G\n{\n\tFoo(1)\n}\n')).toHaveLength(1);
+    });
+
+    it('accepts a call as a field value or a list element', () => {
+        expect(parse('X = Foo(1)\nY = 1 + Foo(1)\nL [ Foo(1) ]\n').parserErrors).toHaveLength(0);
     });
 
     it('flags a name followed by a quoted string on the same line', () => {
@@ -109,6 +122,32 @@ describe('a number where a member name belongs', () => {
 
     it('accepts a number inside a math expression', () => {
         expect(findings('G\n{\n\tA = (&~/SIZE/0)/2 + 3\n}\n')).toHaveLength(0);
+    });
+});
+
+// The game's name text is `[0-9A-Za-z_.]`. Each case was run through the shipped HalflingCore parser.
+describe('a character the game refuses in a member name', () => {
+    const refused = (src: string) => parse(src).parserErrors.map((e) => e.message);
+
+    it('flags a hyphen in a generated decal id (decals_list.rules)', () => {
+        expect(refused('sw-curved01 = { A = 1 }\n')).toEqual(['Unexpected "-"']);
+    });
+
+    it('points at the first refused character', () => {
+        const [error] = parse('G\n{\n\tsw-curved22-r02 = 1\n}\n').parserErrors;
+        expect(error.token.start).toBe('G\n{\n\tsw'.length);
+    });
+
+    it('flags a non-ASCII letter', () => {
+        expect(refused('Füll = 1\n')).toEqual(['Unexpected "ü"']);
+    });
+
+    it('accepts the same characters in a list element, which is text', () => {
+        expect(refused('L [ a-b = 1 ]\nM [ a#b = 1 ]\n')).toEqual([]);
+    });
+
+    it('accepts dots and underscores', () => {
+        expect(refused('a.b_c = 1\n')).toEqual([]);
     });
 });
 

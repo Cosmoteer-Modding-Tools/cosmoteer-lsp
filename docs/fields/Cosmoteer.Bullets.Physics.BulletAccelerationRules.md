@@ -16,7 +16,7 @@ Speeds the bullet up or slows it down over time, along its facing, its velocity 
 The acceleration, in tiles per second squared, applied to the bullet every physics tick. Interpolated from Min to Max as the bullet's age moves through [[Cosmoteer.Bullets.Physics.BulletAccelerationRules.AccelerationOverTime]], and a plain single value applies constantly. Negative values brake the bullet.
 
 ## AccelerationOverTime
-`range<number>` · optional
+`range<number (seconds)>` · optional
 
 The lifetime window, in seconds since spawn, over which [[Cosmoteer.Bullets.Physics.BulletAccelerationRules.Acceleration]] interpolates from its Min to its Max. Defaults to `[0, 0]`, making the acceleration constant. Vanilla missiles use a second component with `Acceleration = [-90, 0]` and `AccelerationOverTime = [0, .75]` to bleed off inherited launch velocity.
 

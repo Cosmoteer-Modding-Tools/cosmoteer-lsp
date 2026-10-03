@@ -11,14 +11,14 @@ A weapon that cannot turn and fires only at targets inside the arc it already fa
 > [Cosmoteer modding wiki](https://cosmoteer.wiki.gg/wiki/Modding).
 
 ## TargetingArc
-`number` · optional
+`number (degrees)` · optional
 
 The angular width, centered on the weapon's facing, of the sector in which the weapon searches for enemy parts to auto-fire at, accounting for aim lead against each candidate ship. When unset the weapon only checks a single ray along its exact firing line. The vanilla railgun launcher uses `90d`.
 
 ## TargetingRange
 `number` · optional
 
-The radius, in tiles, of the target search sector used with [[Cosmoteer.Ships.Parts.Weapons.FixedWeaponRules.TargetingArc]]. When unset it falls back to the targeting emitter's current range times [[Cosmoteer.Ships.ShipRules.DefaultTargetingRangeFactor]].
+The radius, in tiles, of the target search sector used with [[Cosmoteer.Ships.Parts.Weapons.FixedWeaponRules.TargetingArc]]. When unset it falls back to the weapon's effective range, plus the ship's [[Cosmoteer.Ships.ShipRules.DefaultTargetingRangeExtension]] when the targeting emitter leads its target.
 
 ## AutoTarget
 `WeaponAutoTargetRules` · required
@@ -45,7 +45,3 @@ Seconds between full enemy-in-sights searches while deciding whether to auto-fir
 
 A filter tested against the part hit by the weapon's targeting ray. A part that passes is automatically made the weapon's confirmed explicit target. The vanilla ion beam emitter uses a friendly-prism filter so it locks onto a prism placed in its firing line.
 
-## CoverageLine
-`CappedLine` · optional
-
-The line visual drawn along the weapon's firing path when the game shows its coverage, reaching out to the weapon's range and clipped where friendly parts block the line of fire. Used by the vanilla chaingun, railgun launcher, and ion beam parts.

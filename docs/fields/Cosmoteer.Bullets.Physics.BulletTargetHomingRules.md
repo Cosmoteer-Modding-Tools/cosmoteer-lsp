@@ -11,7 +11,7 @@ Turns the bullet towards its target at `TurnVelocity` and steers it around obsta
 > [Cosmoteer modding wiki](https://cosmoteer.wiki.gg/wiki/Modding).
 
 ## TurnVelocity
-`number` · required
+`number (degrees)` · required
 
 The maximum rate at which the bullet turns toward its target, written with a `d` suffix for degrees per second. Each physics tick the bullet's angular velocity is capped at this rate, so lower values give wider homing arcs. Vanilla missiles use `240d`.
 
@@ -21,7 +21,7 @@ The maximum rate at which the bullet turns toward its target, written with a `d`
 Redirects the bullet's velocity relative to its frame of reference along its facing every tick, keeping the speed unchanged, so the bullet actually changes course as it turns. When false, the default, homing only rotates the bullet and its flight path is left to other components.
 
 ## Delay
-`number` · optional
+`number (seconds)` · optional
 
 Seconds before homing kicks in, during which the bullet flies straight with no turning. The countdown only runs while the bullet has a live target. Vanilla missiles use `.1` so they leave the launcher before curving.
 

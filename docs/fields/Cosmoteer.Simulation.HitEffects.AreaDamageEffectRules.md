@@ -46,7 +46,7 @@ Which footprint is used to find the part occupying each damaged cell. `Physical`
 The exponent shaping how damage drops from full at the epicenter to zero at the circle's edge, defaulting to 1. The linear distance fraction is raised to this power, so `1` is a straight linear falloff, `0` disables falloff so the full damage applies everywhere inside the circle, and larger values concentrate damage near the center. Does not apply to [[Cosmoteer.Simulation.HitEffects.AreaDamageEffectRules.DamagePerTileHealth]].
 
 ## Delay
-`number` · optional
+`number (seconds)` · optional
 
 Seconds waited before the damage is applied, defaulting to 0. While waiting, the blast point stays anchored to the hit ship, or keeps drifting at that ship's last velocity if the ship ceases to exist. Vanilla railgun parts delay their death blast by 0.15 seconds so destruction visibly chains from segment to segment.
 

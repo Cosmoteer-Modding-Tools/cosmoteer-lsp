@@ -35,6 +35,11 @@ Extra begin-cap length per unit of the circle's [[Halfling.Graphics.CircleRender
 
 The horizontal texture coordinate range `[from, to]` mapped along the begin cap, as 0..1 fractions across the width of the renderer's [[Halfling.Graphics.CircleRenderer.UVRect]]. Defaults to `[0, 0]`.
 
+## BeginCapOverhangFraction
+`float` · optional
+
+The fraction of the begin cap that extends before the start of the dash's slice of the arc instead of inside it. 0 places the cap fully inside the dash, 1 fully outside and .5 centers it on the dash's start. The overhanging part does not count toward the cap shrinking that keeps caps within the dash length. Defaults to 0.
+
 ## EndCapLength
 `float` · optional
 
@@ -49,3 +54,8 @@ Extra end-cap length per unit of the circle's [[Halfling.Graphics.CircleRenderer
 `range<float>` · optional
 
 The horizontal texture coordinate range `[from, to]` mapped along the end cap, as 0..1 fractions across the width of the renderer's [[Halfling.Graphics.CircleRenderer.UVRect]]. Defaults to `[0, 0]`.
+
+## EndCapOverhangFraction
+`float` · optional
+
+The fraction of the end cap that extends past the end of the dash's slice of the arc instead of inside it. 0 places the cap fully inside the dash, 1 fully outside and .5 centers it on the dash's end. The overhanging part does not count toward the cap shrinking that keeps caps within the dash length. Defaults to 0.

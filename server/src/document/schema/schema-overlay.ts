@@ -342,6 +342,17 @@ const OVERLAY_FIELD_ADDITIONS: Record<string, SchemaField[]> = {
             optional: true,
             dead: true,
         },
+        ...[
+            'ProhibitShipRelativePointTargets',
+            'SuppressShipWideExplicitTargetsWhenTargetingShipRelativePoints',
+            'SuppressDirectControlWhenTargetingShipRelativePoints',
+            'SuppressFirepowerEstimationWhenTargetingShipRelativePoints',
+            'SuppressFirepowerEstimationWhenNotTargetingShipRelativePoints',
+            'SaveShipRelativeTargets',
+        ].map((name) => ({ name, valueType: { kind: 'bool' as const }, optional: true, dead: true })),
+    ],
+    'Cosmoteer.Ships.ShipRules': [
+        { name: 'DefaultTargetingRangeFactor', valueType: { kind: 'float' }, optional: true, dead: true },
     ],
     'Cosmoteer.Ships.Parts.Thrusters.ThrusterRules': [
         { name: 'ValueOutputSmoothing', valueType: { kind: 'float' }, optional: true, dead: true },

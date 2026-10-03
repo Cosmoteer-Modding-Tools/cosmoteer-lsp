@@ -49,9 +49,9 @@ export const resolveAssetPath = async (
 /**
  * For a not-found asset, the value to write instead: the closest-named file of the same kind in
  * the directory the path points at, which catches a typo, or failing that the same relative path
- * found under a sub-folder of the declaring directory, which catches a definition copied from
- * another folder whose asset came along into a folder the path does not name. Returned as the
- * full corrected value, or `null` when nothing fits.
+ * found one or two folders up, or under a sub-folder of the declaring directory, which catches a
+ * definition copied from another folder whose path still names the folder it came from. Returned
+ * as the full corrected value, or `null` when nothing fits.
  *
  * @param node the asset value node that did not resolve.
  * @param uri the uri of the file the value is written in.
@@ -94,7 +94,41 @@ export const suggestAssetFilename = async (
     // Rebuild the full value with only the filename swapped, preserving the leading path.
     if (typo) return value.slice(0, value.length - basename.length) + typo;
     if (installRooted) return null;
-    return findRelocatedAsset(normalizeDir(uri), value, cancellationToken);
+    return (
+        (await findAssetAbove(normalizeDir(uri), value)) ??
+        findRelocatedAsset(normalizeDir(uri), value, cancellationToken)
+    );
+};
+
+/**
+ * Looks for the value's path in the folders above the declaring directory, which catches a file
+ * copied into a sub-folder whose asset path still names the folder it came from.
+ *
+ * @param baseDir the directory the value is resolved against.
+ * @param value the asset path as written.
+ * @returns the value prefixed with the `../` hops that reach it, or `null`.
+ */
+const findAssetAbove = async (baseDir: string, value: string): Promise<string | null> => {
+    const segments = value.split('/').filter((segment) => segment.length > 0 && segment !== '.');
+    if (segments.length === 0 || segments.includes('..')) return null;
+    let dir = baseDir;
+    for (let up = 1; up <= 2; up++) {
+        const slash = dir.lastIndexOf('/');
+        if (slash <= 0) return null;
+        dir = dir.slice(0, slash);
+        let current = dir;
+        let found = true;
+        for (const segment of segments) {
+            const real = (await cachedDirLookup(current).catch(() => undefined))?.get(segment.toLowerCase());
+            if (!real) {
+                found = false;
+                break;
+            }
+            current = `${current}/${real}`;
+        }
+        if (found) return '../'.repeat(up) + segments.join('/');
+    }
+    return null;
 };
 
 /**

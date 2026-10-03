@@ -26,7 +26,7 @@ Viscous drag coefficient on the bullet's spin. At 0, the default, rotation is un
 Lets the bullet's physics body collide and bounce off the bodies of other bullets that also enable it. By default a bullet's body physically collides with nothing. Vanilla mines use this so they bump off each other.
 
 ## FrameOfReferenceDuration
-`number` · optional
+`number (seconds)` · optional
 
 Seconds over which the frame-of-reference velocity the bullet inherited at spawn, usually the firing ship's velocity, fades linearly to zero. Until it fades, [[Cosmoteer.Bullets.Physics.BulletPhysicsRules.LinearDamping]] and other frame-relative behavior measure against that velocity instead of the fixed grid. Defaults to infinity so the frame never fades, while the deployed vanilla mine sets `0` to drop it immediately.
 

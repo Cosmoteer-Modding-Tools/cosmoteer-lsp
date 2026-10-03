@@ -41,12 +41,12 @@ const NAME_FOLLOWERS: ReadonlySet<TOKEN_TYPES> = new Set([
 const HAS_WHITESPACE = /\s/;
 
 /**
- * Matches the punctuation that reads as ordinary text inside a value and that the game's tokenizer
- * refuses where a member name belongs. Its name text is `[0-9A-Za-z_.]`, and running `A#B = 1`,
- * `A@B = 1` and `A?B = 1` through the shipped HalflingCore parser answers `Unexpected "#"`,
- * `Unexpected "@"` and `Unexpected "?"`, each of which drops the whole file.
+ * Matches the first character the game's tokenizer refuses where a member name belongs. Its name
+ * text is `[0-9A-Za-z_.]`, and running `A#B = 1`, `sw-curved01 = 1`, `a+b = 1` and `Füll = 1`
+ * through the shipped HalflingCore parser answers `Unexpected "#"`, `Unexpected "-"`,
+ * `Unexpected "+"` and `Unexpected "ü"`, each of which drops the whole file.
  */
-const REFUSED_IN_NAME = /[#@$?|`]/;
+const OUTSIDE_NAME_CHARSET = /[^0-9A-Za-z_.]/;
 
 /**
  * The span a single-token node covers, as the token's own extent.
@@ -150,7 +150,7 @@ const continuesPreviousLine = (token: Token, previous: Token | undefined): boole
  * @param numbersAllowed whether a number may name this member. It may on the left of an `=`,
  * which is the list-form index field (`0 = 5`), and may not anywhere else.
  */
-const reportInvalidMemberName = (
+export const reportInvalidMemberName = (
     state: ParserState,
     token: Token,
     next: Token | undefined,
@@ -179,11 +179,13 @@ const reportInvalidMemberName = (
         return;
     }
     const name = typeof token.value === 'string' ? token.value : '';
-    const refused = REFUSED_IN_NAME.exec(name);
-    if (refused) {
+    // Inside a `[ … ]` list the whole line is one text element, so no character is refused there.
+    // Whitespace has its own message below, reached when it comes before any refused character.
+    const refused = numbersAllowed ? null : OUTSIDE_NAME_CHARSET.exec(name);
+    if (refused && !HAS_WHITESPACE.test(refused[0])) {
         errors.push({
             message: l10n.t('Unexpected "{0}"', refused[0]),
-            token,
+            token: { ...token, start: token.start + refused.index, end: token.start + refused.index + 1 },
             additionalInfo: [
                 {
                     message: l10n.t(
@@ -332,6 +334,40 @@ const parseAssignment = (
 };
 
 /**
+ * Tells whether a bare token continues a value rather than naming a member.
+ *
+ * @param token the bare token.
+ * @param previous the token before it, undefined at the start of the file.
+ * @param next the token after it, undefined at the end of the file.
+ * @param lastNode the node read before it.
+ * @returns true when the token is part of a value.
+ */
+export const readsAsValue = (
+    token: Token,
+    previous: Token | undefined,
+    next: Token | undefined,
+    lastNode: AbstractNode | undefined
+): boolean =>
+    !!previous &&
+    (previous.type === TOKEN_TYPES.EQUALS ||
+        previous.type === TOKEN_TYPES.COLON ||
+        previous.type === TOKEN_TYPES.LEFT_BRACKET ||
+        // An operator makes what follows it an operand, but only while the value is still going:
+        // a value ends at the line break, so the word on the next line names a member. Reading it
+        // as an operand of a trailing `-` left the group or list it names anonymous.
+        (previous.type === TOKEN_TYPES.EXPRESSION && !token.precededByNewline) ||
+        previous.type === TOKEN_TYPES.LEFT_PAREN ||
+        lastNode?.type === 'Value' ||
+        // Right after a `,` field separator, an identifier that heads a group/list/inheritance
+        // (`, Criterias [ … ]`, real mod gaugeincreaser.rules) is a new member, not a
+        // comma-separated value. So classify it as a value only when it is not immediately
+        // followed by `{`/`[`/`:` (else its opener is orphaned and the member goes anonymous).
+        (previous.type === TOKEN_TYPES.COMMA &&
+            next?.type !== TOKEN_TYPES.LEFT_BRACE &&
+            next?.type !== TOKEN_TYPES.LEFT_BRACKET &&
+            next?.type !== TOKEN_TYPES.COLON));
+
+/**
  * Reads a bare token: the head of an assignment, a value continuing the one before it, or an
  * identifier that names whatever follows it.
  *
@@ -354,29 +390,7 @@ export const parseValue = (
         const assignment = parseAssignment(state, token, _lastNode, parent);
         if (!assignment) return null;
         node = assignment;
-    } else if (
-        token.value &&
-        tokens[state.current - 2] &&
-        (tokens[state.current - 2].type === TOKEN_TYPES.EQUALS ||
-            tokens[state.current - 2].type === TOKEN_TYPES.COLON ||
-            tokens[state.current - 2].type === TOKEN_TYPES.LEFT_BRACKET ||
-            // An operator makes what follows it an operand, but only while the value is
-            // still going: a value ends at the line break, so the word on the next line
-            // names a member. Reading it as an operand of a trailing `-` left the group or
-            // list it names anonymous.
-            (tokens[state.current - 2].type === TOKEN_TYPES.EXPRESSION && !token.precededByNewline) ||
-            tokens[state.current - 2].type === TOKEN_TYPES.LEFT_PAREN ||
-            _lastNode?.type === 'Value' ||
-            // Right after a `,` field separator, an identifier that heads a group/list/
-            // inheritance (`, Criterias [ … ]`, real mod gaugeincreaser.rules) is a new
-            // member, not a comma-separated value. So classify it as a value only when it is
-            // not immediately followed by `{`/`[`/`:` (else its opener is orphaned and the
-            // member goes anonymous). The multi-value continuation cases above are left as-is.
-            (tokens[state.current - 2].type === TOKEN_TYPES.COMMA &&
-                tokens[state.current]?.type !== TOKEN_TYPES.LEFT_BRACE &&
-                tokens[state.current]?.type !== TOKEN_TYPES.LEFT_BRACKET &&
-                tokens[state.current]?.type !== TOKEN_TYPES.COLON))
-    ) {
+    } else if (token.value && readsAsValue(token, tokens[state.current - 2], tokens[state.current], _lastNode)) {
         const run = joinContinuedValue(state, token);
         const joined = run.last === token ? token : ({ ...token, value: run.text, end: run.last.end } as Token);
         node = {

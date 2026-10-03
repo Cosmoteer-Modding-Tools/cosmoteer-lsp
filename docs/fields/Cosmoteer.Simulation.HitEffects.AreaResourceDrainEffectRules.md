@@ -36,7 +36,7 @@ The radius, in tiles, of the world-space circle around the impact point within w
 The exponent shaping how the drain weakens with distance. The base factor runs linearly from 1 at the epicenter to 0 at the edge of [[Cosmoteer.Simulation.HitEffects.AreaResourceDrainEffectRules.Radius]] and is raised to this power, so values above 1 concentrate the drain near the center while 0 drains every part in range at full strength. Defaults to 1.
 
 ## Delay
-`number` · optional
+`number (seconds)` · optional
 
 Seconds to wait after the hit before the drain is applied. During the wait the effect point follows the motion of the ship that was hit. Defaults to 0.
 

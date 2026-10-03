@@ -92,6 +92,29 @@ interface FieldDeprecation {
     readonly removeOnMigrate?: boolean;
 }
 
+/** Why 0.30.5 deleted the ship-relative aiming fields, shared by each of their entries. */
+const SHIP_RELATIVE_AIM =
+    "the Aim button was replaced by the range/arc/direction tool, set per weapon through 'DefaultWeaponCoverage'";
+
+/**
+ * The 0.30.5 entries for the weapon fields that only configured the old Aim button.
+ *
+ * @param names the deleted fields' canonical spellings.
+ * @returns the entries, keyed by lower-cased name.
+ */
+const shipRelativeAimFields = (names: readonly string[]): Record<string, FieldDeprecation> =>
+    Object.fromEntries(
+        names.map((name) => [
+            name.toLowerCase(),
+            {
+                className: 'Cosmoteer.Ships.Parts.Weapons.WeaponRules',
+                name,
+                note: SHIP_RELATIVE_AIM,
+                version: '0.30.5',
+            },
+        ])
+    );
+
 /**
  * Deprecated (deleted) fields by lower-cased field name. Each name no longer occurs anywhere in the
  * game's code. Where vanilla still writes a deleted field (stale leftovers the game ignores), the schema keeps the
@@ -118,9 +141,8 @@ const DEPRECATED_FIELDS: Readonly<Record<string, FieldDeprecation>> = registry({
     suppresswholeshiptargetoverlayswhentargetingshiprelativepoints: {
         className: 'Cosmoteer.Ships.Parts.Weapons.WeaponRules',
         name: 'SuppressWholeShipTargetOverlaysWhenTargetingShipRelativePoints',
-        note: "its functionality is covered by 'SuppressShipWideExplicitTargetsWhenTargetingShipRelativePoints'",
+        note: `${SHIP_RELATIVE_AIM}, and so was the field that took over from it in 0.26.1`,
         version: '0.26.1',
-        replacement: 'SuppressShipWideExplicitTargetsWhenTargetingShipRelativePoints',
     },
     valueoutputsmoothing: {
         className: 'Cosmoteer.Ships.Parts.Thrusters.ThrusterRules',
@@ -134,6 +156,35 @@ const DEPRECATED_FIELDS: Readonly<Record<string, FieldDeprecation>> = registry({
         name: 'Flammable',
         note: "fire immunity is now the 'non_flammable' part category: TypeCategories = [non_flammable]",
         version: '0.30.0',
+    },
+    // ---- 0.30.5 ----
+    ...shipRelativeAimFields([
+        'ProhibitShipRelativePointTargets',
+        'SuppressShipWideExplicitTargetsWhenTargetingShipRelativePoints',
+        'SuppressDirectControlWhenTargetingShipRelativePoints',
+        'SuppressFirepowerEstimationWhenTargetingShipRelativePoints',
+        'SuppressFirepowerEstimationWhenNotTargetingShipRelativePoints',
+        'SaveShipRelativeTargets',
+    ]),
+    defaulttargetingrangefactor: {
+        className: 'Cosmoteer.Ships.ShipRules',
+        name: 'DefaultTargetingRangeFactor',
+        note: "replaced by 'DefaultTargetingRangeExtension', an extension rather than a factor, so the value needs reworking",
+        version: '0.30.5',
+    },
+    snaptoangles: {
+        className: 'Cosmoteer.Game.PartTargeterGuiRules',
+        name: 'SnapToAngles',
+        note: 'the Aim button these snapped was replaced by the range/arc/direction tool',
+        version: '0.30.5',
+        removeOnMigrate: true,
+    },
+    snaptoangledistance: {
+        className: 'Cosmoteer.Game.PartTargeterGuiRules',
+        name: 'SnapToAngleDistance',
+        note: 'the Aim button these snapped was replaced by the range/arc/direction tool',
+        version: '0.30.5',
+        removeOnMigrate: true,
     },
 });
 
@@ -306,12 +357,22 @@ interface EnumValueRename extends Deprecation {
  * the value was that member and is now this one, rather than guessing from spelling, and it carries
  * the version so the migration command can group the change with the rest of that update.
  *
- * It is deliberately empty. Every entry has to come from a changelog naming the rename, checked
- * against the extracted schema, the way every other registry in this file was built. Inventing a
- * pair from two names that look alike is exactly the guess the levenshtein suggestion already makes,
- * and dressing it as a recorded rename would give it an authority it has not earned.
+ * Every entry has to come from a recorded game change, checked against the extracted schema, the way
+ * every other registry in this file was built. Inventing a pair from two names that look alike is
+ * exactly the guess the levenshtein suggestion already makes, and dressing it as a recorded rename
+ * would give it an authority it has not earned. A member also qualifies when the game deleted the
+ * one thing that set it apart from another, so both now mean the same.
  */
-export const DEPRECATED_ENUM_VALUES: Readonly<Record<string, EnumValueRename>> = registry({});
+export const DEPRECATED_ENUM_VALUES: Readonly<Record<string, EnumValueRename>> = registry({
+    // ---- 0.30.5 ----
+    hastargetexceptshiprelative: {
+        enumNames: ['Cosmoteer.Ships.Parts.Weapons.WeaponRules/WeaponToggleOnMode'],
+        name: 'HasTargetExceptShipRelative',
+        replacement: 'HasTarget',
+        note: 'ship-relative aim targets were removed with the Aim button, so every target now counts',
+        version: '0.30.5',
+    },
+});
 
 /**
  * The deprecation for a `Type=` discriminator value, if it is a known renamed type.
