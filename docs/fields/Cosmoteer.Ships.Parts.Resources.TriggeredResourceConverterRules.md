@@ -26,7 +26,7 @@ The resource outputs produced on each triggered conversion. Every entry must hav
 The trigger component that initiates a conversion. When it fires and all inputs and output capacity are available, the conversion completes [[Cosmoteer.Ships.Parts.Resources.TriggeredResourceConverterRules.Delay]] seconds later and the converter then fires its own trigger for listening components. The vanilla diamond factory drives this from a repeating 1.3 second Timer.
 
 ## Delay
-`number` · optional
+`number (seconds)` · optional
 
 Seconds between [[Cosmoteer.Ships.Parts.Resources.TriggeredResourceConverterRules.Trigger]] firing and the conversion completing. During the wait the converter's toggle is on and its reported component value ramps from 0 to 1. Buff-modifiable, defaults to 0.
 

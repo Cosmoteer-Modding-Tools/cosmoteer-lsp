@@ -12,7 +12,7 @@
   "IdealRange": 19,
   "IdealRadius": 11,
   "OtherIDs": 8,
-  "ReceivableBuffs": 7,
+  "ReceivableBuffs": 6,
   "RandomRotation": 2
  },
  "Cosmoteer.Bullets.Death.BulletDeathByDamagePoolRules": {
@@ -86,8 +86,8 @@
   "HitShield": 9,
   "HitStructural": 9,
   "PenetratingOperational": 9,
+  "PenetratingStructural": 9,
   "FinishedPenetratingStructural": 8,
-  "PenetratingStructural": 8,
   "PenetratesCrew": 7,
   "Penetration": 7,
   "PenetrationSpeed": 5,
@@ -119,10 +119,12 @@
   "HitBullet": 1
  },
  "Cosmoteer.Bullets.Hits.HitRules": {
-  "MediaEffects": 49,
+  "MediaEffects": 51,
   "HitEffects": 40,
-  "ReduceEffectsByPenetration": 22,
+  "ReduceEffectsByPenetration": 21,
   "Offset": 12,
+  "MinStructuralDamageScale": 9,
+  "StructuralDamageRetentionPerHit": 9,
   "MediaEffectsScale": 3
  },
  "Cosmoteer.Bullets.Physics.BulletAccelerationRules": {
@@ -160,14 +162,14 @@
   "ModifiesLinearVelocity": 1
  },
  "Cosmoteer.Bullets.Targeting.BulletTargetableRules": {
-  "Health": 14,
-  "TargetCategory": 14,
-  "OnDeath": 10,
+  "Health": 16,
+  "TargetCategory": 16,
+  "OnDeath": 12,
   "DamageResistances": 2
  },
  "Cosmoteer.Codex.CodexPageEntryRules": {
-  "TextKey": 368,
-  "Image": 194
+  "TextKey": 370,
+  "Image": 196
  },
  "Cosmoteer.Codex.CodexPageRules": {
   "Entries": 144,
@@ -286,14 +288,15 @@
   "FlySprite": 1
  },
  "Cosmoteer.Data.BuiltinShipRules": {
-  "File": 1200,
-  "Tier": 873,
-  "Difficulty": 723,
-  "Tags": 487,
-  "StasisIcon": 58,
-  "SpawnTier": 26,
+  "File": 1262,
+  "Tier": 935,
+  "Difficulty": 774,
+  "Tags": 538,
+  "StasisIcon": 64,
+  "SpawnTier": 30,
   "OtherIDs": 23,
-  "FlightDirection": 12
+  "FlightDirection": 12,
+  "ID": 1
  },
  "Cosmoteer.Data.BuiltinShipsDatabase": {
   "Ships": 29,
@@ -590,24 +593,24 @@
   "Tags": 1
  },
  "Cosmoteer.Generators.Simulation.MultiSpawnedObjectSearch": {
-  "Tag": 15,
-  "LimitToFleet": 4,
+  "Tag": 14,
   "Max": 4,
   "Distance": 3,
+  "LimitToFleet": 3,
   "LimitToBatch": 2,
   "Mode": 2,
   "OnlyFactions": 1
  },
  "Cosmoteer.Generators.Simulation.NebulaSpawner": {
-  "NebulaRadius": 55,
-  "NebulaType": 55,
+  "NebulaRadius": 53,
+  "NebulaType": 53,
   "ForEachRootMax": 24,
   "RootLocation": 24,
   "RootLocationTag": 24,
   "MinPerlinNebulaTris": 19,
   "PerlinNoise": 19,
   "UsePolarPerlinCoordinates": 18,
-  "MultiplyNebulaRadius": 14,
+  "MultiplyNebulaRadius": 12,
   "MaxDistanceFromWorldOrigin": 10,
   "ContiguousPathCheckSearchIterations": 8,
   "OnlyReplaceNebulaTypes": 8,
@@ -650,22 +653,22 @@
   "ResourceType": 7
  },
  "Cosmoteer.Generators.Simulation.ShipSpawner": {
-  "ShipCriteria": 21,
-  "Allegiance": 20,
-  "Tags": 19,
-  "AI": 17,
+  "ShipCriteria": 20,
+  "Allegiance": 19,
+  "Tags": 18,
   "Count": 17,
-  "FamePerTier": 17,
-  "MaxFamePerTier": 17,
+  "AI": 16,
+  "FamePerTier": 16,
+  "MaxFamePerTier": 16,
   "Distance": 13,
-  "SubSpawners": 13,
+  "SubSpawners": 12,
   "MinDistanceFromTags": 10,
   "SuppressLocationAssertions": 8,
   "Features": 6,
-  "SynchronizeAllegiance": 6,
   "MinDistanceFromNebulas": 5,
   "SpawnSlicePadding": 5,
   "SpawnsPerSlice": 5,
+  "SynchronizeAllegiance": 5,
   "NameGenerator": 3,
   "RememberResourcesAndCrew": 3,
   "SynchronizeFactions": 3,
@@ -681,12 +684,15 @@
   "ResourceLoadout": 1
  },
  "Cosmoteer.Generators.Simulation.ShipSpawner/AIInfo": {
-  "Type": 2,
-  "ChanceToConsiderSurrenderingToPlayer": 1,
-  "PatrolOriginTag": 1,
-  "PatrolRadius": 1,
-  "TargetAcquireRangeFromOrigin": 1,
-  "TargetUnacquireRangeFromOrigin": 1
+  "Type": 18,
+  "PatrolRadius": 11,
+  "ChanceToConsiderSurrenderingToPlayer": 8,
+  "TargetAcquireRangeFromOrigin": 7,
+  "TargetUnacquireRangeFromOrigin": 7,
+  "PatrolOriginTag": 4,
+  "StasisSpeed": 4,
+  "MinPatrolRadius": 2,
+  "PatrolOrigin": 1
  },
  "Cosmoteer.Generators.Simulation.ShipSpawner/ShipCommand": {
   "InitialSpeed": 1,
@@ -694,30 +700,30 @@
   "Type": 1
  },
  "Cosmoteer.Generators.Simulation.ShipSpawner/ShipCriteria": {
-  "Tags": 21,
-  "AllowTierRangeExpansion": 19,
-  "UseLocalFactionWeights": 19,
-  "UseTierField": 18,
-  "UseEvenShipTypeDistribution": 5,
+  "Tags": 20,
+  "AllowTierRangeExpansion": 18,
+  "UseLocalFactionWeights": 18,
+  "UseTierField": 17,
+  "UseEvenShipTypeDistribution": 4,
   "Tier": 3,
-  "FleetTierRemapTable": 2,
+  "FleetTierRemapTable": 1,
   "UseLocalTier": 1
  },
  "Cosmoteer.Generators.Simulation.SimSpawner/SpawnConditions": {
   "ProhibitSpawnFlags": 9,
   "IsInitNode": 8,
   "RequireSpawnFlags": 5,
-  "MinParentFieldTier": 3,
+  "MinParentFieldTier": 2,
   "ParentIndex": 2,
-  "RequiredFame": 2,
-  "MaxNodeTier": 1
+  "MaxNodeTier": 1,
+  "RequiredFame": 1
  },
  "Cosmoteer.Generators.Simulation.SimulationGenerator": {
-  "Spawners": 20
+  "Spawners": 17
  },
  "Cosmoteer.Generators.Simulation.SpawnedObjectSearch": {
-  "Tag": 21,
-  "Mode": 20,
+  "Tag": 22,
+  "Mode": 21,
   "OnlyOpposingFactions": 2
  },
  "Cosmoteer.Generators.Simulation.SpawnPointSpawner": {
@@ -985,10 +991,10 @@
   "WriteTexture": 26
  },
  "Cosmoteer.Modes.Career.Encounter.EncounterRules": {
-  "Conditions": 2,
-  "EncounterGenerator": 2,
-  "ID": 2,
-  "MinOtherTriggersBeforeReTrigger": 2,
+  "Conditions": 1,
+  "EncounterGenerator": 1,
+  "ID": 1,
+  "MinOtherTriggersBeforeReTrigger": 1,
   "RandomRadarRadiusRatio": 1
  },
  "Cosmoteer.Modes.Career.Map.FactionNodeTiersSpawner": {
@@ -1028,11 +1034,11 @@
   "SetTierRangeTo": 1
  },
  "Cosmoteer.Modes.Career.Missions.MissionSpawner": {
-  "Faction": 13,
-  "Metatype": 13,
-  "Objectives": 13,
-  "Rewards": 13,
-  "SpawnAt": 13,
+  "Faction": 12,
+  "Metatype": 12,
+  "Objectives": 12,
+  "Rewards": 12,
+  "SpawnAt": 12,
   "FactionTag": 9,
   "SpawnAtTag": 7,
   "RequirePreviousMission": 3,
@@ -1047,16 +1053,16 @@
   "TierCombineMode": 1
  },
  "Cosmoteer.Modes.Career.Missions.Objectives.DefeatShipsObjective/Spawner": {
-  "TargetsTag": 12,
-  "AutoDiscoverTargetArea": 8,
+  "TargetsTag": 11,
   "TargetAreaTag": 8,
+  "AutoDiscoverTargetArea": 7,
   "OverrideDisplayFormatKey": 6,
   "AllowSurrender": 4,
-  "TierCombineMode": 3,
   "AllowNpcKills": 2,
   "MissionInvalidIfZeroTargets": 2,
   "TargetCountFraction": 2,
   "TargetLandmarkTag": 2,
+  "TierCombineMode": 2,
   "TierOffset": 2
  },
  "Cosmoteer.Modes.Career.Missions.Objectives.DiscoverPOIsObjective/Spawner": {
@@ -1084,23 +1090,23 @@
   "ContactShipTag": 2
  },
  "Cosmoteer.Modes.Career.Missions.Objectives.SequentialObjective/Spawner": {
-  "SubObjectives": 12
+  "SubObjectives": 11
  },
  "Cosmoteer.Modes.Career.Missions.Rewards.FameReward/Spawner": {
-  "FamePerHighTier": 12,
-  "MaxFamePerHighTier": 12,
+  "FamePerHighTier": 11,
+  "MaxFamePerHighTier": 11,
   "FamePerTierMultiplier": 7
  },
  "Cosmoteer.Modes.Career.Missions.Rewards.MoneyReward/Spawner": {
-  "RoundToMultiple": 12,
-  "MoneyPerHighTier": 11,
+  "RoundToMultiple": 11,
+  "MoneyPerHighTier": 10,
   "MoneyPerTierMultiplier": 8,
   "Money": 1,
   "MoneyPerLowTier": 1
  },
  "Cosmoteer.Modes.Career.Missions.Rewards.ReputationReward/Spawner": {
-  "ReputationPerHighTier": 11,
-  "ReputationPerTierMultiplier": 10
+  "ReputationPerHighTier": 10,
+  "ReputationPerTierMultiplier": 9
  },
  "Cosmoteer.Modes.Career.TradeRoutes.AIHaltForCommsModuleRules": {
   "HaltForTrade": 1
@@ -1218,15 +1224,6 @@
  },
  "Cosmoteer.Resources.ResourceRules/NuggetDropRates": {
   "StorageDestroyed": 1
- },
- "Cosmoteer.Ships.AI.AIParameters": {
-  "PatrolRadius": 11,
-  "ChanceToConsiderSurrenderingToPlayer": 7,
-  "TargetAcquireRangeFromOrigin": 7,
-  "TargetUnacquireRangeFromOrigin": 7,
-  "StasisSpeed": 4,
-  "MinPatrolRadius": 2,
-  "PatrolOrigin": 1
  },
  "Cosmoteer.Ships.AI.CommsModules.AICrewProviderModuleRules": {
   "CrewForHireFraction": 2,
@@ -1405,7 +1402,7 @@
   "RemapFrom": 69
  },
  "Cosmoteer.Ships.EffectScaleModifier": {
-  "ModificationMode": 3
+  "ModificationMode": 4
  },
  "Cosmoteer.Ships.Formations.LineFormation": {
   "Icon": 4,
@@ -1415,13 +1412,13 @@
   "RightWingAngle": 2
  },
  "Cosmoteer.Ships.ModifiableValue": {
-  "BaseValue": 380,
-  "EffectScaleExponent": 153,
+  "BaseValue": 379,
+  "EffectScaleExponent": 158,
   "Modifiers": 109,
-  "BuffType": 80,
-  "BuffMode": 77,
-  "MaxValue": 54,
-  "MinValue": 52
+  "BuffType": 78,
+  "BuffMode": 75,
+  "MaxValue": 47,
+  "MinValue": 45
  },
  "Cosmoteer.Ships.Networks.PartNetworkBasicNodeRules": {
   "IncludeInBlueprints": 7
@@ -1753,8 +1750,8 @@
   "Toggle": 265,
   "HidesIndicators": 118,
   "Delay": 23,
-  "ShowInBuildMode": 4,
-  "ShowWhenToggleOn": 1
+  "ShowWhenToggleOn": 6,
+  "ShowInBuildMode": 4
  },
  "Cosmoteer.Ships.Parts.Graphics.PartOpenCloseSpriteRules": {
   "Layer": 24,
@@ -1893,12 +1890,12 @@
   "OperationalToggle": 2
  },
  "Cosmoteer.Ships.Parts.Logic.PartMultiToggleRules": {
-  "Toggles": 302,
+  "Toggles": 308,
   "Mode": 296
  },
  "Cosmoteer.Ships.Parts.Logic.PartMultiToggleRules/ToggleRules": {
-  "Toggle": 52,
-  "Invert": 39,
+  "Toggle": 57,
+  "Invert": 44,
   "invert": 12
  },
  "Cosmoteer.Ships.Parts.Logic.PartMultiTriggerRules": {
@@ -1906,8 +1903,8 @@
   "OperationalToggle": 2
  },
  "Cosmoteer.Ships.Parts.Logic.PartMultiValueRules": {
-  "Values": 42,
-  "Mode": 37,
+  "Values": 43,
+  "Mode": 38,
   "IncludeInBlueprints": 11,
   "OneOver": 4,
   "Abs": 1,
@@ -1931,10 +1928,10 @@
   "Value": 156
  },
  "Cosmoteer.Ships.Parts.Logic.PartThresholdToggleRules": {
-  "ValueFrom": 29,
-  "MinAmount": 22,
-  "MaxAmount": 13,
-  "Invert": 10
+  "ValueFrom": 30,
+  "MinAmount": 23,
+  "MaxAmount": 14,
+  "Invert": 11
  },
  "Cosmoteer.Ships.Parts.Logic.PartThresholdTriggerRules": {
   "AmountFrom": 12,
@@ -1990,6 +1987,7 @@
  "Cosmoteer.Ships.Parts.Logic.PartToggleProxyRules": {
   "ComponentID": 18,
   "PartLocation": 15,
+  "PartCriteria": 11,
   "ProxyableComponents": 4
  },
  "Cosmoteer.Ships.Parts.Logic.PartToggleTriggerRules": {
@@ -2034,9 +2032,10 @@
   "OperationalToggle": 3
  },
  "Cosmoteer.Ships.Parts.Logic.PartTriggerProxyRules": {
-  "ComponentID": 43,
-  "ProxyToggle": 29,
+  "ComponentID": 44,
+  "ProxyToggle": 30,
   "InvertProxyToggle": 6,
+  "PartCriteria": 6,
   "PartLocation": 6,
   "TriggerID": 1
  },
@@ -2079,6 +2078,7 @@
  "Cosmoteer.Ships.Parts.Logic.PartValueProxyRules": {
   "ComponentID": 7,
   "ValueWhenNotConnected": 3,
+  "PartCriteria": 1,
   "PartLocation": 1,
   "ProxyToggle": 1
  },
@@ -2226,13 +2226,14 @@
   "Features": 1
  },
  "Cosmoteer.Ships.Parts.RelativePartCriteria": {
-  "Rot": 38,
-  "Left": 24,
-  "Right": 24,
-  "Bottom": 23,
-  "Category": 20,
-  "Top": 14,
-  "IDs": 8,
+  "Rot": 66,
+  "Left": 45,
+  "Right": 45,
+  "Bottom": 37,
+  "Top": 32,
+  "Category": 28,
+  "IDs": 16,
+  "ID": 12,
   "bottom": 1
  },
  "Cosmoteer.Ships.Parts.Resources.ExplosiveResourceDrainSinkRules": {
@@ -2278,14 +2279,12 @@
   "ProvidedValueRange": 2,
   "SuppliesResources": 2,
   "SuppliesResourcesToggle": 2,
-  "ExpectedResourceGenerationRate": 1,
-  "ExpectedResourceGenerationToggle": 1,
   "PickUpRate": 1
  },
  "Cosmoteer.Ships.Parts.Resources.ResourceChangeRules": {
-  "Amount": 35,
-  "ResourceStorage": 35,
-  "Trigger": 35
+  "Amount": 36,
+  "ResourceStorage": 36,
+  "Trigger": 36
  },
  "Cosmoteer.Ships.Parts.Resources.ResourceConsumerRules": {
   "DefaultPriority": 63,
@@ -2328,6 +2327,7 @@
   "ResourceType": 26,
   "ComponentID": 21,
   "PartLocation": 16,
+  "PartCriteria": 10,
   "ProxyToggle": 9,
   "ProxyableComponents": 6,
   "InvertProxyToggle": 4,
@@ -2439,20 +2439,20 @@
   "Default": 2
  },
  "Cosmoteer.Ships.Parts.UI.PartUITargeterRules": {
-  "TargeterID": 5,
-  "Weapons": 4,
+  "TargeterID": 1,
   "Weapon": 1
  },
  "Cosmoteer.Ships.Parts.UI.PartUIToggleRules": {
-  "Default": 92,
-  "ToggleID": 92,
-  "RequiresCommand": 60,
+  "ToggleID": 94,
+  "Default": 93,
+  "RequiresCommand": 62,
   "ToggledOnChoices": 17,
   "AutoOffTrigger": 4,
   "OperationalToggle": 4,
   "RememberValue": 2,
   "AlwaysAllowInBuildMode": 1,
   "AvailableChoices": 1,
+  "default": 1,
   "VisibilityToggle": 1
  },
  "Cosmoteer.Ships.Parts.UI.PartUITriggerRules": {
@@ -2549,29 +2549,28 @@
   "FireInterval": 6,
   "OperationalToggle": 6,
   "AIFirepowerRating": 5,
-  "CoverageLine": 4,
   "DefaultDirectControlBinding": 4,
   "Emitter": 4,
   "FirePermissionToggle": 4,
+  "IncludeInFirepowerEstimation": 4,
   "ChainedTo": 3,
+  "MatchWeaponCoverage": 3,
   "ChainFireToggleComponent": 2,
   "Location": 2,
   "ProhibitTargetPartsFilter": 2,
   "Rotation": 2,
   "SaveSelfTargetPartCategories": 2,
-  "SaveShipRelativeTargets": 2,
   "SuppressDirectControlWhenTargetingPartsFilter": 2,
-  "SuppressFirepowerEstimationWhenNotTargetingShipRelativePoints": 2,
   "SuppressFirepowerEstimationWhenTargetingPartsFilter": 2,
   "SuppressShipWideExplicitTargetsWhenTargetingPartsFilter": 2,
-  "SuppressShipWideExplicitTargetsWhenTargetingShipRelativePoints": 2,
   "TargetingEmitter": 2,
   "ToggleOnMode": 2,
   "AddAIFirepowerRatingsWhenTargetedByPartCategories": 1,
+  "AllowCustomCoverageEditing": 1,
   "AutoExplicitTargetPartsFilter": 1,
   "CanBeGivenExplicitTarget": 1,
   "IgnoreFriendlyShipLowLOSChecks": 1,
-  "ProhibitShipRelativePointTargets": 1,
+  "MatchWeaponCoverageStrictFire": 1,
   "TargetingArc": 1
  },
  "Cosmoteer.Ships.Parts.Weapons.OscillatorRules": {
@@ -2607,7 +2606,6 @@
   "FiringArc": 20,
   "RotateSpeed": 20,
   "AIFirepowerRating": 19,
-  "CoverageSectorArc": 18,
   "AutoFireToggle": 16,
   "FirePermissionToggle": 16,
   "BlueprintArcRadius": 13,
@@ -2619,30 +2617,31 @@
   "IgnoreFriendlyShipLowLOSChecks": 5,
   "ValidArc": 5,
   "AllowRotationToggle": 4,
-  "SaveShipRelativeTargets": 4,
-  "SuppressDirectControlWhenTargetingShipRelativePoints": 4,
-  "SuppressShipWideExplicitTargetsWhenTargetingShipRelativePoints": 4,
   "ToggleOnMode": 4,
   "AllowDirectControl": 3,
   "AlwaysShowCoverage": 3,
+  "MatchWeaponCoverage": 3,
   "ShowExplicitTarget": 3,
   "ShowTargetButtons": 3,
-  "SuppressFirepowerEstimationWhenTargetingShipRelativePoints": 3,
   "TargetingEmitter": 3,
   "TargetSearchesPerSecond": 3,
   "CanBeGivenExplicitTarget": 2,
   "DefaultDirectControlBinding": 2,
   "EstimateFirepowerToggle": 2,
   "IgnoreJunkLOSChecks": 2,
+  "IncludeInFirepowerEstimation": 2,
   "AddAIFirepowerRatingsWhenTargetedByPartCategories": 1,
   "AimIncludesEmitterOffset": 1,
   "AllowAimAtProhibitedTarget": 1,
+  "AllowCustomCoverageEditing": 1,
+  "AllowCustomCoverageRangeEditing": 1,
   "AllowDirectControlToggle": 1,
   "AllowShipWideExplicitTargets": 1,
   "AllowShipWideExplicitTargetsToggle": 1,
   "CanSalvage": 1,
+  "DefaultWeaponCoverage": 1,
+  "ForceCustomCoverageWidthZero": 1,
   "IgnoreFriendlyShipHighLOSChecks": 1,
-  "IncludeInFirepowerEstimation": 1,
   "InstantSearchesAfterTargetLost": 1,
   "OverrideReticleSprite": 1,
   "OverrideTargetCircle": 1,
@@ -2656,7 +2655,6 @@
   "SuppressFirepowerEstimationWhenTargetingPartsFilter": 1,
   "SuppressShipWideExplicitTargetsWhenTargetingPartsFilter": 1,
   "TargetChecksPerSearch": 1,
-  "TargetingArc": 1,
   "TargetPathThickness": 1
  },
  "Cosmoteer.Ships.Parts.Weapons.WeaponAutoTargetRules": {
@@ -2666,12 +2664,16 @@
   "BulletTargetCategories": 2,
   "Overridable": 2
  },
+ "Cosmoteer.Ships.Parts.Weapons.WeaponCoverage": {
+  "Arc": 1,
+  "Range": 1
+ },
  "Cosmoteer.Ships.Rendering.AmbiguousToggledBlendSprites": {
   "DamageLevelSprites": 66
  },
  "Cosmoteer.Ships.Rendering.AtlasSprite": {
-  "Size": 3991,
-  "File": 3268,
+  "Size": 3993,
+  "File": 3270,
   "NormalsFile": 1054,
   "AnimationInterval": 772,
   "AnimationFiles": 771,
@@ -2848,7 +2850,8 @@
   "EmptyCellSpeedFactor": 1,
   "MinDeltaThreshold": 1,
   "PartSpeedFactors": 1,
-  "SpeedFactor": 1
+  "SpeedFactor": 1,
+  "UseContiguity": 1
  },
  "Cosmoteer.Ships.Statuses.StatusType/DiffusionSpeedFactors": {
   "Occupied": 1
@@ -3074,21 +3077,21 @@
   "UndiscoveredHudIcon": 3
  },
  "Cosmoteer.Simulation.EffectFilter": {
-  "Friendlies": 347,
-  "OperationalHealth": 305,
-  "StructuralHealth": 305,
-  "Enemies": 277,
-  "Junk": 272,
-  "Shields": 268,
-  "IgnoreInvulnerability": 262,
-  "Ships": 261,
-  "Bullets": 258,
-  "Crew": 255,
-  "Nuggets": 238,
-  "Neutrals": 91,
+  "Friendlies": 338,
+  "OperationalHealth": 296,
+  "StructuralHealth": 296,
+  "Enemies": 268,
+  "Junk": 263,
+  "Shields": 260,
+  "IgnoreInvulnerability": 253,
+  "Ships": 253,
+  "Crew": 251,
+  "Bullets": 250,
+  "Nuggets": 234,
+  "Neutrals": 86,
   "TargetedFriendlies": 15,
   "ExcludePartCategories": 13,
-  "Self": 12,
+  "Self": 13,
   "OnlyPartCategories": 8,
   "TargetedEnemies": 7,
   "junk": 6,
@@ -3163,8 +3166,8 @@
   "OverDistance": 1
  },
  "Cosmoteer.Simulation.HitEffects.DamageEffectRules": {
-  "Damage": 60,
-  "Filter": 24,
+  "Damage": 62,
+  "Filter": 25,
   "DamageType": 13,
   "DamagePool": 6,
   "SpawnUnderlying": 4,
@@ -3221,10 +3224,11 @@
   "HitDirectionCostFactor": 1,
   "MaxDistance": 1,
   "MinDistance": 1,
-  "StatusChance": 1
+  "StatusChance": 1,
+  "UseContiguity": 1
  },
  "Cosmoteer.Simulation.HitEffects.ImpulseEffectRules": {
-  "Impulse": 40,
+  "Impulse": 41,
   "Filter": 4,
   "ApplyToCenterOfMass": 1
  },
@@ -3333,34 +3337,34 @@
   "ExteriorVolume": 2
  },
  "Cosmoteer.Simulation.MediaEffects.ParticleEffectRules": {
-  "Bucket": 263,
-  "Def": 263,
-  "Delay": 263,
-  "DontEmitWhenOffScreen": 263,
-  "DontEmitWhenOffScreenSizeInflate": 263,
-  "EmitterDef": 263,
-  "IgnoreIntensity": 263,
-  "IsFancy": 263,
-  "MinIntensity": 263,
-  "ScaleEmissionWithIntensity": 263,
-  "Sharing": 263,
-  "UseCustomShapeForOffScreenCheck": 263,
-  "ScaleEmissionWithBeamLength": 259,
-  "UnsharedRenderInWorldSpace": 259,
-  "MaxEmissionZoom": 258,
-  "CaptureBackBuffer": 257,
-  "UseRealTime": 257,
-  "IsSimple": 255,
-  "Filter": 253,
-  "ScaleEmissionWithPartPhysicalSize": 238,
-  "ScaleEmissionWithPartSize": 238,
-  "IsFancyLight": 206,
-  "ScaleEmissionWithWorldVelocity": 205,
-  "IsSimpleLight": 75,
-  "MaxParticleCount": 63,
-  "PenetratingBucket": 33,
-  "ToggleWithRoofOpacity": 31,
-  "EmitImmediately": 18
+  "Bucket": 254,
+  "Def": 254,
+  "Delay": 254,
+  "DontEmitWhenOffScreen": 254,
+  "DontEmitWhenOffScreenSizeInflate": 254,
+  "EmitterDef": 254,
+  "IgnoreIntensity": 254,
+  "IsFancy": 254,
+  "MinIntensity": 254,
+  "ScaleEmissionWithIntensity": 254,
+  "Sharing": 254,
+  "UseCustomShapeForOffScreenCheck": 254,
+  "ScaleEmissionWithBeamLength": 250,
+  "UnsharedRenderInWorldSpace": 250,
+  "MaxEmissionZoom": 249,
+  "CaptureBackBuffer": 248,
+  "UseRealTime": 248,
+  "IsSimple": 246,
+  "Filter": 244,
+  "ScaleEmissionWithPartPhysicalSize": 233,
+  "ScaleEmissionWithPartSize": 233,
+  "IsFancyLight": 201,
+  "ScaleEmissionWithWorldVelocity": 200,
+  "IsSimpleLight": 70,
+  "MaxParticleCount": 58,
+  "PenetratingBucket": 31,
+  "ToggleWithRoofOpacity": 29,
+  "EmitImmediately": 17
  },
  "Cosmoteer.Simulation.MediaEffects.ParticleRenderers.LightParticleQuadRenderer": {
   "BaseSize": 56,
@@ -3374,42 +3378,42 @@
   "Scale2In": 3
  },
  "Cosmoteer.Simulation.MediaEffects.ParticleRenderers.LitParticleQuadRenderer": {
-  "BaseSize": 44,
-  "LightNormalIn": 44,
-  "LocationIn": 44,
-  "Name": 44,
-  "NormalsShader": 44,
-  "RotationIn": 44,
-  "ScaleIn": 44,
-  "ColorIn": 43,
-  "UvRectIn": 43,
+  "BaseSize": 43,
+  "LightNormalIn": 43,
+  "LocationIn": 43,
+  "Name": 43,
+  "NormalsShader": 43,
+  "RotationIn": 43,
+  "ScaleIn": 43,
+  "ColorIn": 42,
+  "UvRectIn": 42,
   "Offset": 30,
   "Scale2In": 9
  },
  "Cosmoteer.Simulation.MediaEffects.ParticleRenderers.ParticleLightningRenderer": {
-  "BulgeExponent": 9,
-  "ColorIn": 9,
-  "DestLocationIn": 9,
-  "DistPerSegment": 9,
-  "EnableLightningShaderAnimation": 9,
-  "LineSprite": 9,
-  "LineThickness": 9,
-  "Name": 9,
-  "ScaleIn": 9,
-  "SeedIn": 9,
-  "SourceLocationIn": 9,
-  "TimeIn": 9,
-  "XOffsetPerlin": 9,
-  "YOffsetPerlin": 9,
-  "UVRectIn": 8,
-  "LightningShaderAnimationSegments": 6,
-  "AnimationIntensity": 5,
-  "BlendLightningShaderAnimation": 5,
-  "IgnoreBoltEndingOverride": 5,
-  "IgnoreBoltStartOverride": 5,
-  "SegmentOverlap": 5,
-  "TimeShiftPerSegment": 5,
-  "UseSameSeedForEntireBolt": 5
+  "BulgeExponent": 8,
+  "ColorIn": 8,
+  "DestLocationIn": 8,
+  "DistPerSegment": 8,
+  "EnableLightningShaderAnimation": 8,
+  "LineSprite": 8,
+  "LineThickness": 8,
+  "Name": 8,
+  "ScaleIn": 8,
+  "SeedIn": 8,
+  "SourceLocationIn": 8,
+  "TimeIn": 8,
+  "XOffsetPerlin": 8,
+  "YOffsetPerlin": 8,
+  "UVRectIn": 7,
+  "LightningShaderAnimationSegments": 5,
+  "AnimationIntensity": 4,
+  "BlendLightningShaderAnimation": 4,
+  "IgnoreBoltEndingOverride": 4,
+  "IgnoreBoltStartOverride": 4,
+  "SegmentOverlap": 4,
+  "TimeShiftPerSegment": 4,
+  "UseSameSeedForEntireBolt": 4
  },
  "Cosmoteer.Simulation.MediaEffects.ParticleRenderers.TwoColorParticleQuadRenderer": {
   "BaseSize": 5,
@@ -3424,17 +3428,17 @@
   "UvRectIn": 1
  },
  "Cosmoteer.Simulation.MediaEffects.ParticleUpdaters.ParticleAddFrameOfReference": {
-  "Enabled": 208,
-  "Name": 208,
-  "UpdateAfterInit": 208,
-  "VelocityInOut": 208
+  "Enabled": 200,
+  "Name": 200,
+  "UpdateAfterInit": 200,
+  "VelocityInOut": 200
  },
  "Cosmoteer.Simulation.MediaEffects.ParticleUpdaters.ParticleAlignToVelocity": {
-  "Enabled": 47,
-  "Name": 47,
-  "RotationInOut": 47,
-  "UpdateAfterInit": 47,
-  "VelocityIn": 47
+  "Enabled": 45,
+  "Name": 45,
+  "RotationInOut": 45,
+  "UpdateAfterInit": 45,
+  "VelocityIn": 45
  },
  "Cosmoteer.Simulation.MediaEffects.ParticleUpdaters.ParticleAlternatingConstVector2": {
   "DataOut": 1,
@@ -3467,19 +3471,19 @@
   "UpdateAfterInit": 13
  },
  "Cosmoteer.Simulation.MediaEffects.ParticleUpdaters.ParticleEndPointFromCustomShape": {
-  "Enabled": 3,
-  "LocationOut": 3,
-  "Name": 3,
-  "UpdateAfterInit": 3
+  "Enabled": 2,
+  "LocationOut": 2,
+  "Name": 2,
+  "UpdateAfterInit": 2
  },
  "Cosmoteer.Simulation.MediaEffects.ParticleUpdaters.ParticleFpsCompensator": {
-  "Enabled": 29,
-  "LocationInOut": 29,
-  "Name": 29,
-  "UpdateAfterInit": 29,
-  "Mode": 23,
-  "Strength": 11,
-  "VelocityIn": 11
+  "Enabled": 28,
+  "LocationInOut": 28,
+  "Name": 28,
+  "UpdateAfterInit": 28,
+  "Mode": 22,
+  "VelocityIn": 11,
+  "Strength": 10
  },
  "Cosmoteer.Simulation.MediaEffects.ParticleUpdaters.ParticleGetHitNormal": {
   "Enabled": 5,
@@ -3488,17 +3492,17 @@
   "UpdateAfterInit": 5
  },
  "Cosmoteer.Simulation.MediaEffects.ParticleUpdaters.ParticleInheritVelocity": {
-  "Enabled": 36,
-  "Name": 36,
-  "UpdateAfterInit": 36,
-  "VelocityInOut": 36
+  "Enabled": 35,
+  "Name": 35,
+  "UpdateAfterInit": 35,
+  "VelocityInOut": 35
  },
  "Cosmoteer.Simulation.MediaEffects.ParticleUpdaters.ParticleLightNormal": {
-  "Enabled": 45,
-  "LightNormalOut": 45,
-  "LocationIn": 45,
-  "Name": 45,
-  "UpdateAfterInit": 45
+  "Enabled": 44,
+  "LightNormalOut": 44,
+  "LocationIn": 44,
+  "Name": 44,
+  "UpdateAfterInit": 44
  },
  "Cosmoteer.Simulation.MediaEffects.ParticleUpdaters.ParticleLocalBarrier": {
   "BarrierLocationIn": 4,
@@ -3517,10 +3521,10 @@
   "ValueOut": 2
  },
  "Cosmoteer.Simulation.MediaEffects.ParticleUpdaters.ParticleLocationFromCustomShape": {
-  "Enabled": 8,
-  "LocationOut": 8,
-  "Name": 8,
-  "UpdateAfterInit": 8
+  "Enabled": 7,
+  "LocationOut": 7,
+  "Name": 7,
+  "UpdateAfterInit": 7
  },
  "Cosmoteer.Simulation.MediaEffects.ParticleUpdaters.ParticleLocationFromPartRect": {
   "Enabled": 2,
@@ -3534,10 +3538,10 @@
   "UpdateAfterInit": 2
  },
  "Cosmoteer.Simulation.MediaEffects.ParticleUpdaters.ParticleLocationFromSource": {
-  "Enabled": 12,
-  "LocationOut": 12,
-  "Name": 12,
-  "UpdateAfterInit": 12
+  "Enabled": 11,
+  "LocationOut": 11,
+  "Name": 11,
+  "UpdateAfterInit": 11
  },
  "Cosmoteer.Simulation.MediaEffects.ParticleUpdaters.ParticleNormalFromRotation": {
   "Enabled": 2,
@@ -3569,12 +3573,12 @@
   "ZoomExponent": 2
  },
  "Cosmoteer.Simulation.MediaEffects.ParticleUpdaters.ParticleScaleFromIntensity": {
-  "Enabled": 113,
-  "IntensityExponent": 113,
-  "Name": 113,
-  "ScaleFactor": 113,
-  "ScaleOut": 113,
-  "UpdateAfterInit": 113
+  "Enabled": 107,
+  "IntensityExponent": 107,
+  "Name": 107,
+  "ScaleFactor": 107,
+  "ScaleOut": 107,
+  "UpdateAfterInit": 107
  },
  "Cosmoteer.Simulation.MediaEffects.ParticleUpdaters.ParticleSetBulletBarrierID": {
   "BarrierIDOut": 12,
@@ -3583,11 +3587,11 @@
   "UpdateAfterInit": 12
  },
  "Cosmoteer.Simulation.MediaEffects.ParticleUpdaters.ParticleUvFlip": {
-  "Enabled": 27,
-  "FlipXYIn": 27,
-  "Name": 27,
-  "UpdateAfterInit": 27,
-  "UvRectInOut": 27
+  "Enabled": 25,
+  "FlipXYIn": 25,
+  "Name": 25,
+  "UpdateAfterInit": 25,
+  "UvRectInOut": 25
  },
  "Cosmoteer.Simulation.MediaEffects.ParticleUpdaters.ParticleVelocityFromIntensity": {
   "Enabled": 16,
@@ -3607,12 +3611,12 @@
   "RestrictToPartColliders": 17
  },
  "Cosmoteer.Simulation.MediaEffects.PartQuadEffectRules": {
-  "Bucket": 15,
-  "Inflate": 15,
-  "Sprite": 15,
-  "ColorOverIntensity": 14,
-  "FadeInTime": 10,
-  "FadeOutTime": 10,
+  "Bucket": 13,
+  "Inflate": 13,
+  "Sprite": 13,
+  "ColorOverIntensity": 12,
+  "FadeInTime": 8,
+  "FadeOutTime": 8,
   "IsFancy": 5,
   "IsFancyLight": 5,
   "RectType": 4,
@@ -3658,12 +3662,9 @@
   "MinInputTickDelay": 1
  },
  "Cosmoteer.Simulation.Overlays.CappedLine": {
-  "BeginCapSprite": 5,
-  "EndCapSprite": 5,
-  "LineSprite": 5,
-  "BeginCapSize": 4,
-  "EndCapSize": 4,
-  "LineThickness": 4
+  "BeginCapSprite": 1,
+  "EndCapSprite": 1,
+  "LineSprite": 1
  },
  "Cosmoteer.Simulation.Overlays.NineSlice": {
   "BottomLeftSprite": 1,
@@ -3728,15 +3729,15 @@
   "Volume": 1
  },
  "Halfling.Generation.PerlinNoise1D": {
-  "GridSize": 19,
-  "Octaves": 19,
-  "ClampOutput": 18,
-  "OutputExponent": 18,
-  "OutputScale": 18,
-  "OutputShift": 18,
-  "Persistence": 18,
-  "Repeat": 18,
-  "Seed": 18
+  "GridSize": 17,
+  "Octaves": 17,
+  "ClampOutput": 16,
+  "OutputExponent": 16,
+  "OutputScale": 16,
+  "OutputShift": 16,
+  "Persistence": 16,
+  "Repeat": 16,
+  "Seed": 16
  },
  "Halfling.Generation.PerlinNoise2D": {
   "GridSize": 128,
@@ -3750,12 +3751,12 @@
   "Seed": 109
  },
  "Halfling.Geometry.Circle": {
-  "Center": 63,
-  "Radius": 63
+  "Center": 61,
+  "Radius": 61
  },
  "Halfling.Geometry.IntVector2": {
-  "X": 524,
-  "Y": 524
+  "X": 506,
+  "Y": 506
  },
  "Halfling.Geometry.Rect": {
   "Bottom": 1,
@@ -3764,8 +3765,8 @@
   "Top": 1
  },
  "Halfling.Geometry.Vector2": {
-  "X": 649,
-  "Y": 649
+  "X": 633,
+  "Y": 633
  },
  "Halfling.Graphics.AnimatedSprite": {
   "AtlasSprite": 12,
@@ -3776,20 +3777,20 @@
   "WrapMode": 1
  },
  "Halfling.Graphics.CircleRenderer": {
-  "QuadCount": 20,
-  "Texture": 20,
-  "VertexColor": 20,
   "Thickness": 3,
   "Color": 2,
+  "QuadCount": 2,
   "Shader": 2,
+  "Texture": 2,
+  "VertexColor": 2,
   "TargetBlendMode": 1,
   "UVRect": 1
  },
  "Halfling.Graphics.Color": {
-  "Af": 1345,
-  "Bf": 1345,
-  "Gf": 1345,
-  "Rf": 1345,
+  "Af": 1306,
+  "Bf": 1306,
+  "Gf": 1306,
+  "Rf": 1306,
   "A": 2,
   "H": 2,
   "S": 2,
@@ -3802,31 +3803,31 @@
   "Rf": 118
  },
  "Halfling.Graphics.Material": {
-  "Shader": 248,
-  "Texture": 213,
-  "TargetBlendMode": 151,
-  "Color": 68,
+  "Shader": 246,
+  "Texture": 206,
+  "TargetBlendMode": 147,
+  "Color": 65,
   "shader": 6
  },
  "Halfling.Graphics.Shader": {
-  "File": 183
+  "File": 178
  },
  "Halfling.Graphics.Sprite": {
-  "Texture": 652,
+  "Texture": 648,
   "Size": 385,
-  "TargetBlendMode": 106,
-  "Shader": 105,
-  "VertexColor": 85,
+  "TargetBlendMode": 103,
+  "Shader": 102,
+  "VertexColor": 80,
   "Color": 23,
-  "UVRect": 18
+  "UVRect": 6
  },
  "Halfling.Graphics.TargetBlendMode": {
-  "AlphaOperator": 205,
-  "DestAlphaFactor": 205,
-  "DestRgbFactor": 205,
-  "RgbOperator": 205,
-  "SourceAlphaFactor": 205,
-  "SourceRgbFactor": 205
+  "AlphaOperator": 198,
+  "DestAlphaFactor": 198,
+  "DestRgbFactor": 198,
+  "RgbOperator": 198,
+  "SourceAlphaFactor": 198,
+  "SourceRgbFactor": 198
  },
  "Halfling.Graphics.Text.BlurFontEffect": {
   "BlurAmount": 4
@@ -3835,14 +3836,13 @@
   "Color": 2
  },
  "Halfling.Graphics.Texture": {
-  "File": 795,
-  "SampleMode": 722,
-  "MipLevels": 512,
+  "File": 788,
+  "SampleMode": 715,
+  "MipLevels": 504,
   "UVMode": 62,
-  "UMode": 51,
-  "VMode": 48,
-  "FixTransparentColors": 47,
-  "PreMultiplyByAlpha": 21,
+  "UMode": 49,
+  "VMode": 46,
+  "FixTransparentColors": 42,
   "Resize": 6,
   "Compression": 2
  },
@@ -3892,83 +3892,83 @@
   "Rect": 1
  },
  "Halfling.Particles.ParticleEmitterDef": {
-  "EmitPerOneShot": 263,
-  "EmitPerSecond": 263,
-  "PostInitializers": 263,
-  "PreInitializers": 263,
-  "UpdatedEmittedParticles": 15
+  "EmitPerOneShot": 254,
+  "EmitPerSecond": 254,
+  "PostInitializers": 254,
+  "PreInitializers": 254,
+  "UpdatedEmittedParticles": 13
  },
  "Halfling.Particles.ParticleSystemDef": {
-  "DeleteMode": 209,
-  "EmitPerOneShot": 209,
-  "EmitPerSecond": 209,
-  "EnableMultithreading": 209,
-  "InitCapacity": 209,
-  "Initializers": 209,
-  "Renderer": 209,
-  "Updaters": 209,
-  "Material": 200,
-  "FpsCompensation": 54,
-  "FpsCompensationStrength": 54
+  "DeleteMode": 201,
+  "EmitPerOneShot": 201,
+  "EmitPerSecond": 201,
+  "EnableMultithreading": 201,
+  "InitCapacity": 201,
+  "Initializers": 201,
+  "Renderer": 201,
+  "Updaters": 201,
+  "Material": 193,
+  "FpsCompensation": 49,
+  "FpsCompensationStrength": 49
  },
  "Halfling.Particles.Renderers.StandardParticleQuadRenderer": {
-  "BaseSize": 117,
-  "LocationIn": 117,
-  "Name": 117,
-  "RotationIn": 105,
-  "ScaleIn": 99,
-  "ColorIn": 95,
-  "Offset": 77,
-  "UvRectIn": 67,
-  "Scale2In": 30,
-  "MaxScale": 18
+  "BaseSize": 110,
+  "LocationIn": 110,
+  "Name": 110,
+  "RotationIn": 98,
+  "ScaleIn": 94,
+  "ColorIn": 90,
+  "Offset": 73,
+  "UvRectIn": 63,
+  "Scale2In": 27,
+  "MaxScale": 15
  },
  "Halfling.Particles.Updaters.ParticleColorRamp": {
-  "ColorOut": 208,
-  "Colors": 208,
-  "Enabled": 208,
-  "Invert": 208,
-  "LerpIn": 208,
-  "Name": 208,
-  "UpdateAfterInit": 208
+  "ColorOut": 198,
+  "Colors": 198,
+  "Enabled": 198,
+  "Invert": 198,
+  "LerpIn": 198,
+  "Name": 198,
+  "UpdateAfterInit": 198
  },
  "Halfling.Particles.Updaters.ParticleLerp": {
-  "DataOut": 276,
-  "Enabled": 276,
-  "FromValue": 276,
-  "Invert": 276,
-  "LerpIn": 276,
-  "Name": 276,
-  "ToValue": 276,
-  "UpdateAfterInit": 276,
-  "ValueType": 276
+  "DataOut": 266,
+  "Enabled": 266,
+  "FromValue": 266,
+  "Invert": 266,
+  "LerpIn": 266,
+  "Name": 266,
+  "ToValue": 266,
+  "UpdateAfterInit": 266,
+  "ValueType": 266
  },
  "Halfling.Particles.Updaters.ParticleLifetime": {
-  "Enabled": 141,
-  "LifeInOut": 141,
-  "Lifetime": 141,
-  "Name": 141,
-  "UpdateAfterInit": 141
+  "Enabled": 136,
+  "LifeInOut": 136,
+  "Lifetime": 136,
+  "Name": 136,
+  "UpdateAfterInit": 136
  },
  "Halfling.Particles.Updaters.ParticleOperator": {
-  "AIn": 760,
-  "BIn": 760,
-  "DataType": 760,
-  "Enabled": 760,
-  "Name": 760,
-  "Operator": 760,
-  "ResultOut": 760,
-  "UpdateAfterInit": 760
+  "AIn": 734,
+  "BIn": 734,
+  "DataType": 734,
+  "Enabled": 734,
+  "Name": 734,
+  "Operator": 734,
+  "ResultOut": 734,
+  "UpdateAfterInit": 734
  },
  "Halfling.Particles.Updaters.ParticleOperatorConst": {
-  "AIn": 65,
-  "Enabled": 65,
-  "Name": 65,
-  "Operator": 65,
-  "ResultOut": 65,
-  "UpdateAfterInit": 65,
-  "Value": 65,
-  "ValueType": 65
+  "AIn": 62,
+  "Enabled": 62,
+  "Name": 62,
+  "Operator": 62,
+  "ResultOut": 62,
+  "UpdateAfterInit": 62,
+  "Value": 62,
+  "ValueType": 62
  },
  "Halfling.Particles.Updaters.ParticlePerpendicularVector": {
   "Enabled": 1,
@@ -3987,112 +3987,112 @@
   "VectorOut": 1
  },
  "Halfling.Particles.Updaters.ParticleScalarOperator": {
-  "AIn": 65,
-  "BIn": 65,
-  "DataType": 65,
-  "Enabled": 65,
-  "Name": 65,
-  "Operator": 65,
-  "ResultOut": 65,
-  "UpdateAfterInit": 65
+  "AIn": 61,
+  "BIn": 61,
+  "DataType": 61,
+  "Enabled": 61,
+  "Name": 61,
+  "Operator": 61,
+  "ResultOut": 61,
+  "UpdateAfterInit": 61
  },
  "Halfling.Particles.Updaters.ParticleSetRandom": {
-  "DataOut": 666,
-  "Enabled": 666,
-  "FromValue": 666,
-  "Name": 666,
-  "ToValue": 666,
-  "UpdateAfterInit": 666,
-  "ValueType": 666
+  "DataOut": 640,
+  "Enabled": 640,
+  "FromValue": 640,
+  "Name": 640,
+  "ToValue": 640,
+  "UpdateAfterInit": 640,
+  "ValueType": 640
  },
  "Halfling.Particles.Updaters.ParticleSetRandomCircle": {
-  "Circle": 63,
-  "Enabled": 63,
-  "LocationOut": 63,
-  "Name": 63,
-  "Perimeter": 63,
-  "UpdateAfterInit": 63
+  "Circle": 61,
+  "Enabled": 61,
+  "LocationOut": 61,
+  "Name": 61,
+  "Perimeter": 61,
+  "UpdateAfterInit": 61
  },
  "Halfling.Particles.Updaters.ParticleSetRandomHsvColor": {
-  "AlphaRange": 45,
-  "ColorOut": 45,
-  "Enabled": 45,
-  "HueRange": 45,
-  "Name": 45,
-  "SaturationRange": 45,
-  "UpdateAfterInit": 45,
-  "ValueRange": 45
+  "AlphaRange": 44,
+  "ColorOut": 44,
+  "Enabled": 44,
+  "HueRange": 44,
+  "Name": 44,
+  "SaturationRange": 44,
+  "UpdateAfterInit": 44,
+  "ValueRange": 44
  },
  "Halfling.Particles.Updaters.ParticleSetRandomVelocity": {
-  "Direction": 45,
-  "Enabled": 45,
-  "Name": 45,
-  "Speed": 45,
-  "UpdateAfterInit": 45,
-  "VelocityOut": 45
+  "Direction": 42,
+  "Enabled": 42,
+  "Name": 42,
+  "Speed": 42,
+  "UpdateAfterInit": 42,
+  "VelocityOut": 42
  },
  "Halfling.Particles.Updaters.ParticleSetRandomVelocityFromPoint": {
-  "AwayFromPoint": 73,
-  "Enabled": 73,
-  "LocationIn": 73,
-  "Name": 73,
-  "Speed": 73,
-  "UpdateAfterInit": 73,
-  "VelocityOut": 73,
-  "ConvertPointToWorldSpace": 38
+  "AwayFromPoint": 71,
+  "Enabled": 71,
+  "LocationIn": 71,
+  "Name": 71,
+  "Speed": 71,
+  "UpdateAfterInit": 71,
+  "VelocityOut": 71,
+  "ConvertPointToWorldSpace": 36
  },
  "Halfling.Particles.Updaters.ParticleSetValue": {
-  "DataOut": 197,
-  "Enabled": 197,
-  "Name": 197,
-  "UpdateAfterInit": 197,
-  "Value": 197,
-  "ValueType": 197
+  "DataOut": 191,
+  "Enabled": 191,
+  "Name": 191,
+  "UpdateAfterInit": 191,
+  "Value": 191,
+  "ValueType": 191
  },
  "Halfling.Particles.Updaters.ParticleUvAnimation": {
-  "Enabled": 55,
-  "FrameCount": 55,
-  "Framerate": 55,
-  "FrameSize": 55,
-  "FramesPerRow": 55,
-  "Looping": 55,
-  "Name": 55,
-  "PixelOffset": 55,
-  "TextureSize": 55,
-  "TimeIn": 55,
-  "UpdateAfterInit": 55,
-  "UvRectOut": 55
+  "Enabled": 53,
+  "FrameCount": 53,
+  "Framerate": 53,
+  "FrameSize": 53,
+  "FramesPerRow": 53,
+  "Looping": 53,
+  "Name": 53,
+  "PixelOffset": 53,
+  "TextureSize": 53,
+  "TimeIn": 53,
+  "UpdateAfterInit": 53,
+  "UvRectOut": 53
  },
  "Halfling.Particles.Updaters.ParticleUvSprites": {
-  "Enabled": 83,
-  "Name": 83,
-  "PixelOffset": 83,
-  "SpriteCount": 83,
-  "SpriteIndexIn": 83,
-  "SpriteSize": 83,
-  "SpritesPerRow": 83,
-  "TextureSize": 83,
-  "UpdateAfterInit": 83,
-  "UvRectOut": 83,
-  "Looping": 59
+  "Enabled": 79,
+  "Name": 79,
+  "PixelOffset": 79,
+  "SpriteCount": 79,
+  "SpriteIndexIn": 79,
+  "SpriteSize": 79,
+  "SpritesPerRow": 79,
+  "TextureSize": 79,
+  "UpdateAfterInit": 79,
+  "UvRectOut": 79,
+  "Looping": 56
  },
  "Halfling.Particles.Updaters.ParticleValueCurve": {
-  "CurveOut": 66,
-  "Enabled": 66,
-  "Invert": 66,
-  "LerpIn": 66,
-  "MaxValue": 66,
-  "MinValue": 66,
-  "Name": 66,
-  "Points": 66,
-  "UpdateAfterInit": 66
+  "CurveOut": 63,
+  "Enabled": 63,
+  "Invert": 63,
+  "LerpIn": 63,
+  "MaxValue": 63,
+  "MinValue": 63,
+  "Name": 63,
+  "Points": 63,
+  "UpdateAfterInit": 63
  },
  "Halfling.Particles.Updaters.ParticleVariableLifetime": {
-  "Enabled": 118,
-  "LifeInOut": 118,
-  "Name": 118,
-  "UpdateAfterInit": 118,
-  "LifetimeIn": 114,
+  "Enabled": 113,
+  "LifeInOut": 113,
+  "Name": 113,
+  "UpdateAfterInit": 113,
+  "LifetimeIn": 109,
   "VariableLifetimeIn": 4
  },
  "Halfling.Physics2D.Dynamics.Drag.ExponentialAngularDragSolver/ExponentialAngularDragSolverRules": {
@@ -4111,25 +4111,25 @@
   "UpdateAfterInit": 1
  },
  "Halfling.Scene2D.Particles.ParticleLocationToWorldSpace": {
-  "Enabled": 207,
-  "LocationIn": 207,
-  "LocationOut": 207,
-  "Name": 207,
-  "UpdateAfterInit": 207
+  "Enabled": 199,
+  "LocationIn": 199,
+  "LocationOut": 199,
+  "Name": 199,
+  "UpdateAfterInit": 199
  },
  "Halfling.Scene2D.Particles.ParticleRotationToWorldSpace": {
-  "Enabled": 91,
-  "Name": 91,
-  "RotationIn": 91,
-  "RotationOut": 91,
-  "UpdateAfterInit": 91
+  "Enabled": 90,
+  "Name": 90,
+  "RotationIn": 90,
+  "RotationOut": 90,
+  "UpdateAfterInit": 90
  },
  "Halfling.Scene2D.Particles.ParticleScaleToWorldSpace": {
-  "Enabled": 184,
-  "Name": 184,
-  "ScaleIn": 184,
-  "ScaleOut": 184,
-  "UpdateAfterInit": 184
+  "Enabled": 176,
+  "Name": 176,
+  "ScaleIn": 176,
+  "ScaleOut": 176,
+  "UpdateAfterInit": 176
  },
  "Halfling.Scene2D.Particles.ParticleSetWorldSpaceLocation": {
   "Enabled": 5,
@@ -4139,17 +4139,17 @@
   "UpdateAfterInit": 5
  },
  "Halfling.Scene2D.Particles.ParticleSetWorldSpaceScale": {
-  "Enabled": 41,
-  "LocalScale": 41,
-  "Name": 41,
-  "ScaleOut": 41,
-  "UpdateAfterInit": 41
+  "Enabled": 40,
+  "LocalScale": 40,
+  "Name": 40,
+  "ScaleOut": 40,
+  "UpdateAfterInit": 40
  },
  "Halfling.Scene2D.Particles.ParticleVelocityToWorldSpace": {
-  "Enabled": 93,
-  "Name": 93,
-  "UpdateAfterInit": 93,
-  "VelocityIn": 93,
-  "VelocityOut": 93
+  "Enabled": 89,
+  "Name": 89,
+  "UpdateAfterInit": 89,
+  "VelocityIn": 89,
+  "VelocityOut": 89
  }
 }

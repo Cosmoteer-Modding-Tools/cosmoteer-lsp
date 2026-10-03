@@ -347,7 +347,7 @@ export async function validateTextDocument(
         folderUris: searchFolderUris,
         folderPaths: searchFolderPaths,
         shipLayers: shipLayerContext,
-        reachableFiles: () => reachableFileFilter(cancelToken),
+        reachableFiles: reachableFileFilter,
         // An open file shows its problems now and its cross-file hints once the mod-wide plans
         // exist. The bulk pass waits, since it stores what it publishes.
         refreshOpenDocument: () => refreshOpenDocument,

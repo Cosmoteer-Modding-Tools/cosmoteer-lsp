@@ -11,7 +11,7 @@ Lets a bullet with no target look for one within `Range`, trying ships, parts, b
 > [Cosmoteer modding wiki](https://cosmoteer.wiki.gg/wiki/Modding).
 
 ## Interval
-`number` · required
+`number (seconds)` · required
 
 Seconds between search attempts. The countdown only runs while the bullet has no living target, and the first search happens this long after spawning.
 

@@ -156,12 +156,12 @@ The hit effects and media effects applied at the beam's endpoint when it hits no
 A toggle component on the same part that gates the [[Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules+BeamHitRules.ConditionalHitEffects]] and [[Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules+BeamHitRules.ConditionalMediaEffects]] of the Hit groups. While the toggle is on, those effects are applied in addition to the normal ones.
 
 ## Duration
-`number` · optional
+`number (seconds)` · optional
 
 Seconds the beam stays on after each trigger. Triggering again while emitting extends the emission back up to this duration, so a repeatedly fired beam becomes continuous. At 0, the default, the beam is instantaneous and applies its hit effects once per shot.
 
 ## HitInterval
-`number` · optional
+`number (seconds)` · optional
 
 Seconds between successive applications of the beam's hit effects while a continuous beam is emitting. Only meaningful when [[Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules.Duration]] is greater than 0.
 
@@ -231,7 +231,7 @@ A value component on the same part whose current value multiplies the value this
 When true, [[Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules.EffectsScaleFactor]] and [[Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules.ValueScaleFactor]] are sampled only at the moment the beam emits. When false, the default, they are re-read every tick while a continuous beam is firing.
 
 ## RampUpTime
-`number` · optional
+`number (seconds)` · optional
 
 Seconds for the beam to ramp up to full strength after it starts firing. While ramping, the four OverRampUp scaling fields interpolate from their Min to their Max. At 0, the default, the beam is always at full ramp-up.
 
@@ -291,12 +291,12 @@ The alpha channel of the beam's media effect tint. See [[Cosmoteer.Ships.Parts.W
 A distance, in tiles, added to the beam's actual length when setting the visual beam length. Negative values shorten the visual, as the vanilla manipulator beam does to compensate for its muzzle offset.
 
 ## Spread
-`range<number>` · optional
+`range<number (degrees)>` · optional
 
 A random angular deviation added to the beam's aim direction, rolled between Min and Max each time the beam updates. Angles are written with a `d` suffix for degrees, for example `[-1.5d, 1.5d]`.
 
 ## PelletSpread
-`range<number>` · optional
+`range<number (degrees)>` · optional
 
 An extra angular deviation applied per pellet when [[Cosmoteer.Ships.Parts.Weapons.EmitterRules.Pellets]] emits more than one, rolled between Min and Max for each pellet. With [[Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules.EvenPelletSpread]] the pellets are spaced across the range instead.
 

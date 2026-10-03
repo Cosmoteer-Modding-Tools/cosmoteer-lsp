@@ -3,9 +3,9 @@
     "source": "Cosmoteer.dll \u002B HalflingCore.dll",
     "root": "Cosmoteer.Data.Rules",
     "registries": 37,
-    "types": 851,
+    "types": 853,
     "enums": 101,
-    "typesBeforePrune": 1351,
+    "typesBeforePrune": 1353,
     "registriesBeforePrune": 62,
     "componentSlots": 126,
     "componentKinds": 23
@@ -14,7 +14,6 @@
     "Cosmoteer.ValueCombination.ValueCombinerRules": {
       "name": "ValueCombinerRules",
       "typeField": "Type",
-      "valueField": "",
       "members": {
         "NormalizedAdd": "Cosmoteer.ValueCombination.NormalizedAddCombinerRules",
         "SimpleValueCombinerRules": "Cosmoteer.ValueCombination.SimpleValueCombinerRules"
@@ -23,7 +22,6 @@
     "Cosmoteer.Simulation.MediaEffects.MediaEffectRules": {
       "name": "MediaEffectRules",
       "typeField": "Type",
-      "valueField": "",
       "members": {
         "ArcShield": "Cosmoteer.Simulation.MediaEffects.ArcShieldEffectRules",
         "Audio": "Cosmoteer.Simulation.MediaEffects.AudioEffectRules",
@@ -39,7 +37,6 @@
     "Cosmoteer.Simulation.HitEffects.HitEffectRules": {
       "name": "HitEffectRules",
       "typeField": "Type",
-      "valueField": "",
       "members": {
         "AreaCrewStun": "Cosmoteer.Simulation.HitEffects.AreaCrewStunEffectRules",
         "AreaDamage": "Cosmoteer.Simulation.HitEffects.AreaDamageEffectRules",
@@ -70,7 +67,6 @@
     "Cosmoteer.Simulation.Doodads.DoodadRules": {
       "name": "DoodadRules",
       "typeField": "Type",
-      "valueField": "",
       "members": {
         "Crew": "Cosmoteer.Simulation.Doodads.CrewDoodadRules",
         "FtlGate": "Cosmoteer.Simulation.Doodads.FtlGateDoodadRules",
@@ -87,7 +83,6 @@
     "Cosmoteer.Source.Ships.Parts.Regions.IPartRelativeRegion": {
       "name": "IPartRelativeRegion",
       "typeField": "Type",
-      "valueField": "",
       "members": {
         "Area": "Cosmoteer.Source.Ships.Parts.Regions.PartRelativeArea",
         "EdgeDistance": "Cosmoteer.Source.Ships.Parts.Regions.PartRelativeEdgeDistance",
@@ -98,7 +93,6 @@
     "Cosmoteer.Ships.ValueModifier": {
       "name": "ValueModifier",
       "typeField": "Type",
-      "valueField": "",
       "members": {
         "Buff": "Cosmoteer.Ships.BuffModifier",
         "BuffRemap": "Cosmoteer.Ships.BuffRemapModifier",
@@ -117,7 +111,6 @@
     "Cosmoteer.Ships.Statuses.ValueModulatorRules": {
       "name": "ValueModulatorRules",
       "typeField": "Type",
-      "valueField": "",
       "members": {
         "Constant": "Cosmoteer.Ships.Statuses.ConstantValueModulatorRules",
         "InterpolateSine": "Cosmoteer.Ships.Statuses.InterpolateSineValueModulatorRules",
@@ -127,7 +120,6 @@
     "Cosmoteer.Ships.Networks.PartNetworkRouterRules/IRouteGenerator": {
       "name": "IRouteGenerator",
       "typeField": "Type",
-      "valueField": "",
       "members": {
         "Simple": "Cosmoteer.Ships.Networks.PartNetworkRouterRules/SimpleRouteGenerator",
         "Bidirectional": "Cosmoteer.Ships.Networks.PartNetworkRouterRules/BidirectionalRouteGenerator",
@@ -137,7 +129,6 @@
     "Cosmoteer.Ships.Formations.BuiltInFormation": {
       "name": "BuiltInFormation",
       "typeField": "Type",
-      "valueField": "",
       "members": {
         "Line": "Cosmoteer.Ships.Formations.LineFormation"
       }
@@ -145,7 +136,6 @@
     "Cosmoteer.Ships.Parts.PartComponentRules": {
       "name": "PartComponentRules",
       "typeField": "Type",
-      "valueField": "",
       "members": {
         "StatusToggle": "Cosmoteer.Ships.Statuses.PartStatusToggleRules",
         "StatusValueRegulator": "Cosmoteer.Ships.Statuses.StatusValueRegulatorRules",
@@ -300,7 +290,6 @@
     "Cosmoteer.Ships.Blueprints.Graphics.BasePartNetworkRouteLine": {
       "name": "BasePartNetworkRouteLine",
       "typeField": "Type",
-      "valueField": "",
       "members": {
         "CappedLine": "Cosmoteer.Ships.Blueprints.Graphics.PartNetworkRouteCappedLine",
         "SplitCappedLine": "Cosmoteer.Ships.Blueprints.Graphics.PartNetworkSplitCappedLine"
@@ -309,7 +298,6 @@
     "Cosmoteer.Ships.AI.AICommsModuleRules": {
       "name": "AICommsModuleRules",
       "typeField": "Type",
-      "valueField": "",
       "members": {
         "CrewProvider": "Cosmoteer.Ships.AI.CommsModules.AICrewProviderModuleRules",
         "Dialogue": "Cosmoteer.Ships.AI.CommsModules.AIDialogueModuleRules",
@@ -321,7 +309,6 @@
     "Cosmoteer.Ships.AI.AIStasisModuleRules": {
       "name": "AIStasisModuleRules",
       "typeField": "Type",
-      "valueField": "",
       "members": {
         "AreaPatrol": "Cosmoteer.Ships.AI.StasisModules.AIStasisAreaPatrolModuleRules",
         "DeleteSelf": "Cosmoteer.Ships.AI.StasisModules.AIStasisDeleteSelfModuleRules",
@@ -334,7 +321,6 @@
     "Cosmoteer.Ships.AI.AIStrategyModuleRules": {
       "name": "AIStrategyModuleRules",
       "typeField": "Type",
-      "valueField": "",
       "members": {
         "AggroEnemies": "Cosmoteer.Ships.AI.StrategyModules.AIAggroEnemiesModuleRules",
         "AreaPatrol": "Cosmoteer.Ships.AI.StrategyModules.AIAreaPatrolModuleRules",
@@ -352,7 +338,6 @@
     "Cosmoteer.Ships.AI.AITacticsModuleRules": {
       "name": "AITacticsModuleRules",
       "typeField": "Type",
-      "valueField": "",
       "members": {
         "DefaultAttackRadiusAndRotation": "Cosmoteer.Ships.AI.TacticsModules.AIDefaultAttackRadiusAndRotationModuleRules",
         "RandomAttackAngle": "Cosmoteer.Ships.AI.TacticsModules.AIRandomAttackAngleModuleRules"
@@ -361,7 +346,6 @@
     "Cosmoteer.Ships.AI.AITargetingModuleRules": {
       "name": "AITargetingModuleRules",
       "typeField": "Type",
-      "valueField": "",
       "members": {
         "ValueTargeter": "Cosmoteer.Ships.AI.TargetingModules.AIValueTargeterModuleRules"
       }
@@ -369,7 +353,6 @@
     "Cosmoteer.Nebulas.NebulaActiveEffectRules": {
       "name": "NebulaActiveEffectRules",
       "typeField": "Type",
-      "valueField": "",
       "members": {
         "DamageCrew": "Cosmoteer.Nebulas.NebulaDamageCrewEffectRules",
         "DamageShips": "Cosmoteer.Nebulas.NebulaDamageShipsEffectRules",
@@ -379,7 +362,6 @@
     "Cosmoteer.Music.MusicTrackRules": {
       "name": "MusicTrackRules",
       "typeField": "Type",
-      "valueField": "",
       "members": {
         "File": "Cosmoteer.Music.MusicFileTrackRules",
         "FSM": "Cosmoteer.Music.MusicFsmTrackRules",
@@ -391,7 +373,6 @@
     "Cosmoteer.Modes.Career.Missions.Rewards.RewardSpawner": {
       "name": "RewardSpawner",
       "typeField": "Type",
-      "valueField": "",
       "members": {
         "CustomText": "Cosmoteer.Modes.Career.Missions.Rewards.CustomTextReward/Spawner",
         "Fame": "Cosmoteer.Modes.Career.Missions.Rewards.FameReward/Spawner",
@@ -403,7 +384,6 @@
     "Cosmoteer.Modes.Career.Missions.Objectives.ObjectiveSpawner": {
       "name": "ObjectiveSpawner",
       "typeField": "Type",
-      "valueField": "",
       "members": {
         "AnyOrder": "Cosmoteer.Modes.Career.Missions.Objectives.AnyOrderObjective/Spawner",
         "DebugEvent": "Cosmoteer.Modes.Career.Missions.Objectives.DebugEventObjective/Spawner",
@@ -423,7 +403,6 @@
     "Cosmoteer.Generators.Textures.HeightMapLayer": {
       "name": "HeightMapLayer",
       "typeField": "Type",
-      "valueField": "",
       "members": {
         "PerlinDistortion": "Cosmoteer.Generators.Textures.PerlinDistortionHeightMapLayer",
         "Perlin": "Cosmoteer.Generators.Textures.PerlinHeightMapLayer",
@@ -434,7 +413,6 @@
     "Cosmoteer.Generators.Textures.TextureLayer": {
       "name": "TextureLayer",
       "typeField": "Type",
-      "valueField": "",
       "members": {
         "ColorShift": "Cosmoteer.Generators.Textures.ColorShiftTextureLayer",
         "Decals": "Cosmoteer.Generators.Textures.DecalsTextureLayer",
@@ -453,7 +431,6 @@
     "Cosmoteer.Generators.Simulation.SimObjectSpawner": {
       "name": "SimObjectSpawner",
       "typeField": "Type",
-      "valueField": "",
       "members": {
         "Doodads": "Cosmoteer.Generators.Simulation.DoodadSpawner",
         "FtlGates": "Cosmoteer.Generators.Simulation.FtlGateSpawner",
@@ -467,7 +444,6 @@
     "Cosmoteer.Generators.Simulation.SimSpawner": {
       "name": "SimSpawner",
       "typeField": "Type",
-      "valueField": "",
       "members": {
         "Mission": "Cosmoteer.Modes.Career.Missions.MissionSpawner"
       }
@@ -475,7 +451,6 @@
     "Cosmoteer.Generators.Ships.GeneratorStage": {
       "name": "GeneratorStage",
       "typeField": "Type",
-      "valueField": "",
       "members": {
         "AsteroidDepositsStage": "Cosmoteer.Generators.Ships.Stages.AsteroidDepositsStage",
         "AsteroidStage": "Cosmoteer.Generators.Ships.Stages.AsteroidStage",
@@ -500,7 +475,6 @@
     "Cosmoteer.Generators.Ships.Stages.Structural.StructureModule": {
       "name": "StructureModule",
       "typeField": "Type",
-      "valueField": "",
       "members": {
         "CircleModule": "Cosmoteer.Generators.Ships.Stages.Structural.CircleModule",
         "RectangleModule": "Cosmoteer.Generators.Ships.Stages.Structural.RectangleModule"
@@ -509,7 +483,6 @@
     "Cosmoteer.Generators.Planets.PlanetLayerRules": {
       "name": "PlanetLayerRules",
       "typeField": "Type",
-      "valueField": "",
       "members": {
         "HaloGenerator": "Cosmoteer.Generators.Planets.PlanetHaloGeneratorLayerRules",
         "RingGenerator": "Cosmoteer.Generators.Planets.PlanetRingGeneratorLayerRules",
@@ -520,7 +493,6 @@
     "Cosmoteer.Generators.Names.NameGenerator": {
       "name": "NameGenerator",
       "typeField": "Type",
-      "valueField": "",
       "members": {
         "CharacterSequence": "Cosmoteer.Generators.Names.CharacterSequenceNameGenerator",
         "Markov": "Cosmoteer.Generators.Names.MarkovGenerator",
@@ -532,7 +504,6 @@
     "Cosmoteer.Generators.Galaxies.GalaxySpawner": {
       "name": "GalaxySpawner",
       "typeField": "Type",
-      "valueField": "",
       "members": {
         "FactionNodeTiers": "Cosmoteer.Modes.Career.Map.FactionNodeTiersSpawner",
         "ProgressionNodeTiers": "Cosmoteer.Modes.Career.Map.ProgressionNodeTiersSpawner",
@@ -547,7 +518,6 @@
     "Cosmoteer.Game.Gui.Build.Stats.IShipStatWidgetRules": {
       "name": "IShipStatWidgetRules",
       "typeField": "Type",
-      "valueField": "",
       "members": {
         "IconText": "Cosmoteer.Game.Gui.Build.Stats.IconTextStatWidgetRules",
         "InlineContainer": "Cosmoteer.Game.Gui.Build.Stats.InlineContainerStatWidgetRules",
@@ -557,7 +527,6 @@
     "Cosmoteer.Game.Gui.Brushes.TileBrush": {
       "name": "TileBrush",
       "typeField": "Type",
-      "valueField": "",
       "members": {
         "Block": "Cosmoteer.Game.Gui.Brushes.BlockTileBrush",
         "Box": "Cosmoteer.Game.Gui.Brushes.BoxTileBrush",
@@ -570,7 +539,6 @@
     "Cosmoteer.Bullets.BulletComponentRules": {
       "name": "BulletComponentRules",
       "typeField": "Type",
-      "valueField": "",
       "members": {
         "SameShipRetarget": "Cosmoteer.Bullets.Targeting.BulletSameShipRetargetRules",
         "Targetable": "Cosmoteer.Bullets.Targeting.BulletTargetableRules",
@@ -599,7 +567,6 @@
     "Halfling.Physics2D.Dynamics.Drag.IAngularDragSolverRules": {
       "name": "IAngularDragSolverRules",
       "typeField": "Type",
-      "valueField": "",
       "members": {
         "Exponential": "Halfling.Physics2D.Dynamics.Drag.ExponentialAngularDragSolver/ExponentialAngularDragSolverRules",
         "Viscous": "Halfling.Physics2D.Dynamics.Drag.ViscousAngularDragSolver/ViscousAngularDragSolverRules"
@@ -608,7 +575,6 @@
     "Halfling.Physics2D.Dynamics.Drag.ILinearDragSolverRules": {
       "name": "ILinearDragSolverRules",
       "typeField": "Type",
-      "valueField": "",
       "members": {
         "Exponential": "Halfling.Physics2D.Dynamics.Drag.ExponentialLinearDragSolver/ExponentialLinearDragSolverRules",
         "Viscous": "Halfling.Physics2D.Dynamics.Drag.ViscousLinearDragSolver/ViscousLinearDragSolverRules"
@@ -617,7 +583,6 @@
     "Halfling.Particles.IParticleDataUpdater": {
       "name": "IParticleDataUpdater",
       "typeField": "Type",
-      "valueField": "",
       "members": {
         "ValueCurve": "Halfling.Particles.Updaters.ParticleValueCurve",
         "OffsetByIndex": "Cosmoteer.Simulation.MediaEffects.ParticleUpdaters.ParticleOffsetByIndex",
@@ -681,7 +646,6 @@
     "Halfling.Particles.IParticleRenderer": {
       "name": "IParticleRenderer",
       "typeField": "Type",
-      "valueField": "",
       "members": {
         "LightQuadRenderer": "Cosmoteer.Simulation.MediaEffects.ParticleRenderers.LightParticleQuadRenderer",
         "LitQuadRenderer": "Cosmoteer.Simulation.MediaEffects.ParticleRenderers.LitParticleQuadRenderer",
@@ -693,7 +657,6 @@
     "Halfling.Graphics.Text.IFontEffect": {
       "name": "IFontEffect",
       "typeField": "Type",
-      "valueField": "",
       "members": {
         "Blur": "Halfling.Graphics.Text.BlurFontEffect",
         "Color": "Halfling.Graphics.Text.ColorFontEffect",
@@ -1615,6 +1578,26 @@
         },
         {
           "name": "FocusShipCircle",
+          "valueType": {
+            "kind": "group",
+            "ref": "Halfling.Graphics.CircleRenderer",
+            "name": "CircleRenderer"
+          },
+          "optional": false,
+          "absentThrows": true
+        },
+        {
+          "name": "DefaultWeaponCoverageLine",
+          "valueType": {
+            "kind": "group",
+            "ref": "Cosmoteer.Simulation.Overlays.CappedLine",
+            "name": "CappedLine"
+          },
+          "optional": false,
+          "absentThrows": true
+        },
+        {
+          "name": "DefaultWeaponCoverageSectorArc",
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Graphics.CircleRenderer",
@@ -6635,6 +6618,14 @@
           "nullable": false
         },
         {
+          "name": "UseContiguity",
+          "valueType": {
+            "kind": "bool"
+          },
+          "optional": true,
+          "nullable": false
+        },
+        {
           "name": "AllowDiagonals",
           "valueType": {
             "kind": "bool"
@@ -9349,9 +9340,20 @@
           "nullable": false
         },
         {
-          "name": "DefaultTargetingRangeFactor",
+          "name": "DefaultTargetingRangeExtension",
           "valueType": {
             "kind": "float"
+          },
+          "optional": false,
+          "absentThrows": true,
+          "nullable": false
+        },
+        {
+          "name": "MinWeaponCoverageArcTargetWidth",
+          "valueType": {
+            "kind": "number",
+            "unit": "degrees",
+            "type": "Angle"
           },
           "optional": false,
           "absentThrows": true,
@@ -11421,6 +11423,14 @@
             }
           },
           "optional": true
+        },
+        {
+          "name": "UseContiguity",
+          "valueType": {
+            "kind": "bool"
+          },
+          "optional": true,
+          "nullable": false
         }
       ]
     },
@@ -18049,15 +18059,6 @@
             "name": "EffectFilter"
           },
           "optional": true
-        },
-        {
-          "name": "CoverageLine",
-          "valueType": {
-            "kind": "group",
-            "ref": "Cosmoteer.Simulation.Overlays.CappedLine",
-            "name": "CappedLine"
-          },
-          "optional": true
         }
       ]
     },
@@ -18264,6 +18265,24 @@
           },
           "optional": false,
           "absentThrows": true
+        },
+        {
+          "name": "AllowCustomCoverageArcEditing",
+          "valueType": {
+            "kind": "bool"
+          },
+          "optional": true,
+          "nullable": false,
+          "default": true,
+          "defaultSource": "initializer"
+        },
+        {
+          "name": "ForceCustomCoverageWidthZero",
+          "valueType": {
+            "kind": "bool"
+          },
+          "optional": true,
+          "nullable": false
         },
         {
           "name": "TargetingRange",
@@ -18572,6 +18591,29 @@
         }
       ]
     },
+    "Cosmoteer.Ships.Parts.Weapons.WeaponCoverage": {
+      "name": "WeaponCoverage",
+      "namespace": "Cosmoteer.Ships.Parts.Weapons",
+      "purelyReflective": true,
+      "fields": [
+        {
+          "name": "Range",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": true
+        },
+        {
+          "name": "Arc",
+          "valueType": {
+            "kind": "group",
+            "ref": "Halfling.Geometry.Arc",
+            "name": "Arc"
+          },
+          "optional": true
+        }
+      ]
+    },
     "Cosmoteer.Ships.Parts.Weapons.WeaponRules": {
       "name": "WeaponRules",
       "namespace": "Cosmoteer.Ships.Parts.Weapons",
@@ -18804,6 +18846,61 @@
           "nullable": false
         },
         {
+          "name": "AllowCustomCoverageEditing",
+          "valueType": {
+            "kind": "bool"
+          },
+          "optional": true,
+          "nullable": false,
+          "default": true,
+          "defaultSource": "initializer"
+        },
+        {
+          "name": "AllowCustomCoverageRangeEditing",
+          "valueType": {
+            "kind": "bool"
+          },
+          "optional": true,
+          "nullable": false,
+          "default": true,
+          "defaultSource": "initializer"
+        },
+        {
+          "name": "DefaultWeaponCoverage",
+          "valueType": {
+            "kind": "group",
+            "ref": "Cosmoteer.Ships.Parts.Weapons.WeaponCoverage",
+            "name": "WeaponCoverage"
+          },
+          "optional": true
+        },
+        {
+          "name": "MatchWeaponCoverage",
+          "valueType": {
+            "kind": "reference",
+            "target": "Cosmoteer.Ships.Parts.PartComponentRules",
+            "targetName": "PartComponentRules"
+          },
+          "optional": true
+        },
+        {
+          "name": "MatchWeaponCoverageStrictFire",
+          "valueType": {
+            "kind": "bool"
+          },
+          "optional": true,
+          "nullable": false
+        },
+        {
+          "name": "CoverageLine",
+          "valueType": {
+            "kind": "group",
+            "ref": "Cosmoteer.Simulation.Overlays.CappedLine",
+            "name": "CappedLine"
+          },
+          "optional": true
+        },
+        {
           "name": "IgnoreFriendlyShipLowLOSChecks",
           "valueType": {
             "kind": "bool"
@@ -18861,14 +18958,6 @@
           "optional": true
         },
         {
-          "name": "ProhibitShipRelativePointTargets",
-          "valueType": {
-            "kind": "bool"
-          },
-          "optional": true,
-          "nullable": false
-        },
-        {
           "name": "SuppressShipWideExplicitTargetsWhenTargetingPartsFilter",
           "valueType": {
             "kind": "group",
@@ -18876,14 +18965,6 @@
             "name": "EffectFilter"
           },
           "optional": true
-        },
-        {
-          "name": "SuppressShipWideExplicitTargetsWhenTargetingShipRelativePoints",
-          "valueType": {
-            "kind": "bool"
-          },
-          "optional": true,
-          "nullable": false
         },
         {
           "name": "SuppressDirectControlWhenTargetingPartsFilter",
@@ -18895,14 +18976,6 @@
           "optional": true
         },
         {
-          "name": "SuppressDirectControlWhenTargetingShipRelativePoints",
-          "valueType": {
-            "kind": "bool"
-          },
-          "optional": true,
-          "nullable": false
-        },
-        {
           "name": "SuppressFirepowerEstimationWhenTargetingPartsFilter",
           "valueType": {
             "kind": "group",
@@ -18910,22 +18983,6 @@
             "name": "EffectFilter"
           },
           "optional": true
-        },
-        {
-          "name": "SuppressFirepowerEstimationWhenTargetingShipRelativePoints",
-          "valueType": {
-            "kind": "bool"
-          },
-          "optional": true,
-          "nullable": false
-        },
-        {
-          "name": "SuppressFirepowerEstimationWhenNotTargetingShipRelativePoints",
-          "valueType": {
-            "kind": "bool"
-          },
-          "optional": true,
-          "nullable": false
         },
         {
           "name": "SaveSelfTargetPartCategories",
@@ -18938,14 +18995,6 @@
             }
           },
           "optional": true
-        },
-        {
-          "name": "SaveShipRelativeTargets",
-          "valueType": {
-            "kind": "bool"
-          },
-          "optional": true,
-          "nullable": false
         },
         {
           "name": "ToggleOnMode",
@@ -30265,6 +30314,24 @@
         },
         {
           "name": "PerimeterDamageChancePerTick",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": false,
+          "absentThrows": true,
+          "nullable": false
+        },
+        {
+          "name": "PerimeterCrewDamagePerTick",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": false,
+          "absentThrows": true,
+          "nullable": false
+        },
+        {
+          "name": "PerimeterCrewDamagePerTickPerDistance",
           "valueType": {
             "kind": "float"
           },
@@ -45366,6 +45433,16 @@
           "absentThrows": true
         },
         {
+          "name": "AdjustWeaponCoverage",
+          "valueType": {
+            "kind": "group",
+            "ref": "Cosmoteer.Game.AdjustWeaponCoverageGuiRules",
+            "name": "AdjustWeaponCoverageGuiRules"
+          },
+          "optional": false,
+          "absentThrows": true
+        },
+        {
           "name": "AutoThrustOffIcon",
           "valueType": {
             "kind": "group",
@@ -45961,6 +46038,291 @@
         },
         {
           "name": "SeenShipPingDuration",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": false,
+          "absentThrows": true,
+          "nullable": false
+        }
+      ]
+    },
+    "Cosmoteer.Game.AdjustWeaponCoverageGuiRules": {
+      "name": "AdjustWeaponCoverageGuiRules",
+      "namespace": "Cosmoteer.Game",
+      "purelyReflective": true,
+      "fields": [
+        {
+          "name": "CoverageHitTolerance",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": false,
+          "absentThrows": true,
+          "nullable": false
+        },
+        {
+          "name": "CoverageExtendedHitTolerance",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": false,
+          "absentThrows": true,
+          "nullable": false
+        },
+        {
+          "name": "CoveragePartObstructedHitTolerance",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": false,
+          "absentThrows": true,
+          "nullable": false
+        },
+        {
+          "name": "CoverageMinimumRange",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": false,
+          "absentThrows": true,
+          "nullable": false
+        },
+        {
+          "name": "CoverageInfiniteRangeFallback",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": false,
+          "absentThrows": true,
+          "nullable": false
+        },
+        {
+          "name": "CoverageRangeSnapIncrement",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": false,
+          "absentThrows": true,
+          "nullable": false
+        },
+        {
+          "name": "CoverageFineRangeSnapIncrement",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": false,
+          "absentThrows": true,
+          "nullable": false
+        },
+        {
+          "name": "CoverageAngleSnapIncrement",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": false,
+          "absentThrows": true,
+          "nullable": false
+        },
+        {
+          "name": "CoverageFineAngleSnapIncrement",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": false,
+          "absentThrows": true,
+          "nullable": false
+        },
+        {
+          "name": "CoverageIcon",
+          "valueType": {
+            "kind": "group",
+            "ref": "Halfling.Graphics.Sprite",
+            "name": "Sprite"
+          },
+          "optional": false,
+          "absentThrows": true
+        },
+        {
+          "name": "CoverageCursor",
+          "valueType": {
+            "kind": "group",
+            "ref": "Halfling.Windows.Cursor",
+            "name": "Cursor"
+          },
+          "optional": false,
+          "absentThrows": true
+        },
+        {
+          "name": "CoverageResetSound",
+          "valueType": {
+            "kind": "group",
+            "ref": "Halfling.Audio.ISoundEffect",
+            "name": "ISoundEffect"
+          },
+          "optional": false,
+          "absentThrows": true
+        },
+        {
+          "name": "CoverageThicknessScale",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": false,
+          "absentThrows": true,
+          "nullable": false
+        },
+        {
+          "name": "CoverageHandleThickness",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": false,
+          "absentThrows": true,
+          "nullable": false
+        },
+        {
+          "name": "CoveragePhysicalLimitThicknessScale",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": false,
+          "absentThrows": true,
+          "nullable": false
+        },
+        {
+          "name": "CoverageThicknessScaleExponent",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": false,
+          "absentThrows": true,
+          "nullable": false
+        },
+        {
+          "name": "CoverageColor",
+          "valueType": {
+            "kind": "group",
+            "ref": "Halfling.Graphics.Color",
+            "name": "Color"
+          },
+          "optional": false,
+          "absentThrows": true,
+          "nullable": false
+        },
+        {
+          "name": "CoverageHandleColor",
+          "valueType": {
+            "kind": "group",
+            "ref": "Halfling.Graphics.Color",
+            "name": "Color"
+          },
+          "optional": false,
+          "absentThrows": true,
+          "nullable": false
+        },
+        {
+          "name": "CoverageMirroredColor",
+          "valueType": {
+            "kind": "group",
+            "ref": "Halfling.Graphics.Color",
+            "name": "Color"
+          },
+          "optional": false,
+          "absentThrows": true,
+          "nullable": false
+        },
+        {
+          "name": "CoveragePhysicalLimitColor",
+          "valueType": {
+            "kind": "group",
+            "ref": "Halfling.Graphics.Color",
+            "name": "Color"
+          },
+          "optional": false,
+          "absentThrows": true,
+          "nullable": false
+        },
+        {
+          "name": "CoverageRim",
+          "valueType": {
+            "kind": "group",
+            "ref": "Halfling.Graphics.CircleRenderer",
+            "name": "CircleRenderer"
+          },
+          "optional": false,
+          "absentThrows": true
+        },
+        {
+          "name": "CoverageHandleRim",
+          "valueType": {
+            "kind": "group",
+            "ref": "Halfling.Graphics.CircleRenderer",
+            "name": "CircleRenderer"
+          },
+          "optional": false,
+          "absentThrows": true
+        },
+        {
+          "name": "CoverageLine",
+          "valueType": {
+            "kind": "group",
+            "ref": "Cosmoteer.Simulation.Overlays.CappedLine",
+            "name": "CappedLine"
+          },
+          "optional": false,
+          "absentThrows": true
+        },
+        {
+          "name": "CoverageArcFill",
+          "valueType": {
+            "kind": "group",
+            "ref": "Halfling.Graphics.CircleRenderer",
+            "name": "CircleRenderer"
+          },
+          "optional": false,
+          "absentThrows": true
+        },
+        {
+          "name": "CoverageArcFillMaxOverlap",
+          "valueType": {
+            "kind": "int"
+          },
+          "optional": false,
+          "absentThrows": true,
+          "nullable": false
+        },
+        {
+          "name": "CoverageUnaffectedAlphaMultiplier",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": false,
+          "absentThrows": true,
+          "nullable": false
+        },
+        {
+          "name": "CoveragePhysicalLimitRim",
+          "valueType": {
+            "kind": "group",
+            "ref": "Halfling.Graphics.CircleRenderer",
+            "name": "CircleRenderer"
+          },
+          "optional": false,
+          "absentThrows": true
+        },
+        {
+          "name": "CoveragePhysicalLimitLine",
+          "valueType": {
+            "kind": "group",
+            "ref": "Cosmoteer.Simulation.Overlays.CappedLine",
+            "name": "CappedLine"
+          },
+          "optional": false,
+          "absentThrows": true
+        },
+        {
+          "name": "CoveragePhysicalLimitDashLengthPerThickness",
           "valueType": {
             "kind": "float"
           },
@@ -46933,28 +47295,6 @@
           "optional": true,
           "nullable": false,
           "default": true,
-          "defaultSource": "initializer"
-        },
-        {
-          "name": "SnapToAngles",
-          "valueType": {
-            "kind": "list",
-            "element": {
-              "kind": "number",
-              "unit": "degrees",
-              "type": "Direction"
-            }
-          },
-          "optional": true
-        },
-        {
-          "name": "SnapToAngleDistance",
-          "valueType": {
-            "kind": "float"
-          },
-          "optional": true,
-          "nullable": false,
-          "default": 1,
           "defaultSource": "initializer"
         }
       ]
@@ -55036,6 +55376,29 @@
           },
           "optional": true,
           "nullable": false
+        },
+        {
+          "name": "StructuralDamageRetentionPerHit",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": true,
+          "nullable": false
+        },
+        {
+          "name": "MinStructuralDamageScale",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": true,
+          "nullable": false
+        },
+        {
+          "name": "MaxStructuralPenetrations",
+          "valueType": {
+            "kind": "int"
+          },
+          "optional": true
         }
       ]
     },
@@ -62496,6 +62859,14 @@
           "nullable": false
         },
         {
+          "name": "BeginCapOverhangFraction",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": true,
+          "nullable": false
+        },
+        {
           "name": "EndCapLength",
           "valueType": {
             "kind": "float"
@@ -62518,6 +62889,14 @@
             "element": {
               "kind": "float"
             }
+          },
+          "optional": true,
+          "nullable": false
+        },
+        {
+          "name": "EndCapOverhangFraction",
+          "valueType": {
+            "kind": "float"
           },
           "optional": true,
           "nullable": false
@@ -64627,7 +65006,6 @@
         "WantsAndReadyToFire",
         "WantsToFire",
         "HasTarget",
-        "HasTargetExceptShipRelative",
         "IsReloaded"
       ]
     },

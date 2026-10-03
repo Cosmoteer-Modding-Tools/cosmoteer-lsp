@@ -51,7 +51,7 @@ Multiplier on the arc's radius reached at the end of fade-out, easing from 1 ove
 The radius, in tiles, of the circle the arc is bent around. The circle's center sits that distance behind the effect node along its facing, so the arc's outer edge passes through the node's location. Being modifiable it can be driven by buffs, and the vanilla shield generators reference their shield component's own Radius here so the visual tracks overclock modifiers.
 
 ## Arc
-`number` · required
+`number (degrees)` · required
 
 The full angular width of the arc, centered on the effect node's facing. Angles are written with a `d` suffix for degrees. The drawn span is this angle times the effect's runtime arc-fraction parameter, which arc shields set to the covered fraction of their arc for each unblocked segment, while hit effects like the vanilla shield's 20d impact flash draw the whole angle.
 

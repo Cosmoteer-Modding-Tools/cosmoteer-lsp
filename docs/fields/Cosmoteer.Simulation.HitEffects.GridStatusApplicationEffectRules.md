@@ -100,6 +100,11 @@ The pathing costs of tiles by part TypeCategories, not otherwise included in Par
 
 Whether pathing between tiles is blocked by walls.
 
+## UseContiguity
+`bool` · optional
+
+Whether pathing between tiles requires part contiguity according to AllowedContiguity.
+
 ## AllowDiagonals
 `bool` · optional
 

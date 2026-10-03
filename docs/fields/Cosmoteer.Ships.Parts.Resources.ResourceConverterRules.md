@@ -21,12 +21,12 @@ The resource inputs consumed on each conversion. Every entry must pass its avail
 The resource outputs produced on each conversion. Every entry must have enough free capacity before a conversion runs, and then all entries are filled together.
 
 ## Interval
-`number` · required
+`number (seconds)` · required
 
 Seconds between conversion attempts. The value is buff-modifiable, and when a modifier changes it mid-wait the pending conversion is rescheduled by the difference. The converter also reports a component value to other components that ramps from 0 to 1 over each interval.
 
 ## InitialDelay
-`number` · optional
+`number (seconds)` · optional
 
 Seconds until the first conversion attempt after the component first becomes operational. Falls back to [[Cosmoteer.Ships.Parts.Resources.ResourceConverterRules.Interval]] when unset.
 
@@ -36,7 +36,7 @@ Seconds until the first conversion attempt after the component first becomes ope
 A trigger component whose firing pushes the next conversion attempt back to [[Cosmoteer.Ships.Parts.Resources.ResourceConverterRules.DelayAfterTrigger]] seconds from that moment. The vanilla medium and large cannons point this at their Turret so the ammo loader pauses for half a second after each shot.
 
 ## DelayAfterTrigger
-`number` · optional
+`number (seconds)` · optional
 
 Seconds after [[Cosmoteer.Ships.Parts.Resources.ResourceConverterRules.DelayTrigger]] fires before the next conversion attempt. At the default of 0 the next attempt happens immediately after the trigger.
 

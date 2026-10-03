@@ -11,7 +11,7 @@ One piece of the sound and visuals an event produces, such as a sprite, a beam, 
 > [Cosmoteer modding wiki](https://cosmoteer.wiki.gg/wiki/Modding).
 
 ## Delay
-`number` · optional
+`number (seconds)` · optional
 
 Seconds the effect waits after being triggered before it actually plays. Applies only to one-shot playback, continuous playback always starts immediately. Being modifiable, it can be driven by buffs carried in the effect's parameters.
 

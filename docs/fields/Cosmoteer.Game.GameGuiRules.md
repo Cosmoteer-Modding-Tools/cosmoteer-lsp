@@ -280,6 +280,11 @@ Icon of the target command button in the parts card command box, which enters th
 
 Icon of the cancel targets button in the parts card command box, which clears the explicit targets of the selected weapons.
 
+## AdjustWeaponCoverage
+`AdjustWeaponCoverageGuiRules` · required
+
+Settings for the weapon coverage editor, the tool that sets a weapon's custom range, firing arc or fixed direction from the build screen or the parts card. Holds its snap increments, hit tolerances, icon, cursor, sound and line and arc graphics.
+
 ## AutoThrustOffIcon
 `Sprite` · required
 

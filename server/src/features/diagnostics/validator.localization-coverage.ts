@@ -2,11 +2,9 @@ import * as l10n from '@vscode/l10n';
 import { CancellationToken } from 'vscode-languageserver';
 import { AbstractNode, AbstractNodeDocument, isAssignmentNode, isValueNode } from '../../core/ast/ast';
 import {
-    declaresLanguage,
     englishOf,
     isStringsDocument,
     keyDeclarationsOf,
-    LANGUAGE_ID,
     languageIdOf,
     languageOf,
     LocalizationKeyIndex,
@@ -57,8 +55,7 @@ const fileAnchor = (document: AbstractNodeDocument): AbstractNode | undefined =>
 /**
  * Reports what one language of a mod is missing against the languages beside it: keys the other
  * strings files in the same folder declare and this one does not, and a key whose translation drops
- * or invents one of the placeholder slots the English text carries. Reports a whole language the
- * game will never offer as well, which is the file's own header missing.
+ * or invents one of the placeholder slots the English text carries.
  *
  * A key the language in play is missing is answered from English, which the game keeps loaded
  * behind it, so a player reading that language gets an English sentence. The raw key path is what
@@ -77,8 +74,8 @@ const fileAnchor = (document: AbstractNodeDocument): AbstractNode | undefined =>
  * @param document the parsed strings file to validate.
  * @param folderPaths the project folders the strings index is built from.
  * @param cancellationToken cancellation for the index build.
- * @returns one warning when the game offers this language to nobody, one hint for the keys the
- *          language is missing, and one warning per mismatched placeholder set.
+ * @returns one hint for the keys the language is missing, and one warning per mismatched
+ *          placeholder set.
  */
 export const validateLocalizationCoverage = async (
     document: AbstractNodeDocument,
@@ -93,31 +90,6 @@ export const validateLocalizationCoverage = async (
     const errors: ValidationError[] = [];
     const folder = folderOf(document.uri);
     const anchor = fileAnchor(document);
-    const declaredIds = await LocalizationKeyIndex.instance.declaredLanguages(folderPaths, cancellationToken);
-    if (cancellationToken.isCancellationRequested) return errors;
-    // The picker lists a language only where some strings file opens with `__Name` on its first
-    // line and `__DebugOnly` on its second, and it takes the id from the file name. A file named
-    // after an id no file declares that way introduces a language the player cannot pick. An id
-    // another file does declare, the game's own `en` above all, is overridden rather than
-    // introduced and needs no header of its own. Without English in the index there is no game
-    // tree to judge against, so nothing is said.
-    if (
-        anchor &&
-        declaredIds.has('en') &&
-        !declaredIds.has(id) &&
-        LANGUAGE_ID.test(id) &&
-        !declaresLanguage(document)
-    ) {
-        errors.push({
-            message: l10n.t('The game offers no language "{0}", so a player cannot pick this one.', id),
-            node: anchor,
-            severity: 'warning',
-            additionalInfo: l10n.t(
-                'A file that introduces a language has to open with __Name on its first line and __DebugOnly on its second, ahead of any comment.'
-            ),
-        });
-    }
-
     const languages = await LocalizationKeyIndex.instance.languageTextsUnder(folder, folderPaths, cancellationToken);
     if (cancellationToken.isCancellationRequested || languages.length < 2) return errors;
 

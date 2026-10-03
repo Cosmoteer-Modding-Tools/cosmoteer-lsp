@@ -11,7 +11,7 @@ Detonates the bullet when an enemy ship or bullet stays within `Range` long enou
 > [Cosmoteer modding wiki](https://cosmoteer.wiki.gg/wiki/Modding).
 
 ## Interval
-`number` · required
+`number (seconds)` · required
 
 The time between proximity checks, in seconds. The first check runs one interval after the bullet spawns, and the timer restarts after every check. The vanilla deployed mine checks every 0.1 seconds.
 

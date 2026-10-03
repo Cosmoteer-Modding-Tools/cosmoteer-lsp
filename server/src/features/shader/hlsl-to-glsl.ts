@@ -114,6 +114,7 @@ const FIXED_RESULT: Readonly<Record<string, string>> = {
     cross: 'vec3',
     texture2D: 'vec4',
     pvTexLod: 'vec4',
+    pvTexGrad: 'vec4',
     pvTexSize: 'vec2',
     pvIsInf: 'bool',
 };
@@ -290,9 +291,10 @@ uniform float uPvBeamLength;
 `;
 
 /**
- * The helper functions the translated intrinsics rely on, shared by both stages. The `pvTexLod` and
- * `pvTexSize` bodies here are the GLSL ES 1.00 fallbacks (default-mip sample, nominal size); the
- * webview replaces these exact body strings with `textureLod`/`textureSize` when it runs on WebGL2,
+ * The helper functions the translated intrinsics rely on, shared by both stages. The `pvTexLod`,
+ * `pvTexGrad` and `pvTexSize` bodies here are the GLSL ES 1.00 fallbacks (implicit-mip sample,
+ * nominal size); the webview replaces these exact body strings with `textureLod`/`textureGrad`/
+ * `textureSize` when it runs on WebGL2,
  * so their spelling is a contract with `media/shader-preview.js`.
  */
 const HELPERS = `float clamp_0_1(float x) { return clamp(x, 0.0, 1.0); }
@@ -320,6 +322,7 @@ vec4 pvMod(vec4 a, float b) { return mod(a, b); }
 int pvMod(int a, int b) { return int(mod(float(a), float(b))); }
 bool pvIsInf(float x) { return abs(x) > 1.0e30; }
 vec4 pvTexLod(sampler2D t, vec2 uv, float lod) { return texture2D(t, uv); }
+vec4 pvTexGrad(sampler2D t, vec2 uv, vec2 dx, vec2 dy) { vec4 c = texture2D(t, uv); return c; }
 vec2 pvTexSize(sampler2D t) { return vec2(256.0, 256.0); }
 float pow_(float x, float y) { return pow(x, y); }
 vec2 pow_(vec2 x, vec2 y) { return pow(x, y); }
@@ -607,7 +610,7 @@ const translateIntrinsics = (src: string): string => {
 /**
  * Converts `Texture2D _x;` to a sampler uniform, drops the `SamplerState _x_SS;`, and rewrites the
  * sampling intrinsics into `texture2D`. Explicit-LOD sampling and size queries have no GLSL ES 1.00
- * counterpart, so `.SampleLevel` becomes a `pvTexLod` helper call and `.GetDimensions(w, h)` a pair of
+ * counterpart, so `.SampleLevel` and `.SampleGrad` become `pvTexLod` and `pvTexGrad` helper calls and `.GetDimensions(w, h)` a pair of
  * `pvTexSize` component reads; the helpers carry ES 1.00 fallback bodies (default-mip sample, nominal
  * size) that the webview swaps for real `textureLod`/`textureSize` when it runs on WebGL2 (see
  * {@link HELPERS}). A texture type left in a parameter position becomes `sampler2D`.
@@ -617,8 +620,9 @@ const translateTextures = (src: string): string =>
         .replace(/\bSamplerState\s+_[A-Za-z0-9_]+\s*;/g, '')
         .replace(/\b(?:Texture2D|Texture3D|TextureCube)\s+(_[A-Za-z0-9_]+)\s*;/g, 'uniform sampler2D $1;')
         .replace(
-            /\b(_[A-Za-z0-9_]+)\s*\.\s*SampleLevel\s*\(\s*_[A-Za-z0-9_]+\s*,([^()]*(?:\([^()]*\)[^()]*)*)\)/g,
-            'pvTexLod($1,$2)'
+            /\b(_[A-Za-z0-9_]+)\s*\.\s*Sample(Level|Grad)\s*\(\s*_[A-Za-z0-9_]+\s*,([^()]*(?:\([^()]*\)[^()]*)*)\)/g,
+            (_m, tex: string, kind: string, args: string) =>
+                `${kind === 'Level' ? 'pvTexLod' : 'pvTexGrad'}(${tex},${args})`
         )
         .replace(/\b(_[A-Za-z0-9_]+)\s*\.\s*Sample\s*\(\s*_[A-Za-z0-9_]+\s*,/g, 'texture2D($1,')
         .replace(

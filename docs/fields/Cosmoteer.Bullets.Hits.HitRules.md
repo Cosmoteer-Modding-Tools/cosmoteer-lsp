@@ -54,3 +54,18 @@ Velocity frame the spawned effects inherit, so particles drift along with the ch
 `Vector2` · optional
 
 Offset in tiles added to the hit point before effects are placed, rotated to the projectile's facing. The point defense shot uses `[-0.15, 0]` to pull its impact effects slightly back along the shot. Volume hits ignore it.
+
+## StructuralDamageRetentionPerHit
+`float` · optional
+
+Fraction of the effect scale kept for each further structural part a penetrating projectile or beam hits. The first structural hit runs at full scale and hit number `n` runs at this value raised to the power `n - 1`, floored at [[Cosmoteer.Bullets.Hits.HitRules.MinStructuralDamageScale]]. Defaults to 0, so with neither field set every structural hit after the first runs at zero scale. Vanilla shots use `60%`, the railgun `80%` and the ion beam `50%`. Only counted on `PenetratingHit` projectiles and on beams with `PenetratesStructure`, and only against structural parts.
+
+## MinStructuralDamageScale
+`float` · optional
+
+The lowest effect scale [[Cosmoteer.Bullets.Hits.HitRules.StructuralDamageRetentionPerHit]] can decay to across successive structural hits, as a 0..1 fraction. Defaults to 0, which lets the falloff approach zero. Vanilla shots use `3%` and the railgun `5%`.
+
+## MaxStructuralPenetrations
+`int` · optional
+
+The number of structural parts this hit applies to before further structural hits are skipped. On a penetrating projectile, structural hits past the limit run no effects. On a beam with `PenetratesStructure`, the value on its `HitStructural` stops collecting structural tiles along the beam once the count is reached. Unset means no limit.

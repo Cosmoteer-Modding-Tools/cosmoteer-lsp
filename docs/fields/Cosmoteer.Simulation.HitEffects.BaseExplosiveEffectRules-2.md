@@ -21,12 +21,12 @@ The maximum radius of the blast, in tiles. The effect's total pool spreads outwa
 The number of angular wedges the total effect pool is split evenly into. An object can only drain points from the wedges its silhouette spans as seen from the epicenter, which localizes the effect by direction so a big object on one side cannot soak the whole blast. Defaults to roughly two wedges per tile of blast circumference, and `Slices = 1` puts everything into one shared pool that can go in any single direction, as the vanilla EMP missile and large flak burst do.
 
 ## Delay
-`number` · optional
+`number (seconds)` · optional
 
 Seconds waited before the blast is applied, defaulting to 0. While waiting, the blast point stays anchored to the hit ship, or keeps drifting at that ship's last velocity if the ship ceases to exist.
 
 ## ExpandDuration
-`number` · optional
+`number (seconds)` · optional
 
 Seconds over which the blast grows from [[Cosmoteer.Simulation.HitEffects.BaseExplosiveEffectRules`2.ExpandStartRadius]] to [[Cosmoteer.Simulation.HitEffects.BaseExplosiveEffectRules`2.Radius]]. At the default of 0 the full radius is applied instantly. When positive, the effect is re-applied at each radius step of [[Cosmoteer.Simulation.HitEffects.BaseExplosiveEffectRules`2.ExpandIncrement]] tiles, spaced evenly across this duration, stopping early once the pool is spent. The vanilla nuke expands over 0.8 seconds.
 

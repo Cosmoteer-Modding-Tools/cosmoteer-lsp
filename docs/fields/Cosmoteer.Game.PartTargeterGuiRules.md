@@ -115,12 +115,3 @@ Whether holding the `AppendSelection` modifier, Shift by default, adds the click
 
 Whether the targeter may pick a target on the same ship it lives on. With this false, such targets are skipped when validating the click, so the button also stops showing a tentative highlight over them. The targeting part can never target itself either way.
 
-## SnapToAngles
-`number (degrees)[]` · optional
-
-The directions, relative to the targeting part's own facing, that a `ShipLocalPoint` target snaps onto. The point snaps to the nearest ray cast from the first weapon's ship location along one of these directions, and holding the `SelectParts` modifier suppresses snapping so the point can be placed freely.
-
-## SnapToAngleDistance
-`float` · optional · default `1`
-
-How close, in tiles, the cursor's ship-relative point must be to one of the `SnapToAngles` rays for it to snap onto that ray. Nothing snaps when the nearest ray is further away than this.

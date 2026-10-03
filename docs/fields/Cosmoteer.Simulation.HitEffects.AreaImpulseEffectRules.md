@@ -31,7 +31,7 @@ The exponent shaping how the impulse fades with distance from the center, multip
 Reverses the falloff to `(distance/radius)^Falloff`, so strength grows from zero at the center to full at the rim. The overclocked vanilla tractor beam emitter pairs this with a negative [[Cosmoteer.Simulation.HitEffects.AreaImpulseEffectRules.Impulse]] for its pull burst.
 
 ## Delay
-`number` · optional
+`number (seconds)` · optional
 
 Seconds to wait before the impulse is applied. During the wait the effect point follows the hit ship's movement, or drifts on at that ship's last velocity if it is destroyed.
 

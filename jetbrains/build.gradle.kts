@@ -6,12 +6,12 @@ import org.jetbrains.intellij.platform.gradle.tasks.VerifyPluginTask
 plugins {
     id("java")
     id("org.jetbrains.kotlin.jvm")
-    id("org.jetbrains.intellij.platform") version "2.18.1"
+    id("org.jetbrains.intellij.platform") version "2.19.0"
     id("org.jetbrains.changelog") version "2.5.0"
 }
 
 group = "modding.cosmoteer.tools"
-version = "1.1.1"
+version = "1.1.2"
 
 repositories {
     mavenCentral()
@@ -84,7 +84,7 @@ intellijPlatform {
             // upload itself; keep anything platform-version-sensitive out of the code (see PluginPaths).
             // The Community edition is no longer published from 2025.3 on, so the latest stable is the
             // unified IntelliJ IDEA distribution rather than another IntellijIdeaCommunity build.
-            create(IntelliJPlatformType.IntellijIdea, "2025.3")
+            create(IntelliJPlatformType.IntellijIdea, "2026.2.3")
             // Rider is the primary target audience (C# modders), verify against it explicitly.
             // Rider ships only as an installer, which the verifier can't unpack, so pull the
             // archive distribution instead (useInstaller = false). See plugin issue #1852.

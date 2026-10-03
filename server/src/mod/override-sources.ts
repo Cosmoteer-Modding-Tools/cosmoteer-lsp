@@ -73,7 +73,9 @@ export const includingDocumentsOf = async (
 
     for (const { source } of ReverseIncludeIndex.instance.includesOf(documentUri)) {
         if (cancellationToken.isCancellationRequested) return documents;
-        if (!seen.has(canonical(uriToFsPath(source)))) add(await loadDocument(uriToFsPath(source)));
+        // The index key is lower-cased, which names no file on a case-sensitive disk.
+        const path = ReverseIncludeIndex.instance.realPathFor(source) ?? uriToFsPath(source);
+        if (!seen.has(canonical(path))) add(await loadDocument(path));
     }
 
     const modRoot = findModRoot(documentUri);

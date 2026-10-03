@@ -168,7 +168,7 @@ export async function validateWorkspaceFile(
     // A readme, a changelog, or a `.txt` nothing references is not rules content the game would ever
     // load, so it never enters the panel. Anything it published before the gate could answer (or
     // under an older reference set) is cleared instead of left to stick.
-    if (await isOutsideRulesPanel(file, token)) {
+    if (await isOutsideRulesPanel(file)) {
         if (workspaceDiagnosticUris.has(uri)) {
             workspaceDiagnosticUris.delete(uri);
             await connection.sendDiagnostics({ uri, diagnostics: [] });
@@ -299,7 +299,7 @@ export async function runWorkspaceValidation(): Promise<void> {
         // In 'modRulesReachable' scope, restrict the pass to files the game can actually load (the
         // manifest's reachability closure), so dead backups and templates stay out of the Problems
         // panel. A folder without a manifest keeps every file (nothing to scope by).
-        const scopeAllows = await reachableFileFilter(token);
+        const scopeAllows = await reachableFileFilter();
         if (scopeAllows) files = files.filter((file) => scopeAllows(file));
         const openNorms = openDocumentNorms();
         // Problems published for files that are no longer in scope (the closure shrank, or a tab
@@ -376,7 +376,7 @@ export async function runWorkspaceValidation(): Promise<void> {
 async function warmSharedBaseFacts(folderUris: string[], token: CancellationToken): Promise<void> {
     if (!globalSettings.diagnostics?.validateDuplicateFields) return;
     try {
-        const inScope = await reachableFileFilter(token);
+        const inScope = await reachableFileFilter();
         for (const folder of folderUris) {
             for (const modRoot of modRootsUnder(uriToFsPath(folder))) {
                 if (token.isCancellationRequested) return;

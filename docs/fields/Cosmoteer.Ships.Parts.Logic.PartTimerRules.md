@@ -11,7 +11,7 @@ Fires when `Duration` runs out, able to restart itself for a steady repeating ti
 > [Cosmoteer modding wiki](https://cosmoteer.wiki.gg/wiki/Modding).
 
 ## Duration
-`number` · required
+`number (seconds)` · required
 
 The countdown length in seconds. When a running timer's remaining time reaches zero it fires its trigger, and as a toggle provider the component reads on once expired. The component also acts as a value provider reporting the remaining time as a fraction of this duration, and exposes whether it is counting down under the toggle ID `IsRunning`.
 

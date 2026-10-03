@@ -9,7 +9,7 @@ import { parseList } from './parse-list';
 import { parseExpression } from './parse-expression';
 import { parseString } from './parse-string';
 import { parseCallOrParenGroup } from './parse-function-call';
-import { parseBoolean, parseStrayRightParen, parseValue } from './parse-value';
+import { parseBoolean, parseStrayRightParen, parseValue, readsAsValue, reportInvalidMemberName } from './parse-value';
 import { parseInheritance } from './parse-inheritance';
 import { tokenDisplayText } from './token-display';
 import { reportOrphanTerminator } from './parse-terminator';
@@ -99,6 +99,17 @@ export const walk = (
             tokens[state.current + 1].type === TOKEN_TYPES.LEFT_PAREN) ||
         token.type === TOKEN_TYPES.LEFT_PAREN
     ) {
+        // A call where a member name belongs, such as a prose line `Sprite Def by Cody (VSCode)`,
+        // is a name followed by `(`, which the game refuses with `Unexpected "("`.
+        const previous = tokens[state.current - 1];
+        const next = tokens[state.current + 1];
+        if (
+            token.type === TOKEN_TYPES.VALUE &&
+            parent?.type !== 'List' &&
+            !readsAsValue(token, previous, next, _lastNode)
+        ) {
+            reportInvalidMemberName(state, token, next, previous);
+        }
         return parseCallOrParenGroup(state, token, _lastNode, parent);
     }
 

@@ -11,7 +11,7 @@ Knocks out every crew member within `Radius` of the impact for `Duration`, with 
 > [Cosmoteer modding wiki](https://cosmoteer.wiki.gg/wiki/Modding).
 
 ## Duration
-`range<number>` · required
+`range<number (seconds)>` · required
 
 The stun length, in seconds, rolled at random between Min and Max for each affected crew member and then multiplied by the distance falloff factor. A Max of 0 or less disables the effect. Stunning an already stunned crew member keeps the longer of the two times unless [[Cosmoteer.Simulation.HitEffects.AreaCrewStunEffectRules.Cumulative]] is set.
 
@@ -26,7 +26,7 @@ The radius, in tiles, of the world-space circle around the impact point within w
 The exponent shaping how the stun duration weakens with distance. The base factor runs linearly from 1 at the epicenter to 0 at the edge of [[Cosmoteer.Simulation.HitEffects.AreaCrewStunEffectRules.Radius]] and is raised to this power, so values above 1 concentrate the stun near the center while 0 stuns everyone in range at full duration. Defaults to 1.
 
 ## Delay
-`number` · optional
+`number (seconds)` · optional
 
 Seconds to wait after the hit before the stun is applied. During the wait the effect point follows the motion of the ship that was hit. Defaults to 0.
 

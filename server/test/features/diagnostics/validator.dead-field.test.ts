@@ -213,16 +213,26 @@ describe('dead declared fields', () => {
         // removing.
         // TurretWeapon derives from WeaponRules, so the registry entry is found via the ancestry walk.
         const doc = parse(
-            'Part\n{\n\tComponents\n\t{\n\t\tGun\n\t\t{\n\t\t\tType = TurretWeapon\n\t\t\tSuppressWholeShipTargetOverlaysWhenTargetingShipRelativePoints = true\n\t\t}\n\t}\n}\n'
+            'Part\n{\n\tComponents\n\t{\n\t\tGun\n\t\t{\n\t\t\tType = TurretWeapon\n\t\t\tSuppressWholeShipTargetOverlaysForPartsFilter = &~/Filter\n\t\t}\n\t}\n}\n'
         );
         const errors = await validateIgnoredFields(doc, token);
         const hit = errors.find((e) => e.message.includes('SuppressWholeShipTargetOverlays'));
         expect(hit).toBeTruthy();
         expect(hit!.message).toContain('removed in game version 0.26.1');
         expect(hit!.data?.migration?.apply).toBe('rewrite');
-        expect(hit!.data?.rewrite?.edits[0].newText).toBe(
-            'SuppressShipWideExplicitTargetsWhenTargetingShipRelativePoints'
+        expect(hit!.data?.rewrite?.edits[0].newText).toBe('SuppressDirectControlWhenTargetingPartsFilter');
+    });
+
+    it('reports the 0.30.5 ship-relative aim fields without a rename, since their successor is gone too', async () => {
+        const doc = parse(
+            'Part\n{\n\tComponents\n\t{\n\t\tGun\n\t\t{\n\t\t\tType = TurretWeapon\n\t\t\tSuppressWholeShipTargetOverlaysWhenTargetingShipRelativePoints = true\n\t\t\tSaveShipRelativeTargets = true\n\t\t}\n\t}\n}\n'
         );
+        const errors = await validateIgnoredFields(doc, token);
+        const old = errors.find((e) => e.message.includes('SuppressWholeShipTargetOverlays'));
+        const aim = errors.find((e) => e.message.includes('SaveShipRelativeTargets'));
+        expect(old!.data?.migration?.apply).toBeUndefined();
+        expect(aim!.message).toContain('removed in game version 0.30.5');
+        expect(aim!.data?.migration?.apply).toBeUndefined();
     });
 
     it('sanctions removal for the officially unused PenetrationRectType', async () => {

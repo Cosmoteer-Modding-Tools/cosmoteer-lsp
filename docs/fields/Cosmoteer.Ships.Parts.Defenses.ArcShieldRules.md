@@ -16,7 +16,7 @@ Projects a shield arc that blocks incoming fire, draining a resource storage for
 The distance, in tiles, from the component's location at which the shield arc is projected. Shots only register as shield hits within half a tile of this radius, so the shield is a thin band along its rim rather than a filled circle.
 
 ## Arc
-`number` · required
+`number (degrees)` · required
 
 The angular width of the shield, centered on the component's facing direction. Written with a `d` suffix for degrees, for example `90d`.
 

@@ -303,6 +303,27 @@ const unresolvedReferenceFinding = async (
             data: { quickFix: { title: l10n.t("Change to '{0}'", rewrite), newText: rewrite } },
         };
     }
+    // The game looks a bare first name up in the group the reference is written in and the groups
+    // that one inherits (`OTGroupNode.TryGetNodeIncludingInherited`), never in the groups around
+    // it. A constant declared at the file root is out of reach from a nested group, which reads as
+    // a path mistake to the author. When the same path resolves from the file root, say so.
+    const rooted = /^&?[A-Za-z_]/.test(written) ? written.replace(/^(&?)/, '$1~/') : null;
+    if (
+        rooted &&
+        !isActionTargetValueNode(node) &&
+        (await navigate(rooted, startNode, uri, cancellationToken).catch(() => null))
+    ) {
+        return {
+            message: l10n.t('Reference name is not known'),
+            node: node,
+            severity: isActionSourceValueNode(node) ? 'error' : 'warning',
+            additionalInfo: l10n.t(
+                'A bare name is only looked up in the group it is written in and the groups that group inherits, not in the groups around it. "{0}" starts at the file root.',
+                rooted
+            ),
+            data: { quickFix: { title: l10n.t("Change to '{0}'", rooted), newText: rooted } },
+        };
+    }
     // A chain that comes back to a link it has already been through resolves to nothing
     // in exactly the way a misspelled name does, so the two are indistinguishable from
     // the resolver's answer alone. They are not the same mistake: no spelling change

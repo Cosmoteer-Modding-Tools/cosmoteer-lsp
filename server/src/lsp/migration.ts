@@ -77,7 +77,7 @@ const filesToMigrate = async (
         for await (const file of collectRulesFiles(uriToFsPath(folder))) files.push(file);
     }
     // Same scope the diagnostics scan uses: only files the game can actually load.
-    const scopeAllows = await reachableFileFilter(token);
+    const scopeAllows = await reachableFileFilter();
     const loadable = scopeAllows ? files.filter((file) => scopeAllows(file)) : files;
     await ensureFragmentRooting(token).catch(() => undefined);
     // The migration writes straight to disk, so the one gate that says which trees may be written
@@ -115,7 +115,7 @@ const migrateOneFile = async (run: MigrationRun, file: string, reportProgress: (
     if (!doc) {
         // Prose the game never loads (a readme, a `.txt` nothing references) is skipped like
         // the diagnostics scan skips it.
-        if (await isOutsideRulesPanel(file, run.token)) return;
+        if (await isOutsideRulesPanel(file)) return;
         let text: string;
         try {
             text = await readFile(file, { encoding: 'utf-8' });

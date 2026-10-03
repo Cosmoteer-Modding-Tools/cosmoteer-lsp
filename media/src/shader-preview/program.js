@@ -9,8 +9,8 @@ import { state } from './state.js';
 /**
  * Upgrades a translated GLSL ES 1.00 source to ES 3.00 for a WebGL2 context. The rewrite is
  * mechanical: version header, in/out qualifiers, the texture call rename, a declared fragment
- * output in place of gl_FragColor, and the real textureLod/textureSize bodies swapped into the
- * pvTexLod/pvTexSize helpers whose ES 1.00 fallback bodies the server emits (the exact body
+ * output in place of gl_FragColor, and the real textureLod/textureGrad/textureSize bodies swapped
+ * into the pvTexLod/pvTexGrad/pvTexSize helpers whose ES 1.00 fallback bodies the server emits (the exact body
  * strings are a contract with hlsl-to-glsl.ts).
  *
  * @param source the translated ES 1.00 source.
@@ -20,6 +20,7 @@ import { state } from './state.js';
 export function upgradeToEs3(source, isVertex) {
     let src = source.replace(/#extension GL_OES_standard_derivatives : enable\n?/g, '');
     src = src.replace('{ return texture2D(t, uv); }', '{ return textureLod(t, uv, lod); }');
+    src = src.replace('{ vec4 c = texture2D(t, uv); return c; }', '{ return textureGrad(t, uv, dx, dy); }');
     src = src.replace('{ return vec2(256.0, 256.0); }', '{ return vec2(textureSize(t, 0)); }');
     if (isVertex) {
         src = src.replace(/\battribute\b/g, 'in').replace(/\bvarying\b/g, 'out');

@@ -17,7 +17,8 @@ import { PROJECT_INDEXES } from '../project-indexes';
 import { invalidateShipLayersFor } from '../ship-layers';
 import { bumpWorkspaceScanEpoch } from '../scan-epoch';
 import { bumpValidationScopeEpoch, reachableFileFilter, wholeWorkspaceEnabled } from '../validation-scope';
-import { workspaceFolderUris } from '../workspace-folders';
+import { searchFolderUris, workspaceFolderUris } from '../workspace-folders';
+import { isStringsPath, LocalizationKeyIndex } from '../../features/completion/localization-key.index';
 import {
     WORKSPACE_DIAGNOSTIC_CONCURRENCY,
     retractWorkspaceDiagnostics,
@@ -44,6 +45,10 @@ const DEPENDENT_REVALIDATION_CAP = 250;
  * than out of a second walk. A link that spells no file name (a `&/…` super path through a game
  * alias) is not found this way and waits for the next full pass.
  *
+ * A strings file is the exception. It is read by key, and its name (`en`, `tr`) is a substring of
+ * so many words that the cap filled with files that never read it. The keys it gained or lost are
+ * looked up instead.
+ *
  * @param changedUris the uris the watcher reported, deletions included: a file that was renamed
  *     away is precisely what leaves its referrers dangling.
  * @param token cancels the index lookups.
@@ -52,11 +57,16 @@ const DEPENDENT_REVALIDATION_CAP = 250;
 const dependentsOfChanged = async (changedUris: string[], token: CancellationToken): Promise<string[]> => {
     const folderUris = await workspaceFolderUris();
     if (folderUris.length === 0) return [];
+    const keys = await LocalizationKeyIndex.instance
+        .takeChangedKeys(await searchFolderUris(), token)
+        .catch(() => [] as string[]);
+    const names = changedUris
+        .filter((uri) => !isStringsPath(uri))
+        .map((uri) => basenameOf(uri).replace(/\.[^.]+$/, ''));
     const found = new Set<string>();
-    for (const uri of changedUris) {
-        const stem = basenameOf(uri).replace(/\.[^.]+$/, '');
-        if (!stem) continue;
-        const candidates = await MentionIndex.instance.candidateFiles(stem, folderUris, token).catch(() => undefined);
+    for (const name of [...keys, ...names]) {
+        if (!name) continue;
+        const candidates = await MentionIndex.instance.candidateFiles(name, folderUris, token).catch(() => undefined);
         for (const candidate of candidates ?? []) {
             found.add(candidate);
             if (found.size >= DEPENDENT_REVALIDATION_CAP) return [...found];
@@ -162,7 +172,7 @@ export function register(): void {
             // Only files inside the validation scope get their problems published. An out-of-scope
             // file (a dead backup a git operation touched, say) must not enter the panel, and any
             // entry it still holds from an earlier closure is cleared instead.
-            const scopeAllows = await reachableFileFilter(CancellationToken.None);
+            const scopeAllows = await reachableFileFilter();
             const inScope: string[] = [];
             for (const file of toRevalidate) {
                 if (!scopeAllows || scopeAllows(file)) {

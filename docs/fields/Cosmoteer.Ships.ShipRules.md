@@ -255,10 +255,15 @@ Minimum communication radius, in tiles beyond the ship's bounding radius. The ef
 
 Distance beyond the ship's bounding radius scanned for visible enemy ships. Whether an enemy is inside drives weapon activation and gates behavior that requires safety, such as automatic crew exit.
 
-## DefaultTargetingRangeFactor
+## DefaultTargetingRangeExtension
 `float` · required
 
-Multiplies a weapon's emitter range to get its default auto-targeting acquisition range when the weapon does not define its own TargetingRange.
+Distance, in tiles, added to a weapon's range when it searches for targets, so it can pick up targets that are about to move into range. Only applies when the weapon's emitter leads its target, that is a bullet emitter with [[Cosmoteer.Ships.Parts.Weapons.BulletEmitterRules.TargetLeadPrediction]], and the weapon sets no `TargetingRange` of its own. Vanilla `base_ship.rules` uses 400.
+
+## MinWeaponCoverageArcTargetWidth
+`number (degrees)` · required
+
+The width a zero-width weapon coverage is widened to for targeting, centered on its direction. A turret aimed along a single direction accepts targets within half this angle of it. Vanilla `base_ship.rules` uses `2d`.
 
 ## MapJumpFuelCostPerMass
 `float` · required
@@ -444,3 +449,4 @@ Part categories the ship should always contain. When a blueprint has no part in 
 `AtlasTextureParams` · required
 
 Parameters for constructing the IndicatorAtlases.
+

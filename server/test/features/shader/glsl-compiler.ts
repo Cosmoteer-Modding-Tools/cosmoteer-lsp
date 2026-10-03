@@ -78,6 +78,7 @@ const QUAD_VERTEX = ${JSON.stringify(QUAD_VERTEX)};
 function upgradeToEs3(source, isVertex) {
     let src = source.replace(/#extension GL_OES_standard_derivatives : enable\\n?/g, '');
     src = src.replace('{ return texture2D(t, uv); }', '{ return textureLod(t, uv, lod); }');
+    src = src.replace('{ vec4 c = texture2D(t, uv); return c; }', '{ return textureGrad(t, uv, dx, dy); }');
     src = src.replace('{ return vec2(256.0, 256.0); }', '{ return vec2(textureSize(t, 0)); }');
     if (isVertex) {
         src = src.replace(/\\battribute\\b/g, 'in').replace(/\\bvarying\\b/g, 'out');

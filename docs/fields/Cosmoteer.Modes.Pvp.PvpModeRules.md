@@ -70,6 +70,16 @@ Extra damage fraction added per world unit that the ship's center sits beyond th
 
 The chance per physics tick that any one part outside the perimeter is hit. Vanilla writes it as a per-second figure divided by `PhysicsUpdatesPerSecond`.
 
+## PerimeterCrewDamagePerTick
+`float` · required
+
+Damage dealt each physics tick to every crew member floating in space outside the perimeter of death, before the distance term is added. The sum is rounded up to a whole number and nothing is dealt when it is 0 or less. Vanilla uses 5.
+
+## PerimeterCrewDamagePerTickPerDistance
+`float` · required
+
+Extra crew damage per physics tick for each world unit the crew member sits beyond the perimeter, added to [[Cosmoteer.Modes.Pvp.PvpModeRules.PerimeterCrewDamagePerTick]]. Vanilla uses .02.
+
 ## PerimeterDamageMediaEffects
 `MultiMediaEffectRules` · required
 
