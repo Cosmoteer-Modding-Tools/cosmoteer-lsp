@@ -34,6 +34,47 @@
 
 import { registry } from '../../utils/registry';
 
+/** The version the installed game reports, empty while it is unknown. */
+let installedGameVersion = '';
+
+/**
+ * Records the installed game's version, so a change it has not received yet is not reported.
+ *
+ * @param version the version the installed build reports, or empty when it could not be read.
+ */
+export const setInstalledGameVersion = (version: string): void => {
+    installedGameVersion = version;
+};
+
+/**
+ * The installed game's version as last recorded.
+ *
+ * @returns the version, or empty while it is unknown.
+ */
+export const installedGameVersionOf = (): string => installedGameVersion;
+
+/**
+ * Whether a change landed in a game version newer than the installed one. A player still on the
+ * older build writes the field or value the change removed, and it works for them, so the change is
+ * not theirs to migrate. An unknown installed version counts as the newest, which the shipped schema
+ * describes. Versions are ordered by their numbers alone, so the hotfix letter of `0.30.4c` does not
+ * place it after `0.30.5`.
+ *
+ * @param version the version an entry records, if any.
+ * @returns true when the installed game is known to predate the version.
+ */
+export const isAheadOfInstalledGame = (version: string | undefined): boolean => {
+    if (!version || !installedGameVersion) return false;
+    const numbers = (text: string): number[] => (text.match(/\d+/g) ?? []).map(Number);
+    const change = numbers(version);
+    const installed = numbers(installedGameVersion);
+    for (let i = 0; i < Math.max(change.length, installed.length); i++) {
+        const difference = (change[i] ?? 0) - (installed[i] ?? 0);
+        if (difference !== 0) return difference > 0;
+    }
+    return false;
+};
+
 /** A renamed symbol: the spelling to use now, and a short note on why it changed. */
 interface Deprecation {
     /** The current name that replaces the deprecated one. */

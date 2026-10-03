@@ -28,7 +28,7 @@ import {
 } from '../../document/schema/schema-context';
 import { classAncestry, discriminatorIsAmbiguous, fieldOf, fieldsOf, schema } from '../../document/schema/schema';
 import { documentRootClass } from '../../document/schema/document-root';
-import { deprecatedField, migrationSymbolOf } from '../../document/schema/deprecations';
+import { deprecatedField, isAheadOfInstalledGame, migrationSymbolOf } from '../../document/schema/deprecations';
 import { resolveReference } from '../../semantics/effective-member';
 import { inheritanceBaseIndexDeclaring } from '../../semantics/inheritance-resolver';
 import { ValidationError, ValidationErrorData } from './validator';
@@ -662,6 +662,8 @@ const report = async (
     // derived resolution walks its ancestry to find the entry.
     let deprecation: ReturnType<typeof deprecatedField>;
     for (const ancestor of classAncestry(cls)) deprecation ??= deprecatedField(ancestor, name);
+    // The installed game still reads a field a later update deleted.
+    if (deprecation && isAheadOfInstalledGame(deprecation.version)) return;
     const start = identifier.position.start;
     const end = valueEnd !== undefined && valueEnd > identifier.position.end ? valueEnd : identifier.position.end;
     const data: ValidationErrorData = required

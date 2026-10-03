@@ -24,7 +24,9 @@ import { invalidateSchemaContextCache } from '../../document/schema/schema-conte
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
 import { clearFsCaches } from '../../workspace/fs-cache';
 import { beginStatSweepWindow, endStatSweepWindow } from '../../workspace/index-cache';
-import { extendSchemaWithMods } from '../../document/schema/schema';
+import { extendSchemaWithMods, selectSchemaForInstalledGame } from '../../document/schema/schema';
+import { setInstalledGameVersion } from '../../document/schema/deprecations';
+import { readGameVersionInfo } from '../../features/game-version';
 import { CosmoteerSettings, globalSettings, setGlobalSettings } from '../../settings';
 import { perfCount } from '../../utils/perf-counters';
 import {
@@ -213,6 +215,16 @@ export const handleWillRenameFiles = async (params: RenameFilesParams, cancellat
 };
 
 /**
+ * Reads the version of the game install just scanned, which decides the schema in force and the
+ * migrations the install is owed.
+ */
+const noteInstalledGameVersion = async (): Promise<void> => {
+    const info = await readGameVersionInfo(CosmoteerWorkspaceService.instance.dataRootPath).catch(() => undefined);
+    setInstalledGameVersion(info?.installed ?? '');
+    if (selectSchemaForInstalledGame()) applyModSchemaChange();
+};
+
+/**
  * Pull the settings for the opened workspace and scan the game install they name, or tell the
  * user that every check reading the game data stays off without one.
  *
@@ -233,13 +245,16 @@ const loadGameTree = async (scopeUri: string): Promise<void> => {
             settings.cosmoteerPath,
             await connection.window.createWorkDoneProgress()
         );
+        await noteInstalledGameVersion();
         perfCount('startup.gameTreeMs', Date.now() - gameTreeStarted);
         return;
     }
     if (
         await CosmoteerWorkspaceService.instance.initializeWithoutPath(await connection.window.createWorkDoneProgress())
-    )
+    ) {
+        await noteInstalledGameVersion();
         return;
+    }
     connection.window
         .showErrorMessage(
             l10n.t(
@@ -435,6 +450,7 @@ const handleDidChangeConfiguration = async (change: DidChangeConfigurationParams
         const workDoneProgress = await connection.window.createWorkDoneProgress();
         workDoneProgress.begin('Initializing workspace', 0, 'Initializing workspace', false);
         await CosmoteerWorkspaceService.instance.initialize(settings!.cosmoteerPath, workDoneProgress);
+        await noteInstalledGameVersion();
         // The Cosmoteer root changed where references resolve to, so drop the cached symbol
         // table (find-all-references / rename are stateless and re-resolve per query).
         resetProjectIndexes();

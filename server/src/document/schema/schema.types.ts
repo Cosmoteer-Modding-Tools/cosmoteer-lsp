@@ -215,6 +215,22 @@ export interface SchemaBundle {
 }
 
 /**
+ * What turns the shipped schema back into the previous game release's, written by
+ * `tools/schemagen/previous-delta.mjs`. Each changed entry carries its previous definition, or null
+ * where the previous release lacks it.
+ */
+export interface SchemaReleaseDelta {
+    /** The version the previous release's build reports, such as `0.30.4c`. */
+    version: string;
+    /** The release the shipped schema belongs to. An installed game older than it gets the delta. */
+    replacedBy: string;
+    /** Changed entries of the keyed sections (`types`, `enums`, …), by section and key. */
+    keyed: Record<string, Record<string, unknown>>;
+    /** Sections that differ as a whole, with their previous content. */
+    whole: Record<string, unknown>;
+}
+
+/**
  * What a mod's assemblies add to the shipped schema. Declared beside the bundle it extends rather
  * than beside the extractor that fills it, because the schema itself holds one of these once a mod
  * is read and must not reach into the feature that produced it.

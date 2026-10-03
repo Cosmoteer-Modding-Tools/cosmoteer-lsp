@@ -14,6 +14,10 @@ All notable changes to this project will be documented in this file.
   `DefaultTargetingRangeFactor` are hinted as removed in 0.30.5. `HasTargetExceptShipRelative` is
   offered as `HasTarget`, which now means the same, and the migration command applies it.
 
+- The editor follows the installed game. On 0.30.4 it completes, hovers and validates against
+  0.30.4, so a player who has not updated yet is not offered the new fields or told to drop the
+  ones their game still reads.
+
 - The shader preview handles `SampleGrad`, which the new dashed line shaders use.
 
 - A bare reference like `&COLOR_BASE/…` inside a nested group now explains why it is not found and
