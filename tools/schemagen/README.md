@@ -106,6 +106,21 @@ wrote .../cosmoteer.schema.json (1199 KB)
 1. **Re-run the false-positive guard**, validating every shipped vanilla file through the schema. It
    must stay warning-free.
 2. Re-run the server tests: `cd server && npm test`.
+3. **Write the previous-release delta** when the regeneration moves to a new game release. The
+   server ships the newest schema plus `cosmoteer.schema.previous.json`, the previous release's
+   definition of every entry that changed, and switches to it when the installed game is older. So
+   a player who has not updated yet, or is not on a release candidate, keeps a correct schema. Run
+   it against the bundle the regeneration replaced:
+
+   ```bash
+   git show <commit>:server/src/document/schema/cosmoteer.schema.json > previous.json
+   node tools/schemagen/previous-delta.mjs previous.json 0.30.4c 0.30.5
+   ```
+
+   The first version is what the previous build reports, the second the release the new schema
+   belongs to, without a release-candidate suffix. A regeneration within the same release (a new
+   candidate, the final build after a candidate) keeps the existing delta's previous version and
+   only re-runs the script against that release's bundle.
 
 ## How it works (high level)
 

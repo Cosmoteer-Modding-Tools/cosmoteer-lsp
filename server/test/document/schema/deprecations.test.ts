@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { CancellationToken } from 'vscode-languageserver';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
@@ -9,9 +9,11 @@ import {
     deprecatedEnumValue,
     DEPRECATED_ENUM_VALUES,
     deprecationBySymbol,
+    isAheadOfInstalledGame,
     obsoleteField,
     RENAMED_MOD_RULES_FIELDS,
     renamedFieldAlias,
+    setInstalledGameVersion,
 } from '../../../src/document/schema/deprecations';
 import { enumDef } from '../../../src/document/schema/schema';
 import { validateSchema } from '../../../src/features/diagnostics/validator.schema';
@@ -83,5 +85,38 @@ describe('deprecation registries', () => {
         const errors = await validateSchema(parse(SRC), token);
         // The rename written beside them is still reported, so the file did reach the lookups.
         expect(errors.some((error) => error.message.includes("'CreatePartWhenDestroyed' was renamed"))).toBe(true);
+    });
+});
+
+// A change only reaches a player once their game has it. On the build before, the removed field or
+// value still works, so reporting it, or migrating it away, would break the mod there.
+describe('changes newer than the installed game', () => {
+    afterEach(() => setInstalledGameVersion(''));
+
+    it('orders versions by their numbers, so a hotfix letter does not outrank the next release', () => {
+        setInstalledGameVersion('0.30.4c');
+        expect(isAheadOfInstalledGame('0.30.5')).toBe(true);
+        expect(isAheadOfInstalledGame('0.30.4')).toBe(false);
+        expect(isAheadOfInstalledGame('0.30.0')).toBe(false);
+        expect(isAheadOfInstalledGame(undefined)).toBe(false);
+        setInstalledGameVersion('0.30.5');
+        expect(isAheadOfInstalledGame('0.30.5')).toBe(false);
+        // The spelling the release candidate's assembly reports.
+        setInstalledGameVersion('0.30.5_rc1');
+        expect(isAheadOfInstalledGame('0.30.5')).toBe(false);
+    });
+
+    it('treats an unknown install as the newest game', () => {
+        expect(isAheadOfInstalledGame('0.30.5')).toBe(false);
+    });
+
+    it('accepts an enum member the installed game still has', async () => {
+        const src =
+            'Part\n{\n\tComponents\n\t{\n\t\tGun\n\t\t{\n\t\t\tType = TurretWeapon\n\t\t\tToggleOnMode = HasTargetExceptShipRelative\n\t\t}\n\t}\n}\n';
+        const onNewest = await validateSchema(parse(src), token);
+        expect(onNewest.some((error) => error.message.includes('HasTargetExceptShipRelative'))).toBe(true);
+        setInstalledGameVersion('0.30.4c');
+        const onOlder = await validateSchema(parse(src), token);
+        expect(onOlder.some((error) => error.message.includes('HasTargetExceptShipRelative'))).toBe(false);
     });
 });

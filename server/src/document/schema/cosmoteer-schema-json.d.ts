@@ -8,3 +8,9 @@ declare module '*/cosmoteer.schema.json' {
     const bundle: SchemaBundle;
     export default bundle;
 }
+
+declare module '*/cosmoteer.schema.previous.json' {
+    import type { SchemaReleaseDelta } from './schema.types';
+    const delta: SchemaReleaseDelta;
+    export default delta;
+}

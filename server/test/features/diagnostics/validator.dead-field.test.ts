@@ -3,6 +3,7 @@ import { CancellationToken } from 'vscode-languageserver';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
 import { validateIgnoredFields } from '../../../src/features/diagnostics/validator.ignored-field';
+import { setInstalledGameVersion } from '../../../src/document/schema/deprecations';
 
 // Fields the game declares and then does nothing with (the schema's `dead` flag, from schemagen's
 // whole-assembly read scan plus the curated overlay) get the same dead-weight hint as unknown
@@ -233,6 +234,20 @@ describe('dead declared fields', () => {
         expect(old!.data?.migration?.apply).toBeUndefined();
         expect(aim!.message).toContain('removed in game version 0.30.5');
         expect(aim!.data?.migration?.apply).toBeUndefined();
+    });
+
+    it('leaves a field alone that the installed game still reads', async () => {
+        // A player still on 0.30.4 aims with these, so the field is live for them.
+        setInstalledGameVersion('0.30.4c');
+        try {
+            const doc = parse(
+                'Part\n{\n\tComponents\n\t{\n\t\tGun\n\t\t{\n\t\t\tType = TurretWeapon\n\t\t\tSaveShipRelativeTargets = true\n\t\t}\n\t}\n}\n'
+            );
+            const errors = await validateIgnoredFields(doc, token);
+            expect(errors.some((e) => e.message.includes('SaveShipRelativeTargets'))).toBe(false);
+        } finally {
+            setInstalledGameVersion('');
+        }
     });
 
     it('sanctions removal for the officially unused PenetrationRectType', async () => {

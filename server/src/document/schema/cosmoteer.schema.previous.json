@@ -1,0 +1,4560 @@
+{
+  "version": "0.30.4c",
+  "replacedBy": "0.30.5",
+  "keyed": {
+    "types": {
+      "Cosmoteer.Simulation.SimGuiRules": {
+        "name": "SimGuiRules",
+        "namespace": "Cosmoteer.Simulation",
+        "purelyReflective": true,
+        "fields": [
+          {
+            "name": "ShipTextColorFactor",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Color",
+              "name": "Color"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "SelectionOutlineSprite",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "SelectionFillSprite",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "FocusOutlineSprite",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "FocusFillSprite",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "TentativeShipCircle",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.CircleRenderer",
+              "name": "CircleRenderer"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "HiddenTentativeShipCircle",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.CircleRenderer",
+              "name": "CircleRenderer"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "TentativeShipCrewCircle",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.CircleRenderer",
+              "name": "CircleRenderer"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "TentativeScheduledNuggetCollectSprite",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "TentativeNuggetCollectSprite",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "TentativeNuggetCantCollectSprite",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "NuggetCancelCollectSprite",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "TentativeShipCrewLine",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Simulation.Overlays.CappedLine",
+              "name": "CappedLine"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "ShipVelocityLine",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Simulation.Overlays.CappedLine",
+              "name": "CappedLine"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "ShipVelocityLineScale",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "ShipAngularVelocityCircle",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.CircleRenderer",
+              "name": "CircleRenderer"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "ShipAngularVelocityArrow",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "ShipAngularVelocityScale",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "SelectedShipCircle",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.CircleRenderer",
+              "name": "CircleRenderer"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "HiddenSelectedShipCircle",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.CircleRenderer",
+              "name": "CircleRenderer"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "SelectedShipCircleTweenTime",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Timing.Time",
+              "name": "Time",
+              "unit": "seconds"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "SelectedShipCircleTweenFromColor",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Color",
+              "name": "Color"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "SelectedShipCrewCircle",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.CircleRenderer",
+              "name": "CircleRenderer"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "SelectedShipCrewLine",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Simulation.Overlays.CappedLine",
+              "name": "CappedLine"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "SelectedScheduledNuggetCollectSprite",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "ScheduledNuggetCollectTweenDuration",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Timing.Time",
+              "name": "Time",
+              "unit": "seconds"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "ScheduledNuggetCollectTweenFromScale",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "ShipCrewWarningCircle",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.CircleRenderer",
+              "name": "CircleRenderer"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "ShipCrewWarningLine",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Simulation.Overlays.CappedLine",
+              "name": "CappedLine"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "FocusShipCircle",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.CircleRenderer",
+              "name": "CircleRenderer"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "TentativeAttackCommandCircle",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.CircleRenderer",
+              "name": "CircleRenderer"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "TentativeFollowCommandCircle",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.CircleRenderer",
+              "name": "CircleRenderer"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "TentativeFtlCommandCircle",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.CircleRenderer",
+              "name": "CircleRenderer"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "TentativeSalvageCommandCircle",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.CircleRenderer",
+              "name": "CircleRenderer"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "CancelSalvageCommandCircle",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.CircleRenderer",
+              "name": "CircleRenderer"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "FocusModeCursor",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Windows.Cursor",
+              "name": "Cursor"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "PartModeCursor",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Windows.Cursor",
+              "name": "Cursor"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "NuggetCollectCursor",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Windows.Cursor",
+              "name": "Cursor"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "NuggetCantCollectCursor",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Windows.Cursor",
+              "name": "Cursor"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "CancelSalvageCollectCursor",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Windows.Cursor",
+              "name": "Cursor"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "SalvageCollectionSelectionOutlineSprite",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "SalvageCollectionSelectionFillSprite",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "CancelSalvageCollectionSelectionOutlineSprite",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "CancelSalvageCollectionSelectionFillSprite",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "NuggetLocationOverlaySprite",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "BlueprintTransitionDuration",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Timing.Time",
+              "name": "Time",
+              "unit": "seconds"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "BackgroundTransitionDuration",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Timing.Time",
+              "name": "Time",
+              "unit": "seconds"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "BackgroundDimOpacity",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "GridTransitionDuration",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Timing.Time",
+              "name": "Time",
+              "unit": "seconds"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "ShipGridLiveModeColor",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Color",
+              "name": "Color"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "ShipGridBlueprintModeColor",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Color",
+              "name": "Color"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "ShipDarkenColor",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Color",
+              "name": "Color"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "SelectedPartNineSlice",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Simulation.Overlays.NineSlice",
+              "name": "NineSlice"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "TentativePartNineSlice",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Simulation.Overlays.NineSlice",
+              "name": "NineSlice"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "FocusPartNineSlice",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Simulation.Overlays.NineSlice",
+              "name": "NineSlice"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "HealthBarBlockSprite",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "HealthBarHPPerBlock",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "ScheduledSalvageNineSlice",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Simulation.Overlays.NineSlice",
+              "name": "NineSlice"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "TentativeScheduledSalvageNineSlice",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Simulation.Overlays.NineSlice",
+              "name": "NineSlice"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "dead": true
+          },
+          {
+            "name": "TentativeSalvageNineSlice",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Simulation.Overlays.NineSlice",
+              "name": "NineSlice"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "CancelSalvageNineSlice",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Simulation.Overlays.NineSlice",
+              "name": "NineSlice"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "ScheduledSalvageNineSliceShrinkDuration",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Timing.Time",
+              "name": "Time",
+              "unit": "seconds"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "ScheduledSalvageNineSliceShrinkFromInflate",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "ScheduledSalvageReticleSprite",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "TentativeScheduledSalvageReticleSprite",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "ScheduledSalvageProgressFadeRange",
+            "valueType": {
+              "kind": "range",
+              "element": {
+                "kind": "float"
+              }
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "SalvageCursor",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Windows.Cursor",
+              "name": "Cursor"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "ShipSelectSound",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Audio.ISoundEffect",
+              "name": "ISoundEffect"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "ShipFocusSound",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Audio.ISoundEffect",
+              "name": "ISoundEffect"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "PartSelectSound",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Audio.ISoundEffect",
+              "name": "ISoundEffect"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "PartDeselectSound",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Audio.ISoundEffect",
+              "name": "ISoundEffect"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "FtlReadySound",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Audio.ISoundEffect",
+              "name": "ISoundEffect"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "NuggetCollectSound",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Audio.ISoundEffect",
+              "name": "ISoundEffect"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "NuggetCollectCancelSound",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Audio.ISoundEffect",
+              "name": "ISoundEffect"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "SalvageCancelSound",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Audio.ISoundEffect",
+              "name": "ISoundEffect"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "SalvageMineSound",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Audio.ISoundEffect",
+              "name": "ISoundEffect"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "GatherFloatingResourcesSound",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Audio.ISoundEffect",
+              "name": "ISoundEffect"
+            },
+            "optional": false,
+            "absentThrows": true
+          }
+        ]
+      },
+      "Cosmoteer.Simulation.HitEffects.GridStatusApplicationEffectRules": {
+        "name": "GridStatusApplicationEffectRules",
+        "namespace": "Cosmoteer.Simulation.HitEffects",
+        "extends": "Cosmoteer.Simulation.HitEffects.BaseStatusApplicationEffectRules",
+        "derivedType": "GridStatusApplication",
+        "registry": "Cosmoteer.Simulation.HitEffects.HitEffectRules",
+        "fields": [
+          {
+            "name": "HitPartSourceRectType",
+            "valueType": {
+              "kind": "enum",
+              "ref": "Cosmoteer.Ships.Parts.PartRectType",
+              "name": "PartRectType"
+            },
+            "optional": true
+          },
+          {
+            "name": "MaxCost",
+            "valueType": {
+              "kind": "number",
+              "type": "ModifiableFloat",
+              "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "HitDirectionCostFactor",
+            "valueType": {
+              "kind": "number",
+              "type": "ModifiableFloat",
+              "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            },
+            "optional": true
+          },
+          {
+            "name": "MaxDistance",
+            "valueType": {
+              "kind": "number",
+              "type": "ModifiableFloat",
+              "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            },
+            "optional": true
+          },
+          {
+            "name": "MinDistance",
+            "valueType": {
+              "kind": "number",
+              "type": "ModifiableFloat",
+              "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            },
+            "optional": true
+          },
+          {
+            "name": "UseDistanceForFalloff",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "FalloffPadding",
+            "valueType": {
+              "kind": "number",
+              "type": "ModifiableFloat",
+              "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            },
+            "optional": true,
+            "aliases": [
+              "FalloffDistancePadding"
+            ]
+          },
+          {
+            "name": "ChanceFalloff",
+            "valueType": {
+              "kind": "number",
+              "type": "ModifiableFloat",
+              "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            },
+            "optional": true
+          },
+          {
+            "name": "ValueFalloff",
+            "valueType": {
+              "kind": "number",
+              "type": "ModifiableFloat",
+              "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            },
+            "optional": true
+          },
+          {
+            "name": "DurationFalloff",
+            "valueType": {
+              "kind": "number",
+              "type": "ModifiableFloat",
+              "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            },
+            "optional": true
+          },
+          {
+            "name": "StatusValuePool",
+            "valueType": {
+              "kind": "range",
+              "element": {
+                "kind": "number",
+                "type": "ModifiableFloat",
+                "groupForm": "Cosmoteer.Ships.ModifiableValue"
+              }
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "AllowOverlappingApplications",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false,
+            "default": true,
+            "defaultSource": "initializer"
+          },
+          {
+            "name": "DivideValueByPartArea",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "DefaultTileCost",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": true,
+            "nullable": false,
+            "default": 1,
+            "defaultSource": "initializer"
+          },
+          {
+            "name": "EmptyTileCost",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": true,
+            "nullable": false,
+            "default": 1,
+            "defaultSource": "initializer"
+          },
+          {
+            "name": "PartIDTileCosts",
+            "valueType": {
+              "kind": "map",
+              "key": {
+                "kind": "reference",
+                "target": "Cosmoteer.Ships.Parts.PartRules",
+                "targetName": "PartRules"
+              },
+              "value": {
+                "kind": "float"
+              }
+            },
+            "optional": true
+          },
+          {
+            "name": "PartCategoryTileCosts",
+            "valueType": {
+              "kind": "map",
+              "key": {
+                "kind": "reference",
+                "target": "Cosmoteer.Ships.Parts.PartCategory",
+                "targetName": "PartCategory"
+              },
+              "value": {
+                "kind": "float"
+              }
+            },
+            "optional": true
+          },
+          {
+            "name": "BlockedByWalls",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "AllowDiagonals",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false
+          }
+        ]
+      },
+      "Cosmoteer.Ships.ShipRules": {
+        "name": "ShipRules",
+        "namespace": "Cosmoteer.Ships",
+        "fields": [
+          {
+            "name": "ID",
+            "valueType": {
+              "kind": "reference",
+              "target": "Cosmoteer.Ships.ShipRules",
+              "targetName": "ShipRules"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "OtherIDs",
+            "valueType": {
+              "kind": "list",
+              "element": {
+                "kind": "reference",
+                "target": "Cosmoteer.Ships.ShipRules",
+                "targetName": "ShipRules"
+              }
+            },
+            "optional": true
+          },
+          {
+            "name": "ShipScale",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "NameKey",
+            "valueType": {
+              "kind": "string",
+              "semantic": "localizationKey"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "Parts",
+            "valueType": {
+              "kind": "list",
+              "element": {
+                "kind": "group",
+                "ref": "Cosmoteer.Ships.Parts.PartRules",
+                "name": "PartRules"
+              }
+            },
+            "optional": true,
+            "absentThrows": true
+          },
+          {
+            "name": "Doors",
+            "valueType": {
+              "kind": "list",
+              "element": {
+                "kind": "group",
+                "ref": "Cosmoteer.Ships.Doors.DoorRules",
+                "name": "DoorRules"
+              }
+            },
+            "optional": true,
+            "absentThrows": true
+          },
+          {
+            "name": "DefaultDoorID",
+            "valueType": {
+              "kind": "reference",
+              "target": "Cosmoteer.Ships.Doors.DoorRules",
+              "targetName": "DoorRules"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "ExternalWalls",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Ships.Parts.ExternalWallRules",
+              "name": "ExternalWallRules"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "ExternalRoofWalls",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Ships.Parts.ExternalWallRules",
+              "name": "ExternalWallRules"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "MaxBorders",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Geometry.IntRect",
+              "name": "IntRect"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "MaxAbsLinearVelocity",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "MaxAbsAngularVelocity",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "RenderLayers",
+            "valueType": {
+              "kind": "map",
+              "key": {
+                "kind": "reference",
+                "target": "Cosmoteer.Ships.ShipRenderLayerRules",
+                "targetName": "ShipRenderLayerRules"
+              },
+              "value": {
+                "kind": "group",
+                "ref": "Cosmoteer.Ships.ShipRenderLayerRules",
+                "name": "ShipRenderLayerRules"
+              }
+            },
+            "optional": true,
+            "absentThrows": true
+          },
+          {
+            "name": "Blueprints",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Ships.ShipBlueprintRules",
+              "name": "ShipBlueprintRules"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "Redprints",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Ships.ShipRedprintRules",
+              "name": "ShipRedprintRules"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "LinearDrag",
+            "valueType": {
+              "kind": "polymorphicGroup",
+              "ref": "Halfling.Physics2D.Dynamics.Drag.ILinearDragSolverRules",
+              "name": "ILinearDragSolverRules"
+            },
+            "optional": true
+          },
+          {
+            "name": "AngularDrag",
+            "valueType": {
+              "kind": "polymorphicGroup",
+              "ref": "Halfling.Physics2D.Dynamics.Drag.IAngularDragSolverRules",
+              "name": "IAngularDragSolverRules"
+            },
+            "optional": true
+          },
+          {
+            "name": "Restitution",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "RotationalInertiaFactor",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": true,
+            "nullable": false,
+            "default": 1,
+            "defaultSource": "initializer"
+          },
+          {
+            "name": "ThrusterUpdateInterval",
+            "valueType": {
+              "kind": "range",
+              "element": {
+                "kind": "group",
+                "ref": "Halfling.Timing.Time",
+                "name": "Time",
+                "unit": "seconds"
+              }
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "ThrusterUpdateIntervalOverrideSpeedRange",
+            "valueType": {
+              "kind": "range",
+              "element": {
+                "kind": "float"
+              }
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "ThrusterSolverIterations",
+            "valueType": {
+              "kind": "int"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "MaxLinearMagicAcceleration",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "MaxAngularMagicAcceleration",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "UncommandedThrusterShutdownDelay",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Timing.Time",
+              "name": "Time",
+              "unit": "seconds"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "MaxRampUpTimeForDeceleration",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "TargetReachedDistanceSizeRatio",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "TargetResetDistanceSizeRatio",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "AdjustRotationVelocity",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "VelocityCalculateFactor",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "TooCloseVelocityOverrideStrength",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "AngularVelocityCalculateFactor",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "RetroVelocityCalculateFactor",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "RetroAngularVelocityCalculateFactor",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "AngleSatisfiedThreshold",
+            "valueType": {
+              "kind": "range",
+              "element": {
+                "kind": "number",
+                "unit": "degrees",
+                "type": "Angle"
+              }
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "HorizontalSatisfiedThreshold",
+            "valueType": {
+              "kind": "range",
+              "element": {
+                "kind": "float"
+              }
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "DecelerationDistanceDtRange",
+            "valueType": {
+              "kind": "range",
+              "element": {
+                "kind": "float"
+              }
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "DecelerationDistanceDtSpeedRatio",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "ForwardThrustRatioHistoryCount",
+            "valueType": {
+              "kind": "int"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "ArrivalTimeOptimisticBuffer",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "ArrivalTimeRampDown",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "OrbitModeRadiusFactor",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "MaxPartSearchIterations",
+            "valueType": {
+              "kind": "int"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "SupplierSearchInterval",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Timing.Time",
+              "name": "Time",
+              "unit": "seconds"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false,
+            "dead": true
+          },
+          {
+            "name": "SelfDestructForce",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "BaseSightRadius",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "BaseRadarRadius",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "MinCommsRadius",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "WeaponActivationEnemyCheckRadius",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "DefaultTargetingRangeFactor",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "MapJumpFuelCostPerMass",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "MapJumpFuelCostPerMassDistance",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "MapJumpDistanceExponent",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "LocalJumpFuelCostPerMass",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "LocalJumpFuelCostPerMassDistance",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "LocalJumpDistanceExponent",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "LocalJumpMinDistance",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "ImmuneToEnvDamage",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "AlwaysVisibleInNebulas",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "IsAsteroid",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "JunkBlocksWeaponLOS",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "Roofs",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Ships.ShipRoofRules",
+              "name": "ShipRoofRules"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "FtlEffects",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Ships.ShipFtlEffectRules",
+              "name": "ShipFtlEffectRules"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "DefaultCollectNuggetPriority",
+            "valueType": {
+              "kind": "int"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "AssociateCollectNuggetJobWithPart",
+            "valueType": {
+              "kind": "reference",
+              "target": "Cosmoteer.Ships.Parts.PartRules",
+              "targetName": "PartRules"
+            },
+            "optional": true
+          },
+          {
+            "name": "DefaultEjectNuggetPriority",
+            "valueType": {
+              "kind": "int"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "AssociateEjectNuggetJobWithPart",
+            "valueType": {
+              "kind": "reference",
+              "target": "Cosmoteer.Ships.Parts.PartRules",
+              "targetName": "PartRules"
+            },
+            "optional": true
+          },
+          {
+            "name": "DefaultSalvagePriority",
+            "valueType": {
+              "kind": "int"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "DefaultConstructPriority",
+            "valueType": {
+              "kind": "int"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "DefaultDeconstructPriority",
+            "valueType": {
+              "kind": "int"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "DefaultRepairPriority",
+            "valueType": {
+              "kind": "int"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "AssociateSalvageJobWithPart",
+            "valueType": {
+              "kind": "reference",
+              "target": "Cosmoteer.Ships.Parts.PartRules",
+              "targetName": "PartRules"
+            },
+            "optional": true
+          },
+          {
+            "name": "AssociateConstructJobWithPart",
+            "valueType": {
+              "kind": "reference",
+              "target": "Cosmoteer.Ships.Parts.PartRules",
+              "targetName": "PartRules"
+            },
+            "optional": true
+          },
+          {
+            "name": "AssociateDeconstructJobWithPart",
+            "valueType": {
+              "kind": "reference",
+              "target": "Cosmoteer.Ships.Parts.PartRules",
+              "targetName": "PartRules"
+            },
+            "optional": true
+          },
+          {
+            "name": "AssociateRepairJobWithPart",
+            "valueType": {
+              "kind": "reference",
+              "target": "Cosmoteer.Ships.Parts.PartRules",
+              "targetName": "PartRules"
+            },
+            "optional": true
+          },
+          {
+            "name": "DefaultConstructionWorkPerHealth",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "DefaultWorkPerRepairedHealth",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "ConstructionResourceSearchesPerTick",
+            "valueType": {
+              "kind": "int"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "ConstructionNuggetSinkSearchesPerTick",
+            "valueType": {
+              "kind": "int"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "MaxCrewExitShipSpeed",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "OverrideConstructionMode",
+            "valueType": {
+              "kind": "enum",
+              "ref": "Cosmoteer.Modes.ConstructionMode",
+              "name": "ConstructionMode"
+            },
+            "optional": true
+          },
+          {
+            "name": "SalvagingDisabledSuppressesResourceDrops",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "WeaponFireRevealDuration",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Timing.Time",
+              "name": "Time",
+              "unit": "seconds"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "CategoryLimits",
+            "valueType": {
+              "kind": "list",
+              "element": {
+                "kind": "group",
+                "ref": "Cosmoteer.Ships.ShipRules/CategoryLimit",
+                "name": "CategoryLimit"
+              }
+            },
+            "optional": true,
+            "absentThrows": true
+          },
+          {
+            "name": "CategoryNouns",
+            "valueType": {
+              "kind": "list",
+              "element": {
+                "kind": "group",
+                "ref": "Cosmoteer.Ships.ShipRules/CategoryNounData",
+                "name": "CategoryNounData"
+              }
+            },
+            "optional": true,
+            "absentThrows": true
+          },
+          {
+            "name": "VitalCategories",
+            "valueType": {
+              "kind": "list",
+              "element": {
+                "kind": "group",
+                "ref": "Cosmoteer.Ships.VitalCategoryInfo",
+                "name": "VitalCategoryInfo"
+              }
+            },
+            "optional": true
+          },
+          {
+            "name": "IndicatorAtlasParams",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Ships.Rendering.AtlasTextureParams",
+              "name": "AtlasTextureParams"
+            },
+            "optional": false,
+            "absentThrows": true
+          }
+        ]
+      },
+      "Cosmoteer.Ships.Statuses.StatusType/DiffusionRules": {
+        "name": "DiffusionRules",
+        "namespace": "",
+        "purelyReflective": true,
+        "fields": [
+          {
+            "name": "Basis",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "SpeedFactor",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": true,
+            "nullable": false,
+            "default": 1,
+            "defaultSource": "initializer"
+          },
+          {
+            "name": "MinDeltaThreshold",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "EmptyCellSpeedFactor",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": true,
+            "nullable": false,
+            "default": 1,
+            "defaultSource": "initializer"
+          },
+          {
+            "name": "PartSpeedFactors",
+            "valueType": {
+              "kind": "map",
+              "key": {
+                "kind": "reference",
+                "target": "Cosmoteer.Ships.Parts.PartRules",
+                "targetName": "PartRules"
+              },
+              "value": {
+                "kind": "group",
+                "ref": "Cosmoteer.Ships.Statuses.StatusType/DiffusionSpeedFactors",
+                "name": "DiffusionSpeedFactors"
+              }
+            },
+            "optional": true
+          }
+        ]
+      },
+      "Cosmoteer.Ships.Parts.Weapons.FixedWeaponRules": {
+        "name": "FixedWeaponRules",
+        "namespace": "Cosmoteer.Ships.Parts.Weapons",
+        "extends": "Cosmoteer.Ships.Parts.Weapons.WeaponRules",
+        "derivedType": "FixedWeapon",
+        "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+        "fields": [
+          {
+            "name": "TargetingArc",
+            "valueType": {
+              "kind": "number",
+              "type": "ModifiableAngle",
+              "groupForm": "Cosmoteer.Ships.ModifiableValue",
+              "unit": "degrees"
+            },
+            "optional": true
+          },
+          {
+            "name": "TargetingRange",
+            "valueType": {
+              "kind": "number",
+              "type": "ModifiableFloat",
+              "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            },
+            "optional": true
+          },
+          {
+            "name": "AutoTarget",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Ships.Parts.Weapons.WeaponAutoTargetRules",
+              "name": "WeaponAutoTargetRules"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "AllowFireInFogOfWar",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "ChainFireToggleComponent",
+            "valueType": {
+              "kind": "reference",
+              "target": "Cosmoteer.Ships.Parts.PartComponentRules",
+              "targetName": "PartComponentRules"
+            },
+            "optional": true,
+            "expectedComponent": {
+              "kind": 13,
+              "enforcement": "silent"
+            }
+          },
+          {
+            "name": "TargetSearchInterval",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Timing.Time",
+              "name": "Time",
+              "unit": "seconds"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "AutoExplicitTargetPartsFilter",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Simulation.EffectFilter",
+              "name": "EffectFilter"
+            },
+            "optional": true
+          },
+          {
+            "name": "CoverageLine",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Simulation.Overlays.CappedLine",
+              "name": "CappedLine"
+            },
+            "optional": true
+          }
+        ]
+      },
+      "Cosmoteer.Ships.Parts.Weapons.TurretWeaponRules": {
+        "name": "TurretWeaponRules",
+        "namespace": "Cosmoteer.Ships.Parts.Weapons",
+        "extends": "Cosmoteer.Ships.Parts.Weapons.WeaponRules",
+        "derivedType": "TurretWeapon",
+        "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+        "fields": [
+          {
+            "name": "FiringArc",
+            "valueType": {
+              "kind": "number",
+              "type": "ModifiableAngle",
+              "groupForm": "Cosmoteer.Ships.ModifiableValue",
+              "unit": "degrees"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "TargetingRange",
+            "valueType": {
+              "kind": "number",
+              "type": "ModifiableFloat",
+              "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            },
+            "optional": true
+          },
+          {
+            "name": "TargetingArc",
+            "valueType": {
+              "kind": "number",
+              "type": "ModifiableAngle",
+              "groupForm": "Cosmoteer.Ships.ModifiableValue",
+              "unit": "degrees"
+            },
+            "optional": true
+          },
+          {
+            "name": "ValidRange",
+            "valueType": {
+              "kind": "number",
+              "type": "ModifiableFloat",
+              "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            },
+            "optional": true
+          },
+          {
+            "name": "ValidArc",
+            "valueType": {
+              "kind": "number",
+              "type": "ModifiableAngle",
+              "groupForm": "Cosmoteer.Ships.ModifiableValue",
+              "unit": "degrees"
+            },
+            "optional": true
+          },
+          {
+            "name": "RotateSpeed",
+            "valueType": {
+              "kind": "number",
+              "type": "ModifiableAngle",
+              "groupForm": "Cosmoteer.Ships.ModifiableValue",
+              "unit": "degrees"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "ReturnToCenter",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false,
+            "default": true,
+            "defaultSource": "initializer"
+          },
+          {
+            "name": "FireThresholdAngle",
+            "valueType": {
+              "kind": "number",
+              "type": "ModifiableAngle",
+              "groupForm": "Cosmoteer.Ships.ModifiableValue",
+              "unit": "degrees"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "AllowFireWithBlockedLOS",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "AllowFireInFogOfWar",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "BlueprintArcSprite",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": true
+          },
+          {
+            "name": "BlueprintArcRadius",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "BlueprintArcSpriteSegments",
+            "valueType": {
+              "kind": "int"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "CoverageSectorArc",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.CircleRenderer",
+              "name": "CircleRenderer"
+            },
+            "optional": true
+          },
+          {
+            "name": "TargetSearchesPerSecond",
+            "valueType": {
+              "kind": "number",
+              "type": "ModifiableFloat",
+              "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            },
+            "optional": true
+          },
+          {
+            "name": "InstantSearchesAfterTargetLost",
+            "valueType": {
+              "kind": "int"
+            },
+            "optional": true,
+            "nullable": false,
+            "default": 1,
+            "defaultSource": "initializer"
+          },
+          {
+            "name": "TargetChecksPerSearch",
+            "valueType": {
+              "kind": "number",
+              "type": "ModifiableInt",
+              "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            },
+            "optional": true
+          },
+          {
+            "name": "HoldTargetWhileFiring",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Timing.Time",
+              "name": "Time",
+              "unit": "seconds"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "HoldTargetAfterCancel",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Timing.Time",
+              "name": "Time",
+              "unit": "seconds"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "AllowRotationToggle",
+            "valueType": {
+              "kind": "reference",
+              "target": "Cosmoteer.Ships.Parts.PartComponentRules",
+              "targetName": "PartComponentRules"
+            },
+            "optional": true,
+            "expectedComponent": {
+              "kind": 13,
+              "enforcement": "throws"
+            }
+          },
+          {
+            "name": "ResetRotationIfNotAllowed",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "TargetPathThickness",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "AutoTargets",
+            "valueType": {
+              "kind": "list",
+              "element": {
+                "kind": "group",
+                "ref": "Cosmoteer.Ships.Parts.Weapons.WeaponAutoTargetRules",
+                "name": "WeaponAutoTargetRules"
+              }
+            },
+            "optional": true,
+            "absentThrows": true
+          },
+          {
+            "name": "AutoTargetCrewSafetyDist",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "PreventOverlappingTargets",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "AimIncludesEmitterOffset",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false,
+            "default": true,
+            "defaultSource": "initializer"
+          },
+          {
+            "name": "AllowAimAtProhibitedTarget",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false
+          }
+        ]
+      },
+      "Cosmoteer.Ships.Parts.Weapons.WeaponRules": {
+        "name": "WeaponRules",
+        "namespace": "Cosmoteer.Ships.Parts.Weapons",
+        "abstract": true,
+        "extends": "Cosmoteer.Ships.Parts.OperationalChainablePartComponentRules",
+        "fields": [
+          {
+            "name": "FireInterval",
+            "valueType": {
+              "kind": "number",
+              "type": "ModifiableTime",
+              "groupForm": "Cosmoteer.Ships.ModifiableValue",
+              "unit": "seconds"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "FirePermissionToggle",
+            "valueType": {
+              "kind": "reference",
+              "target": "Cosmoteer.Ships.Parts.PartComponentRules",
+              "targetName": "PartComponentRules"
+            },
+            "optional": true,
+            "expectedComponent": {
+              "kind": 13,
+              "enforcement": "throws"
+            }
+          },
+          {
+            "name": "TargetingEmitter",
+            "valueType": {
+              "kind": "reference",
+              "target": "Cosmoteer.Ships.Parts.PartComponentRules",
+              "targetName": "PartComponentRules"
+            },
+            "optional": true,
+            "expectedComponent": {
+              "kind": 19,
+              "enforcement": "throws"
+            }
+          },
+          {
+            "name": "ResourceCheckEmitters",
+            "valueType": {
+              "kind": "list",
+              "element": {
+                "kind": "reference",
+                "target": "Cosmoteer.Ships.Parts.PartComponentRules",
+                "targetName": "PartComponentRules"
+              }
+            },
+            "optional": true,
+            "expectedComponent": {
+              "kind": 19,
+              "enforcement": "throws"
+            }
+          },
+          {
+            "name": "ResourceCheckRequiresAllEmitters",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "AIFirepowerRating",
+            "valueType": {
+              "kind": "number",
+              "type": "ModifiableFloat",
+              "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            },
+            "optional": true
+          },
+          {
+            "name": "AddAIFirepowerRatingsWhenTargetedByPartCategories",
+            "valueType": {
+              "kind": "list",
+              "element": {
+                "kind": "reference",
+                "target": "Cosmoteer.Ships.Parts.PartCategory",
+                "targetName": "PartCategory"
+              }
+            },
+            "optional": true
+          },
+          {
+            "name": "CanBeGivenExplicitTarget",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false,
+            "default": true,
+            "defaultSource": "initializer"
+          },
+          {
+            "name": "AllowShipWideExplicitTargets",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false,
+            "default": true,
+            "defaultSource": "initializer"
+          },
+          {
+            "name": "AllowShipWideExplicitTargetsToggle",
+            "valueType": {
+              "kind": "reference",
+              "target": "Cosmoteer.Ships.Parts.PartComponentRules",
+              "targetName": "PartComponentRules"
+            },
+            "optional": true,
+            "expectedComponent": {
+              "kind": 13,
+              "enforcement": "throws"
+            }
+          },
+          {
+            "name": "ShowExplicitTarget",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false,
+            "default": true,
+            "defaultSource": "initializer"
+          },
+          {
+            "name": "ShowTargetButtons",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false,
+            "default": true,
+            "defaultSource": "initializer"
+          },
+          {
+            "name": "AllowDirectControl",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false,
+            "default": true,
+            "defaultSource": "initializer"
+          },
+          {
+            "name": "AllowDirectControlToggle",
+            "valueType": {
+              "kind": "reference",
+              "target": "Cosmoteer.Ships.Parts.PartComponentRules",
+              "targetName": "PartComponentRules"
+            },
+            "optional": true,
+            "expectedComponent": {
+              "kind": 13,
+              "enforcement": "throws"
+            }
+          },
+          {
+            "name": "DefaultDirectControlBinding",
+            "valueType": {
+              "kind": "int"
+            },
+            "optional": true
+          },
+          {
+            "name": "CanSalvage",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "IsDefensiveOnly",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "IncludeInFirepowerEstimation",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false,
+            "default": true,
+            "defaultSource": "initializer"
+          },
+          {
+            "name": "EstimateFirepowerToggle",
+            "valueType": {
+              "kind": "reference",
+              "target": "Cosmoteer.Ships.Parts.PartComponentRules",
+              "targetName": "PartComponentRules"
+            },
+            "optional": true,
+            "expectedComponent": {
+              "kind": 13,
+              "enforcement": "throws"
+            }
+          },
+          {
+            "name": "AutoFireToggle",
+            "valueType": {
+              "kind": "reference",
+              "target": "Cosmoteer.Ships.Parts.PartComponentRules",
+              "targetName": "PartComponentRules"
+            },
+            "optional": true,
+            "expectedComponent": {
+              "kind": 13,
+              "enforcement": "throws"
+            }
+          },
+          {
+            "name": "AlwaysShowCoverage",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "IgnoreFriendlyShipLowLOSChecks",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false,
+            "aliases": [
+              "IgnoreSourceShipLowLOSChecks"
+            ]
+          },
+          {
+            "name": "IgnoreFriendlyShipHighLOSChecks",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false,
+            "aliases": [
+              "IgnoreSourceShipHighLOSChecks"
+            ]
+          },
+          {
+            "name": "IgnoreFriendlyStructureLOSChecks",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false,
+            "default": true,
+            "defaultSource": "initializer"
+          },
+          {
+            "name": "IgnoreJunkLOSChecks",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "AllowEnemyStructureAutoTargeting",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "ProhibitTargetPartsFilter",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Simulation.EffectFilter",
+              "name": "EffectFilter"
+            },
+            "optional": true
+          },
+          {
+            "name": "ProhibitShipRelativePointTargets",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "SuppressShipWideExplicitTargetsWhenTargetingPartsFilter",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Simulation.EffectFilter",
+              "name": "EffectFilter"
+            },
+            "optional": true
+          },
+          {
+            "name": "SuppressShipWideExplicitTargetsWhenTargetingShipRelativePoints",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "SuppressDirectControlWhenTargetingPartsFilter",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Simulation.EffectFilter",
+              "name": "EffectFilter"
+            },
+            "optional": true
+          },
+          {
+            "name": "SuppressDirectControlWhenTargetingShipRelativePoints",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "SuppressFirepowerEstimationWhenTargetingPartsFilter",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Simulation.EffectFilter",
+              "name": "EffectFilter"
+            },
+            "optional": true
+          },
+          {
+            "name": "SuppressFirepowerEstimationWhenTargetingShipRelativePoints",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "SuppressFirepowerEstimationWhenNotTargetingShipRelativePoints",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "SaveSelfTargetPartCategories",
+            "valueType": {
+              "kind": "list",
+              "element": {
+                "kind": "reference",
+                "target": "Cosmoteer.Ships.Parts.PartCategory",
+                "targetName": "PartCategory"
+              }
+            },
+            "optional": true
+          },
+          {
+            "name": "SaveShipRelativeTargets",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "ToggleOnMode",
+            "valueType": {
+              "kind": "enum",
+              "ref": "Cosmoteer.Ships.Parts.Weapons.WeaponRules/WeaponToggleOnMode",
+              "name": "WeaponToggleOnMode"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "OverrideTargetNineSlice",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Simulation.Overlays.NineSlice",
+              "name": "NineSlice"
+            },
+            "optional": true
+          },
+          {
+            "name": "OverrideTargetCircle",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.CircleRenderer",
+              "name": "CircleRenderer"
+            },
+            "optional": true
+          },
+          {
+            "name": "OverrideTargetLine",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Simulation.Overlays.CappedLine",
+              "name": "CappedLine"
+            },
+            "optional": true
+          },
+          {
+            "name": "OverrideReticleSprite",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": true
+          },
+          {
+            "name": "Emitter",
+            "valueType": {
+              "kind": "reference",
+              "target": "Cosmoteer.Ships.Parts.PartComponentRules",
+              "targetName": "PartComponentRules"
+            },
+            "optional": true,
+            "expectedComponent": {
+              "kind": 19,
+              "enforcement": "throws"
+            },
+            "nullable": false
+          },
+          {
+            "name": "ResourceCheckEmitter",
+            "valueType": {
+              "kind": "reference",
+              "target": "Cosmoteer.Ships.Parts.PartComponentRules",
+              "targetName": "PartComponentRules"
+            },
+            "optional": true,
+            "expectedComponent": {
+              "kind": 19,
+              "enforcement": "throws"
+            },
+            "nullable": false
+          }
+        ]
+      },
+      "Cosmoteer.Modes.Pvp.PvpModeRules": {
+        "name": "PvpModeRules",
+        "namespace": "Cosmoteer.Modes.Pvp",
+        "abstract": true,
+        "purelyReflective": true,
+        "fields": [
+          {
+            "name": "MapGenerator",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Generators.Galaxies.GalaxyGenerator",
+              "name": "GalaxyGenerator"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "AllowedShipClasses",
+            "valueType": {
+              "kind": "list",
+              "element": {
+                "kind": "reference",
+                "target": "Cosmoteer.Ships.ShipRules",
+                "targetName": "ShipRules"
+              }
+            },
+            "optional": true,
+            "absentThrows": true
+          },
+          {
+            "name": "RequiredPartCategories",
+            "valueType": {
+              "kind": "list",
+              "element": {
+                "kind": "reference",
+                "target": "Cosmoteer.Ships.Parts.PartCategory",
+                "targetName": "PartCategory"
+              }
+            },
+            "optional": true,
+            "absentThrows": true
+          },
+          {
+            "name": "Teams",
+            "valueType": {
+              "kind": "list",
+              "element": {
+                "kind": "group",
+                "ref": "Cosmoteer.Modes.Pvp.Teams",
+                "name": "Teams"
+              }
+            },
+            "optional": true,
+            "absentThrows": true
+          },
+          {
+            "name": "TimeLimits",
+            "valueType": {
+              "kind": "list",
+              "element": {
+                "kind": "group",
+                "ref": "Cosmoteer.Modes.Pvp.TimeLimit",
+                "name": "TimeLimit"
+              }
+            },
+            "optional": true,
+            "absentThrows": true
+          },
+          {
+            "name": "AsteroidDensities",
+            "valueType": {
+              "kind": "list",
+              "element": {
+                "kind": "group",
+                "ref": "Cosmoteer.Modes.Pvp.PvpMapType",
+                "name": "PvpMapType"
+              }
+            },
+            "optional": true,
+            "absentThrows": true
+          },
+          {
+            "name": "NebulasTypes",
+            "valueType": {
+              "kind": "list",
+              "element": {
+                "kind": "group",
+                "ref": "Cosmoteer.Modes.Pvp.PvpMapType",
+                "name": "PvpMapType"
+              }
+            },
+            "optional": true,
+            "absentThrows": true
+          },
+          {
+            "name": "FleetDistances",
+            "valueType": {
+              "kind": "list",
+              "element": {
+                "kind": "group",
+                "ref": "Cosmoteer.Modes.Pvp.FleetDistance",
+                "name": "FleetDistance"
+              }
+            },
+            "optional": true,
+            "absentThrows": true
+          },
+          {
+            "name": "PerimeterDistances",
+            "valueType": {
+              "kind": "list",
+              "element": {
+                "kind": "group",
+                "ref": "Cosmoteer.Modes.Pvp.PerimeterDistance",
+                "name": "PerimeterDistance"
+              }
+            },
+            "optional": true,
+            "absentThrows": true
+          },
+          {
+            "name": "PerimeterDamageFractionPerTick",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "PerimeterDamageFractionPerTickPerDistance",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "PerimeterDamageChancePerTick",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "PerimeterDamageMediaEffects",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Simulation.MediaEffects.MultiMediaEffectRules",
+              "name": "MultiMediaEffectRules"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "PerimeterCircle",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.CircleRenderer",
+              "name": "CircleRenderer"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "PerimeterCircleThicknessZoomExponent",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "GameEndSound",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Audio.ISoundEffect",
+              "name": "ISoundEffect"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "SpawnPatterns",
+            "valueType": {
+              "kind": "list",
+              "element": {
+                "kind": "list",
+                "element": {
+                  "kind": "group",
+                  "ref": "Halfling.Geometry.Vector2",
+                  "name": "Vector2"
+                }
+              }
+            },
+            "optional": true,
+            "absentThrows": true
+          },
+          {
+            "name": "DistBetweenShipsInPattern",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "DistBetweenPlayersOnTeam",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "ShipSaleRefund",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "NebulaSizeFactor",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "ForfeitIcon",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "OfficialRulesets",
+            "valueType": {
+              "kind": "list",
+              "element": {
+                "kind": "group",
+                "ref": "Cosmoteer.Modes.Pvp.OfficialRuleset",
+                "name": "OfficialRuleset"
+              }
+            },
+            "optional": true
+          }
+        ]
+      },
+      "Cosmoteer.Game.GameGuiRules": {
+        "name": "GameGuiRules",
+        "namespace": "Cosmoteer.Game",
+        "fields": [
+          {
+            "name": "MoneyTickUpSound",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Audio.ISoundEffect",
+              "name": "ISoundEffect"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "MoneyTickDownSound",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Audio.ISoundEffect",
+              "name": "ISoundEffect"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "FameTickUpSound",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Audio.ISoundEffect",
+              "name": "ISoundEffect"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "FameTickDownSound",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Audio.ISoundEffect",
+              "name": "ISoundEffect"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "Colors",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Game.UIColorRules",
+              "name": "UIColorRules"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "ObjectIndicators",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Game.ObjectIndicatorRules",
+              "name": "ObjectIndicatorRules"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "Build",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Game.Gui.Build.BuildGuiRules",
+              "name": "BuildGuiRules"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "Paint",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Game.Gui.Paint.PaintGuiRules",
+              "name": "PaintGuiRules"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "Brushes",
+            "valueType": {
+              "kind": "list",
+              "element": {
+                "kind": "list",
+                "element": {
+                  "kind": "group",
+                  "ref": "Cosmoteer.Game.BrushRules",
+                  "name": "BrushRules"
+                }
+              }
+            },
+            "optional": true,
+            "absentThrows": true
+          },
+          {
+            "name": "Crew",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Game.Gui.Crew.CrewGuiRules",
+              "name": "CrewGuiRules"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "Resources",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Game.Gui.Resources.ResourceGuiRules",
+              "name": "ResourceGuiRules"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "Minimap",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Game.MinimapRules",
+              "name": "MinimapRules"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "PartNetworks",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Game.Gui.PartNetworkGuiRules",
+              "name": "PartNetworkGuiRules"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "PartStats",
+            "valueType": {
+              "kind": "list",
+              "element": {
+                "kind": "group",
+                "ref": "Cosmoteer.Game.PartStatRules",
+                "name": "PartStatRules"
+              }
+            },
+            "optional": true,
+            "absentThrows": true
+          },
+          {
+            "name": "PartFeatures",
+            "valueType": {
+              "kind": "map",
+              "key": {
+                "kind": "reference",
+                "target": "Cosmoteer.Game.PartFeature",
+                "targetName": "PartFeature"
+              },
+              "value": {
+                "kind": "string"
+              }
+            },
+            "optional": true,
+            "absentThrows": true
+          },
+          {
+            "name": "DeveloperToolbar",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Game.Gui.Developer.DeveloperToolbarRules",
+              "name": "DeveloperToolbarRules"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "CloseHudButtonIcon",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "RoofToggleOnIcon",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "RoofToggleOffIcon",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "FormationIcon",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "CancelFormationIcon",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "DirectControlOnIcon",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "DirectControlOffIcon",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "MoveIcon",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "RotateIcon",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "StrafeIcon",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "AttackIcon",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "SalvageIcon",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "FtlJumpIcon",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "HaltIcon",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "SummonCrewIcon",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "SpeedometerBacking",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "SpeedometerNeedle",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "SpeedometerNeedleSpeedRange",
+            "valueType": {
+              "kind": "range",
+              "element": {
+                "kind": "float"
+              }
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "SpeedometerNeedleAngleRange",
+            "valueType": {
+              "kind": "range",
+              "element": {
+                "kind": "number",
+                "unit": "degrees",
+                "type": "Angle"
+              }
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "CrewEvaIcon",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "UnderConstructionIcon",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "ConstructionBlockedIcon",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "NoControlIcon",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "NewShipIcon",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "MoveCursor",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Windows.Cursor",
+              "name": "Cursor"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "StrafeCursor",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Windows.Cursor",
+              "name": "Cursor"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "RotateCursor",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Windows.Cursor",
+              "name": "Cursor"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "AttackCursor",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Windows.Cursor",
+              "name": "Cursor"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "TargetCursor",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Windows.Cursor",
+              "name": "Cursor"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "DirectControlAimCursor",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Windows.Cursor",
+              "name": "Cursor"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "DirectControlAimDisabledCursor",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Windows.Cursor",
+              "name": "Cursor"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "DirectControlMaxTargetDistance",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "DirectControlSoftTargetCircle",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.CircleRenderer",
+              "name": "CircleRenderer"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "DirectControlHardTargetCircle",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.CircleRenderer",
+              "name": "CircleRenderer"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "DirectControlHardTargetSound",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Audio.ISoundEffect",
+              "name": "ISoundEffect"
+            },
+            "optional": true
+          },
+          {
+            "name": "CancelPartSelectionIcon",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "TargetIcon",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "CancelTargetIcon",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "AutoThrustOffIcon",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "AutoThrustOnIcon",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "MenuIcon",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "GalaxyMapIcon",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "PauseSprite",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "UnpauseSprite",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "IncreaseSpeedSprite",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "DecreaseSpeedSprite",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "PartTriggers",
+            "valueType": {
+              "kind": "list",
+              "element": {
+                "kind": "group",
+                "ref": "Cosmoteer.Game.PartTriggerGuiRules",
+                "name": "PartTriggerGuiRules"
+              }
+            },
+            "optional": true,
+            "absentThrows": true
+          },
+          {
+            "name": "PartTargeters",
+            "valueType": {
+              "kind": "list",
+              "element": {
+                "kind": "group",
+                "ref": "Cosmoteer.Game.PartTargeterGuiRules",
+                "name": "PartTargeterGuiRules"
+              }
+            },
+            "optional": true,
+            "absentThrows": true
+          },
+          {
+            "name": "PartToggles",
+            "valueType": {
+              "kind": "list",
+              "element": {
+                "kind": "group",
+                "ref": "Cosmoteer.Game.PartToggleGuiRules",
+                "name": "PartToggleGuiRules"
+              }
+            },
+            "optional": true,
+            "absentThrows": true
+          },
+          {
+            "name": "PartColors",
+            "valueType": {
+              "kind": "list",
+              "element": {
+                "kind": "group",
+                "ref": "Cosmoteer.Game.PartColorGuiRules",
+                "name": "PartColorGuiRules"
+              }
+            },
+            "optional": true,
+            "absentThrows": true
+          },
+          {
+            "name": "PartHighlights",
+            "valueType": {
+              "kind": "map",
+              "key": {
+                "kind": "reference",
+                "target": "Cosmoteer.Game.Gui.PartHighlightGuiRules",
+                "targetName": "PartHighlightGuiRules"
+              },
+              "value": {
+                "kind": "group",
+                "ref": "Cosmoteer.Game.Gui.PartHighlightGuiRules",
+                "name": "PartHighlightGuiRules"
+              }
+            },
+            "optional": true,
+            "absentThrows": true
+          },
+          {
+            "name": "ErrorSound",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Audio.ISoundEffect",
+              "name": "ISoundEffect"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "ErrorFlashCount",
+            "valueType": {
+              "kind": "int"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "ErrorFlashInterval",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "ErrorFlashSprite",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "PlotCourseLocalSound",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Audio.ISoundEffect",
+              "name": "ISoundEffect"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "PlotCourseGalaxySound",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Audio.ISoundEffect",
+              "name": "ISoundEffect"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "SummonCrewSound",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Audio.ISoundEffect",
+              "name": "ISoundEffect"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "ShipLogoColorFactor",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Color",
+              "name": "Color"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "ShipLogoRedprintsColor",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Color",
+              "name": "Color"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "ShipLogoUnselectedColorFactor",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Color",
+              "name": "Color"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "FtlPointColor",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Color",
+              "name": "Color"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "FtlJumpCursor",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Windows.Cursor",
+              "name": "Cursor"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "FtlJumpLine",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Simulation.Overlays.CappedLine",
+              "name": "CappedLine"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "FtlJumpLinePulseSpeed",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "MPPlayerColors",
+            "valueType": {
+              "kind": "list",
+              "element": {
+                "kind": "group",
+                "ref": "Halfling.Graphics.Color",
+                "name": "Color"
+              }
+            },
+            "optional": true,
+            "absentThrows": true
+          },
+          {
+            "name": "ShipHiddenSound",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Audio.ISoundEffect",
+              "name": "ISoundEffect"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "ShipRevealedSound",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Audio.ISoundEffect",
+              "name": "ISoundEffect"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "LaunchGameSound",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Audio.ISoundEffect",
+              "name": "ISoundEffect"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "TimePauseSound",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Audio.ISoundEffect",
+              "name": "ISoundEffect"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "TimeContinueSound",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Audio.ISoundEffect",
+              "name": "ISoundEffect"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "OpenBuildRepairMenuSound",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Audio.ISoundEffect",
+              "name": "ISoundEffect"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "OpenPaintMenuSound",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Audio.ISoundEffect",
+              "name": "ISoundEffect"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "OpenCrewMenuSound",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Audio.ISoundEffect",
+              "name": "ISoundEffect"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "OpenResourcesMenuSound",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Audio.ISoundEffect",
+              "name": "ISoundEffect"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "OpenCommsMenuSound",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Audio.ISoundEffect",
+              "name": "ISoundEffect"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "CloseCommsMenuSound",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Audio.ISoundEffect",
+              "name": "ISoundEffect"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "CloseNonCommsMenuSound",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Audio.ISoundEffect",
+              "name": "ISoundEffect"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "CopySound",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Audio.ISoundEffect",
+              "name": "ISoundEffect"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "CutSound",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Audio.ISoundEffect",
+              "name": "ISoundEffect"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "PasteSound",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Audio.ISoundEffect",
+              "name": "ISoundEffect"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "StartSalvageSelectSound",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Audio.ISoundEffect",
+              "name": "ISoundEffect"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "StopSalvageSelectSound",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Audio.ISoundEffect",
+              "name": "ISoundEffect"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "DeletePartInBinSound",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Audio.ISoundEffect",
+              "name": "ISoundEffect"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "ShowShipInteriorSound",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Audio.ISoundEffect",
+              "name": "ISoundEffect"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "HideShipInteriorSound",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Audio.ISoundEffect",
+              "name": "ISoundEffect"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "StartTradeSound",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Audio.ISoundEffect",
+              "name": "ISoundEffect"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "ShowGalaxyMapSound",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Audio.ISoundEffect",
+              "name": "ISoundEffect"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "HideGalaxyMapSound",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Audio.ISoundEffect",
+              "name": "ISoundEffect"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "AllCrewInsideSound",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Audio.ISoundEffect",
+              "name": "ISoundEffect"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "FirstCrewLeftSound",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Audio.ISoundEffect",
+              "name": "ISoundEffect"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "CrewDistanceWarningSound",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Audio.ISoundEffect",
+              "name": "ISoundEffect"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "BlueprintUnlockedSound",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Audio.ISoundEffect",
+              "name": "ISoundEffect"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "GenericPutdownSound",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Audio.ISoundEffect",
+              "name": "ISoundEffect"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "AmbientTradeLoopSound",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Audio.ISoundEffect",
+              "name": "ISoundEffect"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "SeenShipPingDuration",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          }
+        ]
+      },
+      "Cosmoteer.Game.PartTargeterGuiRules": {
+        "name": "PartTargeterGuiRules",
+        "namespace": "Cosmoteer.Game",
+        "purelyReflective": true,
+        "fields": [
+          {
+            "name": "TargeterID",
+            "valueType": {
+              "kind": "reference",
+              "target": "Cosmoteer.Game.PartTargeterGuiRules",
+              "targetName": "PartTargeterGuiRules"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "ButtonTextKey",
+            "valueType": {
+              "kind": "string",
+              "semantic": "localizationKey"
+            },
+            "optional": true
+          },
+          {
+            "name": "ButtonToolTipKey",
+            "valueType": {
+              "kind": "string",
+              "semantic": "localizationKey"
+            },
+            "optional": true
+          },
+          {
+            "name": "ButtonSprite",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": true
+          },
+          {
+            "name": "HasCancelButton",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false,
+            "default": true,
+            "defaultSource": "initializer"
+          },
+          {
+            "name": "CancelButtonTextKey",
+            "valueType": {
+              "kind": "string",
+              "semantic": "localizationKey"
+            },
+            "optional": true
+          },
+          {
+            "name": "CancelButtonToolTipKey",
+            "valueType": {
+              "kind": "string",
+              "semantic": "localizationKey"
+            },
+            "optional": true
+          },
+          {
+            "name": "CancelButtonSprite",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": true
+          },
+          {
+            "name": "Cursor",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Windows.Cursor",
+              "name": "Cursor"
+            },
+            "optional": true
+          },
+          {
+            "name": "TargetObjectCursor",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Windows.Cursor",
+              "name": "Cursor"
+            },
+            "optional": true
+          },
+          {
+            "name": "OverrideTentativeTargetNineSlice",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Simulation.Overlays.NineSlice",
+              "name": "NineSlice"
+            },
+            "optional": true
+          },
+          {
+            "name": "OverrideTentativeTargetCircle",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.CircleRenderer",
+              "name": "CircleRenderer"
+            },
+            "optional": true
+          },
+          {
+            "name": "TentativeTargetLine",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Simulation.Overlays.CappedLine",
+              "name": "CappedLine"
+            },
+            "optional": true
+          },
+          {
+            "name": "DefaultHotkey",
+            "valueType": {
+              "kind": "list",
+              "element": {
+                "kind": "enum",
+                "ref": "Halfling.Input.ViKey",
+                "name": "ViKey"
+              }
+            },
+            "optional": true
+          },
+          {
+            "name": "DefaultCancelHotkey",
+            "valueType": {
+              "kind": "list",
+              "element": {
+                "kind": "enum",
+                "ref": "Halfling.Input.ViKey",
+                "name": "ViKey"
+              }
+            },
+            "optional": true
+          },
+          {
+            "name": "SortOrder",
+            "valueType": {
+              "kind": "int"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "ShowWithShipCommands",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "TargetTypes",
+            "valueType": {
+              "kind": "enum",
+              "ref": "Cosmoteer.Game.PartTargeterTypes",
+              "name": "PartTargeterTypes"
+            },
+            "optional": true,
+            "nullable": false,
+            "default": "Ships, Parts",
+            "defaultSource": "initializer"
+          },
+          {
+            "name": "TargetPartCategories",
+            "valueType": {
+              "kind": "list",
+              "element": {
+                "kind": "reference",
+                "target": "Cosmoteer.Ships.Parts.PartCategory",
+                "targetName": "PartCategory"
+              }
+            },
+            "optional": true
+          },
+          {
+            "name": "AllowAppend",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false,
+            "default": true,
+            "defaultSource": "initializer"
+          },
+          {
+            "name": "AllowSameShipTarget",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false,
+            "default": true,
+            "defaultSource": "initializer"
+          },
+          {
+            "name": "SnapToAngles",
+            "valueType": {
+              "kind": "list",
+              "element": {
+                "kind": "number",
+                "unit": "degrees",
+                "type": "Direction"
+              }
+            },
+            "optional": true
+          },
+          {
+            "name": "SnapToAngleDistance",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": true,
+            "nullable": false,
+            "default": 1,
+            "defaultSource": "initializer"
+          }
+        ]
+      },
+      "Cosmoteer.Bullets.Hits.HitRules": {
+        "name": "HitRules",
+        "namespace": "Cosmoteer.Bullets.Hits",
+        "purelyReflective": true,
+        "fields": [
+          {
+            "name": "HitEffects",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Simulation.HitEffects.MultiHitEffectRules",
+              "name": "MultiHitEffectRules"
+            },
+            "optional": true
+          },
+          {
+            "name": "HitEffectsScale",
+            "valueType": {
+              "kind": "number",
+              "type": "ModifiableFloat",
+              "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            },
+            "optional": true
+          },
+          {
+            "name": "MediaEffects",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Simulation.MediaEffects.MultiMediaEffectRules",
+              "name": "MultiMediaEffectRules"
+            },
+            "optional": true
+          },
+          {
+            "name": "MediaEffectsScale",
+            "valueType": {
+              "kind": "number",
+              "type": "ModifiableFloat",
+              "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            },
+            "optional": true
+          },
+          {
+            "name": "DamagePoolBulletSplitting",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Bullets.Hits.DamagePoolBulletSplitRules",
+              "name": "DamagePoolBulletSplitRules"
+            },
+            "optional": true
+          },
+          {
+            "name": "ReduceEffectsByPenetration",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "Bounce",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "FrameOfReference",
+            "valueType": {
+              "kind": "enum",
+              "ref": "Cosmoteer.Bullets.BulletFrameOfReference",
+              "name": "BulletFrameOfReference"
+            },
+            "optional": true
+          },
+          {
+            "name": "Offset",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Geometry.Vector2",
+              "name": "Vector2"
+            },
+            "optional": true,
+            "nullable": false
+          }
+        ]
+      },
+      "Halfling.Graphics.CircleDashInfo": {
+        "name": "CircleDashInfo",
+        "namespace": "Halfling.Graphics",
+        "fields": [
+          {
+            "name": "SizeWeight",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "DashURange",
+            "valueType": {
+              "kind": "range",
+              "element": {
+                "kind": "float"
+              }
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "BeginCapLength",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "BeginCapLengthPerThickness",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "BeginCapURange",
+            "valueType": {
+              "kind": "range",
+              "element": {
+                "kind": "float"
+              }
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "EndCapLength",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "EndCapLengthPerThickness",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "EndCapURange",
+            "valueType": {
+              "kind": "range",
+              "element": {
+                "kind": "float"
+              }
+            },
+            "optional": true,
+            "nullable": false
+          }
+        ]
+      },
+      "Cosmoteer.Ships.Parts.Weapons.WeaponCoverage": null,
+      "Cosmoteer.Game.AdjustWeaponCoverageGuiRules": null
+    },
+    "enums": {
+      "Cosmoteer.Ships.Parts.Weapons.WeaponRules/WeaponToggleOnMode": {
+        "name": "WeaponToggleOnMode",
+        "members": [
+          "WantsAndReadyToFire",
+          "WantsToFire",
+          "HasTarget",
+          "HasTargetExceptShipRelative",
+          "IsReloaded"
+        ]
+      }
+    }
+  },
+  "whole": {}
+}

@@ -1,4 +1,5 @@
 import { globalSettings } from '../settings';
+import { installedGameVersionOf } from '../document/schema/deprecations';
 import { PROJECT_INDEXES } from './project-indexes';
 
 // A scanned file's diagnostics are a pure function of its on-disk content plus the shared state
@@ -24,7 +25,7 @@ export const bumpWorkspaceScanEpoch = (): void => {
 /**
  * The scan-relevant settings serialization. Only settings that change what a file's validation
  * produces participate: the validator switches, the problem limit, the ignored paths, the game
- * install every reference resolves against, and the code-mod schema merge. The whole-workspace
+ * install every reference resolves against and the version it reports, and the code-mod schema merge. The whole-workspace
  * toggle selects which files are scanned, not what a file yields, and flipping it is exactly the
  * repeat-scan case the caches exist for. The scope does participate, because the duplicate-field
  * pass compares a file against the other files the game loads, so narrowing or widening the scope
@@ -43,6 +44,7 @@ export const scanSettingsKeyOf = (): string =>
     JSON.stringify({
         maxNumberOfProblems: globalSettings.maxNumberOfProblems,
         cosmoteerPath: globalSettings.cosmoteerPath,
+        gameVersion: installedGameVersionOf(),
         ignorePaths: globalSettings.ignorePaths,
         codeMods: globalSettings.codeMods,
         diagnostics: {

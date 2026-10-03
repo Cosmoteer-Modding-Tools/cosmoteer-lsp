@@ -4,10 +4,11 @@
  * class does discriminator `Type=Y` select?" without knowing how the bundle was produced.
  */
 import bundle from './cosmoteer.schema.json';
+import previousRelease from './cosmoteer.schema.previous.json';
 import { SchemaBundle, SchemaEnum, SchemaField, SchemaRegistry, SchemaTypeDef, ValueType } from './schema.types';
 import { applySchemaOverlay } from './schema-overlay';
 import { applyFieldDocs } from './field-docs';
-import { deprecatedDiscriminator, deprecatedField } from './deprecations';
+import { deprecatedDiscriminator, deprecatedField, isAheadOfInstalledGame } from './deprecations';
 import type { ModSchemaExtension } from './schema.types';
 
 // Merge hand-authored corrections for custom-deserialized types schemagen can't reflect (e.g. the
@@ -197,6 +198,62 @@ export const extendSchemaWithMods = (extension: ModSchemaExtension | undefined):
     acceptsShaderConstantsCache.clear();
     localizationKeyFieldNameSet = undefined;
     declaredFieldNameSet = undefined;
+};
+
+/** The shipped entries the previous release's definitions replaced, held while those are in force. */
+let shippedEntries: { keyed: Record<string, Record<string, unknown>>; whole: Record<string, unknown> } | undefined;
+
+/**
+ * Puts the schema of the installed game's release in force: the shipped one, or the previous
+ * release's when the installed game predates the release the shipped schema was extracted from.
+ * Run after the installed version is recorded (see `setInstalledGameVersion`).
+ *
+ * A player on the release before a new one, still waiting for it or ahead of it on a candidate the
+ * schema was not extracted from, would otherwise be offered fields their game does not read and
+ * asked for fields it does not require. The previous definitions replace the changed entries, the
+ * overlay and the field docs are applied to them as at load, and the code mods are merged back on
+ * top, which also rebuilds every index and memo over the schema.
+ *
+ * @returns whether the schema in force changed, which stales everything validated against it.
+ */
+export const selectSchemaForInstalledGame = (): boolean => {
+    const wanted = isAheadOfInstalledGame(previousRelease.replacedBy);
+    if (wanted === (shippedEntries !== undefined)) return false;
+    const mods = appliedModExtension;
+    extendSchemaWithMods(undefined);
+    const sections = schema as unknown as Record<string, unknown>;
+    if (wanted) {
+        const saved: NonNullable<typeof shippedEntries> = { keyed: {}, whole: {} };
+        for (const [section, entries] of Object.entries<Record<string, unknown>>(previousRelease.keyed)) {
+            const target = (sections[section] ??= {}) as Record<string, unknown>;
+            const kept: Record<string, unknown> = (saved.keyed[section] = {});
+            for (const [key, previous] of Object.entries(entries)) {
+                kept[key] = target[key];
+                // The overlay below edits what it is given, and the delta has to stay as shipped
+                // for the next switch.
+                if (previous === null) delete target[key];
+                else target[key] = structuredClone(previous);
+            }
+        }
+        for (const [section, previous] of Object.entries(previousRelease.whole)) {
+            saved.whole[section] = sections[section];
+            sections[section] = previous === null ? undefined : structuredClone(previous);
+        }
+        applyFieldDocs(applySchemaOverlay(schema));
+        shippedEntries = saved;
+    } else if (shippedEntries) {
+        for (const [section, entries] of Object.entries(shippedEntries.keyed)) {
+            const target = sections[section] as Record<string, unknown>;
+            for (const [key, shipped] of Object.entries(entries)) {
+                if (shipped === undefined) delete target[key];
+                else target[key] = shipped;
+            }
+        }
+        for (const [section, shipped] of Object.entries(shippedEntries.whole)) sections[section] = shipped;
+        shippedEntries = undefined;
+    }
+    extendSchemaWithMods(mods);
+    return true;
 };
 
 /**

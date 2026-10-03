@@ -35,6 +35,7 @@ import {
 import {
     deprecatedDiscriminator,
     deprecatedEnumValue,
+    isAheadOfInstalledGame,
     migrationSymbolOf,
     obsoleteField,
     renamedFieldAlias,
@@ -309,6 +310,8 @@ const checkEnumValue = (ctx: SchemaCheckContext, value: ValueNode, enumType: { r
     // A member the game renamed is reported as the rename it is, with the version that made it,
     // rather than as a value the enum happens not to have.
     const renamed = deprecatedEnumValue(enumType.ref, written);
+    // The installed game still has a member a later update renamed.
+    if (renamed && isAheadOfInstalledGame(renamed.version)) return;
     const folded = members.find((member) => member.toLowerCase() === written.toLowerCase());
     if (renamed) {
         ctx.errors.push({
