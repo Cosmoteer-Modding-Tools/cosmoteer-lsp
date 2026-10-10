@@ -44,4 +44,3 @@ Seconds between full enemy-in-sights searches while deciding whether to auto-fir
 `EffectFilter` · optional
 
 A filter tested against the part hit by the weapon's targeting ray. A part that passes is automatically made the weapon's confirmed explicit target. The vanilla ion beam emitter uses a friendly-prism filter so it locks onto a prism placed in its firing line.
-

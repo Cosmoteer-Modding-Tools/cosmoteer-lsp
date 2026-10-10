@@ -15,11 +15,6 @@ Stores shared presentation rules for Adjust Range & Arc editors.
 
 Distance, in screen pixels, within which the mouse grabs a coverage handle when the editor has full interaction.
 
-## CoverageExtendedHitTolerance
-`float` · required
-
-Larger grab distance, in screen pixels, tried when nothing lies within [[Cosmoteer.Game.AdjustWeaponCoverageGuiRules.CoverageHitTolerance]]. The closest range handle within it wins.
-
 ## CoveragePartObstructedHitTolerance
 `float` · required
 
@@ -124,6 +119,21 @@ Renderer used instead of [[Cosmoteer.Game.AdjustWeaponCoverageGuiRules.CoverageR
 `CappedLine` · required
 
 Line drawn along the straight sides of each coverage sector, and along a single direction when the arc has converged to zero width.
+
+## CoverageRestLine
+`CappedLine` · required
+
+Dotted line drawn from a turret toward the direction it rests at when it has no target, the handle a player drags to set [[Cosmoteer.Ships.Parts.Weapons.WeaponCoverage.RestPosition]]. Not drawn while the arc has converged to zero width.
+
+## CoverageRestLineLength
+`float` · required
+
+Length, in tiles, of [[Cosmoteer.Game.AdjustWeaponCoverageGuiRules.CoverageRestLine]]. Vanilla uses `10`.
+
+## CoverageRestLineDotLengthPerThickness
+`float` · required
+
+Target dot length of [[Cosmoteer.Game.AdjustWeaponCoverageGuiRules.CoverageRestLine]], as a multiple of its thickness. The dot count snaps to a power of two like [[Cosmoteer.Game.AdjustWeaponCoverageGuiRules.CoveragePhysicalLimitDashLengthPerThickness]]. Vanilla uses `1` because its line texture is square.
 
 ## CoverageArcFill
 `CircleRenderer` · required

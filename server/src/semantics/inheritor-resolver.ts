@@ -7,9 +7,11 @@ import {
     isGroupNode,
     isListNode,
     isValueNode,
+    ValueNode,
 } from '../core/ast/ast';
 import { getStartOfAstNode } from '../utils/ast.utils';
-import { inheritanceBaseLeafName } from '../utils/reference.utils';
+import { inheritanceBaseLeafName, splitVirtualColon } from '../utils/reference.utils';
+import { stripReferenceWhitespace } from '../document/reference-path';
 import { FileTree, isFile } from '../workspace/cosmoteer-workspace.service';
 import { TemplateBaseIndex } from '../workspace/template-base.index';
 import { navigate } from './navigate-reference';
@@ -106,6 +108,66 @@ export const findInheritorsOf = async (
         }
     }
     return inheritors;
+};
+
+/**
+ * Splits a `:` reference and resolves the part before the colon to the node whose inheritors the `:`
+ * selects. A bare `&:/…` has no explicit base path and selects from the reference's own scope.
+ *
+ * @param node the reference value.
+ * @param cancellationToken cancels the base resolution.
+ * @returns the base and the member path after the colon, or undefined for a reference with no `:`
+ * segment or a base that does not resolve to a node.
+ */
+export const virtualBaseOf = async (
+    node: ValueNode,
+    cancellationToken: CancellationToken
+): Promise<{ base: AbstractNode; memberPath: string } | undefined> => {
+    const split = splitVirtualColon(stripReferenceWhitespace(String(node.valueType.value)));
+    if (!split) return undefined;
+    const base = split.basePath.replace(/^&$/, '')
+        ? await navigate(split.basePath, node, getStartOfAstNode(node).uri, cancellationToken).catch(() => null)
+        : (node.parent ?? null);
+    if (!base || isFile(base as FileTree)) return undefined;
+    return { base: base as AbstractNode, memberPath: split.memberPath };
+};
+
+/**
+ * How an inheritor is named to the reader: its own name, or for an anonymous list element (vanilla's
+ * `: ~/BaseExploration { … }` entries) the file and line it starts on.
+ *
+ * @param inheritor the inheritor.
+ * @returns the label.
+ */
+export const inheritorLabel = (inheritor: AbstractNode): string => {
+    if ((isGroupNode(inheritor) || isListNode(inheritor)) && inheritor.identifier) return inheritor.identifier.name;
+    const file = getStartOfAstNode(inheritor).uri.split('/').pop();
+    return `${file}:${(inheritor.position?.line ?? 0) + 1}`;
+};
+
+/**
+ * Every inheritor of `base` at any depth, each listed once, nearest first. The game binds `:` to the
+ * most-derived instance being read, which can sit several inheritance levels below the base.
+ *
+ * @param base the base group/list.
+ * @param cancellationToken cancels the search.
+ * @returns the inheritors, direct ones before their own inheritors.
+ */
+export const findAllInheritorsOf = async (
+    base: AbstractNode,
+    cancellationToken: CancellationToken
+): Promise<NamedContainer[]> => {
+    const all: NamedContainer[] = [];
+    const seen = new Set<string>([locationKey(definitionLocationOf(base))]);
+    for (let index = -1; index < all.length && !cancellationToken.isCancellationRequested; index++) {
+        for (const inheritor of await findInheritorsOf(index < 0 ? base : all[index], cancellationToken)) {
+            const key = locationKey(definitionLocationOf(inheritor));
+            if (seen.has(key)) continue;
+            seen.add(key);
+            all.push(inheritor);
+        }
+    }
+    return all;
 };
 
 /**

@@ -2715,6 +2715,391 @@
           }
         ]
       },
+      "Cosmoteer.Resources.ResourceRules": {
+        "name": "ResourceRules",
+        "namespace": "Cosmoteer.Resources",
+        "fields": [
+          {
+            "name": "ID",
+            "valueType": {
+              "kind": "reference",
+              "target": "Cosmoteer.Resources.ResourceRules",
+              "targetName": "ResourceRules"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "NameKey",
+            "valueType": {
+              "kind": "string",
+              "semantic": "localizationKey"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "PluralNameKey",
+            "valueType": {
+              "kind": "string",
+              "semantic": "localizationKey"
+            },
+            "optional": true
+          },
+          {
+            "name": "DescriptionKey",
+            "valueType": {
+              "kind": "string",
+              "semantic": "localizationKey"
+            },
+            "optional": true
+          },
+          {
+            "name": "BuyPrice",
+            "valueType": {
+              "kind": "int"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "SellPrice",
+            "valueType": {
+              "kind": "int"
+            },
+            "optional": true
+          },
+          {
+            "name": "Icon",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": true
+          },
+          {
+            "name": "IconButtonVerticalOffset",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "Overlay",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Sprite",
+              "name": "Sprite"
+            },
+            "optional": true
+          },
+          {
+            "name": "QuantityDisplayDivisor",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": true,
+            "nullable": false,
+            "default": 1,
+            "defaultSource": "initializer"
+          },
+          {
+            "name": "QuantityDisplayFormat",
+            "valueType": {
+              "kind": "string"
+            },
+            "optional": true,
+            "default": "n0",
+            "defaultSource": "initializer"
+          },
+          {
+            "name": "MaxPerNugget",
+            "valueType": {
+              "kind": "int"
+            },
+            "optional": true,
+            "nullable": false,
+            "default": 1,
+            "defaultSource": "initializer"
+          },
+          {
+            "name": "CarrySpeed",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": true,
+            "nullable": false,
+            "default": 1,
+            "defaultSource": "initializer"
+          },
+          {
+            "name": "MaxStackSize",
+            "valueType": {
+              "kind": "int"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "ReturnToStorage",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false,
+            "default": true,
+            "defaultSource": "initializer"
+          },
+          {
+            "name": "LoseExcessOnDelivery",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "FlexGridPriorityKey",
+            "valueType": {
+              "kind": "reference",
+              "target": "Cosmoteer.Ships.Parts.PartComponentRules",
+              "targetName": "PartComponentRules"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "FlexGridDefaultPriority",
+            "valueType": {
+              "kind": "int"
+            },
+            "optional": true,
+            "nullable": false,
+            "default": 1,
+            "defaultSource": "initializer"
+          },
+          {
+            "name": "DropRates",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Resources.ResourceRules/NuggetDropRates",
+              "name": "NuggetDropRates"
+            },
+            "optional": true
+          },
+          {
+            "name": "StackSprites",
+            "valueType": {
+              "kind": "list",
+              "element": {
+                "kind": "group",
+                "ref": "Cosmoteer.Ships.Rendering.AtlasSprite",
+                "name": "AtlasSprite"
+              }
+            },
+            "optional": true
+          },
+          {
+            "name": "ResourcesPerStackSprite",
+            "valueType": {
+              "kind": "int"
+            },
+            "optional": true,
+            "nullable": false,
+            "default": 1,
+            "defaultSource": "initializer"
+          },
+          {
+            "name": "StackReceiveMediaEffects",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Simulation.MediaEffects.MultiMediaEffectRules",
+              "name": "MultiMediaEffectRules"
+            },
+            "optional": true
+          },
+          {
+            "name": "StackPickupMediaEffects",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Simulation.MediaEffects.MultiMediaEffectRules",
+              "name": "MultiMediaEffectRules"
+            },
+            "optional": true
+          },
+          {
+            "name": "NuggetPickupMediaEffects",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Simulation.MediaEffects.MultiMediaEffectRules",
+              "name": "MultiMediaEffectRules"
+            },
+            "optional": true
+          },
+          {
+            "name": "DeathHitEffects",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Simulation.HitEffects.MultiHitEffectRules",
+              "name": "MultiHitEffectRules"
+            },
+            "optional": true
+          },
+          {
+            "name": "DeathMediaEffects",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Simulation.MediaEffects.MultiMediaEffectRules",
+              "name": "MultiMediaEffectRules"
+            },
+            "optional": true
+          },
+          {
+            "name": "HitResponse",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Resources.ResourceRules/HitResponseRules",
+              "name": "HitResponseRules"
+            },
+            "optional": true
+          },
+          {
+            "name": "Rarity",
+            "valueType": {
+              "kind": "reference",
+              "target": "Cosmoteer.Resources.ResourceRarity",
+              "targetName": "ResourceRarity"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "NuggetSprite",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Ships.Rendering.AtlasSprite",
+              "name": "AtlasSprite"
+            },
+            "optional": true
+          },
+          {
+            "name": "NuggetSprites",
+            "valueType": {
+              "kind": "list",
+              "element": {
+                "kind": "group",
+                "ref": "Cosmoteer.Ships.Rendering.AtlasSprite",
+                "name": "AtlasSprite"
+              }
+            },
+            "optional": true
+          },
+          {
+            "name": "NestedNuggetSprites",
+            "valueType": {
+              "kind": "list",
+              "element": {
+                "kind": "list",
+                "element": {
+                  "kind": "group",
+                  "ref": "Cosmoteer.Ships.Rendering.AtlasSprite",
+                  "name": "AtlasSprite"
+                }
+              }
+            },
+            "optional": true
+          }
+        ]
+      },
+      "Cosmoteer.Resources.ResourceRules/HitResponseRules": {
+        "name": "HitResponseRules",
+        "namespace": "",
+        "purelyReflective": true,
+        "fields": [
+          {
+            "name": "HitEffects",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Simulation.HitEffects.MultiHitEffectRules",
+              "name": "MultiHitEffectRules"
+            },
+            "optional": true
+          },
+          {
+            "name": "MediaEffects",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Simulation.MediaEffects.MultiMediaEffectRules",
+              "name": "MultiMediaEffectRules"
+            },
+            "optional": true
+          },
+          {
+            "name": "Chance",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "ChancePerNDamage",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "NDamage",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": true,
+            "nullable": false,
+            "default": 1,
+            "defaultSource": "initializer"
+          },
+          {
+            "name": "DamageTypeOverrides",
+            "valueType": {
+              "kind": "map",
+              "key": {
+                "kind": "reference",
+                "target": "Cosmoteer.DamageType",
+                "targetName": "DamageType"
+              },
+              "value": {
+                "kind": "group",
+                "ref": "Cosmoteer.Resources.ResourceRules/HitResponseRules/DamageTypeOverrideData",
+                "name": "DamageTypeOverrideData"
+              }
+            },
+            "optional": true
+          },
+          {
+            "name": "RequireDirectHit",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "RemoveOnResponse",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false,
+            "default": true,
+            "defaultSource": "initializer"
+          }
+        ]
+      },
       "Cosmoteer.Modes.Pvp.PvpModeRules": {
         "name": "PvpModeRules",
         "namespace": "Cosmoteer.Modes.Pvp",
@@ -4541,6 +4926,9 @@
         ]
       },
       "Cosmoteer.Ships.Parts.Weapons.WeaponCoverage": null,
+      "Cosmoteer.Resources.ResourceRules/BaseResponseRules": null,
+      "Cosmoteer.Resources.ResourceRules/StatusResponseRules": null,
+      "Cosmoteer.Resources.ResourceRules/StatusResponseRules/StatusTriggerData": null,
       "Cosmoteer.Game.AdjustWeaponCoverageGuiRules": null
     },
     "enums": {

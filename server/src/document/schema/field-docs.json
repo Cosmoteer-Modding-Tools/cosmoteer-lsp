@@ -585,7 +585,6 @@
     "Cosmoteer.Game.AdjustWeaponCoverageGuiRules": {
         "T:": "Stores shared presentation rules for Adjust Range & Arc editors.",
         "CoverageHitTolerance": "Distance, in screen pixels, within which the mouse grabs a coverage handle when the editor has full interaction.",
-        "CoverageExtendedHitTolerance": "Larger grab distance, in screen pixels, tried when nothing lies within [[Cosmoteer.Game.AdjustWeaponCoverageGuiRules.CoverageHitTolerance]]. The closest range handle within it wins.",
         "CoveragePartObstructedHitTolerance": "Grab distance, in screen pixels, used instead of [[Cosmoteer.Game.AdjustWeaponCoverageGuiRules.CoverageHitTolerance]] when the mouse is over a part and the editor is in its reduced interaction mode.",
         "CoverageMinimumRange": "The shortest custom range, in tiles, a player can set. Dragged ranges are clamped to it and shorter custom ranges are refused.",
         "CoverageInfiniteRangeFallback": "Range, in tiles, the editor draws and edits for a weapon whose range is infinite.",
@@ -607,6 +606,9 @@
         "CoverageRim": "Renderer for the curved outer edge of a coverage sector at its range.",
         "CoverageHandleRim": "Renderer used instead of [[Cosmoteer.Game.AdjustWeaponCoverageGuiRules.CoverageRim]] when the range edge is the hovered or dragged handle.",
         "CoverageLine": "Line drawn along the straight sides of each coverage sector, and along a single direction when the arc has converged to zero width.",
+        "CoverageRestLine": "Dotted line drawn from a turret toward the direction it rests at when it has no target, the handle a player drags to set [[Cosmoteer.Ships.Parts.Weapons.WeaponCoverage.RestPosition]]. Not drawn while the arc has converged to zero width.",
+        "CoverageRestLineLength": "Length, in tiles, of [[Cosmoteer.Game.AdjustWeaponCoverageGuiRules.CoverageRestLine]]. Vanilla uses `10`.",
+        "CoverageRestLineDotLengthPerThickness": "Target dot length of [[Cosmoteer.Game.AdjustWeaponCoverageGuiRules.CoverageRestLine]], as a multiple of its thickness. The dot count snaps to a power of two like [[Cosmoteer.Game.AdjustWeaponCoverageGuiRules.CoveragePhysicalLimitDashLengthPerThickness]]. Vanilla uses `1` because its line texture is square.",
         "CoverageArcFill": "Renderer for the translucent fill over each turret's coverage sector. Its thickness is rescaled to fill the sector out to its range.",
         "CoverageArcFillMaxOverlap": "Maximum number of arc fills drawn over each other at any point, enforced with the stencil buffer. Values above 255 do not work.",
         "CoverageUnaffectedAlphaMultiplier": "Opacity multiplier for the coverage lines of weapons the hovered or dragged handle will not change.",
@@ -3379,21 +3381,25 @@
         "DeathHitEffects": "Hit effects performed when a storage stack of this resource is destroyed. Their strength scales with how full the stack was relative to [[Cosmoteer.Resources.ResourceRules.MaxStackSize]].",
         "DeathMediaEffects": "Effects played when a storage stack of this resource is destroyed. Their strength scales with how full the stack was, like [[Cosmoteer.Resources.ResourceRules.DeathHitEffects]].",
         "HitResponse": "Defines the response to the resource's containing part being hit.",
+        "StatusResponse": "Defines the response to status additions/changes on the resource's containing part.",
         "Rarity": "The rarity category of the resource's nuggets, which must match an entry in [[Cosmoteer.Resources.NuggetRules.Rarities]]. It controls how the nuggets are rendered as dots on the map and in fog of war. Defaults to `Common`.",
         "NuggetSprite": "A single sprite used for this resource's nuggets and for the resource while carried by crew. Shorthand for [[Cosmoteer.Resources.ResourceRules.NuggetSprites]] with one entry.",
         "NuggetSprites": "The sprites used for this resource's nuggets and for the resource while carried by crew. The sprite is picked by the quantity relative to [[Cosmoteer.Resources.ResourceRules.MaxPerNugget]], so later entries represent larger amounts. Required when [[Cosmoteer.Resources.ResourceRules.ReturnToStorage]] is true.",
         "NestedNuggetSprites": "Nested form of [[Cosmoteer.Resources.ResourceRules.NuggetSprites]]. The outer list splits the `1..MaxPerNugget` quantity range into bands and each inner list subdivides its band further."
     },
-    "Cosmoteer.Resources.ResourceRules/HitResponseRules": {
-        "T:": "Makes stored resources react when their part is hit, playing effects and optionally being lost, at a chance that scales with the damage dealt.",
+    "Cosmoteer.Resources.ResourceRules/BaseResponseRules": {
+        "T:": "Base class for rules defining resource responses to local events.",
         "HitEffects": "The hit effects to perform, if any.",
         "MediaEffects": "The media effects to play, if any.",
+        "RemoveOnResponse": "Whether the responding resources should be removed on a successful response."
+    },
+    "Cosmoteer.Resources.ResourceRules/HitResponseRules": {
+        "T:": "Makes stored resources react when their part is hit, playing effects and optionally being lost, at a chance that scales with the damage dealt.",
         "Chance": "The default base chance to respond to a hit.",
         "ChancePerNDamage": "The chance added per NDamage in a hit.",
         "NDamage": "The quantity of damage in a hit that adds a response chance of ChancePerNDamage.",
         "DamageTypeOverrides": "Per-damage-type response overrides.",
-        "RequireDirectHit": "Whether triggering a response requires a specified HitArea that includes the resource's location.",
-        "RemoveOnResponse": "Whether the responding resources should be removed on a successful response."
+        "RequireDirectHit": "Whether triggering a response requires a specified HitArea that includes the resource's location."
     },
     "Cosmoteer.Resources.ResourceRules/HitResponseRules/DamageTypeOverrideData": {
         "T:": "Overrides the reaction chance for one damage type, so a resource can cook off readily from fire but shrug off a bullet.",
@@ -3415,6 +3421,15 @@
         "PlayerCrewKilled": "Overrides [[CrewKilled]] when the killed crew belongs to a player-owned ship. Falls back through [[CrewKilled]], then [[PlayerStorageDestroyed]], then [[StorageDestroyed]] when left unset.",
         "PartRepairCost": "Fraction of a part's build cost, per unit of damage, charged in this resource to repair the part, for non-player ships. Repair cost is `ceil(buildCost * damageFraction * PartRepairCost)`, capped so it never exceeds the resources that would be recoverable by deconstructing. [[PlayerPartRepairCost]] overrides it for the player.",
         "PlayerPartRepairCost": "Overrides [[PartRepairCost]] when repairing a player-owned ship's part. Falls back to [[PartRepairCost]] when left unset."
+    },
+    "Cosmoteer.Resources.ResourceRules/StatusResponseRules": {
+        "T:": "Defines a resource's reaction to its containing ship part or tile gaining a status.",
+        "StatusTriggers": "The statuses that set off the response. Without this list the response reads a single trigger from its own group, so `StatusType` and `ValueRange` can be written directly beside the effects, which is how vanilla writes it. A response with neither fails to load. Only the first trigger for a given status is checked, so a second trigger for the same status never fires. The response runs on each storage tile that holds this resource whenever that status changes on the tile."
+    },
+    "Cosmoteer.Resources.ResourceRules/StatusResponseRules/StatusTriggerData": {
+        "T:": "One status, and the value range of it, that sets off a resource's status response.",
+        "StatusType": "The status whose changes are checked. Vanilla ammo and missile parts use `cosmoteer.scorched`.",
+        "ValueRange": "The combined status value, inclusive at both ends, at which the response fires. Defaults to any value. Vanilla uses `[1,1]` so stored munitions explode only once their part is fully scorched."
     },
     "Cosmoteer.Ships.AI.AICommsModuleRules": {
         "T:": "Decides what an AI ship offers the player over comms. Write one of the concrete modules, which cover trade, missions, part techs, crew for hire and surrender talk."
@@ -5484,7 +5499,7 @@
         "T:": "A weapon on a turret that rotates at `RotateSpeed` to bear on its target before firing.",
         "FiringArc": "Total width, in degrees, of the arc the turret can rotate through, centered on its mount direction. `360d` lets it spin all the way around.",
         "AllowCustomCoverageArcEditing": "Whether players can narrow or rotate this turret's firing arc in the weapon coverage editor. When false only the range handle is offered, and a custom arc is refused. Has no effect unless [[Cosmoteer.Ships.Parts.Weapons.WeaponRules.AllowCustomCoverageEditing]] is also true.",
-        "ForceCustomCoverageWidthZero": "Restricts this turret's coverage to a single direction instead of an arc. A custom arc must have zero width, the editor drags both sides together, and without any custom arc the turret covers only its mount direction. Vanilla sets it on the roof headlight. A zero-width coverage accepts targets within half of [[Cosmoteer.Ships.ShipRules.MinWeaponCoverageArcTargetWidth]] of the chosen direction.",
+        "ForceCustomCoverageWidthZero": "Restricts this turret's coverage to a single direction instead of an arc. A custom arc must have zero width, the editor drags both sides together, and without any custom arc the turret covers only its mount direction. Vanilla sets it on the roof headlight. A zero-width coverage accepts a target only when its body crosses the line along the chosen direction.",
         "TargetingRange": "Maximum distance, in tiles, at which the turret searches for new targets. Defaults to the turret's valid range ([[Cosmoteer.Ships.Parts.Weapons.TurretWeaponRules.ValidRange]], or the emitter's range when that is unset) clamped to the player's coverage, plus the ship's [[Cosmoteer.Ships.ShipRules.DefaultTargetingRangeExtension]] when the targeting emitter leads its target.",
         "TargetingArc": "Width, in degrees, of the arc within which the turret searches for new targets. Defaults to [[Cosmoteer.Ships.Parts.Weapons.TurretWeaponRules.ValidArc]] if that is set, otherwise to [[Cosmoteer.Ships.Parts.Weapons.TurretWeaponRules.FiringArc]].",
         "ValidRange": "Maximum distance, in tiles, at which an acquired target remains valid to keep and fire at. Defaults to the targeting emitter's current range.",
@@ -5523,7 +5538,8 @@
     "Cosmoteer.Ships.Parts.Weapons.WeaponCoverage": {
         "T:": "A range and arc restriction on a weapon, set as its default in rules or by the player in the weapon coverage editor.",
         "Range": "Maximum range, in tiles, the weapon may fire at. The weapon's real range is clamped down to this value and never extended. Unset leaves the weapon's own range.",
-        "Arc": "The allowed firing arc as `[nearEdge, width]`, relative to the turret's mount direction, so `[-45d, 90d]` covers 45 degrees to either side of it. The result is intersected with the turret's [[Cosmoteer.Ships.Parts.Weapons.TurretWeaponRules.ValidArc]] (or [[Cosmoteer.Ships.Parts.Weapons.TurretWeaponRules.FiringArc]]). A width of `0d` aims the turret along a single direction. Only turrets use it."
+        "Arc": "The allowed firing arc as `[nearEdge, width]`, relative to the turret's mount direction, so `[-45d, 90d]` covers 45 degrees to either side of it. The result is intersected with the turret's [[Cosmoteer.Ships.Parts.Weapons.TurretWeaponRules.ValidArc]] (or [[Cosmoteer.Ships.Parts.Weapons.TurretWeaponRules.FiringArc]]). A width of `0d` aims the turret along a single direction. Only turrets use it.",
+        "RestPosition": "Where within the coverage arc a turret rests when it has nothing to aim at, from 0 (the arc's near edge, which is the left edge from the turret's point of view) to 1 (the arc's far/right edge)."
     },
     "Cosmoteer.Ships.Parts.Weapons.WeaponRules": {
         "T:": "Shared setup for weapons, covering fire interval, what may be targeted and whether the player can take direct control. A modder writes `FixedWeapon` or `TurretWeapon`.",
@@ -5552,7 +5568,7 @@
         "AllowCustomCoverageRangeEditing": "Whether players can shorten this weapon's range in the weapon coverage editor. When false the range handle is hidden and a custom range is refused, while the arc can still be edited. Vanilla turns it off on the roof headlight.",
         "DefaultWeaponCoverage": "The range and arc restriction the weapon starts with before any player customization, written as a group such as `DefaultWeaponCoverage { Range = 150, Arc = [-45d, 90d] }`. A player's custom coverage overrides `Range` and `Arc` separately and falls back to this value for the one left unset. The vanilla mine launcher uses it to start with a 90 degree, 150 tile coverage.",
         "MatchWeaponCoverage": "The ID of another weapon component on the same part whose player-set coverage this weapon follows. The coverage is read from that component's entry and applied against this weapon's own range and arc limits, and this weapon can no longer be edited on its own. Vanilla points the chaingun's fixed barrel, the ion prism, the resonance beam and the dual missile launchers at their primary weapon.",
-        "MatchWeaponCoverageStrictFire": "Stops a fixed weapon from firing when its current coverage arc does not include the weapon's forward direction. The effective range drops to 0 in that case, which blocks firing and targeting. A zero-width arc counts as including it when it lies within half of [[Cosmoteer.Ships.ShipRules.MinWeaponCoverageArcTargetWidth]]. Only fixed weapons read it, normally together with [[Cosmoteer.Ships.Parts.Weapons.WeaponRules.MatchWeaponCoverage]] as on the vanilla chaingun.",
+        "MatchWeaponCoverageStrictFire": "Stops a fixed weapon from firing when its current coverage arc does not include the weapon's forward direction. The effective range drops to 0 in that case, which blocks firing and targeting. A zero-width arc counts as including it only when it points exactly forward. Only fixed weapons read it, normally together with [[Cosmoteer.Ships.Parts.Weapons.WeaponRules.MatchWeaponCoverage]] as on the vanilla chaingun.",
         "CoverageLine": "Replaces [[Cosmoteer.Simulation.SimGuiRules.DefaultWeaponCoverageLine]] for this weapon when its coverage is drawn as a line while giving commands. That happens for fixed weapons and for turrets whose coverage has zero width.",
         "IgnoreFriendlyShipLowLOSChecks": "Lets the weapon's line-of-sight rays pass through the low colliders of ships it cannot damage, so it can shoot over low parts of friendly ships like the deck cannon does. Also accepted under the older name `IgnoreSourceShipLowLOSChecks`.",
         "IgnoreFriendlyShipHighLOSChecks": "Lets the weapon's line-of-sight rays pass through even the high colliders of ships it cannot damage, so friendly ships never block its fire. The manipulator beam enables this together with [[Cosmoteer.Ships.Parts.Weapons.WeaponRules.IgnoreFriendlyShipLowLOSChecks]]. Also accepted under the older name `IgnoreSourceShipHighLOSChecks`.",
@@ -5780,7 +5796,6 @@
         "MinCommsRadius": "Minimum communication radius, in tiles beyond the ship's bounding radius. The effective comms radius is the larger of this and the ship's sight radius.",
         "WeaponActivationEnemyCheckRadius": "Distance beyond the ship's bounding radius scanned for visible enemy ships. Whether an enemy is inside drives weapon activation and gates behavior that requires safety, such as automatic crew exit.",
         "DefaultTargetingRangeExtension": "Distance, in tiles, added to a weapon's range when it searches for targets, so it can pick up targets that are about to move into range. Only applies when the weapon's emitter leads its target, that is a bullet emitter with [[Cosmoteer.Ships.Parts.Weapons.BulletEmitterRules.TargetLeadPrediction]], and the weapon sets no `TargetingRange` of its own. Vanilla `base_ship.rules` uses 400.",
-        "MinWeaponCoverageArcTargetWidth": "The width a zero-width weapon coverage is widened to for targeting, centered on its direction. A turret aimed along a single direction accepts targets within half this angle of it. Vanilla `base_ship.rules` uses `2d`.",
         "MapJumpFuelCostPerMass": "Distance-independent term of the galaxy-map FTL jump fuel cost, charged per unit of ship mass. The total cost also scales with the ship's FTL jump efficiency.",
         "MapJumpFuelCostPerMassDistance": "Fuel charged per unit of ship mass per unit of galaxy-map distance jumped. Vanilla is tuned to 1 fuel per 100 mass to jump 10 light-years at 100% efficiency.",
         "MapJumpDistanceExponent": "Exponent applied to the map jump distance before it is multiplied by [[Cosmoteer.Ships.ShipRules.MapJumpFuelCostPerMassDistance]]. 1 makes fuel cost linear in distance.",
@@ -6392,6 +6407,7 @@
         "PartCategoryTileCosts": "The pathing costs of tiles by part TypeCategories, not otherwise included in PartIDTileCosts. A part's categories are evaluated in order.",
         "BlockedByWalls": "Whether pathing between tiles is blocked by walls.",
         "UseContiguity": "Whether pathing between tiles requires part contiguity according to AllowedContiguity.",
+        "AllowVertexContiguity": "Whether diagonally separated parts can be considered contiguous for UseContiguity if both parts have contiguity on a side touching the vertex between them.",
         "AllowDiagonals": "Whether pathing across diagonals is allowed."
     },
     "Cosmoteer.Simulation.HitEffects.HitEffectRules": {

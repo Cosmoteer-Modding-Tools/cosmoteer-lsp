@@ -523,6 +523,7 @@
   "References can be in the following formats: <>, .., ~, /, ^, &<>, &.., &~, &/, &A-Z": "References can be in the following formats: <>, .., ~, /, ^, &<>, &.., &~, &/, &A-Z",
   "Fragile relative path into the workshop folder": "Fragile relative path into the workshop folder",
   "This path resolves relative to this file and breaks when the file moves. \"{0}\" resolves from the game folder and works from any file.": "This path resolves relative to this file and breaks when the file moves. \"{0}\" resolves from the game folder and works from any file.",
+  "\"{0}\" sets no \"{1}\" and neither does the group it inherits it from, so reading \"{0}\" fails to load. Give the base a default or set it in \"{0}\".": "\"{0}\" sets no \"{1}\" and neither does the group it inherits it from, so reading \"{0}\" fails to load. Give the base a default or set it in \"{0}\".",
   "The game rolls a whole number between these, and refuses a high end below the low one, so it throws here with {0} above {1}.": "The game rolls a whole number between these, and refuses a high end below the low one, so it throws here with {0} above {1}.",
   "This window is empty with {0} above {1}, so nothing ever falls inside it and the feature never comes on.": "This window is empty with {0} above {1}, so nothing ever falls inside it and the feature never comes on.",
   "'{0}' is only read by constants that are themselves never read, so the game loads none of them.": "'{0}' is only read by constants that are themselves never read, so the game loads none of them.",

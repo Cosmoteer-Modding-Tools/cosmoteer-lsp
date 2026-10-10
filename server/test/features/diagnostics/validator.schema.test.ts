@@ -638,6 +638,15 @@ describe('validateSchema: engine value forms extracted by schemagen', () => {
         // The source's own fields still merge as before.
         expect(fieldOf('Cosmoteer.Data.TextSprite', 'Size')).toBeDefined();
     });
+
+    it('types the single-trigger shorthand of a resource status response', () => {
+        // Vanilla ammo resources write `StatusType` and `ValueRange` directly in `StatusResponse`.
+        const owner = 'Cosmoteer.Resources.ResourceRules/StatusResponseRules';
+        expect(fieldOf(owner, 'StatusType')?.valueType).toMatchObject({
+            target: 'Cosmoteer.Ships.Statuses.StatusType',
+        });
+        expect(fieldOf(owner, 'ValueRange')?.valueType.kind).toBe('range');
+    });
 });
 
 describe('validateSchema: value-form list elements resolve their registry', () => {

@@ -254,7 +254,13 @@ const scaffold = () => {
             }
         }
 
-        writeFileSync(join(DOCS_DIR, fileNameFor(fullName)), out.join('\n').replace(/\n+$/, '\n'), 'utf8');
+        // A Windows checkout has CRLF files: leave an unchanged file alone and keep the endings of a changed one.
+        const path = join(DOCS_DIR, fileNameFor(fullName));
+        const text = out.join('\n').replace(/\n+$/, '\n');
+        const before = existsSync(path) ? readFileSync(path, 'utf8') : null;
+        if (before?.replace(/\r\n/g, '\n') !== text) {
+            writeFileSync(path, before?.includes('\r\n') ? text.replace(/\n/g, '\r\n') : text, 'utf8');
+        }
         filesWritten++;
     }
 

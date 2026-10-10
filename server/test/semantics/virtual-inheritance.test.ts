@@ -11,7 +11,7 @@ import { parser } from '../../src/core/parser/parser';
 // Virtual inheritance: a `:` path segment jumps to the most-derived inheritor of the current node
 // (see "Rules Syntax.md"). Statically we approximate it with the node itself (the game's
 // no-inheritor behavior), so `&:/v_A` resolves the declaring group's own (default) member, and a
-// member that exists only in an inheritor is skipped by validation rather than flagged.
+// member that exists only in an inheritor is judged against the inheritors rather than flagged.
 const token = CancellationToken.None;
 const doc = parseFixture('virtual-inheritance.rules');
 

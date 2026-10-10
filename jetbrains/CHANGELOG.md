@@ -4,6 +4,16 @@
 
 ### Added
 
+- Inlay hints and hover on a `&:/…` reference show what each inheritor reads, such as `= 300 | 500`, instead of only the base's own value.
+
+- A `&:/…` reference whose member the base leaves out is flagged when an inheritor does not set it either, which the game refuses to load.
+
+- Cosmoteer 0.30.5 RC2 and RC3 support. `AllowVertexContiguity`, a resource's `StatusResponse` and a weapon's rest direction complete, hover with docs and validate. `StatusType` and `ValueRange` written directly in a `StatusResponse`, as vanilla does, are recognized.
+
+## 1.1.2 - 2026-10-03
+
+### Added
+
 - Cosmoteer 0.30.5 support. The new fields for custom weapon ranges and arcs, structure penetration falloff, `UseContiguity` and PvP perimeter crew damage complete, hover with docs and validate.
 
 - The fields 0.30.5 removed with the old Aim button, such as `SaveShipRelativeTargets`, and `DefaultTargetingRangeFactor` are hinted as removed in 0.30.5. `HasTargetExceptShipRelative` is offered as `HasTarget`, which now means the same, and the migration command applies it.

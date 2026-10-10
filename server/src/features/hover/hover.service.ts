@@ -8,7 +8,8 @@ import { resolveSchemaSiblingReference } from '../navigation/schema-reference.na
 import { componentDeclarationAt } from '../navigation/rename-component-id';
 import { resolvePartComponentDeclaration } from '../diagnostics/validator.schema-sibling';
 import { resolveSchemaIdReference } from '../navigation/schema-id-reference.navigation';
-import { evaluateNumericValueTraced } from '../../semantics/value-evaluator';
+import { evaluateNumericValueTraced, evaluateVirtualVariants } from '../../semantics/value-evaluator';
+import { inheritorLabel } from '../../semantics/inheritor-resolver';
 import { formatWithUnit, unitForValue } from '../value-units';
 import { FileWithPath } from '../../workspace/cosmoteer-workspace.service';
 import { schemaDiscriminatorHover, schemaFieldHover } from './schema-hover';
@@ -63,6 +64,17 @@ export const getHover = async (
         // Pushed right after the number, so the references it substituted read as its working.
         const trace = substitutionTraceMarkdown(document.uri, traced);
         if (trace) lines.push(trace);
+    }
+    // A `:` reference reads its member from whichever inheritor is being built, so the number above is
+    // only what the base reads on its own. List what each inheritor works out to.
+    const { variants } = await evaluateVirtualVariants([node], cancellationToken).catch(() => ({ variants: [] }));
+    if (variants.length) {
+        const unit = await unitForValue([node], cancellationToken).catch(() => undefined);
+        const rows = variants.map(
+            (variant) =>
+                `- \`${inheritorLabel(variant.inheritor)}\`: ${variant.value === null ? '?' : formatWithUnit(variant.value, unit)}`
+        );
+        lines.push(['Per inheritor:', ...rows].join('\n'));
     }
 
     // For a modifiable value, the rest of its working: what each modifier does to the base

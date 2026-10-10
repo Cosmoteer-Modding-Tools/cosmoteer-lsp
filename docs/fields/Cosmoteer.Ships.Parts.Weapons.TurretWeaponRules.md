@@ -23,7 +23,7 @@ Whether players can narrow or rotate this turret's firing arc in the weapon cove
 ## ForceCustomCoverageWidthZero
 `bool` · optional
 
-Restricts this turret's coverage to a single direction instead of an arc. A custom arc must have zero width, the editor drags both sides together, and without any custom arc the turret covers only its mount direction. Vanilla sets it on the roof headlight. A zero-width coverage accepts targets within half of [[Cosmoteer.Ships.ShipRules.MinWeaponCoverageArcTargetWidth]] of the chosen direction.
+Restricts this turret's coverage to a single direction instead of an arc. A custom arc must have zero width, the editor drags both sides together, and without any custom arc the turret covers only its mount direction. Vanilla sets it on the roof headlight. A zero-width coverage accepts a target only when its body crosses the line along the chosen direction.
 
 ## TargetingRange
 `number` · optional

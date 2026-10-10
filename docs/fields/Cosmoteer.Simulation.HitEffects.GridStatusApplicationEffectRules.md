@@ -105,6 +105,11 @@ Whether pathing between tiles is blocked by walls.
 
 Whether pathing between tiles requires part contiguity according to AllowedContiguity.
 
+## AllowVertexContiguity
+`bool` · optional · default `true`
+
+Whether diagonally separated parts can be considered contiguous for UseContiguity if both parts have contiguity on a side touching the vertex between them.
+
 ## AllowDiagonals
 `bool` · optional
 
