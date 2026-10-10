@@ -145,6 +145,11 @@ Effects played when a storage stack of this resource is destroyed. Their strengt
 
 Defines the response to the resource's containing part being hit.
 
+## StatusResponse
+`StatusResponseRules` · optional
+
+Defines the response to status additions/changes on the resource's containing part.
+
 ## Rarity
 `→ ResourceRarity` · optional
 

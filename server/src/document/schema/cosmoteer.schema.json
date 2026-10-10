@@ -3,9 +3,9 @@
     "source": "Cosmoteer.dll \u002B HalflingCore.dll",
     "root": "Cosmoteer.Data.Rules",
     "registries": 37,
-    "types": 853,
+    "types": 856,
     "enums": 101,
-    "typesBeforePrune": 1353,
+    "typesBeforePrune": 1356,
     "registriesBeforePrune": 62,
     "componentSlots": 126,
     "componentKinds": 23
@@ -6626,6 +6626,16 @@
           "nullable": false
         },
         {
+          "name": "AllowVertexContiguity",
+          "valueType": {
+            "kind": "bool"
+          },
+          "optional": true,
+          "nullable": false,
+          "default": true,
+          "defaultSource": "initializer"
+        },
+        {
           "name": "AllowDiagonals",
           "valueType": {
             "kind": "bool"
@@ -9343,17 +9353,6 @@
           "name": "DefaultTargetingRangeExtension",
           "valueType": {
             "kind": "float"
-          },
-          "optional": false,
-          "absentThrows": true,
-          "nullable": false
-        },
-        {
-          "name": "MinWeaponCoverageArcTargetWidth",
-          "valueType": {
-            "kind": "number",
-            "unit": "degrees",
-            "type": "Angle"
           },
           "optional": false,
           "absentThrows": true,
@@ -18609,6 +18608,13 @@
             "kind": "group",
             "ref": "Halfling.Geometry.Arc",
             "name": "Arc"
+          },
+          "optional": true
+        },
+        {
+          "name": "RestPosition",
+          "valueType": {
+            "kind": "float"
           },
           "optional": true
         }
@@ -28826,6 +28832,15 @@
           "optional": true
         },
         {
+          "name": "StatusResponse",
+          "valueType": {
+            "kind": "group",
+            "ref": "Cosmoteer.Resources.ResourceRules/StatusResponseRules",
+            "name": "StatusResponseRules"
+          },
+          "optional": true
+        },
+        {
           "name": "Rarity",
           "valueType": {
             "kind": "reference",
@@ -28969,9 +28984,10 @@
         }
       ]
     },
-    "Cosmoteer.Resources.ResourceRules/HitResponseRules": {
-      "name": "HitResponseRules",
+    "Cosmoteer.Resources.ResourceRules/BaseResponseRules": {
+      "name": "BaseResponseRules",
       "namespace": "",
+      "abstract": true,
       "purelyReflective": true,
       "fields": [
         {
@@ -28992,6 +29008,24 @@
           },
           "optional": true
         },
+        {
+          "name": "RemoveOnResponse",
+          "valueType": {
+            "kind": "bool"
+          },
+          "optional": true,
+          "nullable": false,
+          "default": true,
+          "defaultSource": "initializer"
+        }
+      ]
+    },
+    "Cosmoteer.Resources.ResourceRules/HitResponseRules": {
+      "name": "HitResponseRules",
+      "namespace": "",
+      "extends": "Cosmoteer.Resources.ResourceRules/BaseResponseRules",
+      "purelyReflective": true,
+      "fields": [
         {
           "name": "Chance",
           "valueType": {
@@ -29042,16 +29076,6 @@
           },
           "optional": true,
           "nullable": false
-        },
-        {
-          "name": "RemoveOnResponse",
-          "valueType": {
-            "kind": "bool"
-          },
-          "optional": true,
-          "nullable": false,
-          "default": true,
-          "defaultSource": "initializer"
         }
       ]
     },
@@ -29080,6 +29104,54 @@
             "kind": "float"
           },
           "optional": true
+        }
+      ]
+    },
+    "Cosmoteer.Resources.ResourceRules/StatusResponseRules": {
+      "name": "StatusResponseRules",
+      "namespace": "",
+      "extends": "Cosmoteer.Resources.ResourceRules/BaseResponseRules",
+      "fields": [
+        {
+          "name": "StatusTriggers",
+          "valueType": {
+            "kind": "list",
+            "element": {
+              "kind": "group",
+              "ref": "Cosmoteer.Resources.ResourceRules/StatusResponseRules/StatusTriggerData",
+              "name": "StatusTriggerData"
+            }
+          },
+          "optional": true
+        }
+      ]
+    },
+    "Cosmoteer.Resources.ResourceRules/StatusResponseRules/StatusTriggerData": {
+      "name": "StatusTriggerData",
+      "namespace": "",
+      "purelyReflective": true,
+      "fields": [
+        {
+          "name": "StatusType",
+          "valueType": {
+            "kind": "reference",
+            "target": "Cosmoteer.Ships.Statuses.StatusType",
+            "targetName": "StatusType"
+          },
+          "optional": false,
+          "absentThrows": true,
+          "nullable": false
+        },
+        {
+          "name": "ValueRange",
+          "valueType": {
+            "kind": "range",
+            "element": {
+              "kind": "float"
+            }
+          },
+          "optional": true,
+          "nullable": false
         }
       ]
     },
@@ -46062,15 +46134,6 @@
           "nullable": false
         },
         {
-          "name": "CoverageExtendedHitTolerance",
-          "valueType": {
-            "kind": "float"
-          },
-          "optional": false,
-          "absentThrows": true,
-          "nullable": false
-        },
-        {
           "name": "CoveragePartObstructedHitTolerance",
           "valueType": {
             "kind": "float"
@@ -46272,6 +46335,34 @@
           },
           "optional": false,
           "absentThrows": true
+        },
+        {
+          "name": "CoverageRestLine",
+          "valueType": {
+            "kind": "group",
+            "ref": "Cosmoteer.Simulation.Overlays.CappedLine",
+            "name": "CappedLine"
+          },
+          "optional": false,
+          "absentThrows": true
+        },
+        {
+          "name": "CoverageRestLineLength",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": false,
+          "absentThrows": true,
+          "nullable": false
+        },
+        {
+          "name": "CoverageRestLineDotLengthPerThickness",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": false,
+          "absentThrows": true,
+          "nullable": false
         },
         {
           "name": "CoverageArcFill",

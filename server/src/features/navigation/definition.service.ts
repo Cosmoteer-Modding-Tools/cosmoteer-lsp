@@ -1,15 +1,12 @@
 import { CancellationToken, Location, Position } from 'vscode-languageserver';
-import { AbstractNode, AbstractNodeDocument, ValueNode } from '../../core/ast/ast';
+import { AbstractNodeDocument, ValueNode } from '../../core/ast/ast';
 import { findNodeAtPosition } from '../../utils/ast.utils';
 import { warmInheritedClasses } from '../completion/inheritance-resolution';
-import { FileTree, isFile } from '../../workspace/cosmoteer-workspace.service';
-import { navigate } from '../../semantics/navigate-reference';
 import { isAssetValue, resolveAssetPath } from './asset-resolver';
-import { filePathToUri, stripReferenceWhitespace } from '../../document/reference-path';
+import { filePathToUri } from '../../document/reference-path';
 import { isReferenceValue, resolveReferenceLocation, ZERO_RANGE } from './reference-target';
 import { dedupeLocations, definitionLocationOf } from '../../document/reference-location';
-import { splitVirtualColon } from '../../utils/reference.utils';
-import { resolveVirtualInheritanceTargets } from '../../semantics/inheritor-resolver';
+import { resolveVirtualInheritanceTargets, virtualBaseOf } from '../../semantics/inheritor-resolver';
 import { resolveSchemaSiblingReference } from './schema-reference.navigation';
 import { componentDeclarationAt } from './rename-component-id';
 import { resolvePartComponentDeclaration } from '../diagnostics/validator.schema-sibling';
@@ -45,7 +42,7 @@ export const getDefinition = async (
         // A virtual-inheritance path (`&Base/:/Member`) also points at the concrete overrides, the
         // "most-derived version" the `:` selects at runtime. Offer those alongside the base's own
         // (default) declaration `primary` lands on, so go-to-definition reaches the deriving values.
-        const overrides = await resolveVirtualOverrides(document, node, cancellationToken).catch(() => []);
+        const overrides = await resolveVirtualOverrides(node, cancellationToken).catch(() => []);
         if (overrides.length) {
             return dedupeLocations(primary ? [primary, ...overrides] : overrides);
         }
@@ -100,24 +97,13 @@ export const getDefinition = async (
  * points at: the member's value in every group that inherits the base. Empty for a reference with no
  * `:` segment, an unresolvable base, or a base no file inherits yet (a template awaiting a deriver).
  *
- * @param document the document the reference lives in, the base-resolution origin.
  * @param node the reference value node under the cursor.
  * @param cancellationToken cancels the base resolution and the inheritor search.
  * @returns the override locations, or an empty array.
  */
-const resolveVirtualOverrides = async (
-    document: AbstractNodeDocument,
-    node: ValueNode,
-    cancellationToken: CancellationToken
-): Promise<Location[]> => {
-    const split = splitVirtualColon(stripReferenceWhitespace(String(node.valueType.value)));
-    if (!split) return [];
-    // Resolve the node before the `:` to the base it names. A bare `&:/…` (the group's own
-    // most-derived self) has no explicit base path, so fall back to the reference's own scope.
-    const base = split.basePath.replace(/^&$/, '')
-        ? await navigate(split.basePath, node, document.uri, cancellationToken).catch(() => null)
-        : (node.parent ?? null);
-    if (!base || isFile(base as FileTree)) return [];
-    const targets = await resolveVirtualInheritanceTargets(base as AbstractNode, split.memberPath, cancellationToken);
+const resolveVirtualOverrides = async (node: ValueNode, cancellationToken: CancellationToken): Promise<Location[]> => {
+    const virtual = await virtualBaseOf(node, cancellationToken);
+    if (!virtual) return [];
+    const targets = await resolveVirtualInheritanceTargets(virtual.base, virtual.memberPath, cancellationToken);
     return targets.map(definitionLocationOf);
 };

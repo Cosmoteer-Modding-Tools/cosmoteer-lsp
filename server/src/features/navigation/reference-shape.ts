@@ -123,10 +123,8 @@ export const isRuntimeRootReference = (node: ValueNode): boolean => {
 
 /**
  * Whether a reference path contains a `:` virtual-inheritance segment (`&:/v_A`, `&../:/v_Group1`).
- * `:` jumps to the most-derived inheritor of the node, which is unknowable statically (the
- * referenced member may exist only in a child), so such references are never validated.
- *
- * Refused for the same reason as {@link isRuntimeRootReference}.
+ * `:` jumps to the most-derived inheritor of the node, so the referenced member may exist only in a
+ * child. Such references skip the ordinary check and are judged against the inheritors instead.
  *
  * @param value the reference text.
  * @returns true when one of the path's segments is a `:`.

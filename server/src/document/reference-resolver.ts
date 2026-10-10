@@ -183,8 +183,8 @@ export const stepIntoNode = (
         // `:` selects the most-derived inheritor of the current node (virtual inheritance). Which
         // inheritor that is depends on the instantiation context, so statically we approximate with
         // the game's no-inheritor behavior, the node itself, which resolves the parent's own
-        // (default) member. The reference validator does not flag `:` paths, since the member may
-        // legitimately exist only in an inheritor.
+        // (default) member. The reference validator judges `:` paths against the inheritors instead,
+        // since the member may legitimately exist only in an inheritor.
         if (isGroupNode(node) || isListNode(node) || isDocumentNode(node)) return node;
         // A value node has no members of its own, so it resolves against its owning group and
         // `Sum = (&:/v_A)`-style refs land on the group the value lives in.

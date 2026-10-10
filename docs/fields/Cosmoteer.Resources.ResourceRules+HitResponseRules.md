@@ -10,16 +10,6 @@ Makes stored resources react when their part is hit, playing effects and optiona
 > For guides, worked examples and the bigger picture, see the
 > [Cosmoteer modding wiki](https://cosmoteer.wiki.gg/wiki/Modding).
 
-## HitEffects
-`MultiHitEffectRules` · optional
-
-The hit effects to perform, if any.
-
-## MediaEffects
-`MultiMediaEffectRules` · optional
-
-The media effects to play, if any.
-
 ## Chance
 `float` · optional
 
@@ -44,8 +34,3 @@ Per-damage-type response overrides.
 `bool` · optional
 
 Whether triggering a response requires a specified HitArea that includes the resource's location.
-
-## RemoveOnResponse
-`bool` · optional · default `true`
-
-Whether the responding resources should be removed on a successful response.

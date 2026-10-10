@@ -114,4 +114,3 @@ Whether holding the `AppendSelection` modifier, Shift by default, adds the click
 `bool` · optional · default `true`
 
 Whether the targeter may pick a target on the same ship it lives on. With this false, such targets are skipped when validating the click, so the button also stops showing a tentative highlight over them. The targeting part can never target itself either way.
-

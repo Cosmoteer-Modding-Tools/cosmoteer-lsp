@@ -19,3 +19,8 @@ Maximum range, in tiles, the weapon may fire at. The weapon's real range is clam
 `Arc` · optional
 
 The allowed firing arc as `[nearEdge, width]`, relative to the turret's mount direction, so `[-45d, 90d]` covers 45 degrees to either side of it. The result is intersected with the turret's [[Cosmoteer.Ships.Parts.Weapons.TurretWeaponRules.ValidArc]] (or [[Cosmoteer.Ships.Parts.Weapons.TurretWeaponRules.FiringArc]]). A width of `0d` aims the turret along a single direction. Only turrets use it.
+
+## RestPosition
+`float` · optional
+
+Where within the coverage arc a turret rests when it has nothing to aim at, from 0 (the arc's near edge, which is the left edge from the turret's point of view) to 1 (the arc's far/right edge).

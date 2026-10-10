@@ -292,6 +292,16 @@ const OVERLAY_FIELD_ADDITIONS: Record<string, SchemaField[]> = {
             optional: true,
         },
     ],
+    // The same single-entry shorthand as `ProxyRules`: without a `StatusTriggers` list the constructor
+    // reads one `StatusTriggerData` from the response's own node, which is how vanilla writes it.
+    'Cosmoteer.Resources.ResourceRules/StatusResponseRules': [
+        {
+            name: 'StatusType',
+            valueType: { kind: 'reference', target: 'Cosmoteer.Ships.Statuses.StatusType', targetName: 'StatusType' },
+            optional: true,
+        },
+        { name: 'ValueRange', valueType: { kind: 'range', element: { kind: 'float' } }, optional: true },
+    ],
     // A bullet emitter reads the resources it consumes and the storage they come from.
     'Cosmoteer.Ships.Parts.Weapons.BulletEmitterRules': [
         { name: 'ResourcesUsed', valueType: MODIFIABLE_FLOAT, optional: true },

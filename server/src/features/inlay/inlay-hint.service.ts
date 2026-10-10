@@ -13,13 +13,14 @@ import {
     ValueNode,
 } from '../../core/ast/ast';
 import {
-    evaluateExpressionGroup,
+    evaluateVirtualVariants,
     evaluateNumericValue,
     resolveReferencedBaseValue,
 } from '../../semantics/value-evaluator';
 import { formatWithUnit, unitForValue } from '../value-units';
 import { globalSettings } from '../../settings';
 import { navigate } from '../../semantics/navigate-reference';
+import { inheritorLabel } from '../../semantics/inheritor-resolver';
 import { getStartOfAstNode } from '../../utils/ast.utils';
 import { describeTargetInline } from '../hover/target-preview';
 import { FileWithPath } from '../../workspace/cosmoteer-workspace.service';
@@ -148,7 +149,24 @@ const emitHint = async (
     if (!computes) return;
     const end = endPositionOf(group);
     if (end.line < range.start.line || end.line > range.end.line) return;
-    const value = await evaluateExpressionGroup(group, cancellationToken);
+    const { value, variants } = await evaluateVirtualVariants(group, cancellationToken);
+    // A `:` reference reads its member from whichever inheritor is being built, so one number would
+    // only be right for some of them. Show every distinct result, and which inheritor gets which.
+    if (variants.length) {
+        const unit = await unitForValue(group, cancellationToken).catch(() => undefined);
+        const shown = (number: number | null) => (number === null ? '?' : formatWithUnit(number, unit));
+        const rows = value === null ? [] : [`as written: ${shown(value)}`];
+        for (const variant of variants) rows.push(`${inheritorLabel(variant.inheritor)}: ${shown(variant.value)}`);
+        const distinct = [...new Set([...(value === null ? [] : [value]), ...variants.map((v) => v.value)].map(shown))];
+        hints.push({
+            position: end,
+            label: `= ${distinct.join(' | ')}`,
+            kind: InlayHintKind.Type,
+            paddingLeft: true,
+            tooltip: rows.join('\n'),
+        });
+        return;
+    }
     if (value === null) {
         // A lone reference that resolves to a group instead of a number may still carry the
         // game's ModifiableValue shape (`Arc { BaseValue = 160d }`). Its BaseValue is the

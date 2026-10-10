@@ -138,7 +138,7 @@ The ID of another weapon component on the same part whose player-set coverage th
 ## MatchWeaponCoverageStrictFire
 `bool` · optional
 
-Stops a fixed weapon from firing when its current coverage arc does not include the weapon's forward direction. The effective range drops to 0 in that case, which blocks firing and targeting. A zero-width arc counts as including it when it lies within half of [[Cosmoteer.Ships.ShipRules.MinWeaponCoverageArcTargetWidth]]. Only fixed weapons read it, normally together with [[Cosmoteer.Ships.Parts.Weapons.WeaponRules.MatchWeaponCoverage]] as on the vanilla chaingun.
+Stops a fixed weapon from firing when its current coverage arc does not include the weapon's forward direction. The effective range drops to 0 in that case, which blocks firing and targeting. A zero-width arc counts as including it only when it points exactly forward. Only fixed weapons read it, normally together with [[Cosmoteer.Ships.Parts.Weapons.WeaponRules.MatchWeaponCoverage]] as on the vanilla chaingun.
 
 ## CoverageLine
 `CappedLine` · optional
@@ -229,4 +229,3 @@ Shorthand that registers one emitter as both the [[Cosmoteer.Ships.Parts.Weapons
 `→ PartComponentRules` · optional
 
 Shorthand that adds one more emitter to [[Cosmoteer.Ships.Parts.Weapons.WeaponRules.ResourceCheckEmitters]].
-

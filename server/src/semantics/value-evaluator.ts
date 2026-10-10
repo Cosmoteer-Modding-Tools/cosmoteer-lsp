@@ -17,6 +17,8 @@ import { navigate } from './navigate-reference';
 import { FileWithPath, isFile } from '../workspace/cosmoteer-workspace.service';
 import { CONSTANTS, mathFunction } from './math-function-registry';
 import { decimalDiv, decimalMinus, decimalMultiply, decimalPlus } from './decimal-arithmetic';
+import { findAllInheritorsOf, virtualBaseOf } from './inheritor-resolver';
+import { definitionLocationOf, locationKey } from '../document/reference-location';
 
 /**
  * One `&reference` the evaluation replaced with a number. This is the substitution step the game's
@@ -89,6 +91,23 @@ interface EvalContext {
      * snapping the argument first would read it as 2.
      */
     argumentDepth?: number;
+    /** Virtual-inheritance binding, undefined on every path but {@link evaluateVirtualVariants}. */
+    virtual?: VirtualSlot;
+}
+
+/**
+ * The `:` side of an evaluation. Unbound, it collects the bases the `:` references select from. Bound,
+ * it makes a `:` reference into `bound.key`'s base read the member from `bound.inheritor` instead.
+ */
+interface VirtualSlot {
+    bases: AbstractNode[];
+    bound?: { key: string; inheritor: AbstractNode };
+}
+
+/** What a value works out to when the instance being read is one particular inheritor of its `:` base. */
+export interface VirtualVariant {
+    inheritor: AbstractNode;
+    value: number | null;
 }
 
 // The sigil and suffix patterns of the unquoted-value path, hoisted out of the body below, which
@@ -134,7 +153,7 @@ export const evaluateNumericValue = async (node: AbstractNode, token: Cancellati
     // The explicit `trace: undefined` is deliberate: this runs on the whole-workspace diagnostics
     // pass, and giving it a different object shape than the traced entry point would make every
     // context read inside the evaluation polymorphic. Same for the `zero` slot below.
-    return evaluate(node, { token, visited: new Set(), trace: undefined, zero: undefined });
+    return evaluate(node, { token, visited: new Set(), trace: undefined, zero: undefined, virtual: undefined });
 };
 
 /**
@@ -153,7 +172,7 @@ export const evaluateNumericValueTraced = async (
     token: CancellationToken
 ): Promise<TracedValue> => {
     const trace: TraceSink = { entries: [], seen: new Set(), depth: 0, omitted: 0 };
-    const value = await evaluate(node, { token, visited: new Set(), trace, zero: undefined });
+    const value = await evaluate(node, { token, visited: new Set(), trace, zero: undefined, virtual: undefined });
     if (value === null) return { value: null, substitutions: [], omitted: 0 };
     return { value, substitutions: trace.entries, omitted: trace.omitted };
 };
@@ -168,7 +187,54 @@ export const evaluateExpressionGroup = async (
     token: CancellationToken
 ): Promise<number | null> => {
     // Same explicit `trace: undefined` as above, for the same shape reason.
-    return evaluateSequence(parts, { token, visited: new Set(), trace: undefined, zero: undefined });
+    return evaluateSequence(parts, {
+        token,
+        visited: new Set(),
+        trace: undefined,
+        zero: undefined,
+        virtual: undefined,
+    });
+};
+
+/**
+ * Evaluate an expression segment once as written and once per inheritor of the base its `:` references
+ * select from. A static read of `&:/Member` lands on the base's own member, while the game reads the
+ * member of whichever inheritor is being instantiated, so each inheritor can work out to its own number.
+ *
+ * @param parts the segment, as {@link evaluateExpressionGroup} takes it.
+ * @param token cancellation token of the surrounding request.
+ * @returns the value as written, and one variant per inheritor (empty when there is no `:` reference).
+ */
+export const evaluateVirtualVariants = async (
+    parts: AbstractNode[],
+    token: CancellationToken
+): Promise<{ value: number | null; variants: VirtualVariant[] }> => {
+    const slot: VirtualSlot = { bases: [] };
+    const value = await evaluateSequence(parts, {
+        token,
+        visited: new Set(),
+        trace: undefined,
+        zero: undefined,
+        virtual: slot,
+    });
+    // ponytail: only the first `:` base varies, a value mixing two unrelated bases reads the second as written.
+    const base = slot.bases[0];
+    if (!base) return { value, variants: [] };
+    const key = locationKey(definitionLocationOf(base));
+    const variants: VirtualVariant[] = [];
+    for (const inheritor of await findAllInheritorsOf(base, token)) {
+        if (token.isCancellationRequested) break;
+        const bound: VirtualSlot = { bases: [], bound: { key, inheritor } };
+        const variant = await evaluateSequence(parts, {
+            token,
+            visited: new Set(),
+            trace: undefined,
+            zero: undefined,
+            virtual: bound,
+        });
+        variants.push({ inheritor, value: variant });
+    }
+    return { value, variants };
 };
 
 /**
@@ -188,7 +254,7 @@ export const evaluateNumericValueChecked = async (
     token: CancellationToken
 ): Promise<{ value: number | null; dividedByZero: boolean }> => {
     const zero: ZeroDivisionSink = { hit: false, depth: 0 };
-    const value = await evaluate(node, { token, visited: new Set(), trace: undefined, zero });
+    const value = await evaluate(node, { token, visited: new Set(), trace: undefined, zero, virtual: undefined });
     return { value, dividedByZero: zero.hit };
 };
 
@@ -384,12 +450,11 @@ const evaluateValue = async (node: ValueNode, context: EvalContext): Promise<num
     if (sink) sink.depth++;
     if (context.zero) context.zero.depth++;
     try {
-        const target = await navigate(
-            String(node.valueType.value),
-            node,
-            getStartOfAstNode(node).uri,
-            context.token
-        ).catch(() => null);
+        const target =
+            (await virtualTarget(node, context)) ??
+            (await navigate(String(node.valueType.value), node, getStartOfAstNode(node).uri, context.token).catch(
+                () => null
+            ));
         // Same verdict as before the trace existed: an unresolved path and a whole-file target both
         // leave nothing numeric to evaluate, so the value is null.
         const resolved = !target || isFile(target as FileWithPath) ? null : (target as AbstractNode);
@@ -401,6 +466,35 @@ const evaluateValue = async (node: ValueNode, context: EvalContext): Promise<num
         if (sink) sink.depth--;
         if (context.zero) context.zero.depth--;
     }
+};
+
+/**
+ * The target of a `:` reference under a virtual binding: the member read from the bound inheritor when
+ * the reference selects from the bound base. Unbound, the base is only recorded.
+ *
+ * @param node the reference value.
+ * @param context the running evaluation.
+ * @returns the bound target, or undefined to resolve the reference the ordinary way.
+ */
+const virtualTarget = async (
+    node: ValueNode,
+    context: EvalContext
+): Promise<AbstractNode | FileWithPath | undefined> => {
+    const slot = context.virtual;
+    if (!slot || !String(node.valueType.value).includes(':')) return undefined;
+    const virtual = await virtualBaseOf(node, context.token);
+    if (!virtual) return undefined;
+    const key = locationKey(definitionLocationOf(virtual.base));
+    if (!slot.bound) {
+        if (!slot.bases.some((base) => locationKey(definitionLocationOf(base)) === key)) slot.bases.push(virtual.base);
+        return undefined;
+    }
+    if (slot.bound.key !== key) return undefined;
+    const inheritor = slot.bound.inheritor;
+    const target = await navigate(virtual.memberPath, inheritor, getStartOfAstNode(inheritor).uri, context.token).catch(
+        () => null
+    );
+    return (target as AbstractNode | FileWithPath | null) ?? undefined;
 };
 
 /**

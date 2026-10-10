@@ -288,10 +288,10 @@
   "FlySprite": 1
  },
  "Cosmoteer.Data.BuiltinShipRules": {
-  "File": 1262,
-  "Tier": 935,
-  "Difficulty": 774,
-  "Tags": 538,
+  "File": 1263,
+  "Tier": 936,
+  "Difficulty": 775,
+  "Tags": 539,
   "StasisIcon": 64,
   "SpawnTier": 30,
   "OtherIDs": 23,
@@ -1204,26 +1204,20 @@
   "DeathHitEffects": 6,
   "ReturnToStorage": 6,
   "SellPrice": 6,
-  "HitResponse": 5,
+  "StatusResponse": 5,
   "IconButtonVerticalOffset": 1,
   "LoseExcessOnDelivery": 1,
   "NestedNuggetSprites": 1,
   "QuantityDisplayDivisor": 1
  },
- "Cosmoteer.Resources.ResourceRules/HitResponseRules": {
-  "Chance": 5,
-  "ChancePerNDamage": 5,
-  "DamageTypeOverrides": 5,
-  "HitEffects": 5,
-  "MediaEffects": 5,
-  "RequireDirectHit": 5
- },
- "Cosmoteer.Resources.ResourceRules/HitResponseRules/DamageTypeOverrideData": {
-  "ChancePerNDamage": 5,
-  "NDamage": 5
- },
  "Cosmoteer.Resources.ResourceRules/NuggetDropRates": {
   "StorageDestroyed": 1
+ },
+ "Cosmoteer.Resources.ResourceRules/StatusResponseRules": {
+  "HitEffects": 5,
+  "MediaEffects": 5,
+  "StatusType": 5,
+  "ValueRange": 5
  },
  "Cosmoteer.Ships.AI.CommsModules.AICrewProviderModuleRules": {
   "CrewForHireFraction": 2,
@@ -1412,8 +1406,8 @@
   "RightWingAngle": 2
  },
  "Cosmoteer.Ships.ModifiableValue": {
-  "BaseValue": 379,
-  "EffectScaleExponent": 158,
+  "BaseValue": 380,
+  "EffectScaleExponent": 159,
   "Modifiers": 109,
   "BuffType": 78,
   "BuffMode": 75,
@@ -1640,13 +1634,13 @@
   "MediaEffectsRequireShipInView": 1
  },
  "Cosmoteer.Ships.Parts.Effects.PartDeathEffectsRules": {
-  "Location": 127,
+  "Location": 128,
   "MediaEffects": 121,
-  "HitEffects": 24,
-  "FactorHitEffectsWith": 16,
+  "HitEffects": 25,
+  "FactorHitEffectsWith": 17,
   "WhenSalvaged": 16,
-  "IncludeWhenUnderConstruction": 14,
-  "OperationalToggle": 11,
+  "IncludeWhenUnderConstruction": 15,
+  "OperationalToggle": 12,
   "FactorMediaEffectsWith": 3,
   "InvertOperationalToggle": 1
  },
@@ -1754,11 +1748,11 @@
   "ShowInBuildMode": 4
  },
  "Cosmoteer.Ships.Parts.Graphics.PartOpenCloseSpriteRules": {
-  "Layer": 24,
-  "Location": 24,
-  "OperationalToggle": 24,
-  "ClosedDamageLevels": 23,
-  "OpenDamageLevels": 23,
+  "Layer": 25,
+  "Location": 25,
+  "OperationalToggle": 25,
+  "ClosedDamageLevels": 24,
+  "OpenDamageLevels": 24,
   "ChainedTo": 2,
   "InvertOperationalToggle": 2,
   "Rotation": 2,
@@ -1766,12 +1760,12 @@
   "OpenAtlasSprite": 1
  },
  "Cosmoteer.Ships.Parts.Graphics.PartResourceSpritesRules": {
-  "Location": 111,
+  "Location": 115,
   "ResourceStorage": 95,
-  "ResourceLevels": 93,
+  "ResourceLevels": 94,
   "Layer": 92,
-  "RangeHigh": 34,
-  "RangeLow": 34,
+  "RangeHigh": 38,
+  "RangeLow": 38,
   "Rotation": 24,
   "HasZeroResourceSprite": 18,
   "ChainedTo": 6,
@@ -2346,8 +2340,8 @@
   "DropResourcesWhenDestroyed": 16,
   "UITileRect": 16,
   "DelayBeforeReadyToUse": 9,
+  "InitToMaxResources": 8,
   "AnticipateMoreResourcesFrom": 6,
-  "InitToMaxResources": 6,
   "ProvidedValuePerResource": 6,
   "ProvidedValueRange": 6,
   "DropResourcesWhenRemoved": 5,
@@ -2627,6 +2621,7 @@
   "TargetSearchesPerSecond": 3,
   "CanBeGivenExplicitTarget": 2,
   "DefaultDirectControlBinding": 2,
+  "DefaultWeaponCoverage": 2,
   "EstimateFirepowerToggle": 2,
   "IgnoreJunkLOSChecks": 2,
   "IncludeInFirepowerEstimation": 2,
@@ -2639,7 +2634,6 @@
   "AllowShipWideExplicitTargets": 1,
   "AllowShipWideExplicitTargetsToggle": 1,
   "CanSalvage": 1,
-  "DefaultWeaponCoverage": 1,
   "ForceCustomCoverageWidthZero": 1,
   "IgnoreFriendlyShipHighLOSChecks": 1,
   "InstantSearchesAfterTargetLost": 1,
@@ -2665,7 +2659,7 @@
   "Overridable": 2
  },
  "Cosmoteer.Ships.Parts.Weapons.WeaponCoverage": {
-  "Arc": 1,
+  "Arc": 2,
   "Range": 1
  },
  "Cosmoteer.Ships.Rendering.AmbiguousToggledBlendSprites": {
@@ -2673,13 +2667,13 @@
  },
  "Cosmoteer.Ships.Rendering.AtlasSprite": {
   "Size": 3993,
-  "File": 3270,
+  "File": 3264,
   "NormalsFile": 1054,
-  "AnimationInterval": 772,
-  "AnimationFiles": 771,
+  "AnimationInterval": 778,
+  "AnimationFiles": 777,
   "Offset": 432,
-  "AnimationStartTime": 255,
-  "ClampAnimation": 253,
+  "AnimationStartTime": 261,
+  "ClampAnimation": 259,
   "UVRotation": 203,
   "NormalsAnimationFiles": 179,
   "VertexColor": 98,
@@ -3090,8 +3084,8 @@
   "Nuggets": 234,
   "Neutrals": 86,
   "TargetedFriendlies": 15,
+  "Self": 14,
   "ExcludePartCategories": 13,
-  "Self": 13,
   "OnlyPartCategories": 8,
   "TargetedEnemies": 7,
   "junk": 6,
@@ -3210,15 +3204,15 @@
   "HitEffects": 2
  },
  "Cosmoteer.Simulation.HitEffects.GridStatusApplicationEffectRules": {
-  "Filter": 6,
-  "MaxCost": 6,
-  "StatusType": 6,
-  "StatusValue": 6,
-  "EmptyTileCost": 5,
-  "FalloffPadding": 5,
-  "StatusValuePool": 5,
-  "ValueFalloff": 5,
-  "HitPartSourceRectType": 3,
+  "Filter": 7,
+  "MaxCost": 7,
+  "StatusType": 7,
+  "StatusValue": 7,
+  "EmptyTileCost": 6,
+  "FalloffPadding": 6,
+  "StatusValuePool": 6,
+  "ValueFalloff": 6,
+  "HitPartSourceRectType": 4,
   "AllowDiagonals": 2,
   "BlockedByWalls": 1,
   "HitDirectionCostFactor": 1,

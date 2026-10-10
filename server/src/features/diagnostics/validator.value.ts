@@ -1,5 +1,11 @@
 import { CancellationToken } from 'vscode-languageserver';
 import { navigate } from '../../semantics/navigate-reference';
+import {
+    findAllInheritorsOf,
+    findInheritorsOf,
+    inheritorLabel,
+    virtualBaseOf,
+} from '../../semantics/inheritor-resolver';
 import { resolveAssetPath, suggestAssetFilename } from '../navigation/asset-resolver';
 import { suggestReferenceName } from '../navigation/reference-suggestion';
 import { aliasChainCycles } from '../navigation/explain-reference/reference-trace';
@@ -388,6 +394,12 @@ const checkReference = async (
                 ),
             };
         } else if (
+            hasVirtualInheritanceSegment(node.valueType.value) &&
+            !isActionTargetValueNode(node) &&
+            !ignorePath(node.valueType.value)
+        ) {
+            return await checkVirtualReference(node, cancellationToken);
+        } else if (
             // Action targets resolve against the game root (handled by the mod-action
             // validator), so the generic check skips them. This holds wherever an action
             // lives: a mod.rules manifest or an included fragment file (launcher.rules) whose
@@ -449,6 +461,42 @@ const checkReference = async (
                 };
             }
         }
+    }
+    return undefined;
+};
+
+/**
+ * Judges a `:` reference. The game reads its member from the most-derived inheritor of the base
+ * (`OTNode.FindAtPath` follows `OTContext.GetInheritor`), falling back to the base's own member through
+ * ordinary inheritance. With no member in the base, an inheritor that does not set it fails to load
+ * (`OTNavigateException: Unable to find final target`). Only inheritors nothing derives from are judged,
+ * since a middle level can be a template its own inheritors complete.
+ *
+ * @param node the reference value.
+ * @param cancellationToken cancels the base resolution and the inheritor search.
+ * @returns the finding for the first inheritor missing the member, or undefined.
+ */
+const checkVirtualReference = async (
+    node: ValueNode,
+    cancellationToken: CancellationToken
+): Promise<ValidationError | undefined> => {
+    const virtual = await virtualBaseOf(node, cancellationToken);
+    if (!virtual?.memberPath || hasVirtualInheritanceSegment(virtual.memberPath)) return undefined;
+    const lacks = async (scope: AbstractNode) =>
+        !(await navigate(virtual.memberPath, scope, getStartOfAstNode(scope).uri, cancellationToken).catch(() => null));
+    if (!(await lacks(virtual.base))) return undefined;
+    for (const inheritor of await findAllInheritorsOf(virtual.base, cancellationToken)) {
+        if (!(await lacks(inheritor)) || (await findInheritorsOf(inheritor, cancellationToken)).length) continue;
+        return {
+            message: l10n.t('Reference name is not known'),
+            node: node,
+            severity: 'warning',
+            additionalInfo: l10n.t(
+                '"{0}" sets no "{1}" and neither does the group it inherits it from, so reading "{0}" fails to load. Give the base a default or set it in "{0}".',
+                inheritorLabel(inheritor),
+                virtual.memberPath
+            ),
+        };
     }
     return undefined;
 };

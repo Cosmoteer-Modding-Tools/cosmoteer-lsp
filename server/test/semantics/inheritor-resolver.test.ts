@@ -7,9 +7,16 @@ import { CancellationToken } from 'vscode-languageserver';
 import { lexer } from '../../src/core/lexer/lexer';
 import { parser } from '../../src/core/parser/parser';
 import { TemplateBaseIndex } from '../../src/workspace/template-base.index';
-import { findInheritorsOf, resolveVirtualInheritanceTargets } from '../../src/semantics/inheritor-resolver';
+import {
+    findInheritorsOf,
+    inheritorLabel,
+    resolveVirtualInheritanceTargets,
+} from '../../src/semantics/inheritor-resolver';
+import { evaluateVirtualVariants } from '../../src/semantics/value-evaluator';
+import { ValidationForValue } from '../../src/features/diagnostics/validator.value';
+import { walkAst } from '../helpers';
 import { splitVirtualColon } from '../../src/utils/reference.utils';
-import { AbstractNode, isGroupNode, isListNode, isValueNode } from '../../src/core/ast/ast';
+import { AbstractNode, isGroupNode, isListNode, isValueNode, ValueNode } from '../../src/core/ast/ast';
 import { clearFsCaches } from '../../src/workspace/fs-cache';
 
 const token = CancellationToken.None;
@@ -51,7 +58,20 @@ describe('splitVirtualColon', () => {
     });
 
     it('does not crash or false-match on degenerate and adversarial inputs', () => {
-        for (const input of ['', ':', '::', '/', '&', '&:', ':/', '///', '&/:/', '&<C:/x/y.rules>/M', '::::/', '&a/:/:/b']) {
+        for (const input of [
+            '',
+            ':',
+            '::',
+            '/',
+            '&',
+            '&:',
+            ':/',
+            '///',
+            '&/:/',
+            '&<C:/x/y.rules>/M',
+            '::::/',
+            '&a/:/:/b',
+        ]) {
             expect(() => splitVirtualColon(input)).not.toThrow();
         }
         // A bare `:/M` (colon at the very start, not after `&` or `/`) is not our segment.
@@ -185,6 +205,86 @@ describe('virtual-inheritance inheritor resolution', () => {
         const root = await buildWorkspace({ 'missions.rules': MISSIONS });
         const base = baseGroupOf(root, 'missions.rules', MISSIONS);
         expect(await findInheritorsOf(base, CancellationToken.Cancelled)).toEqual([]);
-        expect(await resolveVirtualInheritanceTargets(base, 'v_DiscoverCountFraction', CancellationToken.Cancelled)).toEqual([]);
+        expect(
+            await resolveVirtualInheritanceTargets(base, 'v_DiscoverCountFraction', CancellationToken.Cancelled)
+        ).toEqual([]);
+    });
+});
+
+// Expected values come from running the game's own ObjectTextSerializer on these shapes (HalflingCore.dll,
+// 2026-10-05): `:` binds to the most-derived inheritor being read, and a plain `&FieldB` never does.
+const THINGS = [
+    'BaseThing',
+    '{',
+    '\tFieldB = 300',
+    '\tFieldA = &:/FieldB',
+    '\tInner { Y = &../:/FieldB }',
+    '}',
+    'ThingWithValue : BaseThing { FieldB = 500 }',
+    'ThingWithout : BaseThing { }',
+    'Mid : BaseThing { }',
+    'Leaf : Mid { FieldB = 700 }',
+    '',
+].join('\n');
+
+describe('virtual-inheritance values and validation', () => {
+    let dir: string | undefined;
+
+    afterEach(() => {
+        TemplateBaseIndex.instance.reset();
+        clearFsCaches();
+        if (dir) rmSync(dir, { recursive: true, force: true });
+        dir = undefined;
+    });
+
+    const referenceIn = async (content: string, needle: string): Promise<ValueNode> => {
+        dir = mkdtempSync(join(tmpdir(), 'virtual-'));
+        writeFileSync(join(dir, 'things.rules'), content);
+        TemplateBaseIndex.instance.reset();
+        clearFsCaches();
+        await TemplateBaseIndex.instance.baseNames([dir], token);
+        const doc = parser(lexer(content), pathToFileURL(join(dir, 'things.rules')).href).value;
+        for (const node of walkAst(doc)) {
+            if (isValueNode(node) && String(node.valueType.value) === needle) return node;
+        }
+        throw new Error(`no reference ${needle}`);
+    };
+
+    const variantsOf = async (node: ValueNode) => {
+        const { value, variants } = await evaluateVirtualVariants([node], token);
+        return { value, byInheritor: Object.fromEntries(variants.map((v) => [inheritorLabel(v.inheritor), v.value])) };
+    };
+
+    it('reads the member from each inheritor at any depth, falling back to the base default', async () => {
+        const result = await variantsOf(await referenceIn(THINGS, '&:/FieldB'));
+        expect(result).toEqual({
+            value: 300,
+            byInheritor: { ThingWithValue: 500, ThingWithout: 300, Mid: 300, Leaf: 700 },
+        });
+    });
+
+    it('binds `..` then `:` to the outer group from a nested one', async () => {
+        const result = await variantsOf(await referenceIn(THINGS, '&../:/FieldB'));
+        expect(result.byInheritor.ThingWithValue).toBe(500);
+    });
+
+    it('has no variants for a reference without `:`', async () => {
+        const node = await referenceIn(THINGS.replace('&:/FieldB', '&FieldB'), '&FieldB');
+        expect((await evaluateVirtualVariants([node], token)).variants).toEqual([]);
+    });
+
+    it('flags an inheritor that neither sets the member nor gets a default from the base', async () => {
+        const node = await referenceIn(THINGS.replace('\tFieldB = 300\n', ''), '&:/FieldB');
+        const finding = await ValidationForValue.callback(node, token);
+        expect(finding && 'additionalInfo' in finding ? finding.additionalInfo : finding).toContain('ThingWithout');
+    });
+
+    it('accepts the member when the base gives it a default', async () => {
+        expect(await ValidationForValue.callback(await referenceIn(THINGS, '&:/FieldB'), token)).toBeUndefined();
+    });
+
+    it('accepts a middle level that its own inheritors complete', async () => {
+        const content = THINGS.replace('\tFieldB = 300\n', '').replace('ThingWithout : BaseThing { }\n', '');
+        expect(await ValidationForValue.callback(await referenceIn(content, '&:/FieldB'), token)).toBeUndefined();
     });
 });
