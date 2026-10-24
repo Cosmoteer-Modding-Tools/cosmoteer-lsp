@@ -251,6 +251,75 @@ export interface RectLayerData extends GridLayerBase {
     readonly isRef?: boolean;
 }
 
+/** An inclusive integer range a criteria edge may take, `Left = 1` being `{ min: 1, max: 1 }`. */
+export interface IntRangeData {
+    readonly min: number;
+    readonly max: number;
+}
+
+/**
+ * One `RelativePartCriteria`: where the matched part's footprint edges may sit, in this part's
+ * unrotated and unflipped rules space, plus the non-spatial filters as text.
+ */
+export interface CriteriaEntryData {
+    readonly left: IntRangeData | null;
+    readonly right: IntRangeData | null;
+    readonly top: IntRangeData | null;
+    readonly bottom: IntRangeData | null;
+    readonly rot: number | null;
+    readonly flipX: boolean | null;
+    /** The id and category filters, `!` prefixed for exclusions. */
+    readonly filters: readonly string[];
+    readonly origin: AstProvenance;
+}
+
+/**
+ * The neighbor criteria of a buff provider (`Criteria`, `Criterias`) or a proxy (`PartCriteria`).
+ * Read-only: it shows where the matched part has to sit, and where it has to sit once this part is
+ * flipped.
+ */
+export interface CriteriaLayerData extends GridLayerBase {
+    readonly kind: 'criteria';
+    readonly entries: readonly CriteriaEntryData[];
+}
+
+/** A weapon's `DefaultWeaponCoverage` as written (locally or inherited), each member null when unset. */
+export interface WeaponCoverageData {
+    readonly range: number | null;
+    /** The arc's near edge in degrees, in the mount frame (0 is the weapon's mount direction). */
+    readonly arcNearDeg: number | null;
+    /** The arc's width in degrees, measured clockwise from the near edge. */
+    readonly arcWidthDeg: number | null;
+    readonly restPosition: number | null;
+}
+
+/**
+ * One weapon's coverage: its physical limits and the default coverage the player starts with. Angles
+ * follow the editor's rotation convention, 0 along +X and positive clockwise on screen.
+ */
+export interface CoverageLayerData extends GridLayerBase {
+    readonly kind: 'coverage';
+    /** The weapon component's name, which `setCoverage` names. */
+    readonly component: string;
+    /** A turret rotates within its physical arc, a fixed weapon fires along its mount direction only. */
+    readonly weaponKind: 'turret' | 'fixed';
+    /** The weapon's resolved location (chain transform applied), or null when unreadable. */
+    readonly center: GridPoint | null;
+    /** The mount direction in degrees: the chain parent's rotation plus the weapon's own `Rotation`. */
+    readonly mountDeg: number;
+    /** The turret's physical arc width in degrees (`ValidArc`, else `FiringArc`), null for a fixed weapon or when unreadable. */
+    readonly physicalArcDeg: number | null;
+    /** The physical range (`ValidRange`, else the emitter's range), null when unreadable. */
+    readonly physicalRange: number | null;
+    readonly coverage: WeaponCoverageData;
+    readonly allowCoverageEditing: boolean;
+    readonly allowRangeEditing: boolean;
+    readonly allowArcEditing: boolean;
+    readonly forceWidthZero: boolean;
+    /** The weapon whose player coverage this one follows (`MatchWeaponCoverage`), or null. */
+    readonly matchWeaponCoverage: string | null;
+}
+
 /**
  * The discriminated layer union the webview dispatches on. New per-cell field kinds extend this
  * union (and the webview gains a renderer/interaction for the new `kind`), nothing else changes.
@@ -269,6 +338,8 @@ export type GridLayerData =
     | ComponentPointsLayerData
     | CellPairListLayerData
     | EdgeRegionLayerData
+    | CriteriaLayerData
+    | CoverageLayerData
     | RectLayerData;
 
 /** A boolean rotation field's effective value with its provenance (null when unset everywhere). */
@@ -394,7 +465,17 @@ export type GridMutation =
     /** Sets a component's `Rotation` in degrees (written with the `d` suffix), null removes it. */
     | { readonly op: 'setComponentRotation'; readonly component: string; readonly degrees: number | null }
     /** Sets a part-root flags field (`AllowedContiguity`), null removes the local assignment. */
-    | { readonly op: 'setFlags'; readonly field: string; readonly values: readonly string[] | null };
+    | { readonly op: 'setFlags'; readonly field: string; readonly values: readonly string[] | null }
+    /**
+     * Sets one member of a weapon's `DefaultWeaponCoverage`. `Arc` takes the near edge and width in
+     * degrees, the others a number. Null removes the member.
+     */
+    | {
+          readonly op: 'setCoverage';
+          readonly component: string;
+          readonly field: 'Range' | 'Arc' | 'RestPosition';
+          readonly value: number | { readonly nearDeg: number; readonly widthDeg: number } | null;
+      };
 
 /** The parameters of `cosmoteer/partGridEdit`. */
 export interface PartGridEditParams {

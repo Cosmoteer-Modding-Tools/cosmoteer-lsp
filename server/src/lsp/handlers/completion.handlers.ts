@@ -57,6 +57,7 @@ import { ensureFragmentRooting } from '../fragment-rooting';
 import { ensureParserResult, shaderIncludeTextFor } from '../open-documents';
 import { scopedToShipLayers } from '../ship-layers';
 import { searchFolderUris } from '../workspace-folders';
+import { scriptCompletionsAt } from '../../features/scripting/script-assist';
 
 /** Everything a completion branch reads: the request, the parse, and the line the cursor landed on. */
 interface CompletionContext {
@@ -497,6 +498,14 @@ const handleCompletion = async (
     // Incomplete for the same reason as the empty case in finishCompletionList: the document
     // may simply not be parsed yet, and the client must ask again rather than cache nothing.
     if (!parserResult) return { isIncomplete: true, items: [] };
+    // Inside a music or codex script the vocabulary is the script language's, not the schema's.
+    if (openDocument) {
+        const offset = openDocument.offsetAt(textDocumentPosition.position);
+        const script = await scriptCompletionsAt(parserResult, openDocument, offset, cancellationToken).catch(
+            () => undefined
+        );
+        if (script) return { isIncomplete: false, items: script };
+    }
     return schemaCompletions({
         textDocumentPosition,
         parserResult,

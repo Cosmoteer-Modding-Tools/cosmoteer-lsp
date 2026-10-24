@@ -44,7 +44,15 @@ export type ValueType =
     | { kind: 'tuple'; elements: ValueType[] }
     | { kind: 'constructed'; type: string; params: Array<{ name: string; valueType: ValueType }> }
     | { kind: 'asset'; assetKind: string }
-    | { kind: 'code'; lang: string }
+    | {
+          kind: 'code';
+          /** `script` for the game's own expression language, `python` for the pre-0.30.5 fields. */
+          lang: string;
+          /** For a script: the FullName of the context type its variables come from. */
+          context?: string;
+          /** For a script: the type key it must produce, `System.Void` for an action. */
+          returns?: string;
+      }
     | { kind: 'opaque'; type: string; reason?: string }
     | { kind: 'generic'; type: string; args: ValueType[] };
 
@@ -186,6 +194,43 @@ export interface SchemaRegistry {
     description?: string;
 }
 
+/** One script variable, function, property or method. Types are keys into {@link ScriptingSurface.typeInfo}. */
+export interface ScriptMember {
+    name: string;
+    /** On a context: whether the name is read as a value or called. */
+    kind?: 'variable' | 'function';
+    /** A variable's or property's type. */
+    type?: string;
+    /** A function's or method's result. */
+    returns?: string;
+    params?: Array<{ name: string; type: string; optional?: true }>;
+    doc?: string;
+}
+
+/** A type a script can meet. */
+export interface ScriptTypeInfo {
+    /** The name the game's messages use, with a `?` for a nullable value. */
+    name: string;
+    valueType: boolean;
+    /** Whether a script may read its members. */
+    accessible?: true;
+    /** Every class and interface it is assignable to. */
+    bases?: string[];
+    /** The ordering operators (`<`, `<=`, `>`, `>=`) the type declares. */
+    ordering?: string[];
+}
+
+/**
+ * The surface the game's script compiler binds against: a context's variables, an accessible
+ * type's members, and the facts of every type either names. Type keys are FullNames, with a `?`
+ * suffix for a nullable value.
+ */
+export interface ScriptingSurface {
+    contexts: Record<string, { variables: ScriptMember[] }>;
+    types: Record<string, { properties: ScriptMember[]; methods: ScriptMember[]; doc?: string }>;
+    typeInfo: Record<string, ScriptTypeInfo>;
+}
+
 export interface SchemaEnum {
     name: string;
     members: string[];
@@ -211,6 +256,8 @@ export interface SchemaBundle {
      * judged from the bundle alone.
      */
     componentAncestry?: Record<string, number[]>;
+    /** What the rules-script fields can name. Absent in a bundle from before 0.30.5. */
+    scripting?: ScriptingSurface;
     unresolved: { types: Record<string, number>; generics: Record<string, number> };
 }
 

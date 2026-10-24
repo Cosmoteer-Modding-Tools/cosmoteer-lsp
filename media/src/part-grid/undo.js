@@ -10,7 +10,7 @@
 // operation it reverts rather than in the middle of a chain twenty arms long.
 
 import { chainParentTransform, rotateDegrees, rotationKeyOf } from './geometry.js';
-import { numberMemberOf, pointMemberOf } from './layer-kinds.js';
+import { coverageLayerOf, numberMemberOf, pointMemberOf } from './layer-kinds.js';
 
 /**
  * The inverse of each mutation operation, taking the mutation, the payload as it stands before the
@@ -165,6 +165,14 @@ const INVERSE_BUILDERS = {
         const gizmo = data.layers.find((candidate) => candidate.kind === 'componentPoints');
         const entry = gizmo && gizmo.entries.find((candidate) => candidate.component === mutation.component);
         return entry ? { op: 'setComponentRotation', component: mutation.component, degrees: entry.rotationDeg } : null;
+    },
+    setCoverage: (mutation, data) => {
+        const layer = coverageLayerOf(data, mutation.component);
+        if (!layer) return null;
+        const { range, restPosition, arcNearDeg, arcWidthDeg } = layer.coverage;
+        const arc = arcNearDeg === null || arcWidthDeg === null ? null : { nearDeg: arcNearDeg, widthDeg: arcWidthDeg };
+        const value = { Range: range, RestPosition: restPosition, Arc: arc }[mutation.field];
+        return { op: 'setCoverage', component: mutation.component, field: mutation.field, value: value ?? null };
     },
     setFlags: (mutation, data) => ({
         op: 'setFlags',

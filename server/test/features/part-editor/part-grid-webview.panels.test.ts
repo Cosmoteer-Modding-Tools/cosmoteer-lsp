@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import type {
     CellSetLayerData,
+    CriteriaEntryData,
+    CriteriaLayerData,
     GridPoint,
     PartGridData,
     PointLayerData,
@@ -426,5 +428,48 @@ describe('part grid webview legend rows', () => {
         await page.settle();
         expect(page.layerPanel().textContent).toContain('is hidden. Tick its checkbox to edit it.');
         expect(page.layerPanel().classList.contains('hidden-layer')).toBe(true);
+    });
+});
+
+describe('part grid webview criteria panel', () => {
+    const one = (n: number) => ({ min: n, max: n });
+    const criteria = (entries: Array<Partial<CriteriaEntryData>>): CriteriaLayerData => ({
+        ...LAYER_BASE,
+        kind: 'criteria',
+        id: 'Components/provider/Criteria',
+        label: 'Criteria (provider)',
+        fieldName: 'Criteria',
+        entries: entries.map((entry) => ({
+            left: null,
+            right: null,
+            top: null,
+            bottom: null,
+            rot: null,
+            flipX: null,
+            filters: [],
+            origin: LOCAL_ORIGIN,
+            ...entry,
+        })),
+    });
+
+    it('lists single numbers and ranges, and where a corner placement moves when flipped', async () => {
+        await page.render(
+            partGrid([
+                criteria([
+                    { left: one(0), right: one(2), top: one(5), rot: 0, filters: ['railgun_ammo'] },
+                    { left: { min: 0, max: 2 }, right: { min: 2, max: 4 } },
+                ]),
+            ])
+        );
+        const text = page.layerPanel().textContent;
+        expect(text).toContain('Left 0 · Right 2 · Top 5 · Rot 0 · railgun_ammo');
+        expect(text).toContain('When this part is flipped: Left 2 · Right 4');
+        expect(text).toContain('Left 0..2 · Right 2..4');
+        expect(text).toContain('Same spot when this part is flipped.');
+    });
+
+    it('warns when the edges leave no room for a part', async () => {
+        await page.render(partGrid([criteria([{ left: one(1), right: one(1) }])]));
+        expect(page.layerPanel().textContent).toContain('nothing matches');
     });
 });

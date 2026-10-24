@@ -11,9 +11,9 @@ A single track in the state machine.
 > [Cosmoteer modding wiki](https://cosmoteer.wiki.gg/wiki/Modding).
 
 ## CueCondition
-`code (python)` · optional
+`code (script)` · optional
 
-Python expression evaluated against the music parameters that gates whether this state is eligible to be chosen. When it returns false the state is skipped during selection. With no condition the state is always eligible.
+A condition evaluated against the music parameters that gates whether this state is eligible to be chosen. When it is false the state is skipped during selection. With no condition the state is always eligible. It can read `zoom`, `interior`, `paused`, `battle`, `wanted`, `menu` and `first_boot`, and call `CalculateZoomVolume(zoom1, volume1, zoom2, volume2)`. Since 0.30.5 this is a script in the game's own small expression language, no longer Python: names, member access and calls, numbers, strings, `True`, `False`, `None`, arithmetic, comparisons, `and`, `or`, `not`, `is` and `a if b else c`. The game compiles it when the rules load, and a script that does not compile stops the load. A leading `?` from the Python era is ignored.
 
 ## MaxConsecutivePlays
 `int` · optional · default `2147483647`

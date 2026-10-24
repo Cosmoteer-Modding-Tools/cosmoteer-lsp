@@ -64,3 +64,13 @@ Whether crew from outside this grid's ship can pick up resources from it and del
 `enum AccessWarningLevel` · optional · default `Strong` · one of: `None`, `Weak`, `Strong`
 
 The severity of the build-mode warning shown when the part has no crew access path, since crew are needed to move resources in and out of the grid. `Strong` shows the standard no-crew-access warning, `Weak` shows a softer variant, and `None` suppresses the check for this component.
+
+## DoResourceDeathEffects
+`bool` · optional · default `true`
+
+Whether this storage plays its stored resource's [[Cosmoteer.Resources.ResourceRules.DeathHitEffects]] and [[Cosmoteer.Resources.ResourceRules.DeathMediaEffects]] when the part is destroyed or scorched. Their strength scales with the number of full stacks held, the stored amount divided by [[Cosmoteer.Resources.ResourceRules.MaxStackSize]]. Set it to false for a grid whose contents should not explode.
+
+## DoResourceResponseEffects
+`bool` · optional · default `true`
+
+Whether this storage runs its stored resource's [[Cosmoteer.Resources.ResourceRules.HitResponse]] and [[Cosmoteer.Resources.ResourceRules.StatusResponse]] effects while it holds any of the resource. Set it to false for a store that should not react when hit or when a status reaches it.

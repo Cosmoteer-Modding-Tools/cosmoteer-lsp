@@ -883,6 +883,18 @@ class ModSchemaExtractor {
                 targetName: target && 'name' in target ? target.name : '',
             };
         }
+        // A mod's own script field compiles like the game's. Its context is the mod's type, whose
+        // variables the shipped surface does not know, so only the syntax can be judged there.
+        if (
+            sig.fullName === 'Cosmoteer.Scripting.ScriptFunc`2' ||
+            sig.fullName === 'Cosmoteer.Scripting.ScriptAction`1'
+        ) {
+            const key = (index: number): string => {
+                const a = args[index];
+                return a && 'fullName' in a ? a.fullName : 'System.Object';
+            };
+            return { kind: 'code', lang: 'script', context: key(0), returns: args.length > 1 ? key(1) : 'System.Void' };
+        }
         if (name.startsWith('Range`')) return { kind: 'range', element: arg(0) };
         if (name.startsWith('Interpolated`')) return { kind: 'interpolated', element: arg(0) };
         if (name.startsWith('ValueTuple`')) return { kind: 'tuple', elements: args.map((a) => this.mapType(a)) };

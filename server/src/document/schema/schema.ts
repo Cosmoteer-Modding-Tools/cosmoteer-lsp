@@ -5,7 +5,15 @@
  */
 import bundle from './cosmoteer.schema.json';
 import previousRelease from './cosmoteer.schema.previous.json';
-import { SchemaBundle, SchemaEnum, SchemaField, SchemaRegistry, SchemaTypeDef, ValueType } from './schema.types';
+import {
+    SchemaBundle,
+    SchemaEnum,
+    SchemaField,
+    SchemaRegistry,
+    SchemaTypeDef,
+    ScriptingSurface,
+    ValueType,
+} from './schema.types';
 import { applySchemaOverlay } from './schema-overlay';
 import { applyFieldDocs } from './field-docs';
 import { deprecatedDiscriminator, deprecatedField, isAheadOfInstalledGame } from './deprecations';
@@ -319,6 +327,9 @@ export const modWorkshopLink = (fullName: string): { url: string; name?: string 
 
 /** A type definition by C# FullName. */
 export const typeDef = (fullName: string): SchemaTypeDef | undefined => schema.types[fullName];
+
+/** What the rules-script fields can name, or undefined for a game from before 0.30.5. */
+export const scriptingSurface = (): ScriptingSurface | undefined => schema.scripting;
 
 /** An enum (its members) by C# FullName. */
 export const enumDef = (fullName: string): SchemaEnum | undefined => schema.enums[fullName];
@@ -642,6 +653,22 @@ export const mediaEffectFieldNames = (): ReadonlySet<string> => fieldNamesTyped(
 
 /** The lower-cased name of every field in the schema that holds a wait. */
 export const waitFieldNames = (): ReadonlySet<string> => fieldNamesTyped('wait', isWaitType);
+
+/** A field holding a rules script, compiled by the game's own expression language (0.30.5 and later). */
+export type ScriptValueType = Extract<ValueType, { kind: 'code' }> & { context: string; returns: string };
+
+/**
+ * Whether a field holds a rules script. The Python fields of an older game are code too, but nothing
+ * here can judge them, so they do not count.
+ *
+ * @param valueType the field's declared type.
+ * @returns true for a script field.
+ */
+export const isScriptType = (valueType: ValueType | undefined): valueType is ScriptValueType =>
+    valueType?.kind === 'code' && valueType.lang === 'script' && !!valueType.context && !!valueType.returns;
+
+/** The lower-cased name of every field in the schema that holds a rules script. */
+export const scriptFieldNames = (): ReadonlySet<string> => fieldNamesTyped('script', isScriptType);
 
 let localizationKeyFieldNameSet: Set<string> | undefined;
 

@@ -9,6 +9,8 @@ import {
     CellSetLayerData,
     CellToValuesLayerData,
     ComponentPointsLayerData,
+    CoverageLayerData,
+    CriteriaLayerData,
     EdgeRegionLayerData,
     PointListLayerData,
     PolygonLayerData,
@@ -146,5 +148,48 @@ describe.skipIf(!HAVE_DATA)('buildPartGridData over vanilla parts', () => {
             (layer): layer is RectLayerData => layer.kind === 'rect' && layer.fieldName === 'GridRect'
         );
         expect(grids.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('reads the railgun accelerator chain criteria', async () => {
+        const data = (await buildFor('ships/terran/railgun_accelerator/railgun_accelerator.rules'))!;
+        const layer = data.layers.find(
+            (candidate) => candidate.id === 'Components/RailgunBuffProvider/Criteria'
+        ) as CriteriaLayerData;
+        expect(layer.entries).toEqual([
+            expect.objectContaining({
+                left: { min: 0, max: 0 },
+                right: { min: 2, max: 2 },
+                top: null,
+                bottom: { min: 0, max: 0 },
+                rot: 0,
+            }),
+        ]);
+    });
+
+    it('reads the medium cannon coverage: mount, physical arc, and the range of the shot file', async () => {
+        const data = (await buildFor('ships/terran/cannon_med/cannon_med.rules'))!;
+        const turret = data.layers.find(
+            (candidate) => candidate.id === 'Components/Turret/DefaultWeaponCoverage'
+        ) as CoverageLayerData;
+        expect(turret).toMatchObject({
+            weaponKind: 'turret',
+            center: { x: 1, y: 1 },
+            mountDeg: -90,
+            physicalArcDeg: 115,
+            coverage: { range: null, arcNearDeg: null, arcWidthDeg: null, restPosition: null },
+        });
+    });
+
+    it('reads the mine launcher coverage through the toggled group that takes it from another file', async () => {
+        const data = (await buildFor('ships/terran/missile_launcher/missile_launcher.rules'))!;
+        const mine = data.layers.find(
+            (candidate) => candidate.kind === 'coverage' && candidate.coverage.range === 150
+        ) as CoverageLayerData;
+        expect(mine).toMatchObject({
+            weaponKind: 'turret',
+            mountDeg: -90,
+            physicalArcDeg: 360,
+            coverage: { range: 150, arcNearDeg: -45, arcWidthDeg: 90 },
+        });
     });
 });

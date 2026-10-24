@@ -1,0 +1,3869 @@
+[
+ {
+  "script": "1 < 2 < 3",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Chained comparisons are not supported.",
+   "column": 9
+  }
+ },
+ {
+  "script": "1 if True else \"a\"",
+  "context": "Cosmoteer.Music.MusicParameters",
+  "returns": "System.Single",
+  "game": {
+   "message": "Cannot combine Int32 and String.",
+   "column": 1
+  }
+ },
+ {
+  "script": "'a' if True else None",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Cannot convert String to Boolean.",
+   "column": 1
+  }
+ },
+ {
+  "script": "None if True else 1",
+  "context": "Cosmoteer.Music.MusicParameters",
+  "returns": "System.Single",
+  "game": {
+   "message": "Cannot combine None and Int32.",
+   "column": 1
+  }
+ },
+ {
+  "script": "CalculateZoomVolume",
+  "context": "Cosmoteer.Music.MusicParameters",
+  "returns": "System.Single",
+  "game": {
+   "message": "'CalculateZoomVolume' is a function and must be called.",
+   "column": 1
+  }
+ },
+ {
+  "script": "game.Nope()",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "GameScriptAccess has no method named 'Nope'.",
+   "column": 6
+  }
+ },
+ {
+  "script": "-'a'",
+  "context": "Cosmoteer.Music.MusicParameters",
+  "returns": "System.Single",
+  "game": {
+   "message": "Operator '-' cannot be applied to String.",
+   "column": 1
+  }
+ },
+ {
+  "script": "+True",
+  "context": "Cosmoteer.Music.MusicParameters",
+  "returns": "System.Single",
+  "game": {
+   "message": "Operator '+' cannot be applied to Boolean.",
+   "column": 1
+  }
+ },
+ {
+  "script": "-zoom",
+  "context": "Cosmoteer.Music.MusicParameters",
+  "returns": "System.Single",
+  "game": null
+ },
+ {
+  "script": "1.2.3",
+  "context": "Cosmoteer.Music.MusicParameters",
+  "returns": "System.Single",
+  "game": {
+   "message": "Invalid number '1.2.3'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "1e",
+  "context": "Cosmoteer.Music.MusicParameters",
+  "returns": "System.Single",
+  "game": {
+   "message": "Invalid number '1e'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "99999999999999999999",
+  "context": "Cosmoteer.Music.MusicParameters",
+  "returns": "System.Single",
+  "game": {
+   "message": "Invalid number '99999999999999999999'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "1__0",
+  "context": "Cosmoteer.Music.MusicParameters",
+  "returns": "System.Single",
+  "game": null
+ },
+ {
+  "script": "0x10",
+  "context": "Cosmoteer.Music.MusicParameters",
+  "returns": "System.Single",
+  "game": {
+   "message": "Unexpected 'x10'.",
+   "column": 2
+  }
+ },
+ {
+  "script": "a ; b",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unexpected character ';'.",
+   "column": 3
+  }
+ },
+ {
+  "script": "",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Script is empty.",
+   "column": 1
+  }
+ },
+ {
+  "script": "   ",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Script is empty.",
+   "column": 1
+  }
+ },
+ {
+  "script": "?",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Script is empty.",
+   "column": 1
+  }
+ },
+ {
+  "script": "> ",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Script is empty.",
+   "column": 1
+  }
+ },
+ {
+  "script": "??game.Fame",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unexpected character '?'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "zoom",
+  "context": "Cosmoteer.Music.MusicParameters",
+  "returns": "System.Int32",
+  "game": {
+   "message": "Cannot convert Single to Int32.",
+   "column": 1
+  }
+ },
+ {
+  "script": "1",
+  "context": "Cosmoteer.Music.MusicParameters",
+  "returns": "System.Single",
+  "game": null
+ },
+ {
+  "script": "1.5",
+  "context": "Cosmoteer.Music.MusicParameters",
+  "returns": "System.Single",
+  "game": null
+ },
+ {
+  "script": "game.Fame / 2",
+  "context": "Cosmoteer.Music.MusicParameters",
+  "returns": "System.Single",
+  "game": {
+   "message": "Unknown variable 'game'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "game.Fame / 2 > 1",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "game.Fame % 2 == 1",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "sim.SelectedShip == None",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "None == None",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "None is not None",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "game.Fame == None",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "game == sim",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Operator '==' cannot be applied to GameScriptAccess and SimScriptAccess.",
+   "column": 6
+  }
+ },
+ {
+  "script": "game == game",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "'a' == 'b'",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "'a' < 'b'",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Operator '<' cannot be applied to String and String.",
+   "column": 5
+  }
+ },
+ {
+  "script": "True < False",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Operator '<' cannot be applied to Boolean and Boolean.",
+   "column": 6
+  }
+ },
+ {
+  "script": "True == False",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "game < game",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Operator '<' cannot be applied to GameScriptAccess and GameScriptAccess.",
+   "column": 6
+  }
+ },
+ {
+  "script": "sim.SelectedShip.Rotation < sim.SelectedShip.Rotation",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Operator '<' cannot be applied to Direction and Direction.",
+   "column": 27
+  }
+ },
+ {
+  "script": "sim.SelectedShip.Rotation == sim.SelectedShip.Rotation",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "sim.SelectedShip.Location == sim.SelectedShip.Location",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "sim.SelectedShip.Location < sim.SelectedShip.Location",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Operator '<' cannot be applied to Vector2 and Vector2.",
+   "column": 27
+  }
+ },
+ {
+  "script": "sim.SelectedShip.DestinationRotation == None",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "sim.SelectedShip.DestinationRotation is not None",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "sim.SelectedShip.Rotation is None",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "sim.SelectedShip.Location.X > 1",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Cannot access members of Vector2.",
+   "column": 27
+  }
+ },
+ {
+  "script": "sim.SelectedShip.Parts",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Cannot convert Int32 to Boolean.",
+   "column": 1
+  }
+ },
+ {
+  "script": "sim.SelectedShip.IsEnemiesWith(sim.SelectedShip)",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "sim.SelectedShip.IsEnemiesWith(None)",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "sim.SelectedShip.IsEnemiesWith(game)",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "'IsEnemiesWith' cannot be called with arguments (GameScriptAccess).",
+   "column": 18
+  }
+ },
+ {
+  "script": "sim.SelectedShip.HasStatus('x')",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "sim.SelectedShip.HasStatus('x', True)",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "sim.SelectedShip.HasStatus('x', True, 1)",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "'HasStatus' cannot be called with arguments (String, Boolean, Int32).",
+   "column": 18
+  }
+ },
+ {
+  "script": "sim.SelectedShip.HasStatusValue('x', 1)",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "sim.SelectedShip.HasStatusValue('x', 1.5)",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "sim.SelectedShip.HasStatus(None)",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "SetSetting('a', 1)",
+  "context": "Cosmoteer.Codex.CodexOnSeenContext",
+  "returns": "System.Void",
+  "game": null
+ },
+ {
+  "script": "SetSetting('a', None)",
+  "context": "Cosmoteer.Codex.CodexOnSeenContext",
+  "returns": "System.Void",
+  "game": null
+ },
+ {
+  "script": "SetSetting",
+  "context": "Cosmoteer.Codex.CodexOnSeenContext",
+  "returns": "System.Void",
+  "game": {
+   "message": "'SetSetting' is a function and must be called.",
+   "column": 1
+  }
+ },
+ {
+  "script": "1",
+  "context": "Cosmoteer.Codex.CodexOnSeenContext",
+  "returns": "System.Void",
+  "game": null
+ },
+ {
+  "script": "game",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Cannot convert GameScriptAccess to Boolean.",
+   "column": 1
+  }
+ },
+ {
+  "script": "game.Fame and True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Expected a bool but found Int32.",
+   "column": 1
+  }
+ },
+ {
+  "script": "not 1",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Expected a bool but found Int32.",
+   "column": 5
+  }
+ },
+ {
+  "script": "True or 1",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Expected a bool but found Int32.",
+   "column": 9
+  }
+ },
+ {
+  "script": "(True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Expected ')' but found 'end of script'.",
+   "column": 6
+  }
+ },
+ {
+  "script": "True)",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unexpected ')'.",
+   "column": 5
+  }
+ },
+ {
+  "script": "game.(Fame)",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Expected a name but found '('.",
+   "column": 6
+  }
+ },
+ {
+  "script": "game.True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Expected a name but found 'True'.",
+   "column": 6
+  }
+ },
+ {
+  "script": "game..Fame",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Expected a name but found '.'.",
+   "column": 6
+  }
+ },
+ {
+  "script": "game.",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Expected a name but found 'end of script'.",
+   "column": 6
+  }
+ },
+ {
+  "script": "game.HasTechUnlocked('a',)",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Expected an expression but found ')'.",
+   "column": 26
+  }
+ },
+ {
+  "script": "game.HasTechUnlocked(,)",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Expected an expression but found ','.",
+   "column": 22
+  }
+ },
+ {
+  "script": "True if False",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Expected 'else' but found 'end of script'.",
+   "column": 14
+  }
+ },
+ {
+  "script": "True if 1 else False",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Expected a bool but found Int32.",
+   "column": 9
+  }
+ },
+ {
+  "script": "True else False",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unexpected 'else'.",
+   "column": 6
+  }
+ },
+ {
+  "script": "is None",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Expected a name but found 'is'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "'a'b' == \"c\\\"d\"",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unterminated string.",
+   "column": 5
+  }
+ },
+ {
+  "script": "'\n' == 'x'",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "'trail\\",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unterminated string.",
+   "column": 1
+  }
+ },
+ {
+  "script": "game.Fame >= 1.5",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "game.PlayerMoney > 99999999999",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "sim.ClockTime > 1",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "sim.LogicalTime + 1 > 2",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "sim.SelectedShip.PlayerIndex * 2.5 > 1",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "zoom is 1",
+  "context": "Cosmoteer.Music.MusicParameters",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "zoom is not 1",
+  "context": "Cosmoteer.Music.MusicParameters",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "zoom ! 1",
+  "context": "Cosmoteer.Music.MusicParameters",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unexpected character '!'.",
+   "column": 6
+  }
+ },
+ {
+  "script": "zoom = 1",
+  "context": "Cosmoteer.Music.MusicParameters",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unexpected character '='.",
+   "column": 6
+  }
+ },
+ {
+  "script": "�x",
+  "context": "Cosmoteer.Music.MusicParameters",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unexpected character '�'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "_x",
+  "context": "Cosmoteer.Music.MusicParameters",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable '_x'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "x1",
+  "context": "Cosmoteer.Music.MusicParameters",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'x1'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "1x",
+  "context": "Cosmoteer.Music.MusicParameters",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unexpected 'x'.",
+   "column": 2
+  }
+ },
+ {
+  "script": "zoom\t<\n1",
+  "context": "Cosmoteer.Music.MusicParameters",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "? True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": ">True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "  True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": ">True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": ">True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": ">True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "? True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": ">True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": ">game.IsCreativeMode",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "  True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": ">True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "? True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": ">True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": ">True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": ">True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": ">True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "  True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": ">True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": ">True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": ">True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "  True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": ">True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "? True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "? .5",
+  "context": "Cosmoteer.Codex.CodexOnSeenContext",
+  "returns": "System.Void",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "? True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "? True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "  True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": ">True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "  True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "  True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": ">True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "? True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "  True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": ">True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "  True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": ">True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": ">True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "? True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": ">True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": ">True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "  True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "  True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "  True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "  True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "  True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": ">False",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": ">True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": ">True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "? True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "? True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "? True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "  True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": ">True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "? True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "  True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "? True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": ">True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "  True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "? True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexOnSeenContext",
+  "returns": "System.Void",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "  True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": ">True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "  True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": ">True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "  True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "  True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "  True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "  True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "? True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": ">True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "? True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "? True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": ">True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": ">True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "  True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "  True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "  True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "  True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "  True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": null
+ },
+ {
+  "script": "? TargetShip",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'TargetShip'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "IsWanted if LowestReputation() if Rotation * IsWanted() if None else (CrewSquadAssignmentsOpen()) else (1e3 if False else CrewSquadAssignmentsOpen.HasBlueprintPartsInCategory) if Rotation else (interior.GalaxyMapOpen.HasBlueprintPartsInCategory) else 2.5 / Destination()",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'IsWanted'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "  HasShipClassWithCustomIconInSight",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'HasShipClassWithCustomIconInSight'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "  game >= LowestReputation",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'LowestReputation'.",
+   "column": 9
+  }
+ },
+ {
+  "script": ">1e3 if 1 if HasPartCategoryInHand.IsEnemiesWith and 0 else (menu + Parts.IsEnemiesWith.HasBlueprintPartsInCategory) if (CommandType((ClockTime))) % ((.5)) else Parts() and PlayerSignificantShipCount.ClockTime else False",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Expected a bool but found Int32.",
+   "column": 8
+  }
+ },
+ {
+  "script": "BlueprintsUIOpen is not menu() if HasPartCategoryInHand() else 'esc'd' == PlayerSignificantShipCount",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unterminated string.",
+   "column": 70
+  }
+ },
+ {
+  "script": ">is not",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Expected a name but found 'is'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "  Rotation() / (GalaxyMapOpen) and ('esc'd' is 'a')",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unterminated string.",
+   "column": 48
+  }
+ },
+ {
+  "script": "HasPartCategoryInHand.IsEnemiesWith",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'HasPartCategoryInHand'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "  ((PlayerSignificantShipCount() if game and (interior) else (CommandType)) < HasBlueprintPartsInCategory.HasPartCategoryInHand == HasPartCategoryInHand() if 'a' else (HasActiveMissionInCategory))",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown function 'PlayerSignificantShipCount'.",
+   "column": 3
+  }
+ },
+ {
+  "script": "? PlayerMoney",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'PlayerMoney'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "'esc'd' if Destination if HasActiveMissionInCategory() if GalaxyMapOpen else 'esc'd' else IsWanted if interior.LowestReputation or (game) else LowestReputation or HasActiveMissionInCategory() else interior()",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unexpected 'd'.",
+   "column": 6
+  }
+ },
+ {
+  "script": "IsEnemiesWith",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'IsEnemiesWith'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "Rotation",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'Rotation'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "is not",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Expected a name but found 'is'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "  IsWanted < EnemyDetected",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'IsWanted'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "first_boot",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'first_boot'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "CrewSquadAssignmentsOpen",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'CrewSquadAssignmentsOpen'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "menu",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'menu'.",
+   "column": 1
+  }
+ },
+ {
+  "script": ">'esc'd'",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unterminated string.",
+   "column": 7
+  }
+ },
+ {
+  "script": ">Value",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'Value'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "? (-menu.interior.PlayerSignificantShipCount) if menu() * \"logic\" else CommandType / menu() * HasActiveMissionInCategory if (.5) else CommandType.IsEnemiesWithLocalPlayer",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'menu'.",
+   "column": 3
+  }
+ },
+ {
+  "script": "<",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Expected an expression but found '<'.",
+   "column": 1
+  }
+ },
+ {
+  "script": ">LowestReputation",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'LowestReputation'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "*",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Expected an expression but found '*'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "? IsWanted",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'IsWanted'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "LinearVelocity",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'LinearVelocity'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "CrewSquadAssignmentsOpen",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'CrewSquadAssignmentsOpen'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "HasAnyTechUnlockedInCategory",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'HasAnyTechUnlockedInCategory'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "? CrewSquadAssignmentsOpen()",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown function 'CrewSquadAssignmentsOpen'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "Parts() / 2.5 / LowestReputation if 1e3 if 1e3 else Rotation.Destination.BlueprintsUIOpen else HasShipClassWithCustomIconInSight",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown function 'Parts'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "interior() if LowestReputation() else (GalaxyMapOpen() if Rotation % (IsEnemiesWithLocalPlayer) else .5 if interior else (LinearVelocity()))",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown function 'interior'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "  game()",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "'game' is not a function.",
+   "column": 1
+  }
+ },
+ {
+  "script": ">\"logic\"",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Cannot convert String to Boolean.",
+   "column": 1
+  }
+ },
+ {
+  "script": ">PartInHandHasToggleMode",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'PartInHandHasToggleMode'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "? CommandType if HasPartCategoryInHand() or (LinearVelocity if IsEnemiesWith else (LowestReputation.menu.CommandType)) else HasPartCategoryInHand.menu.Parts if CrewSquadAssignmentsOpen if (HasParts()) else IsEnemiesWithLocalPlayer.HasActiveMissionInCategory.PlayerSignificantShipCount if HasPartCategoryInHand() else 1_000 else GalaxyMapOpen()",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'CommandType'.",
+   "column": 1
+  }
+ },
+ {
+  "script": ".5",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Cannot convert Double to Boolean.",
+   "column": 1
+  }
+ },
+ {
+  "script": ">game",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Cannot convert GameScriptAccess to Boolean.",
+   "column": 1
+  }
+ },
+ {
+  "script": "  CommandType",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'CommandType'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "? 99999999999 - interior()",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown function 'interior'.",
+   "column": 15
+  }
+ },
+ {
+  "script": "? LinearVelocity.Destination if HasPartCategoryInHand else 1e3 if 0 else CrewSquadAssignmentsOpen() == ClockTime() if None else (1)",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'LinearVelocity'.",
+   "column": 1
+  }
+ },
+ {
+  "script": ">BlueprintsUIOpen() if (GalaxyMapOpen() if .5 if HasShipClassWithCustomIconInSight.Parts.BlueprintsUIOpen else LowestReputation else HasShipClassWithCustomIconInSight) != HasPartCategoryInHand() if game.CrewSquadAssignmentsOpen.HasPartCategoryInHand if .5 else (HasShipClassWithCustomIconInSight()) else CrewSquadAssignmentsOpen.menu.game if (HasBlueprintPartsInCategory()) else True else interior()",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown function 'BlueprintsUIOpen'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "ClockTime - 1 if 1e3 else (Rotation() if .5 else IsEnemiesWith()) >= False if IsEnemiesWith.menu.HasShipClassWithCustomIconInSight else IsWanted",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'ClockTime'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "<",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Expected an expression but found '<'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "? IsWanted",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'IsWanted'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "  menu",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'menu'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "? Rotation",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'Rotation'.",
+   "column": 1
+  }
+ },
+ {
+  "script": ">TargetShip",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'TargetShip'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "  1",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Cannot convert Int32 to Boolean.",
+   "column": 1
+  }
+ },
+ {
+  "script": "  game",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Cannot convert GameScriptAccess to Boolean.",
+   "column": 1
+  }
+ },
+ {
+  "script": "game.HasActiveMissionInCategory.Destination >= False if 1_000 if HasActiveMissionInCategory.GalaxyMapOpen if (HasPartCategoryInHand.Rotation) else 'a' else True / ClockTime.Parts.ClockTime else Rotation()",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "'HasActiveMissionInCategory' is a method and must be called.",
+   "column": 6
+  }
+ },
+ {
+  "script": "  HasShipClassWithCustomIconInSight",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'HasShipClassWithCustomIconInSight'.",
+   "column": 1
+  }
+ },
+ {
+  "script": ">is not",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Expected a name but found 'is'.",
+   "column": 1
+  }
+ },
+ {
+  "script": ">HasPartCategoryInHand",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'HasPartCategoryInHand'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "  HasShipClassWithCustomIconInSight",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'HasShipClassWithCustomIconInSight'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "Destination",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'Destination'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "  Rotation",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'Rotation'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "? PaintUIOpen",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'PaintUIOpen'.",
+   "column": 1
+  }
+ },
+ {
+  "script": ">.5",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Cannot convert Double to Boolean.",
+   "column": 1
+  }
+ },
+ {
+  "script": "  CrewSquadAssignmentsOpen",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'CrewSquadAssignmentsOpen'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "EnemyDetected",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'EnemyDetected'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "IsEnemiesWith() if CommandType < CrewSquadAssignmentsOpen() else PlayerSignificantShipCount is not .5 * CommandType.IsEnemiesWithLocalPlayer.game is .5",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown function 'IsEnemiesWith'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "  SelectedShip",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'SelectedShip'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "? CrewSquadAssignmentsOpen()",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown function 'CrewSquadAssignmentsOpen'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "LowestReputation",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'LowestReputation'.",
+   "column": 1
+  }
+ },
+ {
+  "script": ">game",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Cannot convert GameScriptAccess to Boolean.",
+   "column": 1
+  }
+ },
+ {
+  "script": "  LinearVelocity",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'LinearVelocity'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "PlayerSignificantShipCount()",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown function 'PlayerSignificantShipCount'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "  <",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Expected an expression but found '<'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "? CommandType()",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown function 'CommandType'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "? GalaxyMapOpen() / \"logic\" or HasActiveMissionInCategory if (IsEnemiesWith()) / .5 else (1_000) if Rotation else CommandType.GalaxyMapOpen",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown function 'GalaxyMapOpen'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "IsInNebula",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'IsInNebula'.",
+   "column": 1
+  }
+ },
+ {
+  "script": ">HasPartCategoryInHand",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'HasPartCategoryInHand'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "  LowestReputation",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'LowestReputation'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "  HasBlueprintPartsInCategory() if game() else CommandType % ClockTime() if PlayerSignificantShipCount() if (LowestReputation.IsWanted) else 99999999999 else CommandType() if menu else IsEnemiesWithLocalPlayer",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown function 'HasBlueprintPartsInCategory'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "ClockTime.menu if (interior() if IsEnemiesWithLocalPlayer else (2.5)) if CommandType() else HasShipClassWithCustomIconInSight is LinearVelocity() == .5 else CommandType.Destination",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'ClockTime'.",
+   "column": 1
+  }
+ },
+ {
+  "script": ">0 if (True * ClockTime - 1) if CommandType.interior else 1_000 else CommandType",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'ClockTime'.",
+   "column": 14
+  }
+ },
+ {
+  "script": "? HasActiveMissionInCategory() + HasPartCategoryInHand < 2.5 == LowestReputation() if (('a')) else 'esc'd'",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unterminated string.",
+   "column": 104
+  }
+ },
+ {
+  "script": "CrewUIOpen",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'CrewUIOpen'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "? LinearVelocity",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'LinearVelocity'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "BlueprintsUIOpen",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'BlueprintsUIOpen'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "  x",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'x'.",
+   "column": 1
+  }
+ },
+ {
+  "script": ">HasShipWithLabelInSight",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'HasShipWithLabelInSight'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "is not",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Expected a name but found 'is'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "? .5",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Cannot convert Double to Boolean.",
+   "column": 1
+  }
+ },
+ {
+  "script": "  IsWanted",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'IsWanted'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "FollowShip",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'FollowShip'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "? LinearVelocity() if ((HasActiveMissionInCategory)) is not Destination else (CrewSquadAssignmentsOpen if IsEnemiesWithLocalPlayer() < 'a' else menu() == GalaxyMapOpen()) is 1 * game.HasPartCategoryInHand",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown function 'LinearVelocity'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "'esc'd'",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unterminated string.",
+   "column": 7
+  }
+ },
+ {
+  "script": "IsWanted",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'IsWanted'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "? 'esc'd'",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unterminated string.",
+   "column": 7
+  }
+ },
+ {
+  "script": "<",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Expected an expression but found '<'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "IsWanted if LowestReputation() if Rotation * IsWanted() if None else (CrewSquadAssignmentsOpen()) else (1e3 if False else CrewSquadAssignmentsOpen.HasBlueprintPartsInCategory) if Rotation else (interior.GalaxyMapOpen.HasBlueprintPartsInCategory) else 2.5 / Destination()",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'IsWanted'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "* IsInNebula",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Expected an expression but found '*'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "? PlayerIndex",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'PlayerIndex'.",
+   "column": 1
+  }
+ },
+ {
+  "script": ">Parts() if CrewSquadAssignmentsOpen() * (game is IsEnemiesWith) - (HasShipClassWithCustomIconInSight) if GalaxyMapOpen() else IsWanted() else True or 99999999999 or HasPartCategoryInHand if interior else LinearVelocity",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown function 'Parts'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "(99999999999)",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Cannot convert Int64 to Boolean.",
+   "column": 1
+  }
+ },
+ {
+  "script": "EnemyDetected",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'EnemyDetected'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "<",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Expected an expression but found '<'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "? 99999999999 if CommandType.HasShipClassWithCustomIconInSight.Rotation else (Destination.LowestReputation.game) if (Destination.Destination.Parts) if PlayerSignificantShipCount else CrewSquadAssignmentsOpen() else IsEnemiesWith()",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'CommandType'.",
+   "column": 16
+  }
+ },
+ {
+  "script": ">game",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Cannot convert GameScriptAccess to Boolean.",
+   "column": 1
+  }
+ },
+ {
+  "script": "ClockTime",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'ClockTime'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "? IsWanted() - (interior if GalaxyMapOpen.HasBlueprintPartsInCategory if 'a' else (False) else game < Parts())",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown function 'IsWanted'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "><",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Expected an expression but found '<'.",
+   "column": 1
+  }
+ },
+ {
+  "script": ">HasStatusValue",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'HasStatusValue'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "  HasPartCategoryInHand or interior >= (LowestReputation.HasBlueprintPartsInCategory.game) != CrewSquadAssignmentsOpen != 99999999999",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'HasPartCategoryInHand'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "  HasPartCategoryInHand",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'HasPartCategoryInHand'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "  ((PlayerSignificantShipCount() if game and (interior) else (CommandType)) < HasBlueprintPartsInCategory.HasPartCategoryInHand == HasPartCategoryInHand() if 'a' else (HasActiveMissionInCategory))",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown function 'PlayerSignificantShipCount'.",
+   "column": 3
+  }
+ },
+ {
+  "script": ".5",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Cannot convert Double to Boolean.",
+   "column": 1
+  }
+ },
+ {
+  "script": "  CommandType",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'CommandType'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "game if 'a' % True if .5 >= HasShipClassWithCustomIconInSight else -2.5 else 2.5 == (PlayerSignificantShipCount) or HasPartCategoryInHand() if IsEnemiesWithLocalPlayer else IsWanted.Parts.IsEnemiesWithLocalPlayer",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Operator '%' cannot be applied to String and Boolean.",
+   "column": 13
+  }
+ },
+ {
+  "script": "? ClockTime",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'ClockTime'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "HasPartCategoryInHand",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'HasPartCategoryInHand'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "<",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Expected an expression but found '<'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "? menu >= (game) if LowestReputation.menu else ClockTime if CommandType() == ((Rotation())) else GalaxyMapOpen * HasActiveMissionInCategory",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'menu'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "? game() % .5",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "'game' is not a function.",
+   "column": 1
+  }
+ },
+ {
+  "script": "  .5 and LowestReputation",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'LowestReputation'.",
+   "column": 8
+  }
+ },
+ {
+  "script": ".5",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Cannot convert Double to Boolean.",
+   "column": 1
+  }
+ },
+ {
+  "script": "? game",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Cannot convert GameScriptAccess to Boolean.",
+   "column": 1
+  }
+ },
+ {
+  "script": "LinearVelocity",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'LinearVelocity'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "? HasActiveMissionInCategory if HasActiveMissionInCategory if LowestReputation.game else HasShipClassWithCustomIconInSight if IsEnemiesWith if ((HasShipClassWithCustomIconInSight)) else 'a' else 0 else 2.5 if HasShipClassWithCustomIconInSight.CrewSquadAssignmentsOpen.Parts if Parts / Rotation else PlayerSignificantShipCount() is menu() else (Rotation if (HasActiveMissionInCategory) else (\"logic\"))",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'HasActiveMissionInCategory'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "HasActiveMissionInCategory()",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown function 'HasActiveMissionInCategory'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "? LinearVelocity.Destination if HasPartCategoryInHand else 1e3 if 0 else CrewSquadAssignmentsOpen() == ClockTime() if None else (1)",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'LinearVelocity'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "LinearVelocity * (False)",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'LinearVelocity'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "IsWanted",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'IsWanted'.",
+   "column": 1
+  }
+ },
+ {
+  "script": ">('esc'd' if (Destination.menu.BlueprintsUIOpen == LowestReputation.CommandType) if LowestReputation if IsEnemiesWithLocalPlayer() else 1 else 1 is not interior.IsEnemiesWith.HasActiveMissionInCategory else \"logic\") if (IsEnemiesWith) % (menu.HasShipClassWithCustomIconInSight if (CommandType.interior) else (interior())) else game.ClockTime if 2.5 else PlayerSignificantShipCount",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unterminated string.",
+   "column": 8
+  }
+ },
+ {
+  "script": "game() if 'esc'd' if ClockTime is HasPartCategoryInHand() else HasPartCategoryInHand.Destination else True",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unterminated string.",
+   "column": 17
+  }
+ },
+ {
+  "script": "CrewSquadAssignmentsOpen",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'CrewSquadAssignmentsOpen'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "  game",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Cannot convert GameScriptAccess to Boolean.",
+   "column": 1
+  }
+ },
+ {
+  "script": "LogicalTime",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'LogicalTime'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "  BlueprintsUIOpen",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'BlueprintsUIOpen'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "? 'esc'd'",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unterminated string.",
+   "column": 7
+  }
+ },
+ {
+  "script": "? PlayerSignificantShipCount if HasShipClassWithCustomIconInSight() else game if menu if 'esc'd' if Rotation() else GalaxyMapOpen() else HasActiveMissionInCategory else IsEnemiesWith if LinearVelocity else IsEnemiesWithLocalPlayer() if 1_000 else IsWanted()",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unterminated string.",
+   "column": 94
+  }
+ },
+ {
+  "script": "HasPartCategoryInHand",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'HasPartCategoryInHand'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "? Rotation() == (0 if HasBlueprintPartsInCategory() else BlueprintsUIOpen() or HasShipClassWithCustomIconInSight(\"logic\")) == CrewSquadAssignmentsOpen() if (HasShipClassWithCustomIconInSight) is not CrewSquadAssignmentsOpen() else LowestReputation if LowestReputation() else ((IsEnemiesWithLocalPlayer))",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown function 'Rotation'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "HighestReputation",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'HighestReputation'.",
+   "column": 1
+  }
+ },
+ {
+  "script": ">CrewSquadAssignmentsOpen",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'CrewSquadAssignmentsOpen'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "2.5 if IsWanted else 1 != Destination if Rotation() < HasBlueprintPartsInCategory else PlayerSignificantShipCount / PlayerSignificantShipCount()",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'IsWanted'.",
+   "column": 8
+  }
+ },
+ {
+  "script": "  CrewSquadAssignmentsOpen",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'CrewSquadAssignmentsOpen'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "? 99999999999 - interior()",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown function 'interior'.",
+   "column": 15
+  }
+ },
+ {
+  "script": "IsEnemiesWith",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'IsEnemiesWith'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "? False if IsEnemiesWith() or \"logic\" else HasBlueprintPartsInCategory() if LinearVelocity() >= False % 2.5 else ClockTime",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown function 'IsEnemiesWith'.",
+   "column": 10
+  }
+ },
+ {
+  "script": "Rotation if 'esc'd' if True / 'a' else (((0))) else LowestReputation() if interior() if interior.GalaxyMapOpen else IsWanted.HasActiveMissionInCategory.Destination else (1e3 if 0 else CrewSquadAssignmentsOpen.IsEnemiesWithLocalPlayer)",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unterminated string.",
+   "column": 33
+  }
+ },
+ {
+  "script": "0 != menu",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'menu'.",
+   "column": 6
+  }
+ },
+ {
+  "script": "? LinearVelocity if IsWanted.IsEnemiesWith.Parts != IsEnemiesWithLocalPlayer() if True or 'esc'd' else IsEnemiesWithLocalPlayer else ((menu if 0 else Destination()) if ((HasActiveMissionInCategory.CommandType)) % LowestReputation else ClockTime() % IsEnemiesWithLocalPlayer) if (Parts if (CommandType) else None) if HasActiveMissionInCategory.ClockTime.BlueprintsUIOpen if ((None)) else menu else Destination if IsEnemiesWithLocalPlayer() else GalaxyMapOpen else ('a')",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unterminated string.",
+   "column": 465
+  }
+ },
+ {
+  "script": ">'esc'd'",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unterminated string.",
+   "column": 7
+  }
+ },
+ {
+  "script": "ClockTime",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'ClockTime'.",
+   "column": 1
+  }
+ },
+ {
+  "script": ">HasActiveObjectiveType",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'HasActiveObjectiveType'.",
+   "column": 1
+  }
+ },
+ {
+  "script": ">PartInHandHasToggleMode",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'PartInHandHasToggleMode'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "<",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Expected an expression but found '<'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "((IsWanted if HasShipClassWithCustomIconInSight if (LinearVelocity.GalaxyMapOpen.BlueprintsUIOpen) else IsEnemiesWithLocalPlayer() else CrewSquadAssignmentsOpen.HasActiveMissionInCategory.HasPartCategoryInHand >= \"logic\") / LowestReputation) if 'a' else BlueprintsUIOpen() if Parts else 'esc'd' and 1_000 or 1e3",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unterminated string.",
+   "column": 294
+  }
+ },
+ {
+  "script": "LinearVelocity",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'LinearVelocity'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "(1e3 if IsEnemiesWithLocalPlayer() else (CommandType if GalaxyMapOpen() else \"logic\") % True) if (IsEnemiesWith()) is not Destination() else (BlueprintsUIOpen.CommandType.CommandType if PlayerSignificantShipCount() * (IsEnemiesWith) else GalaxyMapOpen) * CommandType if (menu) >= Parts else HasShipClassWithCustomIconInSight.IsWanted.HasActiveMissionInCategory if ((LowestReputation)) else LowestReputation",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown function 'IsEnemiesWithLocalPlayer'.",
+   "column": 9
+  }
+ },
+ {
+  "script": "? 2.5",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Cannot convert Double to Boolean.",
+   "column": 1
+  }
+ },
+ {
+  "script": "HasActiveMissionOfMetatype",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'HasActiveMissionOfMetatype'.",
+   "column": 1
+  }
+ },
+ {
+  "script": ">Rotation",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'Rotation'.",
+   "column": 1
+  }
+ },
+ {
+  "script": ">ForwardRotation",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'ForwardRotation'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "LowestReputation",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'LowestReputation'.",
+   "column": 1
+  }
+ },
+ {
+  "script": ">HasPartCategoryInHand",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'HasPartCategoryInHand'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "CrewSquadAssignmentsOpen",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'CrewSquadAssignmentsOpen'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "False if IsEnemiesWith else LowestReputation if False if IsEnemiesWith() if 1_000 else HasPartCategoryInHand() else ClockTime if 1e3 else game else PlayerSignificantShipCount.GalaxyMapOpen if HasPartCategoryInHand() is not LowestReputation() else (IsEnemiesWithLocalPlayer) == PlayerSignificantShipCount()",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'IsEnemiesWith'.",
+   "column": 10
+  }
+ },
+ {
+  "script": "? IsWanted.PlayerSignificantShipCount.LinearVelocity == PlayerSignificantShipCount is BlueprintsUIOpen()",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'IsWanted'.",
+   "column": 1
+  }
+ },
+ {
+  "script": ">is not",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Expected a name but found 'is'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "menu",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'menu'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "IsWanted",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'IsWanted'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "  ((PlayerSignificantShipCount() if game and (interior) else (CommandType)) < HasBlueprintPartsInCategory.HasPartCategoryInHand == HasPartCategoryInHand() if 'a' else (HasActiveMissionInCategory))",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown function 'PlayerSignificantShipCount'.",
+   "column": 3
+  }
+ },
+ {
+  "script": "Name",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'Name'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "? LogicalTime",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'LogicalTime'.",
+   "column": 1
+  }
+ },
+ {
+  "script": ">NeedsRepairs",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'NeedsRepairs'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "? (IsEnemiesWithLocalPlayer() if IsEnemiesWith() if .5 % 0 else HasActiveMissionInCategory < Parts else GalaxyMapOpen.PlayerSignificantShipCount.HasShipClassWithCustomIconInSight < HasPartCategoryInHand.LinearVelocity.HasBlueprintPartsInCategory is not LinearVelocity.IsEnemiesWithLocalPlayer().IsWanted)",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown function 'IsEnemiesWithLocalPlayer'.",
+   "column": 2
+  }
+ },
+ {
+  "script": "0 < game if 99999999999 is HasShipClassWithCustomIconInSight else HasPartCategoryInHand if game < interior() else LinearVelocity if 0 else 1_000",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Operator '<' cannot be applied to Int32 and GameScriptAccess.",
+   "column": 3
+  }
+ },
+ {
+  "script": "LowestReputation",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'LowestReputation'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "? game",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Cannot convert GameScriptAccess to Boolean.",
+   "column": 1
+  }
+ },
+ {
+  "script": "? NuggetsInSight",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'NuggetsInSight'.",
+   "column": 1
+  }
+ },
+ {
+  "script": ">Destination",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'Destination'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "CrewSquadAssignmentsOpen",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'CrewSquadAssignmentsOpen'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "HasPartCategoryInHand != (1 < (\"logic\")) if IsEnemiesWithLocalPlayer if (2.5) if LowestReputation() else (\"logic\") else (LinearVelocity) if menu() else CommandType else ('a') if IsEnemiesWith < 1 else 1_000",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'HasPartCategoryInHand'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "  (LinearVelocity) if menu or IsEnemiesWith >= 0 else HasBlueprintPartsInCategory and HasShipClassWithCustomIconInSight if (GalaxyMapOpen) % CrewSquadAssignmentsOpen() else IsWanted.game.CrewSquadAssignmentsOpen if (Rotation.game) else interior",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'LinearVelocity'.",
+   "column": 2
+  }
+ },
+ {
+  "script": "  CrewSquadAssignmentsOpen",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'CrewSquadAssignmentsOpen'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "  is not",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Expected a name but found 'is'.",
+   "column": 1
+  }
+ },
+ {
+  "script": ">NuggetsInSight",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'NuggetsInSight'.",
+   "column": 1
+  }
+ },
+ {
+  "script": ">(((game if (HasPartCategoryInHand.interior) else HasBlueprintPartsInCategory) is not (CommandType) if (0) else 99999999999) if (Rotation.LowestReputation.IsWanted if Rotation else (LinearVelocity())) == HasPartCategoryInHand if HasPartCategoryInHand.game.BlueprintsUIOpen else ((IsEnemiesWithLocalPlayer())) else IsEnemiesWithLocalPlayer.HasPartCategoryInHand.CommandType >= IsEnemiesWithLocalPlayer() if game else (PlayerSignificantShipCount)) if .5 else LowestReputation if CrewSquadAssignmentsOpen.LinearVelocity.GalaxyMapOpen and PlayerSignificantShipCount else IsWanted",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'HasPartCategoryInHand'.",
+   "column": 13
+  }
+ },
+ {
+  "script": "  1e3 if (HasShipClassWithCustomIconInSight) or (None and (None)) and CommandType if Parts else Destination() else CommandType() if LinearVelocity else GalaxyMapOpen if menu % game else CrewSquadAssignmentsOpen() * (menu.menu)",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'HasShipClassWithCustomIconInSight'.",
+   "column": 9
+  }
+ },
+ {
+  "script": ">0 if 1_000 if Parts() else 'esc'd' if Parts.HasActiveMissionInCategory if LinearVelocity else False else (1e3) if (IsEnemiesWithLocalPlayer) else None else False if \"logic\" else LinearVelocity.HasShipClassWithCustomIconInSight.HasActiveMissionInCategory >= menu.game.Parts",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unterminated string.",
+   "column": 34
+  }
+ },
+ {
+  "script": "  IsEnemiesWith",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'IsEnemiesWith'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "IsCareerMode",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'IsCareerMode'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "  game",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Cannot convert GameScriptAccess to Boolean.",
+   "column": 1
+  }
+ },
+ {
+  "script": "? (-menu.interior.PlayerSignificantShipCount) if menu() * \"logic\" else CommandType / menu() * HasActiveMissionInCategory if (.5) else CommandType.IsEnemiesWithLocalPlayer",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'menu'.",
+   "column": 3
+  }
+ },
+ {
+  "script": "? game() % .5",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "'game' is not a function.",
+   "column": 1
+  }
+ },
+ {
+  "script": "CrewSquadAssignmentsOpen() is ((IsWanted / IsWanted.interior) and 99999999999 % BlueprintsUIOpen()) if Destination.HasPartCategoryInHand and ((IsEnemiesWithLocalPlayer)) if 0 else .5 else IsWanted.CrewSquadAssignmentsOpen or (IsEnemiesWith.HasShipClassWithCustomIconInSight) < CommandType()",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown function 'CrewSquadAssignmentsOpen'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "? >",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Expected an expression but found '>'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "('a' if (1e3 + ClockTime.HasPartCategoryInHand.interior) + GalaxyMapOpen else (LinearVelocity() if CommandType else HasActiveMissionInCategory()))",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'ClockTime'.",
+   "column": 16
+  }
+ },
+ {
+  "script": "  Destination >= ('a' is (GalaxyMapOpen.ClockTime)) or ((LowestReputation()) if LinearVelocity else 99999999999)",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'Destination'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "HasPartCategoryInHand",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'HasPartCategoryInHand'.",
+   "column": 1
+  }
+ },
+ {
+  "script": ">BlueprintsUIOpen()",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown function 'BlueprintsUIOpen'.",
+   "column": 1
+  }
+ },
+ {
+  "script": ">.5",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Cannot convert Double to Boolean.",
+   "column": 1
+  }
+ },
+ {
+  "script": "? HasBlueprintPartsInCategory.BlueprintsUIOpen.Rotation if game < (CommandType() is not (CommandType)) if PlayerSignificantShipCount.ClockTime < 99999999999 else LinearVelocity else (menu if HasPartCategoryInHand else HasActiveMissionInCategory if (HasActiveMissionInCategory()) else CrewSquadAssignmentsOpen)",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'HasBlueprintPartsInCategory'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "? 'esc'd'",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unterminated string.",
+   "column": 7
+  }
+ },
+ {
+  "script": "? is not",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Expected a name but found 'is'.",
+   "column": 1
+  }
+ },
+ {
+  "script": ">Destination",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'Destination'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "0 != menu",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'menu'.",
+   "column": 6
+  }
+ },
+ {
+  "script": ">IsEnemiesWith if None else Parts",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'IsEnemiesWith'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "  game()",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "'game' is not a function.",
+   "column": 1
+  }
+ },
+ {
+  "script": ".5",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Cannot convert Double to Boolean.",
+   "column": 1
+  }
+ },
+ {
+  "script": ">HasPartCategoryInHand",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'HasPartCategoryInHand'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "'esc'd'",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unterminated string.",
+   "column": 7
+  }
+ },
+ {
+  "script": "menu",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'menu'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "IsEnemiesWith",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'IsEnemiesWith'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "IsWanted >= BlueprintsUIOpen == Parts",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'IsWanted'.",
+   "column": 1
+  }
+ },
+ {
+  "script": ">menu",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'menu'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "None",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Cannot convert None to Boolean.",
+   "column": 1
+  }
+ },
+ {
+  "script": "Rotation",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'Rotation'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "IsWanted",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'IsWanted'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "IsEnemiesWithLocalPlayer() if (menu()) if True if HasPartCategoryInHand if PlayerSignificantShipCount else IsWanted else True else game() else LinearVelocity()",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown function 'IsEnemiesWithLocalPlayer'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "IsEnemiesWith",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'IsEnemiesWith'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "CommandType.BlueprintsUIOpen.menu if ((True if Rotation() else GalaxyMapOpen()) if Destination if 'esc'd' else 'esc'd' else IsEnemiesWithLocalPlayer()) else PlayerSignificantShipCount",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'CommandType'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "IsEnemiesWith",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'IsEnemiesWith'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "HasBlueprintPartsInCategory() if (None) if 1e3 if LowestReputation() != HasPartCategoryInHand() else (interior.IsWanted.HasBlueprintPartsInCategory) if 99999999999 else LinearVelocity else CommandType else 1e3",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown function 'HasBlueprintPartsInCategory'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "CrewOnShip",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'CrewOnShip'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "game.IsWanted.Destination if CrewSquadAssignmentsOpen if BlueprintsUIOpen() is not IsEnemiesWith if IsEnemiesWith else HasActiveMissionInCategory() else CommandType < (Destination.Destination) / game else ClockTime - 1",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "GameScriptAccess has no property named 'IsWanted'.",
+   "column": 6
+  }
+ },
+ {
+  "script": "LinearVelocity",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'LinearVelocity'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "((PlayerSignificantShipCount() >= CommandType.Parts if 'a' else ((BlueprintsUIOpen))) - BlueprintsUIOpen() if IsEnemiesWithLocalPlayer() if GalaxyMapOpen() else PlayerSignificantShipCount.menu else LinearVelocity())",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown function 'PlayerSignificantShipCount'.",
+   "column": 3
+  }
+ },
+ {
+  "script": "menu",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'menu'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "BlueprintsUIOpen",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'BlueprintsUIOpen'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "? 1_000 >= PlayerSignificantShipCount() if HasBlueprintPartsInCategory.CommandType.Destination if ClockTime if 1 else interior else GalaxyMapOpen.CrewSquadAssignmentsOpen.HasBlueprintPartsInCategory if IsEnemiesWithLocalPlayer() else 1_000 else False if Destination % (CommandType) else menu == LinearVelocity.BlueprintsUIOpen.Parts",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown function 'PlayerSignificantShipCount'.",
+   "column": 10
+  }
+ },
+ {
+  "script": ">IsWanted",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'IsWanted'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "? LowestReputation",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'LowestReputation'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "? IsWanted",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'IsWanted'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "  LowestReputation",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'LowestReputation'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "SetSetting",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'SetSetting'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "LinearVelocity",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'LinearVelocity'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "RemainingCommandPoints",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'RemainingCommandPoints'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "  0",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Cannot convert Int32 to Boolean.",
+   "column": 1
+  }
+ },
+ {
+  "script": "HasActiveMissionInCategory if 1e3 if (HasBlueprintPartsInCategory.HasBlueprintPartsInCategory) if (game) if PlayerSignificantShipCount else PlayerSignificantShipCount() else 1e3 if HasShipClassWithCustomIconInSight.LinearVelocity else LowestReputation() else menu() * (PlayerSignificantShipCount.Rotation) if BlueprintsUIOpen else Parts.BlueprintsUIOpen.CommandType else Destination",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'HasActiveMissionInCategory'.",
+   "column": 1
+  }
+ },
+ {
+  "script": ">Name",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'Name'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "ClockTime",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'ClockTime'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "JunkInSight",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'JunkInSight'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "? HasPartCategoryInHand",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'HasPartCategoryInHand'.",
+   "column": 1
+  }
+ },
+ {
+  "script": ">Rotation",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'Rotation'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "'esc'd'",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unterminated string.",
+   "column": 7
+  }
+ },
+ {
+  "script": "RemainingCommandPoints",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'RemainingCommandPoints'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "0 if LowestReputation.Destination * Rotation() if GalaxyMapOpen.interior.BlueprintsUIOpen if interior else game else 'esc'd' else (GalaxyMapOpen) if interior() if IsEnemiesWithLocalPlayer.LinearVelocity.CommandType else GalaxyMapOpen() else interior.menu.HasPartCategoryInHand if PlayerSignificantShipCount() if LowestReputation else GalaxyMapOpen else HasBlueprintPartsInCategory()",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unterminated string.",
+   "column": 124
+  }
+ },
+ {
+  "script": "HasPartCategoryInHand",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'HasPartCategoryInHand'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "CommandType",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'CommandType'.",
+   "column": 1
+  }
+ },
+ {
+  "script": ">IsEnemiesWith",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'IsEnemiesWith'.",
+   "column": 1
+  }
+ },
+ {
+  "script": ">.5",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Cannot convert Double to Boolean.",
+   "column": 1
+  }
+ },
+ {
+  "script": "is not",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Expected a name but found 'is'.",
+   "column": 1
+  }
+ },
+ {
+  "script": "game.IsWanted.Destination if CrewSquadAssignmentsOpen if BlueprintsUIOpen() is not IsEnemiesWith if IsEnemiesWith else HasActiveMissionInCategory() else CommandType < (Destination.Destination) / game else ClockTime - 1",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "GameScriptAccess has no property named 'IsWanted'.",
+   "column": 6
+  }
+ },
+ {
+  "script": "? 99999999999 if CommandType.HasShipClassWithCustomIconInSight.Rotation else (Destination.LowestReputation.game) if (Destination.Destination.Parts) if PlayerSignificantShipCount else CrewSquadAssignmentsOpen() else IsEnemiesWith()",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Unknown variable 'CommandType'.",
+   "column": 16
+  }
+ },
+ {
+  "script": "game",
+  "context": "Cosmoteer.Codex.CodexConditionContext",
+  "returns": "System.Boolean",
+  "game": {
+   "message": "Cannot convert GameScriptAccess to Boolean.",
+   "column": 1
+  }
+ }
+]

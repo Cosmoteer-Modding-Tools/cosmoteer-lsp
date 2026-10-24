@@ -38,6 +38,16 @@ internal sealed partial class SchemaGen
         if (tr is GenericInstanceType git)
         {
             var n = tr.Name; var ga = git.GenericArguments;
+            // A rules script, compiled by the game's own expression language against a context type
+            // (see SchemaGen.Scripting.cs). `ScriptAction` returns nothing.
+            if (git.ElementType.FullName is SCRIPT_FUNC or SCRIPT_ACTION)
+            {
+                o["kind"] = "code"; o["lang"] = "script";
+                o["context"] = ScriptTypeKey(ga[0]);
+                o["returns"] = ga.Count > 1 ? ScriptTypeKey(ga[1]) : "System.Void";
+                scriptContexts.Add(ga[0].Resolve());
+                return o;
+            }
             if (n.StartsWith("Nullable`")) return MapType(ga[0]);
             if (n.StartsWith("MPValue`")) return MapType(ga[0]);                 // unwrap multiplayer wrapper
             if (n.StartsWith("ID`"))

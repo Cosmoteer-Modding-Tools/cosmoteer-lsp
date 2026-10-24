@@ -145,6 +145,18 @@ export interface CosmoteerSettings {
         // manifest replacement of that member applied. Two files declaring one id, or a resource
         // that writes no stack at all, are left unjudged. Needs the game `Data` tree indexed.
         validateResourcePickups: boolean;
+        // When true (the default), report a weapon's `DefaultWeaponCoverage` or
+        // `MatchWeaponCoverage` written in a way the game silently ignores or that breaks the
+        // weapon: an arc missing the turret's physical arc, a negative width, a range of zero or
+        // less, a `RestPosition` outside 0 to 1, and a match naming the weapon itself, a component
+        // that is not a weapon, or a weapon that matches another one. Fields the weapon kind never
+        // reads are faded. Read through the inheritance fold, and silent on a chain it could not
+        // read to the end.
+        validateWeaponCoverage: boolean;
+        // When true (the default), report a music or codex script the game's compiler refuses. Since
+        // 0.30.5 these fields are a small expression language rather than Python, and a script that
+        // does not compile stops the rules from loading. The message is the game's own.
+        validateScripts: boolean;
         // When true (the default), flag an id two files of one mod both register for the same game
         // collection, which the game resolves by keeping one entry and dropping the rest. Only a
         // declaration the mod actually wires in through a manifest action or a game-root alias
@@ -380,6 +392,8 @@ export const defaultSettings: CosmoteerSettings = {
         validateStorageCycles: true,
         validateNumericDomains: true,
         validateResourcePickups: true,
+        validateWeaponCoverage: true,
+        validateScripts: true,
         validateDuplicateIds: true,
         validateUndeclaredDependencies: true,
         validateUnreceivableBuffs: true,

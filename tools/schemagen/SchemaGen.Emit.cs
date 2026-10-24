@@ -219,6 +219,8 @@ internal sealed partial class SchemaGen
             ["types"] = pTypes,
             ["enums"] = pEnums,
             ["builtinIds"] = builtinIdsJson,
+            // What the rules-script fields can name, per context type (see SchemaGen.Scripting.cs).
+            ["scripting"] = BuildScripting(),
             // The runtime kinds a component slot can require, and which of them each component
             // class satisfies. A class with no entry builds no physical component, which is what
             // makes the slot check abstain rather than report.

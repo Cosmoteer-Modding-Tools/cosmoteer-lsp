@@ -31,9 +31,9 @@ Whether parts destroyed by the explosion spawn their underlying part (normally s
 The chance that a part damaged by the explosion gains [[Cosmoteer.Simulation.HitEffects.ExplosiveDamageEffectRules.StatusType]], expressed per [[Cosmoteer.Simulation.HitEffects.ExplosiveDamageEffectRules.NDamage]] points of damage actually dealt to it, defaulting to 0. For example `50%` with `NDamage = 1000` gives a part that takes 500 damage a 25% chance. Vanilla explosive resources such as sulfur use exactly that pairing to start fires.
 
 ## StatusValue
-`number` · optional
+`range<number>` · optional
 
-The value the applied status starts with, interpreted according to [[Cosmoteer.Simulation.HitEffects.ExplosiveDamageEffectRules.StatusValueType]] and defaulting to 1. When [[Cosmoteer.Simulation.HitEffects.ExplosiveDamageEffectRules.StatusValueIsPerNDamage]] is true it is instead multiplied by the damage dealt divided by [[Cosmoteer.Simulation.HitEffects.ExplosiveDamageEffectRules.NDamage]]. Only used when [[Cosmoteer.Simulation.HitEffects.ExplosiveDamageEffectRules.StatusType]] is set.
+The value the applied status starts with, interpreted according to [[Cosmoteer.Simulation.HitEffects.ExplosiveDamageEffectRules.StatusValueType]] and defaulting to 1. When [[Cosmoteer.Simulation.HitEffects.ExplosiveDamageEffectRules.StatusValueIsPerNDamage]] is true it is instead multiplied by the damage dealt divided by [[Cosmoteer.Simulation.HitEffects.ExplosiveDamageEffectRules.NDamage]]. Only used when [[Cosmoteer.Simulation.HitEffects.ExplosiveDamageEffectRules.StatusType]] is set. Since 0.30.5 it can be a random range, `[min, max]`, from which a value is picked at random each time the status is applied.
 
 ## StatusValueType
 `enum StatusValueType` · optional · one of: `Raw`, `Interpolated`

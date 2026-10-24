@@ -15,6 +15,7 @@ using Mono.Cecil;
 //   SchemaGen.SlotWalk.cs   the per-method dataflow the component-slot pass is built on
 //   SchemaGen.ValueForms.cs  scalar/value/scalar-string form detection from deserializer bodies
 //   SchemaGen.Fields.cs     the per-type field emission
+//   SchemaGen.Scripting.cs  the names and types a rules script can use
 //   SchemaGen.Emit.cs       graph assembly, reachability prune, builtin-id sweep, output
 internal sealed partial class SchemaGen
 {

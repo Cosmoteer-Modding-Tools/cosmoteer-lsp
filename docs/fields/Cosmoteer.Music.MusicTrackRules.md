@@ -41,14 +41,14 @@ Rate per second at which the track's zoom volume rises toward its target when th
 Rate per second at which the track's zoom volume falls toward its target when the target decreases. `1` reaches the target over one second. The `ZoomVolumeVelocity` alias sets this and [[Cosmoteer.Music.MusicTrackRules#ZoomVolumeVelocityUp|ZoomVolumeVelocityUp]] together.
 
 ## DynamicCondition
-`code (python)` · optional
+`code (script)` · optional
 
-Python expression evaluated every buffer against the music parameters (game state such as zoom, battle, paused). When it returns false the track is silenced. Combined multiplicatively with [[Cosmoteer.Music.MusicTrackRules#DynamicVolume|DynamicVolume]]. On the [[Cosmoteer.Music.MusicRules#RootTrack|RootTrack]] it defaults to `True` when left unset.
+A condition evaluated every buffer against the music parameters. When it is false the track is silenced. Combined multiplicatively with [[Cosmoteer.Music.MusicTrackRules#DynamicVolume|DynamicVolume]]. On the [[Cosmoteer.Music.MusicRules#RootTrack|RootTrack]] it defaults to `True` when left unset. It can read `zoom`, `interior`, `paused`, `battle`, `wanted`, `menu` and `first_boot`, and call `CalculateZoomVolume(zoom1, volume1, zoom2, volume2)`. Since 0.30.5 this is a script in the game's own small expression language, no longer Python: names, member access and calls, numbers, strings, `True`, `False`, `None`, arithmetic, comparisons, `and`, `or`, `not`, `is` and `a if b else c`. The game compiles it when the rules load, and a script that does not compile stops the load. A leading `?` from the Python era is ignored.
 
 ## DynamicVolume
-`code (python)` · optional
+`code (script)` · optional
 
-Python expression returning a volume multiplier evaluated every buffer against the music parameters. Applied on top of [[Cosmoteer.Music.MusicTrackRules#DynamicCondition|DynamicCondition]]. On the [[Cosmoteer.Music.MusicRules#RootTrack|RootTrack]] it defaults to `1` when left unset. Its approach speed is governed by [[Cosmoteer.Music.MusicTrackRules#DynamicVolumeVelocityUp|DynamicVolumeVelocityUp]].
+A volume multiplier evaluated every buffer against the music parameters. Applied on top of [[Cosmoteer.Music.MusicTrackRules#DynamicCondition|DynamicCondition]]. On the [[Cosmoteer.Music.MusicRules#RootTrack|RootTrack]] it defaults to `1` when left unset. Its approach speed is governed by [[Cosmoteer.Music.MusicTrackRules#DynamicVolumeVelocityUp|DynamicVolumeVelocityUp]]. It can read `zoom`, `interior`, `paused`, `battle`, `wanted`, `menu` and `first_boot`, and call `CalculateZoomVolume(zoom1, volume1, zoom2, volume2)`. Since 0.30.5 this is a script in the game's own small expression language, no longer Python: names, member access and calls, numbers, strings, `True`, `False`, `None`, arithmetic, comparisons, `and`, `or`, `not`, `is` and `a if b else c`. The game compiles it when the rules load, and a script that does not compile stops the load. A leading `?` from the Python era is ignored.
 
 ## DynamicVolumeVelocityUp
 `float` · optional · default `1`
@@ -76,9 +76,9 @@ Length in seconds of the fade to silence once a fade-out is triggered by [[Cosmo
 Seconds of silence appended after the fade completes before the track counts as finished. Defaults to zero.
 
 ## FadeOutCondition
-`code (python)` · optional
+`code (script)` · optional
 
-Python expression that gates the [[Cosmoteer.Music.MusicTrackRules#FadeOutAfter|FadeOutAfter]] fade. Once the elapsed time is reached the fade only starts if this returns true. With no condition the fade starts as soon as the time elapses.
+A condition that gates the [[Cosmoteer.Music.MusicTrackRules#FadeOutAfter|FadeOutAfter]] fade. Once the elapsed time is reached the fade only starts if this is true. With no condition the fade starts as soon as the time elapses. It can read `zoom`, `interior`, `paused`, `battle`, `wanted`, `menu` and `first_boot`, and call `CalculateZoomVolume(zoom1, volume1, zoom2, volume2)`. Since 0.30.5 this is a script in the game's own small expression language, no longer Python: names, member access and calls, numbers, strings, `True`, `False`, `None`, arithmetic, comparisons, `and`, `or`, `not`, `is` and `a if b else c`. The game compiles it when the rules load, and a script that does not compile stops the load. A leading `?` from the Python era is ignored.
 
 ## FadeOutOnSimPop
 `bool` · optional

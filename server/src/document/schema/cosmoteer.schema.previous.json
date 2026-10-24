@@ -794,6 +794,144 @@
           }
         ]
       },
+      "Cosmoteer.Simulation.HitEffects.ExplosiveDamageEffectRules": {
+        "name": "ExplosiveDamageEffectRules",
+        "namespace": "Cosmoteer.Simulation.HitEffects",
+        "extends": "Cosmoteer.Simulation.HitEffects.BaseExplosiveEffectRules`2",
+        "derivedType": "ExplosiveDamage",
+        "registry": "Cosmoteer.Simulation.HitEffects.HitEffectRules",
+        "fields": [
+          {
+            "name": "TotalDamage",
+            "valueType": {
+              "kind": "number",
+              "type": "ModifiableInt",
+              "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "DamageType",
+            "valueType": {
+              "kind": "reference",
+              "target": "Cosmoteer.DamageType",
+              "targetName": "DamageType"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "SpawnUnderlying",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false,
+            "default": true,
+            "defaultSource": "initializer"
+          },
+          {
+            "name": "StatusChancePerNDamage",
+            "valueType": {
+              "kind": "number",
+              "type": "ModifiableFloat",
+              "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            },
+            "optional": true
+          },
+          {
+            "name": "StatusValue",
+            "valueType": {
+              "kind": "number",
+              "type": "ModifiableFloat",
+              "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            },
+            "optional": true
+          },
+          {
+            "name": "StatusValueType",
+            "valueType": {
+              "kind": "enum",
+              "ref": "Cosmoteer.Ships.Statuses.StatusValueType",
+              "name": "StatusValueType"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "StatusValueIsPerNDamage",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "StatusDuration",
+            "valueType": {
+              "kind": "number",
+              "type": "ModifiableFloat",
+              "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            },
+            "optional": true
+          },
+          {
+            "name": "StatusDurationIsPerNDamage",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "ImpulsePerNDamage",
+            "valueType": {
+              "kind": "number",
+              "type": "ModifiableFloat",
+              "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            },
+            "optional": true
+          },
+          {
+            "name": "NDamage",
+            "valueType": {
+              "kind": "int"
+            },
+            "optional": true,
+            "nullable": false,
+            "default": 1,
+            "defaultSource": "initializer"
+          },
+          {
+            "name": "Filter",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Simulation.EffectFilter",
+              "name": "EffectFilter"
+            },
+            "optional": true
+          },
+          {
+            "name": "CrewKillChance",
+            "valueType": {
+              "kind": "number",
+              "type": "ModifiableFloat",
+              "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            },
+            "optional": true
+          },
+          {
+            "name": "StatusType",
+            "valueType": {
+              "kind": "reference",
+              "target": "Cosmoteer.Ships.Statuses.StatusType",
+              "targetName": "StatusType"
+            },
+            "optional": true
+          }
+        ]
+      },
       "Cosmoteer.Simulation.HitEffects.GridStatusApplicationEffectRules": {
         "name": "GridStatusApplicationEffectRules",
         "namespace": "Cosmoteer.Simulation.HitEffects",
@@ -2715,6 +2853,472 @@
           }
         ]
       },
+      "Cosmoteer.Ships.Parts.Resources.BaseResourceStorageRules": {
+        "name": "BaseResourceStorageRules",
+        "namespace": "Cosmoteer.Ships.Parts.Resources",
+        "abstract": true,
+        "extends": "Cosmoteer.Ships.Parts.PartComponentRules",
+        "purelyReflective": true,
+        "fields": [
+          {
+            "name": "ResourceType",
+            "valueType": {
+              "kind": "reference",
+              "target": "Cosmoteer.Resources.ResourceRules",
+              "targetName": "ResourceRules"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "IsDrainable",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "DrainResistance",
+            "valueType": {
+              "kind": "number",
+              "type": "ModifiableFloat",
+              "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            },
+            "optional": true
+          },
+          {
+            "name": "SuppliesResources",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "SuppliesResourcesToggle",
+            "valueType": {
+              "kind": "reference",
+              "target": "Cosmoteer.Ships.Parts.PartComponentRules",
+              "targetName": "PartComponentRules"
+            },
+            "optional": true,
+            "expectedComponent": {
+              "kind": 13,
+              "enforcement": "throws"
+            }
+          },
+          {
+            "name": "AllowManualReceiveToggle",
+            "valueType": {
+              "kind": "reference",
+              "target": "Cosmoteer.Ships.Parts.PartComponentRules",
+              "targetName": "PartComponentRules"
+            },
+            "optional": true,
+            "expectedComponent": {
+              "kind": 13,
+              "enforcement": "throws"
+            }
+          },
+          {
+            "name": "IsIntermediateStorage",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "MinResourcesPickUp",
+            "valueType": {
+              "kind": "int"
+            },
+            "optional": true,
+            "nullable": false,
+            "default": 1,
+            "defaultSource": "initializer"
+          },
+          {
+            "name": "MaxResourcesPickUp",
+            "valueType": {
+              "kind": "int"
+            },
+            "optional": true
+          },
+          {
+            "name": "InitPickUp",
+            "valueType": {
+              "kind": "int"
+            },
+            "optional": true
+          },
+          {
+            "name": "PickUpRate",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": true
+          },
+          {
+            "name": "PickUpLocation",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Geometry.Vector2",
+              "name": "Vector2"
+            },
+            "optional": true
+          },
+          {
+            "name": "DeliveryLocation",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Geometry.Vector2",
+              "name": "Vector2"
+            },
+            "optional": true
+          },
+          {
+            "name": "ExternalPickUpLocation",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Geometry.Vector2",
+              "name": "Vector2"
+            },
+            "optional": true
+          },
+          {
+            "name": "ExternalDeliveryLocation",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Geometry.Vector2",
+              "name": "Vector2"
+            },
+            "optional": true
+          },
+          {
+            "name": "ExpectedResourceGenerationRate",
+            "valueType": {
+              "kind": "number",
+              "type": "ModifiableFloat",
+              "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            },
+            "optional": true
+          },
+          {
+            "name": "ExpectedResourceGenerationToggle",
+            "valueType": {
+              "kind": "reference",
+              "target": "Cosmoteer.Ships.Parts.PartComponentRules",
+              "targetName": "PartComponentRules"
+            },
+            "optional": true,
+            "expectedComponent": {
+              "kind": 13,
+              "enforcement": "throws"
+            }
+          },
+          {
+            "name": "AnticipateMoreResourcesFrom",
+            "valueType": {
+              "kind": "list",
+              "element": {
+                "kind": "reference",
+                "target": "Cosmoteer.Ships.Parts.PartComponentRules",
+                "targetName": "PartComponentRules"
+              }
+            },
+            "optional": true,
+            "expectedComponent": {
+              "kind": 16,
+              "enforcement": "throws"
+            }
+          },
+          {
+            "name": "ToggleOnResources",
+            "valueType": {
+              "kind": "int"
+            },
+            "optional": true,
+            "nullable": false,
+            "default": 1,
+            "defaultSource": "initializer"
+          },
+          {
+            "name": "ToggleOffResources",
+            "valueType": {
+              "kind": "int"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "ProvidedValueRange",
+            "valueType": {
+              "kind": "range",
+              "element": {
+                "kind": "float"
+              }
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "ProvidedValuePerResource",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "SupplyToggleButtonOffset",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Geometry.Vector2",
+              "name": "Vector2"
+            },
+            "optional": true
+          },
+          {
+            "name": "UITileRect",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Geometry.Rect",
+              "name": "Rect"
+            },
+            "optional": true
+          },
+          {
+            "name": "AllowExternalPickupAndDelivery",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "ReceiveResourceMediaEffects",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Simulation.MediaEffects.MultiMediaEffectRules",
+              "name": "MultiMediaEffectRules"
+            },
+            "optional": true
+          },
+          {
+            "name": "GiveResourceMediaEffects",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Simulation.MediaEffects.MultiMediaEffectRules",
+              "name": "MultiMediaEffectRules"
+            },
+            "optional": true
+          },
+          {
+            "name": "AccessWarningLevel",
+            "valueType": {
+              "kind": "enum",
+              "ref": "Cosmoteer.Ships.Parts.AccessWarningLevel",
+              "name": "AccessWarningLevel"
+            },
+            "optional": true,
+            "nullable": false,
+            "default": "Strong",
+            "defaultSource": "initializer"
+          }
+        ]
+      },
+      "Cosmoteer.Ships.Parts.Resources.FlexResourceGridRules": {
+        "name": "FlexResourceGridRules",
+        "namespace": "Cosmoteer.Ships.Parts.Resources",
+        "extends": "Cosmoteer.Ships.Parts.OperationalPartComponentRules",
+        "derivedType": "FlexResourceGrid",
+        "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+        "fields": [
+          {
+            "name": "GridRect",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Geometry.IntRect",
+              "name": "IntRect"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "IsDrainable",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "DrainResistance",
+            "valueType": {
+              "kind": "number",
+              "type": "ModifiableFloat",
+              "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            },
+            "optional": true
+          },
+          {
+            "name": "Layer",
+            "valueType": {
+              "kind": "reference",
+              "target": "Cosmoteer.Ships.ShipRenderLayerRules",
+              "targetName": "ShipRenderLayerRules"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "SpriteInset",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Gui.Borders",
+              "name": "Borders"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "RandomSpriteRotation",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "OverridePriorityPart",
+            "valueType": {
+              "kind": "reference",
+              "target": "Cosmoteer.Ships.Parts.PartRules",
+              "targetName": "PartRules"
+            },
+            "optional": true
+          },
+          {
+            "name": "OverridePriorityKey",
+            "valueType": {
+              "kind": "reference",
+              "target": "Cosmoteer.Ships.Parts.PartComponentRules",
+              "targetName": "PartComponentRules"
+            },
+            "optional": true
+          },
+          {
+            "name": "OverridePriorityName",
+            "valueType": {
+              "kind": "string",
+              "semantic": "localizationKey"
+            },
+            "optional": true
+          },
+          {
+            "name": "AllowExternalPickupAndDelivery",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "AccessWarningLevel",
+            "valueType": {
+              "kind": "enum",
+              "ref": "Cosmoteer.Ships.Parts.AccessWarningLevel",
+              "name": "AccessWarningLevel"
+            },
+            "optional": true,
+            "nullable": false,
+            "default": "Strong",
+            "defaultSource": "initializer"
+          }
+        ]
+      },
+      "Cosmoteer.Ships.Parts.Logic.BasePartMultiValueRules": {
+        "name": "BasePartMultiValueRules",
+        "namespace": "Cosmoteer.Ships.Parts.Logic",
+        "abstract": true,
+        "extends": "Cosmoteer.Ships.Parts.PartComponentRules",
+        "purelyReflective": true,
+        "fields": [
+          {
+            "name": "Values",
+            "valueType": {
+              "kind": "list",
+              "element": {
+                "kind": "reference",
+                "target": "Cosmoteer.Ships.Parts.PartComponentRules",
+                "targetName": "PartComponentRules"
+              }
+            },
+            "optional": true,
+            "expectedComponent": {
+              "kind": 15,
+              "enforcement": "throws"
+            }
+          },
+          {
+            "name": "ViaBuffs",
+            "valueType": {
+              "kind": "group",
+              "ref": "Cosmoteer.Ships.Parts.Logic.BuffMultiProxyRules",
+              "name": "BuffMultiProxyRules"
+            },
+            "optional": true
+          },
+          {
+            "name": "Mode",
+            "valueType": {
+              "kind": "enum",
+              "ref": "Cosmoteer.Ships.Parts.Logic.MultiValueMode",
+              "name": "MultiValueMode"
+            },
+            "optional": false,
+            "absentThrows": true,
+            "nullable": false
+          },
+          {
+            "name": "Abs",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "Negate",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "Invert",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "OneOver",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false
+          }
+        ]
+      },
       "Cosmoteer.Resources.ResourceRules": {
         "name": "ResourceRules",
         "namespace": "Cosmoteer.Resources",
@@ -3097,6 +3701,221 @@
             "nullable": false,
             "default": true,
             "defaultSource": "initializer"
+          }
+        ]
+      },
+      "Cosmoteer.Music.MusicFsmTrackRules/FsmState": {
+        "name": "FsmState",
+        "namespace": "",
+        "valueForm": {
+          "kind": "polymorphicGroup",
+          "ref": "Cosmoteer.Music.MusicTrackRules",
+          "name": "MusicTrackRules"
+        },
+        "fields": [
+          {
+            "name": "CueCondition",
+            "valueType": {
+              "kind": "code",
+              "lang": "python"
+            },
+            "optional": true
+          },
+          {
+            "name": "MaxConsecutivePlays",
+            "valueType": {
+              "kind": "int"
+            },
+            "optional": true,
+            "nullable": false,
+            "default": 2147483647,
+            "defaultSource": "initializer"
+          },
+          {
+            "name": "NextTracks",
+            "valueType": {
+              "kind": "list",
+              "element": {
+                "kind": "group",
+                "ref": "Cosmoteer.Music.MusicFsmTrackRules/FsmState",
+                "name": "FsmState"
+              }
+            },
+            "optional": true
+          }
+        ]
+      },
+      "Cosmoteer.Music.MusicTrackRules": {
+        "name": "MusicTrackRules",
+        "namespace": "Cosmoteer.Music",
+        "abstract": true,
+        "isRegistry": true,
+        "fields": [
+          {
+            "name": "DebugName",
+            "valueType": {
+              "kind": "string"
+            },
+            "optional": true
+          },
+          {
+            "name": "Loop",
+            "valueType": {
+              "kind": "int"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "TimeVolumes",
+            "valueType": {
+              "kind": "list",
+              "element": {
+                "kind": "tuple",
+                "elements": [
+                  {
+                    "kind": "float"
+                  },
+                  {
+                    "kind": "float"
+                  }
+                ]
+              }
+            },
+            "optional": true
+          },
+          {
+            "name": "ZoomVolumes",
+            "valueType": {
+              "kind": "list",
+              "element": {
+                "kind": "tuple",
+                "elements": [
+                  {
+                    "kind": "float"
+                  },
+                  {
+                    "kind": "float"
+                  }
+                ]
+              }
+            },
+            "optional": true
+          },
+          {
+            "name": "ZoomVolumeVelocityUp",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": true,
+            "nullable": false,
+            "aliases": [
+              "ZoomVolumeVelocity"
+            ],
+            "default": 1,
+            "defaultSource": "initializer"
+          },
+          {
+            "name": "ZoomVolumeVelocityDown",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": true,
+            "nullable": false,
+            "aliases": [
+              "ZoomVolumeVelocity"
+            ],
+            "default": 1,
+            "defaultSource": "initializer"
+          },
+          {
+            "name": "DynamicCondition",
+            "valueType": {
+              "kind": "code",
+              "lang": "python"
+            },
+            "optional": true
+          },
+          {
+            "name": "DynamicVolume",
+            "valueType": {
+              "kind": "code",
+              "lang": "python"
+            },
+            "optional": true
+          },
+          {
+            "name": "DynamicVolumeVelocityUp",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": true,
+            "nullable": false,
+            "aliases": [
+              "DynamicVolumeVelocity"
+            ],
+            "default": 1,
+            "defaultSource": "initializer"
+          },
+          {
+            "name": "DynamicVolumeVelocityDown",
+            "valueType": {
+              "kind": "float"
+            },
+            "optional": true,
+            "nullable": false,
+            "aliases": [
+              "DynamicVolumeVelocity"
+            ],
+            "default": 1,
+            "defaultSource": "initializer"
+          },
+          {
+            "name": "FadeOutAfter",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Timing.Time",
+              "name": "Time",
+              "unit": "seconds"
+            },
+            "optional": true
+          },
+          {
+            "name": "FadeOutDuration",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Timing.Time",
+              "name": "Time",
+              "unit": "seconds"
+            },
+            "optional": true
+          },
+          {
+            "name": "SilenceAfterFadeOut",
+            "valueType": {
+              "kind": "group",
+              "ref": "Halfling.Timing.Time",
+              "name": "Time",
+              "unit": "seconds"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "FadeOutCondition",
+            "valueType": {
+              "kind": "code",
+              "lang": "python"
+            },
+            "optional": true
+          },
+          {
+            "name": "FadeOutOnSimPop",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false
           }
         ]
       },
@@ -4759,6 +5578,108 @@
           }
         ]
       },
+      "Cosmoteer.Codex.CodexPageRules": {
+        "name": "CodexPageRules",
+        "namespace": "Cosmoteer.Codex",
+        "purelyReflective": true,
+        "fields": [
+          {
+            "name": "ID",
+            "valueType": {
+              "kind": "string"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "TitleKey",
+            "valueType": {
+              "kind": "string",
+              "semantic": "localizationKey"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "TabNameKey",
+            "valueType": {
+              "kind": "string",
+              "semantic": "localizationKey"
+            },
+            "optional": false,
+            "absentThrows": true
+          },
+          {
+            "name": "ShowCondition",
+            "valueType": {
+              "kind": "code",
+              "lang": "python"
+            },
+            "optional": true
+          },
+          {
+            "name": "TempShowCondition",
+            "valueType": {
+              "kind": "code",
+              "lang": "python"
+            },
+            "optional": true
+          },
+          {
+            "name": "OnSeen",
+            "valueType": {
+              "kind": "code",
+              "lang": "python"
+            },
+            "optional": true
+          },
+          {
+            "name": "AutoOpen",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "AutoPause",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "IsTip",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "CenterScreen",
+            "valueType": {
+              "kind": "bool"
+            },
+            "optional": true,
+            "nullable": false
+          },
+          {
+            "name": "Entries",
+            "valueType": {
+              "kind": "list",
+              "element": {
+                "kind": "group",
+                "ref": "Cosmoteer.Codex.CodexPageEntryRules",
+                "name": "CodexPageEntryRules"
+              }
+            },
+            "optional": true,
+            "absentThrows": true
+          }
+        ]
+      },
       "Cosmoteer.Bullets.Hits.HitRules": {
         "name": "HitRules",
         "namespace": "Cosmoteer.Bullets.Hits",
@@ -4941,8 +5862,11 @@
           "HasTargetExceptShipRelative",
           "IsReloaded"
         ]
-      }
+      },
+      "System.MidpointRounding": null
     }
   },
-  "whole": {}
+  "whole": {
+    "scripting": null
+  }
 }

@@ -162,6 +162,23 @@ class CosmoteerSettingsConfigurable : BoundConfigurable("Cosmoteer Rules") {
                     )
             }
             row {
+                checkBox("Check weapon coverage")
+                    .bindSelected(state::validateWeaponCoverage)
+                    .comment(
+                        "Reports a default weapon coverage or coverage match the game silently " +
+                        "ignores or that breaks the weapon, such as an arc missing the turret, a " +
+                        "range of zero or a match that cannot be followed."
+                    )
+            }
+            row {
+                checkBox("Check scripts")
+                    .bindSelected(state::validateScripts)
+                    .comment(
+                        "Reports a music or codex script the game cannot compile, which stops the " +
+                        "rules from loading. Shown with the game's own message."
+                    )
+            }
+            row {
                 checkBox("Check numbers the reader refuses")
                     .bindSelected(state::validateNumericDomains)
                     .comment(

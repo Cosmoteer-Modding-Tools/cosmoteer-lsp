@@ -4,7 +4,7 @@
     "root": "Cosmoteer.Data.Rules",
     "registries": 37,
     "types": 856,
-    "enums": 101,
+    "enums": 102,
     "typesBeforePrune": 1356,
     "registriesBeforePrune": 62,
     "componentSlots": 126,
@@ -6254,11 +6254,15 @@
         {
           "name": "StatusValue",
           "valueType": {
-            "kind": "number",
-            "type": "ModifiableFloat",
-            "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            "kind": "range",
+            "element": {
+              "kind": "number",
+              "type": "ModifiableFloat",
+              "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            }
           },
-          "optional": true
+          "optional": true,
+          "nullable": false
         },
         {
           "name": "StatusValueType",
@@ -20024,6 +20028,26 @@
           "nullable": false,
           "default": "Strong",
           "defaultSource": "initializer"
+        },
+        {
+          "name": "DoResourceDeathEffects",
+          "valueType": {
+            "kind": "bool"
+          },
+          "optional": true,
+          "nullable": false,
+          "default": true,
+          "defaultSource": "initializer"
+        },
+        {
+          "name": "DoResourceResponseEffects",
+          "valueType": {
+            "kind": "bool"
+          },
+          "optional": true,
+          "nullable": false,
+          "default": true,
+          "defaultSource": "initializer"
         }
       ]
     },
@@ -20175,6 +20199,26 @@
           "optional": true,
           "nullable": false,
           "default": "Strong",
+          "defaultSource": "initializer"
+        },
+        {
+          "name": "DoResourceDeathEffects",
+          "valueType": {
+            "kind": "bool"
+          },
+          "optional": true,
+          "nullable": false,
+          "default": true,
+          "defaultSource": "initializer"
+        },
+        {
+          "name": "DoResourceResponseEffects",
+          "valueType": {
+            "kind": "bool"
+          },
+          "optional": true,
+          "nullable": false,
+          "default": true,
           "defaultSource": "initializer"
         }
       ]
@@ -21238,6 +21282,15 @@
           },
           "optional": true,
           "nullable": false
+        },
+        {
+          "name": "IndividualRounding",
+          "valueType": {
+            "kind": "enum",
+            "ref": "System.MidpointRounding",
+            "name": "MidpointRounding"
+          },
+          "optional": true
         }
       ]
     },
@@ -29845,7 +29898,9 @@
           "name": "CueCondition",
           "valueType": {
             "kind": "code",
-            "lang": "python"
+            "lang": "script",
+            "context": "Cosmoteer.Music.MusicParameters",
+            "returns": "System.Boolean"
           },
           "optional": true
         },
@@ -30080,7 +30135,9 @@
           "name": "DynamicCondition",
           "valueType": {
             "kind": "code",
-            "lang": "python"
+            "lang": "script",
+            "context": "Cosmoteer.Music.MusicParameters",
+            "returns": "System.Boolean"
           },
           "optional": true
         },
@@ -30088,7 +30145,9 @@
           "name": "DynamicVolume",
           "valueType": {
             "kind": "code",
-            "lang": "python"
+            "lang": "script",
+            "context": "Cosmoteer.Music.MusicParameters",
+            "returns": "System.Single"
           },
           "optional": true
         },
@@ -30153,7 +30212,9 @@
           "name": "FadeOutCondition",
           "valueType": {
             "kind": "code",
-            "lang": "python"
+            "lang": "script",
+            "context": "Cosmoteer.Music.MusicParameters",
+            "returns": "System.Boolean"
           },
           "optional": true
         },
@@ -54033,7 +54094,9 @@
           "name": "ShowCondition",
           "valueType": {
             "kind": "code",
-            "lang": "python"
+            "lang": "script",
+            "context": "Cosmoteer.Codex.CodexConditionContext",
+            "returns": "System.Boolean"
           },
           "optional": true
         },
@@ -54041,7 +54104,9 @@
           "name": "TempShowCondition",
           "valueType": {
             "kind": "code",
-            "lang": "python"
+            "lang": "script",
+            "context": "Cosmoteer.Codex.CodexConditionContext",
+            "returns": "System.Boolean"
           },
           "optional": true
         },
@@ -54049,7 +54114,9 @@
           "name": "OnSeen",
           "valueType": {
             "kind": "code",
-            "lang": "python"
+            "lang": "script",
+            "context": "Cosmoteer.Codex.CodexOnSeenContext",
+            "returns": "System.Void"
           },
           "optional": true
         },
@@ -65750,6 +65817,16 @@
         "VerticalSplit",
         "Wait"
       ]
+    },
+    "System.MidpointRounding": {
+      "name": "MidpointRounding",
+      "members": [
+        "ToEven",
+        "AwayFromZero",
+        "ToZero",
+        "ToNegativeInfinity",
+        "ToPositiveInfinity"
+      ]
     }
   },
   "builtinIds": {
@@ -65796,6 +65873,947 @@
     "Cosmoteer.Simulation.MediaEffects.MediaEffectBucketsRules": [
       "default_bullet"
     ]
+  },
+  "scripting": {
+    "contexts": {
+      "Cosmoteer.Codex.CodexConditionContext": {
+        "variables": [
+          {
+            "name": "game",
+            "type": "Cosmoteer.Game.GameScriptAccess",
+            "doc": "Script access to the current game.",
+            "kind": "variable"
+          },
+          {
+            "name": "sim",
+            "type": "Cosmoteer.Simulation.SimScriptAccess",
+            "doc": "Script access to the current simulation.",
+            "kind": "variable"
+          }
+        ]
+      },
+      "Cosmoteer.Codex.CodexOnSeenContext": {
+        "variables": [
+          {
+            "name": "SetSetting",
+            "returns": "System.Void",
+            "params": [
+              {
+                "name": "settingName",
+                "type": "System.String"
+              },
+              {
+                "name": "settingValue",
+                "type": "System.Object"
+              }
+            ],
+            "doc": "Sets the value of the specified setting.",
+            "kind": "function"
+          }
+        ]
+      },
+      "Cosmoteer.Music.MusicParameters": {
+        "variables": [
+          {
+            "name": "zoom",
+            "type": "System.Single",
+            "doc": "The zoom value used to control the music.",
+            "kind": "variable"
+          },
+          {
+            "name": "interior",
+            "type": "System.Boolean",
+            "doc": "Whether ship interiors are being shown.",
+            "kind": "variable"
+          },
+          {
+            "name": "paused",
+            "type": "System.Boolean",
+            "doc": "Whether the game is paused.",
+            "kind": "variable"
+          },
+          {
+            "name": "battle",
+            "type": "System.Boolean",
+            "doc": "Whether the player is currently engaged in battle.",
+            "kind": "variable"
+          },
+          {
+            "name": "wanted",
+            "type": "System.Boolean",
+            "doc": "Whether the player is currently wanted.",
+            "kind": "variable"
+          },
+          {
+            "name": "menu",
+            "type": "System.Boolean",
+            "doc": "Whether the player is currently in a menu.",
+            "kind": "variable"
+          },
+          {
+            "name": "first_boot",
+            "type": "System.Boolean",
+            "doc": "Whether this is the first time the game has been run.",
+            "kind": "variable"
+          },
+          {
+            "name": "CalculateZoomVolume",
+            "returns": "System.Single",
+            "params": [
+              {
+                "name": "zoom1",
+                "type": "System.Single"
+              },
+              {
+                "name": "volume1",
+                "type": "System.Single"
+              },
+              {
+                "name": "zoom2",
+                "type": "System.Single"
+              },
+              {
+                "name": "volume2",
+                "type": "System.Single"
+              }
+            ],
+            "doc": "Calculates and returns the volume factor based on the current zoom and the specified volume points.",
+            "kind": "function"
+          }
+        ]
+      }
+    },
+    "types": {
+      "Cosmoteer.Game.GameScriptAccess": {
+        "properties": [
+          {
+            "name": "ActiveMissionCount",
+            "type": "System.Int32"
+          },
+          {
+            "name": "BlueprintsUIOpen",
+            "type": "System.Boolean"
+          },
+          {
+            "name": "BuildUIOpen",
+            "type": "System.Boolean"
+          },
+          {
+            "name": "CommWindowOpen",
+            "type": "System.Boolean"
+          },
+          {
+            "name": "CommsUIOpen",
+            "type": "System.Boolean"
+          },
+          {
+            "name": "CrewSquadAssignmentsOpen",
+            "type": "System.Boolean"
+          },
+          {
+            "name": "CrewUIOpen",
+            "type": "System.Boolean"
+          },
+          {
+            "name": "DirectControlEnabled",
+            "type": "System.Boolean"
+          },
+          {
+            "name": "Fame",
+            "type": "System.Int32"
+          },
+          {
+            "name": "GalaxyMapOpen",
+            "type": "System.Boolean"
+          },
+          {
+            "name": "HighestReputation",
+            "type": "System.Int32"
+          },
+          {
+            "name": "IsCareerMode",
+            "type": "System.Boolean"
+          },
+          {
+            "name": "IsCreativeMode",
+            "type": "System.Boolean"
+          },
+          {
+            "name": "LowestReputation",
+            "type": "System.Int32"
+          },
+          {
+            "name": "PaintUIOpen",
+            "type": "System.Boolean"
+          },
+          {
+            "name": "PlayerMoney",
+            "type": "System.Int32"
+          },
+          {
+            "name": "ResourcesUIOpen",
+            "type": "System.Boolean"
+          }
+        ],
+        "methods": [
+          {
+            "name": "HasActiveMissionInCategory",
+            "returns": "System.Boolean",
+            "params": [
+              {
+                "name": "categoryID",
+                "type": "System.String"
+              }
+            ]
+          },
+          {
+            "name": "HasActiveMissionOfMetatype",
+            "returns": "System.Boolean",
+            "params": [
+              {
+                "name": "metatypeID",
+                "type": "System.String"
+              }
+            ]
+          },
+          {
+            "name": "HasActiveObjectiveType",
+            "returns": "System.Boolean",
+            "params": [
+              {
+                "name": "objectiveType",
+                "type": "System.String"
+              }
+            ]
+          },
+          {
+            "name": "HasAnyTechUnlockedInCategory",
+            "returns": "System.Boolean",
+            "params": [
+              {
+                "name": "techCategory",
+                "type": "System.String"
+              }
+            ]
+          },
+          {
+            "name": "HasPartCategoryInHand",
+            "returns": "System.Boolean",
+            "params": [
+              {
+                "name": "category",
+                "type": "System.String"
+              }
+            ]
+          },
+          {
+            "name": "HasSeenCodexPage",
+            "returns": "System.Boolean",
+            "params": [
+              {
+                "name": "tutorialID",
+                "type": "System.String"
+              }
+            ]
+          },
+          {
+            "name": "HasTechUnlocked",
+            "returns": "System.Boolean",
+            "params": [
+              {
+                "name": "techID",
+                "type": "System.String"
+              }
+            ]
+          },
+          {
+            "name": "PartInHandHasToggleMode",
+            "returns": "System.Boolean",
+            "params": [
+              {
+                "name": "toggle",
+                "type": "System.String"
+              },
+              {
+                "name": "mode",
+                "type": "System.Int32"
+              }
+            ]
+          }
+        ],
+        "doc": "Exposes readonly game data to game scripts."
+      },
+      "Cosmoteer.Simulation.SimScriptAccess": {
+        "properties": [
+          {
+            "name": "ClockTime",
+            "type": "System.Double"
+          },
+          {
+            "name": "EnemyDetected",
+            "type": "System.Boolean"
+          },
+          {
+            "name": "EnemyInSight",
+            "type": "System.Boolean"
+          },
+          {
+            "name": "HasSelectedParts",
+            "type": "System.Boolean"
+          },
+          {
+            "name": "IsWanted",
+            "type": "System.Boolean"
+          },
+          {
+            "name": "JunkInSight",
+            "type": "System.Boolean"
+          },
+          {
+            "name": "LogicalTime",
+            "type": "System.Double"
+          },
+          {
+            "name": "NuggetsInSight",
+            "type": "System.Boolean"
+          },
+          {
+            "name": "PlayerSignificantShipCount",
+            "type": "System.Int32"
+          },
+          {
+            "name": "SelectedShip",
+            "type": "Cosmoteer.Ships.ShipScriptAccess"
+          },
+          {
+            "name": "StationInSight",
+            "type": "System.Boolean"
+          }
+        ],
+        "methods": [
+          {
+            "name": "HasShipClassInSight",
+            "returns": "System.Boolean",
+            "params": [
+              {
+                "name": "shipClassID",
+                "type": "System.String"
+              }
+            ]
+          },
+          {
+            "name": "HasShipClassWithCustomIconInSight",
+            "returns": "System.Boolean",
+            "params": [
+              {
+                "name": "shipClassID",
+                "type": "System.String"
+              }
+            ]
+          },
+          {
+            "name": "HasShipWithLabelInSight",
+            "returns": "System.Boolean",
+            "params": [
+              {
+                "name": "label",
+                "type": "System.String"
+              }
+            ]
+          }
+        ],
+        "doc": "Exposes readonly game data to game scripts."
+      },
+      "Cosmoteer.Ships.ShipScriptAccess": {
+        "properties": [
+          {
+            "name": "AngularVelocity",
+            "type": "System.Single"
+          },
+          {
+            "name": "CanBeAttackedByLocalPlayer",
+            "type": "System.Boolean"
+          },
+          {
+            "name": "CommandType",
+            "type": "System.String"
+          },
+          {
+            "name": "ConstructionAllowed",
+            "type": "System.Boolean"
+          },
+          {
+            "name": "CrewAssigned",
+            "type": "System.Int32"
+          },
+          {
+            "name": "CrewOnShip",
+            "type": "System.Int32"
+          },
+          {
+            "name": "Destination",
+            "type": "Halfling.Geometry.Vector2"
+          },
+          {
+            "name": "DestinationRotation",
+            "type": "Halfling.Geometry.Direction?"
+          },
+          {
+            "name": "FollowShip",
+            "type": "Cosmoteer.Ships.ShipScriptAccess"
+          },
+          {
+            "name": "ForwardRotation",
+            "type": "Halfling.Geometry.Direction"
+          },
+          {
+            "name": "IsEnemiesWithLocalPlayer",
+            "type": "System.Boolean"
+          },
+          {
+            "name": "IsInNebula",
+            "type": "System.Boolean"
+          },
+          {
+            "name": "IsLocalPlayerShip",
+            "type": "System.Boolean"
+          },
+          {
+            "name": "IsSignificant",
+            "type": "System.Boolean"
+          },
+          {
+            "name": "LinearVelocity",
+            "type": "Halfling.Geometry.Vector2"
+          },
+          {
+            "name": "Location",
+            "type": "Halfling.Geometry.Vector2"
+          },
+          {
+            "name": "Name",
+            "type": "System.String"
+          },
+          {
+            "name": "NeedsRepairs",
+            "type": "System.Boolean"
+          },
+          {
+            "name": "Parts",
+            "type": "System.Int32"
+          },
+          {
+            "name": "PlayerIndex",
+            "type": "System.Int32"
+          },
+          {
+            "name": "Radius",
+            "type": "System.Single"
+          },
+          {
+            "name": "RemainingCommandPoints",
+            "type": "System.Int32"
+          },
+          {
+            "name": "Rotation",
+            "type": "Halfling.Geometry.Direction"
+          },
+          {
+            "name": "TargetShip",
+            "type": "Cosmoteer.Ships.ShipScriptAccess"
+          },
+          {
+            "name": "Value",
+            "type": "System.Int32"
+          }
+        ],
+        "methods": [
+          {
+            "name": "CanBeAttackedBy",
+            "returns": "System.Boolean",
+            "params": [
+              {
+                "name": "ship",
+                "type": "Cosmoteer.Ships.ShipScriptAccess"
+              }
+            ]
+          },
+          {
+            "name": "HasBlueprintPartsInCategory",
+            "returns": "System.Boolean",
+            "params": [
+              {
+                "name": "category",
+                "type": "System.String"
+              }
+            ]
+          },
+          {
+            "name": "HasParts",
+            "returns": "System.Boolean",
+            "params": [
+              {
+                "name": "partCategory",
+                "type": "System.String"
+              }
+            ]
+          },
+          {
+            "name": "HasStatus",
+            "returns": "System.Boolean",
+            "params": [
+              {
+                "name": "idString",
+                "type": "System.String"
+              },
+              {
+                "name": "requireTicking",
+                "type": "System.Boolean",
+                "optional": true
+              }
+            ]
+          },
+          {
+            "name": "HasStatusValue",
+            "returns": "System.Boolean",
+            "params": [
+              {
+                "name": "idString",
+                "type": "System.String"
+              },
+              {
+                "name": "minValue",
+                "type": "System.Single"
+              }
+            ]
+          },
+          {
+            "name": "IsEnemiesWith",
+            "returns": "System.Boolean",
+            "params": [
+              {
+                "name": "ship",
+                "type": "Cosmoteer.Ships.ShipScriptAccess"
+              }
+            ]
+          }
+        ],
+        "doc": "Exposes readonly ship data to game scripts."
+      }
+    },
+    "typeInfo": {
+      "Cosmoteer.Codex.CodexConditionContext": {
+        "name": "CodexConditionContext",
+        "valueType": true,
+        "bases": [
+          "System.ValueType",
+          "System.Object"
+        ]
+      },
+      "Cosmoteer.Codex.CodexOnSeenContext": {
+        "name": "CodexOnSeenContext",
+        "valueType": true,
+        "bases": [
+          "System.ValueType",
+          "System.Object"
+        ]
+      },
+      "Cosmoteer.Game.GameScriptAccess": {
+        "name": "GameScriptAccess",
+        "valueType": false,
+        "accessible": true,
+        "bases": [
+          "System.Object"
+        ]
+      },
+      "Cosmoteer.Music.MusicParameters": {
+        "name": "MusicParameters",
+        "valueType": false,
+        "bases": [
+          "System.Object"
+        ]
+      },
+      "Cosmoteer.Ships.ShipScriptAccess": {
+        "name": "ShipScriptAccess",
+        "valueType": false,
+        "accessible": true,
+        "bases": [
+          "System.Object"
+        ]
+      },
+      "Cosmoteer.Simulation.SimScriptAccess": {
+        "name": "SimScriptAccess",
+        "valueType": false,
+        "accessible": true,
+        "bases": [
+          "System.Object"
+        ]
+      },
+      "Halfling.Geometry.Direction": {
+        "name": "Direction",
+        "valueType": true,
+        "bases": [
+          "Halfling.Serialization.Binary.IBinarySerializable",
+          "Halfling.Serialization.Base.IBaseSerializable\u00602\u003CHalfling.Serialization.Binary.BinarySerializer,System.IO.BinaryWriter\u003E",
+          "Halfling.Serialization.ObjectBits.IObjectBitsSerializable",
+          "Halfling.Serialization.Base.IBaseSerializable\u00602\u003CHalfling.Serialization.ObjectBits.ObjectBitsSerializer,Halfling.ObjectBits.OBNode\u003E",
+          "Halfling.Serialization.ObjectText.IObjectTextSerializable",
+          "Halfling.Serialization.Base.IBaseSerializable\u00602\u003CHalfling.Serialization.ObjectText.ObjectTextSerializer,Halfling.ObjectText.IOTNode\u003E",
+          "System.IEquatable\u00601\u003CHalfling.Geometry.Direction\u003E",
+          "System.IComparable",
+          "System.IComparable\u00601\u003CHalfling.Geometry.Direction\u003E",
+          "Halfling.Developer.Editing.IEditable",
+          "System.IFormattable",
+          "System.ValueType",
+          "System.Object"
+        ]
+      },
+      "Halfling.Geometry.Direction?": {
+        "name": "Direction?",
+        "valueType": false
+      },
+      "Halfling.Geometry.Vector2": {
+        "name": "Vector2",
+        "valueType": true,
+        "bases": [
+          "Halfling.Geometry.IBounded2DShape",
+          "Halfling.Geometry.I2DShape",
+          "Halfling.Geometry.IShape",
+          "Halfling.Geometry.IShapeMethods\u00601\u003CHalfling.Geometry.IShape\u003E",
+          "Halfling.Geometry.IShapeMethods\u00601\u003CHalfling.Geometry.I2DShape\u003E",
+          "Halfling.Geometry.IShapeMethods\u00601\u003CHalfling.Geometry.Circle\u003E",
+          "Halfling.Geometry.IShapeMethods\u00601\u003CHalfling.Geometry.Line\u003E",
+          "Halfling.Geometry.IShapeMethods\u00601\u003CHalfling.Geometry.Ray\u003E",
+          "Halfling.Geometry.IShapeMethods\u00601\u003CHalfling.Geometry.Rect\u003E",
+          "Halfling.Geometry.IShapeMethods\u00601\u003CHalfling.Geometry.RotRect\u003E",
+          "Halfling.Geometry.IShapeMethods\u00601\u003CHalfling.Geometry.Sector\u003E",
+          "Halfling.Geometry.IShapeMethods\u00601\u003CHalfling.Geometry.Segment\u003E",
+          "Halfling.Geometry.IShapeMethods\u00601\u003CHalfling.Geometry.Vector2\u003E",
+          "Halfling.Geometry.IShapeCardinalMethods",
+          "Halfling.Geometry.IBounded2D",
+          "Halfling.Geometry.IShapeMethods\u00601\u003CHalfling.Geometry.IBounded2DShape\u003E",
+          "System.IEquatable\u00601\u003CHalfling.Geometry.Vector2\u003E",
+          "System.IComparable",
+          "System.IComparable\u00601\u003CHalfling.Geometry.Vector2\u003E",
+          "Halfling.Developer.Editing.IEditable",
+          "System.IFormattable",
+          "Halfling.Serialization.ObjectText.IObjectTextSerializable",
+          "Halfling.Serialization.Base.IBaseSerializable\u00602\u003CHalfling.Serialization.ObjectText.ObjectTextSerializer,Halfling.ObjectText.IOTNode\u003E",
+          "Halfling.Serialization.Binary.IBinarySerializable",
+          "Halfling.Serialization.Base.IBaseSerializable\u00602\u003CHalfling.Serialization.Binary.BinarySerializer,System.IO.BinaryWriter\u003E",
+          "Halfling.Serialization.ObjectBits.IObjectBitsSerializable",
+          "Halfling.Serialization.Base.IBaseSerializable\u00602\u003CHalfling.Serialization.ObjectBits.ObjectBitsSerializer,Halfling.ObjectBits.OBNode\u003E",
+          "Halfling.Serialization.ObjectText.IObjectTextContentDeserializable",
+          "Halfling.Serialization.Base.IBaseContentDeserializable\u00602\u003CHalfling.Serialization.ObjectText.ObjectTextSerializer,Halfling.ObjectText.IOTNode\u003E",
+          "Halfling.Serialization.Binary.IBinaryContentDeserializable",
+          "Halfling.Serialization.Base.IBaseContentDeserializable\u00602\u003CHalfling.Serialization.Binary.BinarySerializer,System.IO.BinaryReader\u003E",
+          "Halfling.Serialization.ObjectBits.IObjectBitsContentDeserializable",
+          "Halfling.Serialization.Base.IBaseContentDeserializable\u00602\u003CHalfling.Serialization.ObjectBits.ObjectBitsSerializer,Halfling.ObjectBits.OBNode\u003E",
+          "System.Numerics.IEqualityOperators\u00603\u003CHalfling.Geometry.Vector2,Halfling.Geometry.Vector2,System.Boolean\u003E",
+          "System.Numerics.IAdditionOperators\u00603\u003CHalfling.Geometry.Vector2,Halfling.Geometry.Vector2,Halfling.Geometry.Vector2\u003E",
+          "System.Numerics.ISubtractionOperators\u00603\u003CHalfling.Geometry.Vector2,Halfling.Geometry.Vector2,Halfling.Geometry.Vector2\u003E",
+          "System.Numerics.IUnaryNegationOperators\u00602\u003CHalfling.Geometry.Vector2,Halfling.Geometry.Vector2\u003E",
+          "System.Numerics.IMultiplyOperators\u00603\u003CHalfling.Geometry.Vector2,Halfling.Geometry.Vector2,Halfling.Geometry.Vector2\u003E",
+          "System.Numerics.IDivisionOperators\u00603\u003CHalfling.Geometry.Vector2,Halfling.Geometry.Vector2,Halfling.Geometry.Vector2\u003E",
+          "System.Numerics.IModulusOperators\u00603\u003CHalfling.Geometry.Vector2,Halfling.Geometry.Vector2,Halfling.Geometry.Vector2\u003E",
+          "System.Numerics.IMultiplyOperators\u00603\u003CHalfling.Geometry.Vector2,System.Single,Halfling.Geometry.Vector2\u003E",
+          "System.Numerics.IDivisionOperators\u00603\u003CHalfling.Geometry.Vector2,System.Single,Halfling.Geometry.Vector2\u003E",
+          "System.Numerics.IModulusOperators\u00603\u003CHalfling.Geometry.Vector2,System.Single,Halfling.Geometry.Vector2\u003E",
+          "System.Numerics.IAdditiveIdentity\u00602\u003CHalfling.Geometry.Vector2,Halfling.Geometry.Vector2\u003E",
+          "System.Numerics.IMultiplicativeIdentity\u00602\u003CHalfling.Geometry.Vector2,Halfling.Geometry.Vector2\u003E",
+          "System.ValueType",
+          "System.Object"
+        ]
+      },
+      "System.Boolean": {
+        "name": "Boolean",
+        "valueType": true,
+        "bases": [
+          "System.IComparable",
+          "System.IConvertible",
+          "System.IComparable\u00601\u003CSystem.Boolean\u003E",
+          "System.IEquatable\u00601\u003CSystem.Boolean\u003E",
+          "System.ISpanParsable\u00601\u003CSystem.Boolean\u003E",
+          "System.IParsable\u00601\u003CTSelf\u003E",
+          "System.IParsable\u00601\u003CSystem.Boolean\u003E",
+          "System.ValueType",
+          "System.Object"
+        ]
+      },
+      "System.Double": {
+        "name": "Double",
+        "valueType": true,
+        "bases": [
+          "System.IComparable",
+          "System.IConvertible",
+          "System.ISpanFormattable",
+          "System.IFormattable",
+          "System.IComparable\u00601\u003CSystem.Double\u003E",
+          "System.IEquatable\u00601\u003CSystem.Double\u003E",
+          "System.Numerics.IBinaryFloatingPointIeee754\u00601\u003CSystem.Double\u003E",
+          "System.Numerics.IBinaryNumber\u00601\u003CTSelf\u003E",
+          "System.Numerics.IBitwiseOperators\u00603\u003CTSelf,TSelf,TSelf\u003E",
+          "System.Numerics.INumber\u00601\u003CTSelf\u003E",
+          "System.IComparable\u00601\u003CTSelf\u003E",
+          "System.Numerics.IComparisonOperators\u00603\u003CTSelf,TSelf,System.Boolean\u003E",
+          "System.Numerics.IEqualityOperators\u00603\u003CTSelf,TOther,TResult\u003E",
+          "System.Numerics.IEqualityOperators\u00603\u003CTSelf,TSelf,System.Boolean\u003E",
+          "System.Numerics.IModulusOperators\u00603\u003CTSelf,TSelf,TSelf\u003E",
+          "System.Numerics.INumberBase\u00601\u003CTSelf\u003E",
+          "System.Numerics.IAdditionOperators\u00603\u003CTSelf,TSelf,TSelf\u003E",
+          "System.Numerics.IAdditiveIdentity\u00602\u003CTSelf,TSelf\u003E",
+          "System.Numerics.IDecrementOperators\u00601\u003CTSelf\u003E",
+          "System.Numerics.IDivisionOperators\u00603\u003CTSelf,TSelf,TSelf\u003E",
+          "System.IEquatable\u00601\u003CTSelf\u003E",
+          "System.Numerics.IIncrementOperators\u00601\u003CTSelf\u003E",
+          "System.Numerics.IMultiplicativeIdentity\u00602\u003CTSelf,TSelf\u003E",
+          "System.Numerics.IMultiplyOperators\u00603\u003CTSelf,TSelf,TSelf\u003E",
+          "System.ISpanParsable\u00601\u003CTSelf\u003E",
+          "System.IParsable\u00601\u003CTSelf\u003E",
+          "System.Numerics.ISubtractionOperators\u00603\u003CTSelf,TSelf,TSelf\u003E",
+          "System.Numerics.IUnaryPlusOperators\u00602\u003CTSelf,TSelf\u003E",
+          "System.Numerics.IUnaryNegationOperators\u00602\u003CTSelf,TSelf\u003E",
+          "System.IUtf8SpanFormattable",
+          "System.IUtf8SpanParsable\u00601\u003CTSelf\u003E",
+          "System.Numerics.IFloatingPointIeee754\u00601\u003CTSelf\u003E",
+          "System.Numerics.IExponentialFunctions\u00601\u003CTSelf\u003E",
+          "System.Numerics.IFloatingPointConstants\u00601\u003CTSelf\u003E",
+          "System.Numerics.IFloatingPoint\u00601\u003CTSelf\u003E",
+          "System.Numerics.ISignedNumber\u00601\u003CTSelf\u003E",
+          "System.Numerics.IHyperbolicFunctions\u00601\u003CTSelf\u003E",
+          "System.Numerics.ILogarithmicFunctions\u00601\u003CTSelf\u003E",
+          "System.Numerics.IPowerFunctions\u00601\u003CTSelf\u003E",
+          "System.Numerics.IRootFunctions\u00601\u003CTSelf\u003E",
+          "System.Numerics.ITrigonometricFunctions\u00601\u003CTSelf\u003E",
+          "System.Numerics.IBinaryNumber\u00601\u003CSystem.Double\u003E",
+          "System.Numerics.IBitwiseOperators\u00603\u003CSystem.Double,System.Double,System.Double\u003E",
+          "System.Numerics.INumber\u00601\u003CSystem.Double\u003E",
+          "System.Numerics.IComparisonOperators\u00603\u003CSystem.Double,System.Double,System.Boolean\u003E",
+          "System.Numerics.IEqualityOperators\u00603\u003CSystem.Double,System.Double,System.Boolean\u003E",
+          "System.Numerics.IModulusOperators\u00603\u003CSystem.Double,System.Double,System.Double\u003E",
+          "System.Numerics.INumberBase\u00601\u003CSystem.Double\u003E",
+          "System.Numerics.IAdditionOperators\u00603\u003CSystem.Double,System.Double,System.Double\u003E",
+          "System.Numerics.IAdditiveIdentity\u00602\u003CSystem.Double,System.Double\u003E",
+          "System.Numerics.IDecrementOperators\u00601\u003CSystem.Double\u003E",
+          "System.Numerics.IDivisionOperators\u00603\u003CSystem.Double,System.Double,System.Double\u003E",
+          "System.Numerics.IIncrementOperators\u00601\u003CSystem.Double\u003E",
+          "System.Numerics.IMultiplicativeIdentity\u00602\u003CSystem.Double,System.Double\u003E",
+          "System.Numerics.IMultiplyOperators\u00603\u003CSystem.Double,System.Double,System.Double\u003E",
+          "System.ISpanParsable\u00601\u003CSystem.Double\u003E",
+          "System.IParsable\u00601\u003CSystem.Double\u003E",
+          "System.Numerics.ISubtractionOperators\u00603\u003CSystem.Double,System.Double,System.Double\u003E",
+          "System.Numerics.IUnaryPlusOperators\u00602\u003CSystem.Double,System.Double\u003E",
+          "System.Numerics.IUnaryNegationOperators\u00602\u003CSystem.Double,System.Double\u003E",
+          "System.IUtf8SpanParsable\u00601\u003CSystem.Double\u003E",
+          "System.Numerics.IFloatingPointIeee754\u00601\u003CSystem.Double\u003E",
+          "System.Numerics.IExponentialFunctions\u00601\u003CSystem.Double\u003E",
+          "System.Numerics.IFloatingPointConstants\u00601\u003CSystem.Double\u003E",
+          "System.Numerics.IFloatingPoint\u00601\u003CSystem.Double\u003E",
+          "System.Numerics.ISignedNumber\u00601\u003CSystem.Double\u003E",
+          "System.Numerics.IHyperbolicFunctions\u00601\u003CSystem.Double\u003E",
+          "System.Numerics.ILogarithmicFunctions\u00601\u003CSystem.Double\u003E",
+          "System.Numerics.IPowerFunctions\u00601\u003CSystem.Double\u003E",
+          "System.Numerics.IRootFunctions\u00601\u003CSystem.Double\u003E",
+          "System.Numerics.ITrigonometricFunctions\u00601\u003CSystem.Double\u003E",
+          "System.Numerics.IMinMaxValue\u00601\u003CSystem.Double\u003E",
+          "System.IBinaryFloatParseAndFormatInfo\u00601\u003CSystem.Double\u003E",
+          "System.Numerics.IBinaryFloatingPointIeee754\u00601\u003CTSelf\u003E",
+          "System.Numerics.IMinMaxValue\u00601\u003CTSelf\u003E",
+          "System.ValueType",
+          "System.Object"
+        ],
+        "ordering": [
+          "\u003C",
+          "\u003C=",
+          "\u003E",
+          "\u003E="
+        ]
+      },
+      "System.Int32": {
+        "name": "Int32",
+        "valueType": true,
+        "bases": [
+          "System.IComparable",
+          "System.IConvertible",
+          "System.ISpanFormattable",
+          "System.IFormattable",
+          "System.IComparable\u00601\u003CSystem.Int32\u003E",
+          "System.IEquatable\u00601\u003CSystem.Int32\u003E",
+          "System.Numerics.IBinaryInteger\u00601\u003CSystem.Int32\u003E",
+          "System.Numerics.IBinaryNumber\u00601\u003CTSelf\u003E",
+          "System.Numerics.IBitwiseOperators\u00603\u003CTSelf,TSelf,TSelf\u003E",
+          "System.Numerics.INumber\u00601\u003CTSelf\u003E",
+          "System.IComparable\u00601\u003CTSelf\u003E",
+          "System.Numerics.IComparisonOperators\u00603\u003CTSelf,TSelf,System.Boolean\u003E",
+          "System.Numerics.IEqualityOperators\u00603\u003CTSelf,TOther,TResult\u003E",
+          "System.Numerics.IEqualityOperators\u00603\u003CTSelf,TSelf,System.Boolean\u003E",
+          "System.Numerics.IModulusOperators\u00603\u003CTSelf,TSelf,TSelf\u003E",
+          "System.Numerics.INumberBase\u00601\u003CTSelf\u003E",
+          "System.Numerics.IAdditionOperators\u00603\u003CTSelf,TSelf,TSelf\u003E",
+          "System.Numerics.IAdditiveIdentity\u00602\u003CTSelf,TSelf\u003E",
+          "System.Numerics.IDecrementOperators\u00601\u003CTSelf\u003E",
+          "System.Numerics.IDivisionOperators\u00603\u003CTSelf,TSelf,TSelf\u003E",
+          "System.IEquatable\u00601\u003CTSelf\u003E",
+          "System.Numerics.IIncrementOperators\u00601\u003CTSelf\u003E",
+          "System.Numerics.IMultiplicativeIdentity\u00602\u003CTSelf,TSelf\u003E",
+          "System.Numerics.IMultiplyOperators\u00603\u003CTSelf,TSelf,TSelf\u003E",
+          "System.ISpanParsable\u00601\u003CTSelf\u003E",
+          "System.IParsable\u00601\u003CTSelf\u003E",
+          "System.Numerics.ISubtractionOperators\u00603\u003CTSelf,TSelf,TSelf\u003E",
+          "System.Numerics.IUnaryPlusOperators\u00602\u003CTSelf,TSelf\u003E",
+          "System.Numerics.IUnaryNegationOperators\u00602\u003CTSelf,TSelf\u003E",
+          "System.IUtf8SpanFormattable",
+          "System.IUtf8SpanParsable\u00601\u003CTSelf\u003E",
+          "System.Numerics.IShiftOperators\u00603\u003CTSelf,System.Int32,TSelf\u003E",
+          "System.Numerics.IBinaryNumber\u00601\u003CSystem.Int32\u003E",
+          "System.Numerics.IBitwiseOperators\u00603\u003CSystem.Int32,System.Int32,System.Int32\u003E",
+          "System.Numerics.INumber\u00601\u003CSystem.Int32\u003E",
+          "System.Numerics.IComparisonOperators\u00603\u003CSystem.Int32,System.Int32,System.Boolean\u003E",
+          "System.Numerics.IEqualityOperators\u00603\u003CSystem.Int32,System.Int32,System.Boolean\u003E",
+          "System.Numerics.IModulusOperators\u00603\u003CSystem.Int32,System.Int32,System.Int32\u003E",
+          "System.Numerics.INumberBase\u00601\u003CSystem.Int32\u003E",
+          "System.Numerics.IAdditionOperators\u00603\u003CSystem.Int32,System.Int32,System.Int32\u003E",
+          "System.Numerics.IAdditiveIdentity\u00602\u003CSystem.Int32,System.Int32\u003E",
+          "System.Numerics.IDecrementOperators\u00601\u003CSystem.Int32\u003E",
+          "System.Numerics.IDivisionOperators\u00603\u003CSystem.Int32,System.Int32,System.Int32\u003E",
+          "System.Numerics.IIncrementOperators\u00601\u003CSystem.Int32\u003E",
+          "System.Numerics.IMultiplicativeIdentity\u00602\u003CSystem.Int32,System.Int32\u003E",
+          "System.Numerics.IMultiplyOperators\u00603\u003CSystem.Int32,System.Int32,System.Int32\u003E",
+          "System.ISpanParsable\u00601\u003CSystem.Int32\u003E",
+          "System.IParsable\u00601\u003CSystem.Int32\u003E",
+          "System.Numerics.ISubtractionOperators\u00603\u003CSystem.Int32,System.Int32,System.Int32\u003E",
+          "System.Numerics.IUnaryPlusOperators\u00602\u003CSystem.Int32,System.Int32\u003E",
+          "System.Numerics.IUnaryNegationOperators\u00602\u003CSystem.Int32,System.Int32\u003E",
+          "System.IUtf8SpanParsable\u00601\u003CSystem.Int32\u003E",
+          "System.Numerics.IShiftOperators\u00603\u003CSystem.Int32,System.Int32,System.Int32\u003E",
+          "System.Numerics.IMinMaxValue\u00601\u003CSystem.Int32\u003E",
+          "System.Numerics.ISignedNumber\u00601\u003CSystem.Int32\u003E",
+          "System.IBinaryIntegerParseAndFormatInfo\u00601\u003CSystem.Int32\u003E",
+          "System.Numerics.IBinaryInteger\u00601\u003CTSelf\u003E",
+          "System.Numerics.IMinMaxValue\u00601\u003CTSelf\u003E",
+          "System.ValueType",
+          "System.Object"
+        ]
+      },
+      "System.Object": {
+        "name": "Object",
+        "valueType": false
+      },
+      "System.Single": {
+        "name": "Single",
+        "valueType": true,
+        "bases": [
+          "System.IComparable",
+          "System.IConvertible",
+          "System.ISpanFormattable",
+          "System.IFormattable",
+          "System.IComparable\u00601\u003CSystem.Single\u003E",
+          "System.IEquatable\u00601\u003CSystem.Single\u003E",
+          "System.Numerics.IBinaryFloatingPointIeee754\u00601\u003CSystem.Single\u003E",
+          "System.Numerics.IBinaryNumber\u00601\u003CTSelf\u003E",
+          "System.Numerics.IBitwiseOperators\u00603\u003CTSelf,TSelf,TSelf\u003E",
+          "System.Numerics.INumber\u00601\u003CTSelf\u003E",
+          "System.IComparable\u00601\u003CTSelf\u003E",
+          "System.Numerics.IComparisonOperators\u00603\u003CTSelf,TSelf,System.Boolean\u003E",
+          "System.Numerics.IEqualityOperators\u00603\u003CTSelf,TOther,TResult\u003E",
+          "System.Numerics.IEqualityOperators\u00603\u003CTSelf,TSelf,System.Boolean\u003E",
+          "System.Numerics.IModulusOperators\u00603\u003CTSelf,TSelf,TSelf\u003E",
+          "System.Numerics.INumberBase\u00601\u003CTSelf\u003E",
+          "System.Numerics.IAdditionOperators\u00603\u003CTSelf,TSelf,TSelf\u003E",
+          "System.Numerics.IAdditiveIdentity\u00602\u003CTSelf,TSelf\u003E",
+          "System.Numerics.IDecrementOperators\u00601\u003CTSelf\u003E",
+          "System.Numerics.IDivisionOperators\u00603\u003CTSelf,TSelf,TSelf\u003E",
+          "System.IEquatable\u00601\u003CTSelf\u003E",
+          "System.Numerics.IIncrementOperators\u00601\u003CTSelf\u003E",
+          "System.Numerics.IMultiplicativeIdentity\u00602\u003CTSelf,TSelf\u003E",
+          "System.Numerics.IMultiplyOperators\u00603\u003CTSelf,TSelf,TSelf\u003E",
+          "System.ISpanParsable\u00601\u003CTSelf\u003E",
+          "System.IParsable\u00601\u003CTSelf\u003E",
+          "System.Numerics.ISubtractionOperators\u00603\u003CTSelf,TSelf,TSelf\u003E",
+          "System.Numerics.IUnaryPlusOperators\u00602\u003CTSelf,TSelf\u003E",
+          "System.Numerics.IUnaryNegationOperators\u00602\u003CTSelf,TSelf\u003E",
+          "System.IUtf8SpanFormattable",
+          "System.IUtf8SpanParsable\u00601\u003CTSelf\u003E",
+          "System.Numerics.IFloatingPointIeee754\u00601\u003CTSelf\u003E",
+          "System.Numerics.IExponentialFunctions\u00601\u003CTSelf\u003E",
+          "System.Numerics.IFloatingPointConstants\u00601\u003CTSelf\u003E",
+          "System.Numerics.IFloatingPoint\u00601\u003CTSelf\u003E",
+          "System.Numerics.ISignedNumber\u00601\u003CTSelf\u003E",
+          "System.Numerics.IHyperbolicFunctions\u00601\u003CTSelf\u003E",
+          "System.Numerics.ILogarithmicFunctions\u00601\u003CTSelf\u003E",
+          "System.Numerics.IPowerFunctions\u00601\u003CTSelf\u003E",
+          "System.Numerics.IRootFunctions\u00601\u003CTSelf\u003E",
+          "System.Numerics.ITrigonometricFunctions\u00601\u003CTSelf\u003E",
+          "System.Numerics.IBinaryNumber\u00601\u003CSystem.Single\u003E",
+          "System.Numerics.IBitwiseOperators\u00603\u003CSystem.Single,System.Single,System.Single\u003E",
+          "System.Numerics.INumber\u00601\u003CSystem.Single\u003E",
+          "System.Numerics.IComparisonOperators\u00603\u003CSystem.Single,System.Single,System.Boolean\u003E",
+          "System.Numerics.IEqualityOperators\u00603\u003CSystem.Single,System.Single,System.Boolean\u003E",
+          "System.Numerics.IModulusOperators\u00603\u003CSystem.Single,System.Single,System.Single\u003E",
+          "System.Numerics.INumberBase\u00601\u003CSystem.Single\u003E",
+          "System.Numerics.IAdditionOperators\u00603\u003CSystem.Single,System.Single,System.Single\u003E",
+          "System.Numerics.IAdditiveIdentity\u00602\u003CSystem.Single,System.Single\u003E",
+          "System.Numerics.IDecrementOperators\u00601\u003CSystem.Single\u003E",
+          "System.Numerics.IDivisionOperators\u00603\u003CSystem.Single,System.Single,System.Single\u003E",
+          "System.Numerics.IIncrementOperators\u00601\u003CSystem.Single\u003E",
+          "System.Numerics.IMultiplicativeIdentity\u00602\u003CSystem.Single,System.Single\u003E",
+          "System.Numerics.IMultiplyOperators\u00603\u003CSystem.Single,System.Single,System.Single\u003E",
+          "System.ISpanParsable\u00601\u003CSystem.Single\u003E",
+          "System.IParsable\u00601\u003CSystem.Single\u003E",
+          "System.Numerics.ISubtractionOperators\u00603\u003CSystem.Single,System.Single,System.Single\u003E",
+          "System.Numerics.IUnaryPlusOperators\u00602\u003CSystem.Single,System.Single\u003E",
+          "System.Numerics.IUnaryNegationOperators\u00602\u003CSystem.Single,System.Single\u003E",
+          "System.IUtf8SpanParsable\u00601\u003CSystem.Single\u003E",
+          "System.Numerics.IFloatingPointIeee754\u00601\u003CSystem.Single\u003E",
+          "System.Numerics.IExponentialFunctions\u00601\u003CSystem.Single\u003E",
+          "System.Numerics.IFloatingPointConstants\u00601\u003CSystem.Single\u003E",
+          "System.Numerics.IFloatingPoint\u00601\u003CSystem.Single\u003E",
+          "System.Numerics.ISignedNumber\u00601\u003CSystem.Single\u003E",
+          "System.Numerics.IHyperbolicFunctions\u00601\u003CSystem.Single\u003E",
+          "System.Numerics.ILogarithmicFunctions\u00601\u003CSystem.Single\u003E",
+          "System.Numerics.IPowerFunctions\u00601\u003CSystem.Single\u003E",
+          "System.Numerics.IRootFunctions\u00601\u003CSystem.Single\u003E",
+          "System.Numerics.ITrigonometricFunctions\u00601\u003CSystem.Single\u003E",
+          "System.Numerics.IMinMaxValue\u00601\u003CSystem.Single\u003E",
+          "System.IBinaryFloatParseAndFormatInfo\u00601\u003CSystem.Single\u003E",
+          "System.Numerics.IBinaryFloatingPointIeee754\u00601\u003CTSelf\u003E",
+          "System.Numerics.IMinMaxValue\u00601\u003CTSelf\u003E",
+          "System.ValueType",
+          "System.Object"
+        ],
+        "ordering": [
+          "\u003C",
+          "\u003C=",
+          "\u003E",
+          "\u003E="
+        ]
+      },
+      "System.String": {
+        "name": "String",
+        "valueType": false,
+        "bases": [
+          "System.IComparable",
+          "System.Collections.IEnumerable",
+          "System.IConvertible",
+          "System.Collections.Generic.IEnumerable\u00601\u003CSystem.Char\u003E",
+          "System.IComparable\u00601\u003CSystem.String\u003E",
+          "System.IEquatable\u00601\u003CSystem.String\u003E",
+          "System.ICloneable",
+          "System.ISpanParsable\u00601\u003CSystem.String\u003E",
+          "System.IParsable\u00601\u003CTSelf\u003E",
+          "System.IParsable\u00601\u003CSystem.String\u003E",
+          "System.Object"
+        ]
+      },
+      "System.Void": {
+        "name": "Void",
+        "valueType": true,
+        "bases": [
+          "System.ValueType",
+          "System.Object"
+        ]
+      }
+    }
   },
   "componentKinds": [
     "Cosmoteer.Bullets.Hits.BulletDamagePool",

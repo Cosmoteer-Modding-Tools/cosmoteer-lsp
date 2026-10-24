@@ -44,3 +44,8 @@ Replaces the combined result x with 1 - x, turning a 0..1 fraction into its comp
 `bool` · optional
 
 Replaces the combined result with its reciprocal. Applied after [[Cosmoteer.Ships.Parts.Logic.BasePartMultiValueRules.Invert]] and before [[Cosmoteer.Ships.Parts.Logic.BasePartMultiValueRules.Negate]].
+
+## IndividualRounding
+`enum MidpointRounding` · optional · one of: `ToEven`, `AwayFromZero`, `ToZero`, `ToNegativeInfinity`, `ToPositiveInfinity`
+
+Rounds each input value with this midpoint rule before the values are combined, rather than rounding only the combined result. Leave it off to combine the raw values.

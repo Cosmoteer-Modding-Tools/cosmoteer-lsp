@@ -26,19 +26,19 @@ Localization key for the page's title, shown as the heading of its popup window 
 Localization key naming the codex tab this page is grouped under. Pages sharing a resolved tab name are listed together on the same tab in the codex dialog.
 
 ## ShowCondition
-`code (python)` · optional
+`code (script)` · optional
 
-Python expression evaluated against the current game (with `game`, `stats`, and `sim` in scope) that, when true, permanently marks the page as shown so its button appears on the HUD and stays in the codex. Only evaluated while the page is not already shown.
+A condition that, once true, permanently marks the page as shown so its button appears on the HUD and stays in the codex. Only evaluated while the page is not already shown. It can read `game` and `sim`, the script access to the running game and simulation, and call their members, such as `game.HasTechUnlocked('cosmoteer.heat_management')` or `sim.SelectedShip`. Since 0.30.5 this is a script in the game's own small expression language, no longer Python: names, member access and calls, numbers, strings, `True`, `False`, `None`, arithmetic, comparisons, `and`, `or`, `not`, `is` and `a if b else c`. The game compiles it when the rules load, and a script that does not compile stops the load. A leading `?` from the Python era is ignored.
 
 ## TempShowCondition
-`code (python)` · optional
+`code (script)` · optional
 
-Python expression evaluated each update that shows the page only while it returns true. Unlike [[Cosmoteer.Codex.CodexPageRules#ShowCondition|ShowCondition]] this does not persist, so the page's button disappears again once the condition goes false.
+A condition evaluated each update that shows the page only while it is true. Unlike [[Cosmoteer.Codex.CodexPageRules#ShowCondition|ShowCondition]] this does not persist, so the page's button disappears again once the condition goes false. It can read `game` and `sim`, the script access to the running game and simulation, and call their members, such as `game.HasTechUnlocked('cosmoteer.heat_management')` or `sim.SelectedShip`. Since 0.30.5 this is a script in the game's own small expression language, no longer Python: names, member access and calls, numbers, strings, `True`, `False`, `None`, arithmetic, comparisons, `and`, `or`, `not`, `is` and `a if b else c`. The game compiles it when the rules load, and a script that does not compile stops the load. A leading `?` from the Python era is ignored.
 
 ## OnSeen
-`code (python)` · optional
+`code (script)` · optional
 
-Python script run once the first time the player sees or dismisses the page. Runs a single time only (guarded by a persisted flag) and has a `SetSetting(name, value)` helper in scope for writing static game settings.
+A script run once the first time the player sees or dismisses the page, guarded by a persisted flag. Its only name is `SetSetting(name, value)`, which writes a static game setting, such as `SetSetting('ShowTutorials', False)`. Since 0.30.5 this is a script in the game's own small expression language, no longer Python: names, member access and calls, numbers, strings, `True`, `False`, `None`, arithmetic, comparisons, `and`, `or`, `not`, `is` and `a if b else c`. The game compiles it when the rules load, and a script that does not compile stops the load. A leading `?` from the Python era is ignored.
 
 ## AutoOpen
 `bool` · optional

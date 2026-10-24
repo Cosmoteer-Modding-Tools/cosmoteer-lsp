@@ -5,7 +5,17 @@
 // in, and either sends a mutation, opens a drag, or moves the page's own selection.
 
 import { setStatus } from './dom.js';
-import { adjacencyAt, edgeRegionDistanceAt, edgeToDirection, expandAdjacency, sameCell, snapTo } from './geometry.js';
+import {
+    adjacencyAt,
+    coverageHandles,
+    coverageReach,
+    edgeRegionDistanceAt,
+    edgeToDirection,
+    effectiveCoverage,
+    expandAdjacency,
+    sameCell,
+    snapTo,
+} from './geometry.js';
 import {
     componentEntryAt,
     pairIndexAt,
@@ -18,7 +28,7 @@ import {
 import { sendMutation } from './mutations.js';
 import { draw } from './render.js';
 import { renderSidebar } from './sidebar.js';
-import { edgeRegionBaseRect, state } from './state.js';
+import { edgeRegionBaseRect, gridExtent, state } from './state.js';
 import { t } from '../shared/strings.js';
 
 /** The mousedown handler of each layer kind, by kind name. */
@@ -34,6 +44,9 @@ export const LAYER_HIT = {
     polygon: hitPolygon,
     circle: hitCircle,
     edgeRegion: hitEdgeRegion,
+    // Criteria are shown, not edited here: an edge range has no single handle to drag.
+    criteria: () => {},
+    coverage: hitCoverage,
     rectList: hitRectList,
     componentPoints: hitComponentPoints,
     rect: hitRect,
@@ -146,6 +159,29 @@ function hitEdgeRegion(layer, { event, point }) {
             distance: layer.distance,
         };
     }
+}
+
+/**
+ * A weapon's coverage: an arc edge, the rest handle or the range rim opens the drag that rewrites
+ * that member. The rim takes a press only where it is drawn on the stage.
+ */
+function hitCoverage(layer, { event, point }) {
+    if (event.button === 2 || !layer.center) return;
+    const resolved = effectiveCoverage(layer);
+    const handles = coverageHandles(layer, resolved, coverageReach(layer.center, gridExtent()));
+    const hit = handles.find(({ x, y }) => Math.hypot(x - point.x, y - point.y) <= 10 / state.view.scale);
+    const tolerance = 12 / state.view.scale;
+    const dx = point.x - layer.center.x;
+    const dy = point.y - layer.center.y;
+    const angle = (Math.atan2(dy, dx) * 180) / Math.PI - layer.mountDeg;
+    const offset = (((angle - resolved.near) % 360) + 360) % 360;
+    const outside = offset <= resolved.width ? 0 : Math.min(offset - resolved.width, 360 - offset);
+    const onRim =
+        Number.isFinite(resolved.range) &&
+        Math.abs(Math.hypot(dx, dy) - resolved.range) <= tolerance &&
+        (outside * Math.PI * resolved.range) / 180 <= tolerance;
+    const handle = hit ? hit.handle : onRim ? 'range' : null;
+    if (handle) state.dragging = { type: 'coverage', layerId: layer.id, handle };
 }
 
 /** A rect list: a corner handle drags that rect, a right-click on one removes the entry. */
