@@ -301,6 +301,24 @@ const RULE_TABLE = [
         needsGameData: true,
     },
     {
+        id: 'validateWeaponCoverage',
+        title: 'Weapon coverage the game ignores',
+        description:
+            'A default weapon coverage or coverage match the game silently ignores or that breaks the weapon, such as an arc missing the turret, a range of zero, or a match naming something that cannot be followed.',
+        defaultLevel: 'warning',
+        setting: 'validateWeaponCoverage',
+        needsGameData: false,
+    },
+    {
+        id: 'validateScripts',
+        title: 'Script the game refuses',
+        description:
+            'A music or codex script the game cannot compile, such as Python syntax the 0.30.5 script language dropped or a name the script context does not have, which stops the rules from loading.',
+        defaultLevel: 'error',
+        setting: 'validateScripts',
+        needsGameData: false,
+    },
+    {
         id: 'validateNumericDomains',
         title: 'Numbers the reader refuses',
         description:

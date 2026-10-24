@@ -95,6 +95,22 @@ const namesOk = (value: unknown): boolean => Array.isArray(value) && value.every
 const layerIdOk = (value: unknown): boolean =>
     typeof value === 'string' && value.length > 0 && value.split(/[/:]/).every(nameOk);
 
+/** The `DefaultWeaponCoverage` members a `setCoverage` mutation may name. */
+const COVERAGE_FIELDS: ReadonlySet<string> = new Set(['Range', 'Arc', 'RestPosition']);
+
+/**
+ * Whether a payload member is a value the named coverage member can hold: an arc's two finite
+ * angles, or a finite number for the others.
+ * @param field the coverage member.
+ * @param value the member as it arrived.
+ * @returns true when the value fits the member.
+ */
+const coverageValueOk = (field: string, value: unknown): boolean => {
+    if (field !== 'Arc') return finiteNumber(value);
+    const arc = value as { nearDeg?: unknown; widthDeg?: unknown } | null;
+    return !!arc && typeof arc === 'object' && finiteNumber(arc.nearDeg) && finiteNumber(arc.widthDeg);
+};
+
 /** What to say about a number the field cannot hold. */
 const BAD_NUMBER = (): string => l10n.t('The edit carried a number this field cannot hold.');
 
@@ -185,6 +201,9 @@ export const mutationRefusal = (mutation: GridMutation): string | null => {
         case 'setFlags':
             if (!nameOk(mutation.field)) return BAD_NAME();
             return mutation.values === null || namesOk(mutation.values) ? null : BAD_NAME();
+        case 'setCoverage':
+            if (!nameOk(mutation.component) || !COVERAGE_FIELDS.has(mutation.field)) return BAD_NAME();
+            return mutation.value === null || coverageValueOk(mutation.field, mutation.value) ? null : BAD_NUMBER();
         default:
             return null;
     }

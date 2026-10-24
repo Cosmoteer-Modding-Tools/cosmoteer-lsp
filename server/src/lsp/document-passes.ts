@@ -63,6 +63,8 @@ import { validateGalaxyGenerators } from '../features/diagnostics/validator.gala
 import { validateStorageCycles } from '../features/diagnostics/validator.storage-cycle';
 import { validateNumericDomains } from '../features/diagnostics/validator.numeric-domain';
 import { validateResourcePickups } from '../features/diagnostics/validator.resource-pickup';
+import { validateWeaponCoverage } from '../features/diagnostics/validator.weapon-coverage';
+import { validateScripts } from '../features/diagnostics/validator.script';
 import { validateMishandledFields } from '../features/diagnostics/validator.mishandled-field';
 import { validateRefusedEnumValues } from '../features/diagnostics/validator.refused-enum-value';
 import { validateBlendSpriteCodes } from '../features/diagnostics/validator.blend-sprite';
@@ -454,6 +456,19 @@ export const DOCUMENT_PASSES: readonly DocumentPass[] = [
         needsGameIndex: true,
         run: async (context) =>
             validateResourcePickups(context.document, await context.folderPaths(), context.cancelToken),
+    },
+    // A weapon's default coverage or coverage matching the game ignores or that breaks the weapon.
+    // Folds each weapon through its bases and reports only on what this document writes.
+    {
+        code: 'validateWeaponCoverage',
+        setting: 'validateWeaponCoverage',
+        run: ({ document, cancelToken }) => validateWeaponCoverage(document, cancelToken),
+    },
+    // A music or codex script the game's own compiler refuses, which stops the load.
+    {
+        code: 'validateScripts',
+        setting: 'validateScripts',
+        run: ({ document, text, cancelToken }) => validateScripts(document, text, cancelToken),
     },
     // A number the reading class refuses, from a table keyed by the exact class. Folds each group
     // it judges, so a value supplied by a base counts and an unreadable chain says nothing.

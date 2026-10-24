@@ -75,6 +75,12 @@ export const LAYER_KINDS = {
     rectList: {
         count: (layer) => layer.entries.length,
     },
+    criteria: {
+        count: (layer) => layer.entries.length,
+    },
+    coverage: {
+        count: (layer) => (Object.values(layer.coverage).some((value) => value !== null) ? 1 : 0),
+    },
     componentPoints: {
         count: (layer) => layer.entries.length,
     },
@@ -110,6 +116,17 @@ export function pointMemberOf(layer) {
             write: (target, value) => (target.point = value),
         }
     );
+}
+
+/**
+ * The coverage layer of a weapon, which `setCoverage` names by component rather than by layer id.
+ *
+ * @param data the payload.
+ * @param component the weapon component's name.
+ * @returns the layer, or undefined when the payload has none for it.
+ */
+export function coverageLayerOf(data, component) {
+    return data.layers.find((layer) => layer.kind === 'coverage' && layer.component === component);
 }
 
 /**

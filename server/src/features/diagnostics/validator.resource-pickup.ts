@@ -47,7 +47,7 @@ import { ValidationError } from './validator';
  */
 
 /** The base class of every component that hands resources to a crew. */
-const STORAGE_CLASS = 'Cosmoteer.Ships.Parts.Resources.BaseResourceStorageRules';
+export const STORAGE_CLASS = 'Cosmoteer.Ships.Parts.Resources.BaseResourceStorageRules';
 
 /** The class a resource file's whole-file root resolves to. */
 const RESOURCE_CLASS = 'Cosmoteer.Resources.ResourceRules';
@@ -74,7 +74,7 @@ const stackCache = new Map<string, ResourceStack | null>();
  * @param cancellationToken cancels the evaluation.
  * @returns the number, or null when it does not resolve to one.
  */
-const numberFrom = async (
+export const numberFrom = async (
     node: AbstractNode | undefined,
     cancellationToken: CancellationToken
 ): Promise<number | null> => {
@@ -92,7 +92,7 @@ const numberFrom = async (
  * @param name the member name.
  * @returns the member's value, or undefined when nothing writes it.
  */
-const topLevelMember = (document: AbstractNodeDocument, name: string): AbstractNode | undefined => {
+export const topLevelMember = (document: AbstractNodeDocument, name: string): AbstractNode | undefined => {
     const replaced = MemberInjectionIndex.instance.injectedReplacement(document, name);
     if (replaced) return replaced;
     const folded = name.toLowerCase();
@@ -100,6 +100,37 @@ const topLevelMember = (document: AbstractNodeDocument, name: string): AbstractN
         if (isAssignmentNode(element) && element.left.name.toLowerCase() === folded) return element.right ?? undefined;
     }
     return undefined;
+};
+
+/**
+ * The one resource file declaring an id.
+ *
+ * Two files declaring one id means the project swaps the resource out, and which of them the game
+ * reads is decided by an action on the registry list. A target whose last segment is a list index
+ * is deliberately unmodelled, since the game renumbers the list, so the winner is not knowable here
+ * and neither file may be held against a part.
+ *
+ * @param id the written resource id.
+ * @param folderPaths the project folders the candidate walk reads through.
+ * @param cancellationToken cancels the walk.
+ * @returns the declaring document and the id as it spells it, or null when no single file declares it.
+ */
+export const resourceDeclaration = async (
+    id: string,
+    folderPaths: string[],
+    cancellationToken: CancellationToken
+): Promise<{ document: AbstractNodeDocument; id: string } | null> => {
+    const key = id.toLowerCase();
+    let found: { document: AbstractNodeDocument; id: string } | null = null;
+    for await (const document of documentsMentioning(folderPaths, id, cancellationToken)) {
+        if (documentRootClass(document) !== RESOURCE_CLASS) continue;
+        const declared = topLevelMember(document, 'ID');
+        if (!declared || !isValueNode(declared)) continue;
+        if (String(declared.valueType.value).trim().toLowerCase() !== key) continue;
+        if (found) return null;
+        found = { document, id: String(declared.valueType.value).trim() };
+    }
+    return found;
 };
 
 /**
@@ -118,29 +149,14 @@ const stackOf = async (
     const key = id.toLowerCase();
     const cached = stackCache.get(key);
     if (cached !== undefined) return cached;
-    let found: ResourceStack | null = null;
-    let declarations = 0;
-    for await (const document of documentsMentioning(folderPaths, id, cancellationToken)) {
-        if (documentRootClass(document) !== RESOURCE_CLASS) continue;
-        const declared = topLevelMember(document, 'ID');
-        if (!declared || !isValueNode(declared)) continue;
-        if (String(declared.valueType.value).trim().toLowerCase() !== key) continue;
-        declarations += 1;
-        // Two files declaring one id means the project swaps the resource out, and which of them
-        // the game reads is decided by an action on the registry list. A target whose last segment
-        // is a list index is deliberately unmodelled, since the game renumbers the list, so the
-        // winner is not knowable here and neither file may be held against the pickup.
-        if (declarations > 1) {
-            found = null;
-            break;
-        }
-        const written = await numberFrom(topLevelMember(document, MAX_PER_NUGGET), cancellationToken);
-        // A resource that writes no stack at all is left unjudged. Its initialiser is 1, so every
-        // pickup above one would be a finding, and the resources written that way are the internal
-        // ones no crew ever carries, where the loss the check describes cannot happen.
-        if (written === null) continue;
-        found = { maxPerNugget: written, id: String(declared.valueType.value).trim() };
-    }
+    const declaration = await resourceDeclaration(id, folderPaths, cancellationToken);
+    // A resource that writes no stack at all is left unjudged. Its initialiser is 1, so every
+    // pickup above one would be a finding, and the resources written that way are the internal
+    // ones no crew ever carries, where the loss the check describes cannot happen.
+    const written = declaration
+        ? await numberFrom(topLevelMember(declaration.document, MAX_PER_NUGGET), cancellationToken)
+        : null;
+    const found = declaration && written !== null ? { maxPerNugget: written, id: declaration.id } : null;
     stackCache.set(key, found);
     return found;
 };

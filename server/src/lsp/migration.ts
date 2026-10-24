@@ -1,3 +1,5 @@
+import { storageDeathEffectNotes } from '../features/migration/storage-death-effects';
+import { validateScripts } from '../features/diagnostics/validator.script';
 import { CancellationToken } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { readFile } from 'fs/promises';
@@ -139,6 +141,19 @@ const migrateOneFile = async (run: MigrationRun, file: string, reportProgress: (
     reportProgress();
     if (!fileResult) return;
     summary.manual.push(...fileResult.manual);
+    // A bulk fix for one deprecation only does what it offered, so the review notes stay with the
+    // whole-workspace run.
+    if (!run.symbol) {
+        summary.manual.push(
+            ...(await storageDeathEffectNotes(parserResult.value, doc, run.folderPaths, run.token).catch(() => []))
+        );
+        // A Python-era script the 0.30.5 compiler refuses has to be rewritten by hand.
+        const scripts = await validateScripts(parserResult.value, doc.getText(), run.token).catch(() => []);
+        for (const error of scripts) {
+            const start = error.range?.start ?? error.node.position.start;
+            summary.manual.push({ uri: doc.uri, line: doc.positionAt(start).line + 1, message: error.message });
+        }
+    }
     for (const [version, count] of Object.entries(fileResult.byVersion)) {
         summary.byVersion[version] = (summary.byVersion[version] ?? 0) + count;
         summary.fixes += count;

@@ -3,6 +3,7 @@ import {
     AbstractNode,
     AbstractNodeDocument,
     GroupNode,
+    isDocumentNode,
     isGroupNode,
     isListNode,
     isValueNode,
@@ -11,8 +12,15 @@ import { findEnclosingGroup, resolveGroupClass } from '../../document/schema/sch
 import { classAncestry, enumDef } from '../../document/schema/schema';
 import { getStartOfAstNode } from '../../utils/ast.utils';
 import { findMemberThroughInheritance } from '../../semantics/inheritance-resolver';
-import { EffectiveMember, effectiveMember, resolveReference } from '../../semantics/effective-member';
-import { componentsOfPart as allComponents } from '../../semantics/part-components';
+import {
+    EffectiveMember,
+    effectiveMember,
+    memberOrInherited,
+    resolveReference,
+} from '../../semantics/effective-member';
+import { PartComponent, componentsOfPart as allComponents } from '../../semantics/part-components';
+import { evaluateNumericValue } from '../../semantics/value-evaluator';
+import { documentForPath } from '../../document/parser-result-registrar';
 import { resolveAssetPath } from '../navigation/asset-resolver';
 import { navigate } from '../../semantics/navigate-reference';
 import { referenceNodesOf } from '../navigation/reference-nodes';
@@ -30,9 +38,13 @@ import {
     CircleLayerData,
     ComponentPointEntry,
     ComponentPointsLayerData,
+    CoverageLayerData,
+    CriteriaEntryData,
+    CriteriaLayerData,
     EdgeRegionLayerData,
     GridLayerData,
     GridPoint,
+    IntRangeData,
     PartGridData,
     PointLayerData,
     PointListLayerData,
@@ -77,6 +89,8 @@ const RAILGUN_CLASS = 'Cosmoteer.Ships.Parts.Weapons.RailgunProjectileRules';
 const TILE_LINE_CLASS = 'Cosmoteer.Ships.Parts.Logic.PartTileLineScoreValueRules';
 const RESOURCE_SPRITES_CLASS = 'Cosmoteer.Ships.Parts.Graphics.PartResourceSpritesRules';
 const ORTHOGONAL_ROTATION_ENUM = 'Cosmoteer.OrthogonalRotation';
+export const WEAPON_CLASS = 'Cosmoteer.Ships.Parts.Weapons.WeaponRules';
+const TURRET_WEAPON_CLASS = 'Cosmoteer.Ships.Parts.Weapons.TurretWeaponRules';
 
 /**
  * The graphics component's sprite slots composited under the grid, in draw order. Each slot is a
@@ -565,6 +579,68 @@ const rotateDegrees = (x: number, y: number, degrees: number): [number, number] 
 };
 
 /**
+ * Reads a component's location vector, evaluated when written as math.
+ * @param node the written `Location`, absent when the component writes none.
+ * @param token cancels evaluation of expression-valued locations.
+ * @returns the point (null when absent or unreadable) and whether it was computed.
+ */
+const locationOf = async (
+    node: AbstractNode | null | undefined,
+    token: CancellationToken
+): Promise<{ point: GridPoint | null; isRef: boolean }> => {
+    if (!node) return { point: null, isRef: false };
+    const plain = readVector(node);
+    if (plain) return { point: { x: plain.x, y: plain.y }, isRef: false };
+    const evaluated = await readVectorEvaluated(node, token).catch(() => null);
+    if (evaluated) return { point: evaluated, isRef: true };
+    return { point: null, isRef: true };
+};
+
+/** A component's resolved rules-relative placement, in cells and degrees. */
+interface ComponentTransform {
+    readonly x: number;
+    readonly y: number;
+    readonly rotation: number;
+}
+
+/**
+ * Resolves where the game renders each component: its own `Location` and `Rotation`, read through
+ * inheritance, carried by the `ChainedTo` chain's transform.
+ * @param components every component of the part.
+ * @param token cancels evaluation of expression-valued locations.
+ * @returns the lookup of one component's transform, null for an unknown name, a chain cycle, or a
+ *          location that is written but unreadable.
+ */
+const componentTransforms = (
+    components: readonly PartComponent[],
+    token: CancellationToken
+): ((name: string) => Promise<ComponentTransform | null>) => {
+    const byName = new Map(components.map((entry) => [entry.name, entry]));
+    const transformOf = async (name: string, visited: Set<string>): Promise<ComponentTransform | null> => {
+        if (visited.has(name)) return null;
+        visited.add(name);
+        const entry = byName.get(name);
+        if (!entry) return null;
+        const { point, isRef } = await locationOf(await memberOrInherited(entry.group, 'Location', token), token);
+        // A location that is written but does not read is not the same as no location at all. The
+        // game defaults an absent one to the part's origin, which is what the zero below stands
+        // for, while an unreadable one is an offset the editor does not know. Folding that one to
+        // zero would put the marker on top of the component it is chained to, and the first drag
+        // would move it by whatever the offset was worth.
+        if (!point && isRef) return null;
+        const own = point ?? { x: 0, y: 0 };
+        const rotation = degreesOf(await memberOrInherited(entry.group, 'Rotation', token)) ?? 0;
+        const chainedTo = enumNameOf(await memberOrInherited(entry.group, 'ChainedTo', token));
+        if (!chainedTo || !byName.has(chainedTo)) return { x: own.x, y: own.y, rotation };
+        const parent = await transformOf(chainedTo, visited);
+        if (!parent) return { x: own.x, y: own.y, rotation };
+        const [dx, dy] = rotateDegrees(own.x, own.y, parent.rotation);
+        return { x: parent.x + dx, y: parent.y + dy, rotation: parent.rotation + rotation };
+    };
+    return (name) => transformOf(name, new Set());
+};
+
+/**
  * Builds the aggregated component gizmo layer: every chainable component's own `Location` and
  * `Rotation`, with `ChainedTo` transforms resolved so the marker sits where the game renders the
  * component. Network ports are excluded, they get their own cell layers.
@@ -575,52 +651,16 @@ const rotateDegrees = (x: number, y: number, degrees: number): [number, number] 
 const componentPointsLayer = async (part: GroupNode, token: CancellationToken): Promise<ComponentPointsLayerData> => {
     const components = await allComponents(part, token);
     const byName = new Map(components.map((entry) => [entry.name, entry]));
-
-    /** The component's own location vector, evaluated when written as math. */
-    const ownLocation = async (group: GroupNode): Promise<{ point: GridPoint | null; isRef: boolean }> => {
-        const node = childNamed(group, 'Location');
-        if (!node) return { point: null, isRef: false };
-        const plain = readVector(node);
-        if (plain) return { point: { x: plain.x, y: plain.y }, isRef: false };
-        const evaluated = await readVectorEvaluated(node, token).catch(() => null);
-        if (evaluated) return { point: evaluated, isRef: true };
-        return { point: null, isRef: true };
-    };
-
-    /** The component's resolved rules-relative transform, following the `ChainedTo` chain. */
-    const totalTransform = async (
-        name: string,
-        visited: Set<string>
-    ): Promise<{ x: number; y: number; rotation: number } | null> => {
-        if (visited.has(name)) return null;
-        visited.add(name);
-        const entry = byName.get(name);
-        if (!entry) return null;
-        const { point, isRef } = await ownLocation(entry.group);
-        // A location that is written but does not read is not the same as no location at all. The
-        // game defaults an absent one to the part's origin, which is what the zero below stands
-        // for, while an unreadable one is an offset the editor does not know. Folding that one to
-        // zero would put the marker on top of the component it is chained to, and the first drag
-        // would move it by whatever the offset was worth.
-        if (!point && isRef) return null;
-        const own = point ?? { x: 0, y: 0 };
-        const rotation = degreesOf(childNamed(entry.group, 'Rotation')) ?? 0;
-        const chainedTo = enumNameOf(childNamed(entry.group, 'ChainedTo'));
-        if (!chainedTo || !byName.has(chainedTo)) return { x: own.x, y: own.y, rotation };
-        const parent = await totalTransform(chainedTo, visited);
-        if (!parent) return { x: own.x, y: own.y, rotation };
-        const [dx, dy] = rotateDegrees(own.x, own.y, parent.rotation);
-        return { x: parent.x + dx, y: parent.y + dy, rotation: parent.rotation + rotation };
-    };
+    const transformOf = componentTransforms(components, token);
 
     const entries: ComponentPointEntry[] = [];
     for (const { name, group, cls } of components) {
         if (inAncestry(cls, NETWORK_PORT_CLASS)) continue;
         const locationNode = childNamed(group, 'Location');
         if (!locationNode && !inAncestry(cls, CHAINABLE_CLASS)) continue;
-        const { point, isRef } = await ownLocation(group);
+        const { point, isRef } = await locationOf(locationNode, token);
         const chainedTo = enumNameOf(childNamed(group, 'ChainedTo'));
-        const total = await totalTransform(name, new Set());
+        const total = await transformOf(name);
         entries.push({
             component: name,
             label: name,
@@ -637,6 +677,146 @@ const componentPointsLayer = async (part: GroupNode, token: CancellationToken): 
         ...layerBaseOf([], 'ComponentLocations', 'Component locations', 'Components', null),
         entries,
     };
+};
+
+/**
+ * Reads the value a modifiable field holds before modifiers: the field itself, or its `BaseValue`
+ * when written in the group form.
+ * @param node the written value.
+ * @returns the node carrying the base value.
+ */
+const baseValueOf = (node: AbstractNode | null | undefined): AbstractNode | null | undefined =>
+    isGroupNode(node) ? childNamed(node, 'BaseValue') : node;
+
+/**
+ * Reads a number, following references and math.
+ * @param node the written value.
+ * @param token cancels reference resolution.
+ * @returns the number, or null when absent or unreadable.
+ */
+const numberRead = async (node: AbstractNode | null | undefined, token: CancellationToken): Promise<number | null> => {
+    const base = baseValueOf(node);
+    return base ? evaluateNumericValue(base, token).catch(() => null) : null;
+};
+
+/**
+ * Reads an angle in degrees. The game stores radians: a `d` suffixed literal is degrees as written,
+ * a bare number is radians, and math is evaluated to radians first.
+ * @param node the written value.
+ * @param token cancels reference resolution.
+ * @returns the angle in degrees, or null when absent or unreadable.
+ */
+export const angleRead = async (
+    node: AbstractNode | null | undefined,
+    token: CancellationToken
+): Promise<number | null> => {
+    const base = baseValueOf(node);
+    if (!base) return null;
+    const written = isValueNode(base) && base.valueType.type !== 'Number' ? degreesOf(base) : null;
+    if (written !== null) return written;
+    const radians = await evaluateNumericValue(base, token).catch(() => null);
+    return radians === null ? null : Math.round(((radians * 180) / Math.PI) * 1e6) / 1e6;
+};
+
+/**
+ * Reads a coverage `Arc` in its list form `[NearEdge, Width]` or its group form.
+ * @param node the written arc.
+ * @param token cancels reference resolution.
+ * @returns the near edge and width in degrees, each null when unreadable.
+ */
+const arcRead = async (
+    node: AbstractNode | null,
+    token: CancellationToken
+): Promise<{ near: number | null; width: number | null }> => {
+    if (isListNode(node) && node.elements.length === 2) {
+        return { near: await angleRead(node.elements[0], token), width: await angleRead(node.elements[1], token) };
+    }
+    if (isGroupNode(node)) {
+        return {
+            near: await angleRead(childNamed(node, 'NearEdge'), token),
+            width: await angleRead(childNamed(node, 'Width'), token),
+        };
+    }
+    return { near: null, width: null };
+};
+
+/**
+ * The range of a weapon's emitter: a beam's own `Range`, or the `Range` of the bullet it fires, which
+ * is often a whole shot file named by reference.
+ * @param emitter the emitter component's group.
+ * @param token cancels reference resolution.
+ * @returns the range, or null when it does not plainly resolve.
+ */
+const emitterRange = async (emitter: GroupNode, token: CancellationToken): Promise<number | null> => {
+    const own = await numberRead(await memberOrInherited(emitter, 'Range', token), token);
+    if (own !== null) return own;
+    let bullet: AbstractNode | AbstractNodeDocument | null | undefined = await memberOrInherited(
+        emitter,
+        'Bullet',
+        token
+    );
+    if (isValueNode(bullet)) {
+        const from = getStartOfAstNode(bullet).uri;
+        const target = await navigate(String(bullet.valueType.value), bullet, from, token).catch(() => null);
+        bullet =
+            target && isFile(target as FileWithPath)
+                ? await documentForPath((target as FileWithPath).path)
+                : (target as AbstractNode | null);
+    }
+    if (!isGroupNode(bullet) && !isDocumentNode(bullet)) return null;
+    return numberRead(childNamed(bullet as GroupNode, 'Range'), token);
+};
+
+/**
+ * Builds one coverage layer per weapon component: its physical limits (arc and range), the
+ * `DefaultWeaponCoverage` it writes or inherits, and the flags that govern the player's coverage
+ * editor in game.
+ * @param part the part group.
+ * @param token cancels inheritance and reference resolution.
+ * @returns the layers, one per weapon.
+ */
+const coverageLayers = async (part: GroupNode, token: CancellationToken): Promise<CoverageLayerData[]> => {
+    const components = await allComponents(part, token);
+    const byName = new Map(components.map((entry) => [entry.name, entry]));
+    const transformOf = componentTransforms(components, token);
+    const flag = async (group: GroupNode, field: string, fallback: boolean): Promise<boolean> =>
+        booleanOf(await memberOrInherited(group, field, token)) ?? fallback;
+    const layers: CoverageLayerData[] = [];
+    for (const { name, group, cls } of components) {
+        if (!inAncestry(cls, WEAPON_CLASS)) continue;
+        const turret = inAncestry(cls, TURRET_WEAPON_CLASS);
+        const transform = await transformOf(name);
+        const member = await effectiveMember(group, 'DefaultWeaponCoverage', token);
+        const coverage = member && isGroupNode(member.node) ? member.node : null;
+        const arc = await arcRead(coverage && childNamed(coverage, 'Arc'), token);
+        const emitter = byName.get(enumNameOf(await memberOrInherited(group, 'Emitter', token)) ?? '');
+        const validRange = turret ? await numberRead(await memberOrInherited(group, 'ValidRange', token), token) : null;
+        const validArc = turret ? await angleRead(await memberOrInherited(group, 'ValidArc', token), token) : null;
+        layers.push({
+            kind: 'coverage',
+            ...layerBaseOf(['Components', name], 'DefaultWeaponCoverage', `Coverage (${name})`, 'Weapons', member),
+            component: name,
+            weaponKind: turret ? 'turret' : 'fixed',
+            center: transform ? { x: transform.x, y: transform.y } : null,
+            mountDeg: transform?.rotation ?? degreesOf(await memberOrInherited(group, 'Rotation', token)) ?? 0,
+            physicalArcDeg: turret
+                ? (validArc ?? (await angleRead(await memberOrInherited(group, 'FiringArc', token), token)))
+                : null,
+            physicalRange: validRange ?? (emitter ? await emitterRange(emitter.group, token) : null),
+            coverage: {
+                range: coverage ? await numberRead(childNamed(coverage, 'Range'), token) : null,
+                arcNearDeg: arc.near,
+                arcWidthDeg: arc.width,
+                restPosition: coverage ? await numberRead(childNamed(coverage, 'RestPosition'), token) : null,
+            },
+            allowCoverageEditing: await flag(group, 'AllowCustomCoverageEditing', true),
+            allowRangeEditing: await flag(group, 'AllowCustomCoverageRangeEditing', true),
+            allowArcEditing: await flag(group, 'AllowCustomCoverageArcEditing', true),
+            forceWidthZero: await flag(group, 'ForceCustomCoverageWidthZero', false),
+            matchWeaponCoverage: enumNameOf(await memberOrInherited(group, 'MatchWeaponCoverage', token)),
+        });
+    }
+    return layers;
 };
 
 /** One component of the part, with everything the layers built from it are named and pathed by. */
@@ -817,6 +997,85 @@ const componentRegionLayers = async (scope: ComponentScope, token: CancellationT
 };
 
 /**
+ * Reads a `Range<int>` written as one number, as `[min, max]`, or as `{ Min = ..; Max = .. }`.
+ * @param node the written value.
+ * @returns the inclusive range, or null when the node is absent or not plain numbers.
+ */
+const readIntRange = (node: AbstractNode | null): IntRangeData | null => {
+    const single = numberOf(node);
+    if (single !== null) return { min: single, max: single };
+    if (isGroupNode(node)) {
+        const value = numberOf(childNamed(node, 'Value'));
+        const min = numberOf(childNamed(node, 'Min')) ?? value;
+        const max = numberOf(childNamed(node, 'Max')) ?? value;
+        return min !== null && max !== null ? { min, max } : null;
+    }
+    const pair = readVector(node);
+    return pair ? { min: pair.x, max: pair.y } : null;
+};
+
+/**
+ * Reads one `RelativePartCriteria` group. `ExcludeID` lands in the allow list, as the game's
+ * reader puts it there.
+ * @param group the criteria group.
+ * @param inherited whether the group comes from a base part.
+ * @returns the entry.
+ */
+const readCriteriaEntry = (group: GroupNode, inherited: boolean): CriteriaEntryData => {
+    const names = (...fields: string[]): string[] =>
+        fields.flatMap((field) => readEnumNames(childNamed(group, field)) ?? []);
+    const flipNode = childNamed(group, 'FlipX');
+    return {
+        left: readIntRange(childNamed(group, 'Left')),
+        right: readIntRange(childNamed(group, 'Right')),
+        top: readIntRange(childNamed(group, 'Top')),
+        bottom: readIntRange(childNamed(group, 'Bottom')),
+        rot: numberOf(childNamed(group, 'Rot')),
+        flipX: flipNode ? booleanOf(flipNode) : null,
+        filters: [
+            ...names('IDs', 'ID', 'ExcludeID', 'Categories', 'Category'),
+            ...names('ExcludeIDs', 'ExcludeCategories', 'ExcludeCategory').map((name) => `!${name}`),
+        ],
+        origin: provenanceOf(group, inherited),
+    };
+};
+
+/**
+ * The neighbor criteria layer of one component. Buff providers read `Criterias`, or `Criteria`
+ * when that list is absent. Proxies read the flat `PartCriteria` and every `ProxyableComponents`
+ * entry's.
+ * @param scope the component.
+ * @param token cancels inheritance resolution.
+ * @returns the layer, or none when the component writes no criteria.
+ */
+const componentCriteriaLayers = async (scope: ComponentScope, token: CancellationToken): Promise<GridLayerData[]> => {
+    const { group, path } = scope;
+    const entries: CriteriaEntryData[] = [];
+    let first: EffectiveMember | null = null;
+    const take = (member: EffectiveMember | null, nested?: string): void => {
+        if (!member) return;
+        const groups = isListNode(member.node) ? member.node.elements : [member.node];
+        for (const element of groups) {
+            const criteria = nested && isGroupNode(element) ? childNamed(element, nested) : element;
+            if (isGroupNode(criteria)) entries.push(readCriteriaEntry(criteria, member.inherited));
+        }
+        first ??= member;
+    };
+    const list = await effectiveMember(group, 'Criterias', token);
+    take(list ?? (await effectiveMember(group, 'Criteria', token)));
+    take(await effectiveMember(group, 'PartCriteria', token));
+    take(await effectiveMember(group, 'ProxyableComponents', token), 'PartCriteria');
+    if (!entries.length) return [];
+    return [
+        {
+            kind: 'criteria',
+            ...layerBaseOf(path, 'Criteria', componentLabel(scope, 'Criteria'), 'Regions', first),
+            entries,
+        } as CriteriaLayerData,
+    ];
+};
+
+/**
  * The outline layers of one component: a polygon collider's vertices, a circle collider's radius,
  * and a railgun's segment ends.
  * @param scope the component.
@@ -899,6 +1158,7 @@ const componentFieldLayers = async (part: GroupNode, token: CancellationToken): 
             componentRectLayers,
             componentDirectionLayers,
             componentRegionLayers,
+            componentCriteriaLayers,
             componentColliderLayers,
             componentSpriteLayers,
         ]) {
@@ -1319,6 +1579,7 @@ export const buildPartGridData = async (
     for (const field of RECT_FIELDS) layers.push(await rectLayer(part, field, token));
     layers.push(await componentPointsLayer(part, token));
     layers.push(...(await componentFieldLayers(part, token)));
+    layers.push(...(await coverageLayers(part, token)));
     layers.push(...(await partRootSweepLayers(part, size, token)));
     layers.push(...(await graphicsOffsetLayers(part, token)));
 

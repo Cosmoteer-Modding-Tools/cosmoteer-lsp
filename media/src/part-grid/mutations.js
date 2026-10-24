@@ -4,7 +4,8 @@
 
 import { HISTORY_LIMIT } from './constants.js';
 import { vscode } from './dom.js';
-import { numberMemberOf, pointMemberOf } from './layer-kinds.js';
+import { coverageAfter } from './geometry.js';
+import { coverageLayerOf, numberMemberOf, pointMemberOf } from './layer-kinds.js';
 import { draw } from './render.js';
 import { renderSidebar } from './sidebar.js';
 import { state } from './state.js';
@@ -141,6 +142,9 @@ export function applyLocally(mutation) {
         if (entry) entry.rotationDeg = mutation.degrees;
     } else if (mutation.op === 'setFlags') {
         state.data.contiguity = Object.assign({}, state.data.contiguity, { values: mutation.values });
+    } else if (mutation.op === 'setCoverage') {
+        const coverage = coverageLayerOf(state.data, mutation.component);
+        if (coverage) coverage.coverage = coverageAfter(coverage.coverage, mutation);
     }
 }
 

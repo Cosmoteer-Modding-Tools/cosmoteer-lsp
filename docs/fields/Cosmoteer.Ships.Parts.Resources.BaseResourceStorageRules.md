@@ -157,3 +157,13 @@ One-shot media effects played when a crew carrying none of the resource takes it
 `enum AccessWarningLevel` · optional · default `Strong` · one of: `None`, `Weak`, `Strong`
 
 The severity of the build-mode crew-access warning for this storage, checked only when [[Cosmoteer.Ships.Parts.Resources.BaseResourceStorageRules.SuppliesResources]] is true. `Strong` shows the full no-crew-access warning when no crew can reach the part, `Weak` a milder one, and `None` skips the check entirely.
+
+## DoResourceDeathEffects
+`bool` · optional · default `true`
+
+Whether this storage plays its stored resource's [[Cosmoteer.Resources.ResourceRules.DeathHitEffects]] and [[Cosmoteer.Resources.ResourceRules.DeathMediaEffects]] when the part is destroyed or scorched. Their strength scales with the number of full stacks held, the stored amount divided by [[Cosmoteer.Resources.ResourceRules.MaxStackSize]]. Since 0.30.5 every resource storage does this, including the internal stores of cannons, launchers and factories, where before only storage bays did. Set it to false to keep a part's pre-0.30.5 behavior of not exploding.
+
+## DoResourceResponseEffects
+`bool` · optional · default `true`
+
+Whether this storage runs its stored resource's [[Cosmoteer.Resources.ResourceRules.HitResponse]] and [[Cosmoteer.Resources.ResourceRules.StatusResponse]] effects while it holds any of the resource. Set it to false for a store that should not react when hit or when a status reaches it.

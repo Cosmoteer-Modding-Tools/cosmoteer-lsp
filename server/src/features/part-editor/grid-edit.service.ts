@@ -9,10 +9,13 @@ import {
     isAssignmentNode,
     isGroupNode,
     isListNode,
+    isValueNode,
 } from '../../core/ast/ast';
 import { GridCell, GridMutation, GridPoint, PartGridEditResult } from './part-grid.types';
 import {
     GRID_LAYER_FIELDS,
+    WEAPON_CLASS,
+    angleRead,
     buildEffectiveFieldState,
     inheritedBoolean,
     inheritedEnumNames,
@@ -47,6 +50,9 @@ import {
 import { mutationRefusal } from './grid-mutation-check';
 import { isReferenceValue } from '../navigation/reference-target';
 import { evaluateNumericValue } from '../../semantics/value-evaluator';
+import { effectiveMember } from '../../semantics/effective-member';
+import { componentsOfPart } from '../../semantics/part-components';
+import { classAncestry } from '../../document/schema/schema';
 import { normalizeUri } from '../../document/reference-location';
 import { filePathToUri } from '../../document/reference-path';
 import { writeRefusalFor } from '../../mod/write-gate';
@@ -813,6 +819,8 @@ const mutationEdits = async (ctx: EditContext, mutation: GridMutation): Promise<
             return componentRotationEdit(ctx, mutation.component, mutation.degrees);
         case 'setFlags':
             return flagsEdit(ctx, mutation.field, mutation.values);
+        case 'setCoverage':
+            return coverageEdit(ctx, mutation.component, mutation.field, mutation.value);
         default:
             return { error: l10n.t('Unknown grid mutation.') };
     }
@@ -1394,6 +1402,172 @@ const componentRotationEdit = async (
         return removeMemberEdit(ctx.text, member);
     }
     return scalarMemberEdit(ctx, container, 'Rotation', `${formatNumber(degrees)}d`);
+};
+
+/** The `DefaultWeaponCoverage` members the editor writes, in the order a new group lists them. */
+const COVERAGE_FIELDS = ['Range', 'Arc', 'RestPosition'] as const;
+
+/** One coverage member's value: a number, or an arc as near edge and width in degrees. */
+type CoverageValue = number | { readonly nearDeg: number; readonly widthDeg: number };
+
+/**
+ * Formats a coverage member's value, an arc in the positional degree-suffixed form.
+ * @param value the value.
+ * @returns the text to write.
+ */
+const coverageText = (value: CoverageValue): string =>
+    typeof value === 'number'
+        ? formatNumber(value)
+        : `[${formatNumber(value.nearDeg)}d, ${formatNumber(value.widthDeg)}d]`;
+
+/**
+ * Writes an angle in the degree-suffixed form, through a reference where it is spelled with one, and
+ * writes nothing when the file already says that angle.
+ * @param scope the file the angle is written in.
+ * @param container the group holding the angle member.
+ * @param field the member name.
+ * @param node the member's value node, absent to insert it.
+ * @param degrees the angle.
+ * @returns the edits, or a refusal.
+ */
+const angleEdit = async (
+    scope: WriteScope,
+    container: GroupNode,
+    field: string,
+    node: AbstractNode | null,
+    degrees: number
+): Promise<EditOutcome> => {
+    if (!node) return insertMemberEdit(scope.text, container, `${field} = ${formatNumber(degrees)}d`);
+    const current = await angleRead(node, scope.token);
+    if (current !== null && Math.abs(current - degrees) < 1e-6) return [];
+    return writeScalar(scope, node, `${formatNumber(degrees)}d`);
+};
+
+/**
+ * Writes a coverage `Arc` into a local coverage group, keeping the form the file uses: each edge of
+ * the `[NearEdge, Width]` list or the `{ NearEdge; Width }` group is written on its own.
+ * @param scope the file being written.
+ * @param coverage the local `DefaultWeaponCoverage` group.
+ * @param arc the near edge and width in degrees.
+ * @returns the edits, or a refusal.
+ */
+const arcEdit = async (
+    scope: WriteScope,
+    coverage: GroupNode,
+    arc: { readonly nearDeg: number; readonly widthDeg: number }
+): Promise<EditOutcome> => {
+    const member = localMember(coverage, 'Arc');
+    if (!member) return insertMemberEdit(scope.text, coverage, `Arc = ${coverageText(arc)}`);
+    const value = member.value;
+    let near: EditOutcome;
+    let width: EditOutcome;
+    if (isListNode(value) && value.elements.length === 2) {
+        near = await angleEdit(scope, coverage, 'NearEdge', value.elements[0], arc.nearDeg);
+        width = await angleEdit(scope, coverage, 'Width', value.elements[1], arc.widthDeg);
+    } else if (isGroupNode(value)) {
+        near = await angleEdit(scope, value, 'NearEdge', childNamed(value, 'NearEdge'), arc.nearDeg);
+        width = await angleEdit(scope, value, 'Width', childNamed(value, 'Width'), arc.widthDeg);
+    } else {
+        return writeValue(scope, value, coverageText(arc));
+    }
+    if (isError(near)) return near;
+    if (isError(width)) return width;
+    const collapsed = collapseSameSpan([...near, ...width], scope);
+    return collapsed ?? { error: SAME_DECLARATION() };
+};
+
+/**
+ * Reads an inherited coverage group into values a local copy can be written from. Only literals are
+ * copied: a member written as a reference or math would freeze into a number the base can no longer
+ * move.
+ * @param coverage the inherited coverage group.
+ * @param token cancels the evaluation of degree literals.
+ * @returns the members by name, or null when one cannot be copied faithfully.
+ */
+const copyableCoverage = async (
+    coverage: GroupNode,
+    token: CancellationToken
+): Promise<Partial<Record<string, CoverageValue>> | null> => {
+    const literal = (node: AbstractNode | null): boolean => isValueNode(node) && !isReferenceValue(node);
+    const values: Partial<Record<string, CoverageValue>> = {};
+    for (const field of COVERAGE_FIELDS) {
+        const node = childNamed(coverage, field);
+        if (!node) continue;
+        if (field !== 'Arc') {
+            const number = numberOf(node);
+            if (number === null) return null;
+            values[field] = number;
+            continue;
+        }
+        const edges = isListNode(node)
+            ? node.elements
+            : isGroupNode(node)
+              ? [childNamed(node, 'NearEdge'), childNamed(node, 'Width')]
+              : [];
+        if (edges.length !== 2 || !edges.every(literal)) return null;
+        const nearDeg = await angleRead(edges[0], token);
+        const widthDeg = await angleRead(edges[1], token);
+        if (nearDeg === null || widthDeg === null) return null;
+        values.Arc = { nearDeg, widthDeg };
+    }
+    return values;
+};
+
+/**
+ * Sets one member of a weapon's `DefaultWeaponCoverage`. The member lands in the component's local
+ * group, which is created in block form when absent. A group that only exists on a base is copied
+ * down whole first, since a local group shadows the inherited one by name and a partial copy would
+ * drop the members it leaves out. Removing the last member removes the group, unless a base defines
+ * coverage the empty group is then overriding.
+ * @param ctx the edit context.
+ * @param component the weapon component's name.
+ * @param field the coverage member.
+ * @param value the value, null to remove the member.
+ * @returns the edits, or a refusal.
+ */
+const coverageEdit = async (
+    ctx: EditContext,
+    component: string,
+    field: (typeof COVERAGE_FIELDS)[number],
+    value: CoverageValue | null
+): Promise<EditOutcome> => {
+    const { part, text, token } = ctx;
+    const container = containerForPath(part, ['Components', component]);
+    if (!container) return { error: l10n.t('The component is inherited from a base part. Declare it locally first.') };
+    const entry = (await componentsOfPart(part, token)).find((candidate) => candidate.group === container);
+    if (!entry?.cls || !classAncestry(entry.cls).includes(WEAPON_CLASS)) {
+        return { error: NOT_A_GRID_FIELD(`${component}/DefaultWeaponCoverage`) };
+    }
+    const local = localMember(container, 'DefaultWeaponCoverage');
+    if (local) {
+        if (!isGroupNode(local.value)) {
+            return { error: l10n.t('DefaultWeaponCoverage is not written as a group here, edit it in the text.') };
+        }
+        const coverage = local.value;
+        if (value === null) {
+            const existing = localMember(coverage, field);
+            if (!existing) return [];
+            const last = coverage.elements.length === 1;
+            if (last && !(await inheritedMemberHasValues(container, 'DefaultWeaponCoverage', token))) {
+                return removeMemberEdit(text, local);
+            }
+            return removeMemberEdit(text, existing);
+        }
+        if (typeof value !== 'number') return arcEdit(ctx, coverage, value);
+        return numberMemberEdit(ctx, coverage, field, value);
+    }
+    const inherited = await effectiveMember(container, 'DefaultWeaponCoverage', token);
+    const base = inherited && isGroupNode(inherited.node) ? inherited.node : null;
+    const values = base ? await copyableCoverage(base, token) : {};
+    if (!values || (inherited && !base)) return { error: UNCOPYABLE_INHERITED() };
+    if (value === null) delete values[field];
+    else values[field] = value;
+    const lines = COVERAGE_FIELDS.filter((name) => values[name] !== undefined);
+    if (!lines.length && !base) return [];
+    const indent = memberIndentOf(text, container);
+    const step = indentUnitOf(text);
+    const body = lines.map((name) => `${indent}${step}${name} = ${coverageText(values[name]!)}\n`).join('');
+    return insertMemberEdit(text, container, `DefaultWeaponCoverage\n${indent}{\n${body}${indent}}`);
 };
 
 /** The AdjacencyFlags composites expanded to their edge/corner members, for set comparison. */

@@ -3,7 +3,18 @@
 
 import { ctx, themeColor } from './dom.js';
 import { drawLabel, drawPairArrow, drawPoint, fillCell, setGhost } from './draw-primitives.js';
-import { directionOffset, doorEdgeFor, expandAdjacency, rectHandles } from './geometry.js';
+import {
+    coverageAfter,
+    coverageHandles,
+    coverageReach,
+    criteriaFlipSymmetric,
+    directionOffset,
+    effectiveCoverage,
+    doorEdgeFor,
+    expandAdjacency,
+    mirrorCriteria,
+    rectHandles,
+} from './geometry.js';
 import { edgeRegionBaseRect, gridExtent, physicalRectOf, state } from './state.js';
 import { t } from '../shared/strings.js';
 
@@ -20,6 +31,8 @@ export const LAYER_DRAW = {
     polygon: drawPolygon,
     circle: drawCircle,
     edgeRegion: drawEdgeRegion,
+    criteria: drawCriteria,
+    coverage: drawCoverage,
     rectList: drawRectList,
     componentPoints: drawComponentPoints,
     rect: drawRect,
@@ -314,6 +327,135 @@ function drawEdgeRegion(layer, color, active, ghost) {
         // A grab handle at the right edge midpoint, mirroring the circle's radius handle.
         ctx.globalAlpha = 0.95;
         ctx.fillRect(outer.x + outer.width - 0.08, outer.y + outer.height / 2 - 0.08, 0.16, 0.16);
+    }
+    ctx.globalAlpha = 1;
+    ctx.setLineDash([]);
+}
+
+/**
+ * A criteria entry draws the area the matched part's footprint may cover, washed, with each
+ * constrained edge as a line, or as a band when the edge takes a range. When flipping this part
+ * moves that area, the flipped one draws dashed beside it.
+ */
+function drawCriteria(layer, color, active, ghost) {
+    const width = state.data.size.width;
+    for (const entry of layer.entries) {
+        const modifier = setGhost(ghost || entry.origin.inherited);
+        drawCriteriaArea(entry, color, active, modifier, false);
+        if (!criteriaFlipSymmetric(entry, width)) {
+            drawCriteriaArea(mirrorCriteria(entry, width), color, active, modifier, true);
+        }
+    }
+    ctx.globalAlpha = 1;
+    ctx.setLineDash([]);
+}
+
+/** Draws one criteria area. An edge the entry leaves open runs to the end of the drawn grid. */
+function drawCriteriaArea(entry, color, active, modifier, flipped) {
+    const extent = gridExtent();
+    const x0 = entry.left ? entry.left.min : extent.minX;
+    const x1 = entry.right ? entry.right.max : extent.minX + extent.width;
+    const y0 = entry.top ? entry.top.min : extent.minY;
+    const y1 = entry.bottom ? entry.bottom.max : extent.minY + extent.height;
+    ctx.fillStyle = color;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = (active ? 3 : 2) / state.view.scale;
+    ctx.setLineDash(flipped ? [0.3, 0.2] : []);
+    if (!flipped) {
+        ctx.globalAlpha = (active ? 0.14 : 0.07) * modifier;
+        ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
+    }
+    for (const [range, vertical] of [
+        [entry.left, true],
+        [entry.right, true],
+        [entry.top, false],
+        [entry.bottom, false],
+    ]) {
+        if (!range) continue;
+        if (range.max > range.min && !flipped) {
+            ctx.globalAlpha = 0.22 * modifier;
+            if (vertical) ctx.fillRect(range.min, y0, range.max - range.min, y1 - y0);
+            else ctx.fillRect(x0, range.min, x1 - x0, range.max - range.min);
+        }
+        ctx.globalAlpha = 0.9 * modifier;
+        ctx.beginPath();
+        for (const at of new Set([range.min, range.max])) {
+            ctx.moveTo(vertical ? at : x0, vertical ? y0 : at);
+            ctx.lineTo(vertical ? at : x1, vertical ? y1 : at);
+        }
+        ctx.stroke();
+    }
+    if (active) drawLabel(flipped ? t('when flipped') : entry.filters.join(' ') || t('any part'), x0, y0);
+}
+
+/**
+ * A weapon's coverage draws the way the game's coverage editor does: the physical limits dashed,
+ * the effective sector washed with its edges and its rim at the range, and the rest direction
+ * dotted. Rays stop at the stage's far corner, since ranges often reach far past the part. While a
+ * coverage handle is dragged, the dragged value is drawn instead of the payload's.
+ */
+function drawCoverage(layer, color, active, ghost) {
+    if (!layer.center) return;
+    const drag = state.dragging;
+    const previewed = drag && drag.type === 'coverage' && drag.layerId === layer.id && drag.mutation;
+    const shown = previewed ? { ...layer, coverage: coverageAfter(layer.coverage, drag.mutation) } : layer;
+    const resolved = effectiveCoverage(shown);
+    const reach = coverageReach(layer.center, gridExtent());
+    const { x, y } = layer.center;
+    const modifier = ghost ? 0.5 : 1;
+    const radians = (degrees) => ((layer.mountDeg + degrees) * Math.PI) / 180;
+    const ray = (degrees, length) => {
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + Math.cos(radians(degrees)) * length, y + Math.sin(radians(degrees)) * length);
+        ctx.stroke();
+    };
+    const rim = (near, width, radius) => {
+        ctx.beginPath();
+        ctx.arc(x, y, radius, radians(near), radians(near + Math.min(width, 360)));
+        ctx.stroke();
+    };
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = (active ? 2 : 1.5) / state.view.scale;
+
+    const { physical } = resolved;
+    const physicalReach = Math.min(layer.physicalRange ?? Infinity, reach.far);
+    ctx.setLineDash([0.3, 0.2]);
+    ctx.globalAlpha = 0.6 * modifier;
+    if (physical.width < 360) {
+        ray(physical.near, physicalReach);
+        if (physical.width > 0) ray(physical.near + physical.width, physicalReach);
+    }
+    if (layer.physicalRange !== null && layer.physicalRange <= reach.far && physical.width > 0) {
+        rim(physical.near, physical.width, layer.physicalRange);
+    }
+
+    const sectorReach = Math.min(resolved.range, reach.far);
+    ctx.setLineDash([]);
+    if (resolved.width > 0) {
+        ctx.globalAlpha = (active ? 0.18 : 0.1) * modifier;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.arc(x, y, sectorReach, radians(resolved.near), radians(resolved.near + Math.min(resolved.width, 360)));
+        ctx.closePath();
+        ctx.fill();
+    }
+    ctx.globalAlpha = 0.9 * modifier;
+    if (resolved.width < 360) {
+        ray(resolved.near, sectorReach);
+        if (resolved.width > 0) ray(resolved.near + resolved.width, sectorReach);
+    }
+    if (resolved.range <= reach.far) rim(resolved.near, Math.max(resolved.width, 0.5), resolved.range);
+    if (layer.weaponKind === 'turret') {
+        ctx.setLineDash([0.08, 0.12]);
+        ray(resolved.rest, 10);
+        ctx.setLineDash([]);
+    }
+    if (active) {
+        for (const handle of coverageHandles(shown, resolved, reach)) {
+            ctx.fillRect(handle.x - 0.09, handle.y - 0.09, 0.18, 0.18);
+        }
     }
     ctx.globalAlpha = 1;
     ctx.setLineDash([]);

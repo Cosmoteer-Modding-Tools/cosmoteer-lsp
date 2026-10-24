@@ -51,6 +51,8 @@ export const KIND_COLORS = {
     polygon: '#e5c07b',
     circle: '#98c379',
     edgeRegion: '#c678dd',
+    criteria: '#d7ba7d',
+    coverage: '#ff9e64',
     rectList: '#e06c75',
     componentPoints: '#ff79c6',
 };
@@ -59,6 +61,7 @@ export const KIND_COLORS = {
 export const GROUP_ORDER = [
     'Part',
     'Components',
+    'Weapons',
     'Colliders',
     'Networks',
     'Crew',

@@ -17,6 +17,8 @@ const webview = require(mediaBundle('part-grid-editor.js')) as {
     doorEdgeFor(cell: { x: number; y: number }, rect: { x: number; y: number; width: number; height: number }): string | null;
     edgeRegionDistanceAt(rect: { x: number; y: number; width: number; height: number }, point: { x: number; y: number }): number;
     backingRatio(size: { width: number; height: number }, dpr: number): number;
+    mirrorCriteria(entry: object, width: number): object;
+    criteriaFlipSymmetric(entry: object, width: number): boolean;
     LAYER_KINDS: Record<string, LayerKind>;
     countOf(layer: object): number;
     pointMemberOf(layer: object): LayerMember;
@@ -49,6 +51,8 @@ const SAMPLE_LAYERS: Record<string, Record<string, unknown>> = {
     polygon: { vertices: [{ point: { x: 0, y: 0 } }, { point: { x: 1, y: 0 } }, { point: { x: 1, y: 1 } }] },
     circle: { center: { x: 1, y: 1 }, radius: 3 },
     edgeRegion: { distance: 2 },
+    criteria: { entries: [{ left: { min: 0, max: 0 } }, { top: { min: 1, max: 2 } }] },
+    coverage: { coverage: { range: 0, arcNearDeg: null, arcWidthDeg: null, restPosition: null } },
     rectList: { entries: [{ tag: 'tall', rect: { x: 0, y: 0, width: 1, height: 1 } }] },
     componentPoints: { entries: [{ component: 'a' }, { component: 'b' }] },
     rect: { rect: { x: 0, y: 0, width: 2, height: 2 } },
@@ -139,6 +143,23 @@ describe('part grid webview geometry', () => {
         expect(webview.edgeRegionDistanceAt(rect, { x: 5, y: -5 })).toBe(5); // beyond a corner, still chebyshev
     });
 
+    it('mirrors criteria edges across the part width the way the game flips the matched rect', () => {
+        const one = (n: number) => ({ min: n, max: n });
+        // The deck railgun report: 4 wide, a 2 wide accelerator in the left corner moves to the right one.
+        const corner = { left: one(0), right: one(2), top: one(5), bottom: null };
+        expect(webview.mirrorCriteria(corner, 4)).toMatchObject({ left: one(2), right: one(4), top: one(5) });
+        expect(webview.criteriaFlipSymmetric(corner, 4)).toBe(false);
+        // Centered single numbers stay put, so the same criteria work flipped and unflipped.
+        expect(webview.criteriaFlipSymmetric({ left: one(1), right: one(3), top: null, bottom: null }, 4)).toBe(true);
+        expect(webview.criteriaFlipSymmetric({ left: one(-1), right: one(3), top: null, bottom: null }, 2)).toBe(true);
+        // Ranges mirror as ranges, the corner pair below accepts both corners and is its own mirror.
+        const both = { left: { min: 0, max: 2 }, right: { min: 2, max: 4 }, top: null, bottom: null };
+        expect(webview.mirrorCriteria(both, 4)).toMatchObject({ left: { min: 0, max: 2 }, right: { min: 2, max: 4 } });
+        expect(webview.criteriaFlipSymmetric(both, 4)).toBe(true);
+        const skewed = { left: { min: 0, max: 1 }, right: null, top: null, bottom: null };
+        expect(webview.mirrorCriteria(skewed, 4)).toMatchObject({ left: null, right: { min: 3, max: 4 } });
+    });
+
     it('computes exact inverses for the undo command pattern', () => {
         const data = {
             size: { width: 1, height: 2 },
@@ -225,7 +246,7 @@ describe('part grid layer-kind registry', () => {
 
     it('declares every behaviour for every kind it knows', () => {
         const kinds = Object.keys(webview.LAYER_KINDS);
-        expect(kinds).toHaveLength(14);
+        expect(kinds).toHaveLength(16);
         for (const name of kinds) {
             const kind = webview.LAYER_KINDS[name];
             expect(typeof kind.count, `${name} count`).toBe('function');
@@ -246,8 +267,9 @@ describe('part grid layer-kind registry', () => {
         expect(countFor('polygon')).toBe(3);
         expect(countFor('rectList')).toBe(1);
         expect(countFor('componentPoints')).toBe(2);
+        expect(countFor('criteria')).toBe(2);
         // The single-value kinds count one when they hold anything at all.
-        for (const kind of ['point', 'cell', 'cellDirection', 'cellRay', 'circle', 'edgeRegion', 'rect']) {
+        for (const kind of ['point', 'cell', 'cellDirection', 'cellRay', 'circle', 'edgeRegion', 'coverage', 'rect']) {
             expect(countFor(kind), kind).toBe(1);
         }
     });
@@ -265,6 +287,7 @@ describe('part grid layer-kind registry', () => {
             radius: null,
             distance: null,
             rect: null,
+            coverage: { range: null, arcNearDeg: null, arcWidthDeg: null, restPosition: null },
         };
         for (const kind of Object.keys(webview.LAYER_KINDS)) {
             expect(webview.countOf({ kind, ...empty }), kind).toBe(0);

@@ -8,6 +8,7 @@ import {
     DocumentFormattingParams,
     HoverParams,
     InlayHintParams,
+    MarkupKind,
     SemanticTokens,
     SemanticTokensDelta,
     SemanticTokensDeltaParams,
@@ -19,6 +20,7 @@ import {
 } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { getHover } from '../../features/hover/hover.service';
+import { scriptHoverAt } from '../../features/scripting/script-assist';
 import { getInlayHints } from '../../features/inlay/inlay-hint.service';
 import { documentColors, colorPresentations } from '../../features/color/document-color';
 import { markupColors, markupColorPresentations } from '../../features/color/markup-color';
@@ -172,6 +174,12 @@ const handleHover = async (params: HoverParams, cancellationToken: CancellationT
     const parserResult = ensureParserResult(params.textDocument.uri);
     if (!parserResult) return null;
     try {
+        // A name inside a music or codex script hovers as the script member it binds to.
+        const open = documents.get(params.textDocument.uri);
+        const script = open
+            ? await scriptHoverAt(parserResult, open, open.offsetAt(params.position), cancellationToken)
+            : undefined;
+        if (script) return { contents: { kind: MarkupKind.Markdown, value: script } };
         return await getHover(parserResult, params.position, cancellationToken, await searchFolderUris());
     } catch (e) {
         traceFailure(e);

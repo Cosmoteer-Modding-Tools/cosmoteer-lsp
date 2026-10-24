@@ -217,7 +217,7 @@ export const evaluateVirtualVariants = async (
         zero: undefined,
         virtual: slot,
     });
-    // ponytail: only the first `:` base varies, a value mixing two unrelated bases reads the second as written.
+    // Only the first `:` base varies, so a value mixing two unrelated bases reads the second as written.
     const base = slot.bases[0];
     if (!base) return { value, variants: [] };
     const key = locationKey(definitionLocationOf(base));

@@ -288,12 +288,12 @@
   "FlySprite": 1
  },
  "Cosmoteer.Data.BuiltinShipRules": {
-  "File": 1263,
-  "Tier": 936,
-  "Difficulty": 775,
-  "Tags": 539,
-  "StasisIcon": 64,
-  "SpawnTier": 30,
+  "File": 1268,
+  "Tier": 941,
+  "Difficulty": 779,
+  "Tags": 546,
+  "StasisIcon": 65,
+  "SpawnTier": 31,
   "OtherIDs": 23,
   "FlightDirection": 12,
   "ID": 1
@@ -1406,8 +1406,8 @@
   "RightWingAngle": 2
  },
  "Cosmoteer.Ships.ModifiableValue": {
-  "BaseValue": 380,
-  "EffectScaleExponent": 159,
+  "BaseValue": 366,
+  "EffectScaleExponent": 145,
   "Modifiers": 109,
   "BuffType": 78,
   "BuffMode": 75,
@@ -1634,14 +1634,15 @@
   "MediaEffectsRequireShipInView": 1
  },
  "Cosmoteer.Ships.Parts.Effects.PartDeathEffectsRules": {
-  "Location": 128,
-  "MediaEffects": 121,
-  "HitEffects": 25,
-  "FactorHitEffectsWith": 17,
+  "Location": 120,
+  "MediaEffects": 119,
+  "HitEffects": 17,
   "WhenSalvaged": 16,
-  "IncludeWhenUnderConstruction": 15,
-  "OperationalToggle": 12,
-  "FactorMediaEffectsWith": 3,
+  "FactorHitEffectsWith": 10,
+  "IncludeWhenUnderConstruction": 8,
+  "OperationalToggle": 7,
+  "FactorMediaEffectsWith": 2,
+  "HitEffectsFactor": 2,
   "InvertOperationalToggle": 1
  },
  "Cosmoteer.Ships.Parts.Effects.PartToggleEffectsRules": {
@@ -1652,17 +1653,18 @@
   "ChainedTo": 2
  },
  "Cosmoteer.Ships.Parts.Effects.PartTriggeredEffectsRules": {
-  "Trigger": 139,
-  "MediaEffects": 120,
-  "Location": 98,
+  "Trigger": 140,
+  "MediaEffects": 121,
+  "Location": 99,
   "ChainedTo": 45,
   "AnchorMediaEffects": 23,
-  "HitEffects": 19,
+  "HitEffects": 14,
   "FactorMediaEffectsIntensityWith": 12,
   "MinMediaEffectsIntensity": 12,
   "FactorHitEffectsWith": 6,
   "IncludeWhenUnderConstruction": 6,
   "FactorMediaEffectsWith": 3,
+  "HitEffectsFactor": 2,
   "Rotation": 1
  },
  "Cosmoteer.Ships.Parts.Ftl.FtlBeaconRules": {
@@ -1897,10 +1899,11 @@
   "OperationalToggle": 2
  },
  "Cosmoteer.Ships.Parts.Logic.PartMultiValueRules": {
-  "Values": 43,
-  "Mode": 38,
+  "Values": 45,
+  "Mode": 40,
   "IncludeInBlueprints": 11,
   "OneOver": 4,
+  "IndividualRounding": 2,
   "Abs": 1,
   "Invert": 1
  },
@@ -1919,7 +1922,7 @@
   "ToggleOn": 5
  },
  "Cosmoteer.Ships.Parts.Logic.PartStaticValueRules": {
-  "Value": 156
+  "Value": 158
  },
  "Cosmoteer.Ships.Parts.Logic.PartThresholdToggleRules": {
   "ValueFrom": 30,
@@ -1985,17 +1988,17 @@
   "ProxyableComponents": 4
  },
  "Cosmoteer.Ships.Parts.Logic.PartToggleTriggerRules": {
-  "Toggle": 78,
-  "TriggerWhenOn": 76,
-  "TriggerWhenOff": 27,
+  "Toggle": 79,
+  "TriggerWhenOn": 77,
+  "TriggerWhenOff": 28,
   "AllowOperationalBypass": 2,
   "InvertOperationalToggle": 1,
   "OperationalToggle": 1
  },
  "Cosmoteer.Ships.Parts.Logic.PartToggleValueSelectorRules": {
-  "Toggle": 48,
-  "ToggleOffValue": 48,
-  "ToggleOnValue": 48,
+  "Toggle": 50,
+  "ToggleOffValue": 50,
+  "ToggleOnValue": 50,
   "BlueprintToggle": 4,
   "IncludeInBlueprints": 4
  },
@@ -2213,9 +2216,9 @@
   "Features": 2
  },
  "Cosmoteer.Ships.Parts.PartToolTipData": {
-  "DescriptionKey": 43,
-  "TitleKey": 43,
-  "Stats": 33,
+  "DescriptionKey": 41,
+  "TitleKey": 41,
+  "Stats": 31,
   "StatsByCategory": 15,
   "Features": 1
  },
@@ -2341,9 +2344,9 @@
   "UITileRect": 16,
   "DelayBeforeReadyToUse": 9,
   "InitToMaxResources": 8,
+  "ProvidedValueRange": 7,
   "AnticipateMoreResourcesFrom": 6,
   "ProvidedValuePerResource": 6,
-  "ProvidedValueRange": 6,
   "DropResourcesWhenRemoved": 5,
   "StartingResources": 5,
   "SuppliesResources": 5,
@@ -2450,6 +2453,7 @@
   "VisibilityToggle": 1
  },
  "Cosmoteer.Ships.Parts.UI.PartUITriggerRules": {
+  "RequiresCommand": 1,
   "TriggerID": 1
  },
  "Cosmoteer.Ships.Parts.UI.UIToggleModePair": {
@@ -2652,11 +2656,11 @@
   "TargetPathThickness": 1
  },
  "Cosmoteer.Ships.Parts.Weapons.WeaponAutoTargetRules": {
-  "TargetType": 28,
-  "Toggle": 26,
+  "TargetType": 29,
+  "Toggle": 27,
   "EnableInDirectControlMode": 4,
-  "BulletTargetCategories": 2,
-  "Overridable": 2
+  "Overridable": 3,
+  "BulletTargetCategories": 2
  },
  "Cosmoteer.Ships.Parts.Weapons.WeaponCoverage": {
   "Arc": 2,
@@ -3071,16 +3075,16 @@
   "UndiscoveredHudIcon": 3
  },
  "Cosmoteer.Simulation.EffectFilter": {
-  "Friendlies": 338,
-  "OperationalHealth": 296,
-  "StructuralHealth": 296,
+  "Friendlies": 322,
+  "OperationalHealth": 280,
+  "StructuralHealth": 280,
   "Enemies": 268,
   "Junk": 263,
   "Shields": 260,
   "IgnoreInvulnerability": 253,
   "Ships": 253,
-  "Crew": 251,
   "Bullets": 250,
+  "Crew": 245,
   "Nuggets": 234,
   "Neutrals": 86,
   "TargetedFriendlies": 15,
@@ -3171,20 +3175,20 @@
   "MaxDamageFromPool": 1
  },
  "Cosmoteer.Simulation.HitEffects.ExplosiveDamageEffectRules": {
-  "Radius": 51,
-  "TotalDamage": 51,
-  "Filter": 50,
-  "Delay": 40,
-  "NDamage": 32,
-  "StatusChancePerNDamage": 19,
-  "StatusValue": 19,
-  "StatusValueType": 19,
-  "ImpulsePerNDamage": 17,
-  "StatusType": 17,
-  "CrewKillChance": 15,
-  "ExpandDuration": 12,
-  "ExpandStartRadius": 12,
+  "Radius": 35,
+  "TotalDamage": 35,
+  "Filter": 34,
+  "Delay": 28,
+  "NDamage": 22,
+  "ImpulsePerNDamage": 13,
+  "StatusChancePerNDamage": 13,
+  "StatusType": 13,
+  "StatusValue": 13,
+  "StatusValueType": 13,
+  "CrewKillChance": 9,
+  "ExpandDuration": 8,
   "ExpandLoss": 8,
+  "ExpandStartRadius": 8,
   "Slices": 2
  },
  "Cosmoteer.Simulation.HitEffects.ExplosiveResourceDrainEffectRules": {

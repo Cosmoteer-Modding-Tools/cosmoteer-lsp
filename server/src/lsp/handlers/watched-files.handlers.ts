@@ -30,8 +30,8 @@ import {
  * word is spelled by much of a mod, and without a bound a single save would queue a pass over the
  * whole project.
  *
- * ponytail: fixed cap, swap in per-file reverse-dependency tracking if a project ever grows past
- * it often enough for a real dependent to be dropped.
+ * The cap is fixed. Per-file reverse-dependency tracking would replace it if a project ever grows
+ * past it often enough for a real dependent to be dropped.
  */
 const DEPENDENT_REVALIDATION_CAP = 250;
 

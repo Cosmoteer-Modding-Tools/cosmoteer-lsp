@@ -48,6 +48,8 @@ class CosmoteerSettings : PersistentStateComponent<CosmoteerSettings.SettingsSta
         var validateStorageCycles: Boolean = true
         var validateNumericDomains: Boolean = true
         var validateResourcePickups: Boolean = true
+        var validateWeaponCoverage: Boolean = true
+        var validateScripts: Boolean = true
         var validateDuplicateIds: Boolean = true
         var validateUndeclaredDependencies: Boolean = true
         var validateUnreceivableBuffs: Boolean = true
@@ -141,6 +143,8 @@ class CosmoteerSettings : PersistentStateComponent<CosmoteerSettings.SettingsSta
             "validateStorageCycles" to state.validateStorageCycles,
             "validateNumericDomains" to state.validateNumericDomains,
             "validateResourcePickups" to state.validateResourcePickups,
+            "validateWeaponCoverage" to state.validateWeaponCoverage,
+            "validateScripts" to state.validateScripts,
             "validateDuplicateIds" to state.validateDuplicateIds,
             "validateUndeclaredDependencies" to state.validateUndeclaredDependencies,
             "validateUnreceivableBuffs" to state.validateUnreceivableBuffs,

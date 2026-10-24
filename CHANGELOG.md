@@ -2,6 +2,42 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.1.4
+
+### Added
+
+- Cosmoteer 0.30.5 support. Music and codex scripts are no longer Python but the game's own
+  small expression language, and the server now reads them the way the game does. A script the game
+  would refuse is reported with the game's own message, and the migration report lists every one.
+  Inside a script, names complete, hover with their signature and are highlighted. Turn the check off
+  with `cosmoteerLSPRules.diagnostics.validateScripts`.
+
+- The new 0.30.5 fields complete, hover with docs and validate: a storage's
+  `DoResourceDeathEffects` and `DoResourceResponseEffects`, a MultiValue component's
+  `IndividualRounding`, and an explosion's `StatusValue`, which now takes a random range. The storage
+  hover explains that every storage now explodes like a storage bay, and how to turn that off for a
+  part that should not. The migration report lists the storages of an older mod that now explode, so
+  each can be decided.
+
+- The part grid editor draws the neighbor criteria of buff providers and proxies: where the matched
+  part's edges may sit, as a line for one number and a band for a range. When flipping the part
+  moves that spot, the flipped spot draws dashed and the panel names its edges.
+
+- The part grid editor draws each weapon's coverage the way the game's Adjust Range & Arc screen
+  does: the physical arc and range dashed, the default coverage as a filled sector, and the rest
+  direction dotted. Drag an arc edge, the rest handle or the rim, or type the numbers in the panel,
+  and `DefaultWeaponCoverage` is written into the file.
+
+- Weapon coverage mistakes the game takes without a word are now reported: a default arc that
+  misses the turret's physical arc and is dropped for the whole arc, a negative arc width, a range
+  of zero or less, a `RestPosition` outside 0 to 1, an arc that `ForceCustomCoverageWidthZero`
+  contradicts, and a `MatchWeaponCoverage` naming itself, a component that is not a weapon, or a
+  weapon that follows another one. Coverage fields a weapon never reads are faded. Turn it off with
+  `cosmoteerLSPRules.diagnostics.validateWeaponCoverage`.
+
+- The part grid editor now shows the components a `ToggledComponents` group takes from another
+  file, such as the missile launcher's `Components = &<mine/missile_launcher_mine.rules>/Components`.
+
 ## 1.1.3
 
 ### Added
@@ -339,6 +375,7 @@ All notable changes to this project will be documented in this file.
 - A storage handing a crew more of a resource than one crew member can carry is now reported. The storage works out the transfer from its own `MaxResourcesPickUp` or `InitPickUp` and subtracts that whole number from itself, while the crew keeps only a stack, so the difference is destroyed with nothing said anywhere. The stack is read out of the resource file the id names, with a manifest replacement of that member applied. Turn it off with `cosmoteerLSPRules.diagnostics.validateResourcePickups`.
 
 ### Fixed
+
 - A region or radius written as zero shows in the part grid editor again. `Distance = 0` says the
   region is exactly the part rect and `Radius = 0` is a circle with no reach, both of which the
   author wrote on purpose, but the layer list read a zero as nothing written: the layer opened

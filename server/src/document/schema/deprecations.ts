@@ -63,16 +63,26 @@ export const installedGameVersionOf = (): string => installedGameVersion;
  * @param version the version an entry records, if any.
  * @returns true when the installed game is known to predate the version.
  */
-export const isAheadOfInstalledGame = (version: string | undefined): boolean => {
-    if (!version || !installedGameVersion) return false;
+export const isAheadOfInstalledGame = (version: string | undefined): boolean =>
+    !!version && !!installedGameVersion && compareVersionNumbers(version, installedGameVersion) > 0;
+
+/**
+ * Orders two game versions by their numbers alone, so `0.30.4c` sorts before `0.30.5` and
+ * `0.30.5_rc1` after it.
+ *
+ * @param a the first version.
+ * @param b the second version.
+ * @returns a negative number when a is older, zero when the numbers match, positive when a is newer.
+ */
+export const compareVersionNumbers = (a: string, b: string): number => {
     const numbers = (text: string): number[] => (text.match(/\d+/g) ?? []).map(Number);
-    const change = numbers(version);
-    const installed = numbers(installedGameVersion);
-    for (let i = 0; i < Math.max(change.length, installed.length); i++) {
-        const difference = (change[i] ?? 0) - (installed[i] ?? 0);
-        if (difference !== 0) return difference > 0;
+    const left = numbers(a);
+    const right = numbers(b);
+    for (let i = 0; i < Math.max(left.length, right.length); i++) {
+        const difference = (left[i] ?? 0) - (right[i] ?? 0);
+        if (difference !== 0) return difference;
     }
-    return false;
+    return 0;
 };
 
 /** A renamed symbol: the spelling to use now, and a short note on why it changed. */

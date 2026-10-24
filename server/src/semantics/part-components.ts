@@ -109,7 +109,11 @@ const collectComponents = async (
         const holder = depth < MAX_COMPONENT_NESTING ? nestedComponentsMember(cls) : undefined;
         if (!holder) continue;
         const nested = await effectiveMember(entry.group, holder, token);
-        if (nested && isGroupNode(nested.node)) await collectComponents(nested.node, into, token, depth + 1);
+        // The missile launcher hands each mode its components from another file
+        // (`Components = &<mine/missile_launcher_mine.rules>/Components`), so the holder is followed
+        // through a reference to the group it names.
+        const held = nested && ((await resolveValueReference(nested.node, token).catch(() => null)) ?? nested.node);
+        if (held && isGroupNode(held)) await collectComponents(held, into, token, depth + 1);
     }
 };
 

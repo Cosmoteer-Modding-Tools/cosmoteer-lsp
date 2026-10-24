@@ -4,6 +4,7 @@ import {
     AbstractNode,
     AbstractNodeDocument,
     AstPosition,
+    descendants,
     GroupNode,
     isAssignmentNode,
     isExpressionNode,
@@ -15,6 +16,7 @@ import {
     ListNode,
     ValueNode,
 } from '../../core/ast/ast';
+import { compileScriptAtSync } from '../scripting/script-field';
 
 /**
  * Semantic-token highlighting for `.rules` (`textDocument/semanticTokens/full`).
@@ -58,8 +60,9 @@ const NUMERIC_LITERAL = /^-?(?:\s*\d*\.?\d+\s*[%dr]|infinity)$/i;
  * @returns the delta-encoded tokens for `textDocument/semanticTokens/full`.
  */
 export const buildSemanticTokens = (document: AbstractNodeDocument, text?: string): SemanticTokens => {
-    const collected: RawToken[] = [];
+    let collected: RawToken[] = [];
     for (const element of document.elements) collectNode(element, true, collected);
+    if (text !== undefined) collected = withScriptTokens(document, text, collected);
 
     const tokens = text === undefined ? collected : placeOnRealLines(collected, text);
 
@@ -70,6 +73,56 @@ export const buildSemanticTokens = (document: AbstractNodeDocument, text?: strin
     const builder = new SemanticTokensBuilder();
     for (const token of tokens) builder.push(token.line, token.char, token.length, token.type, token.modifiers);
     return builder.build();
+};
+
+/** The token type of each script token kind, and of each thing a script name can bind to. */
+const SCRIPT_TOKEN_TYPES: Record<string, TokenType> = {
+    number: 'number',
+    string: 'string',
+    keyword: 'keyword',
+    symbol: 'operator',
+    name: 'variable',
+    variable: 'variable',
+    function: 'function',
+    method: 'function',
+    property: 'property',
+};
+
+/**
+ * Colour the inside of every music or codex script by what the game's compiler makes of it, in place
+ * of the one string token the walk gave it. The quotes, the prefix and the line glue keep the string
+ * colour. A token is placed by its offset alone, so it carries no line of its own.
+ *
+ * @param document the parsed document.
+ * @param text the document's source.
+ * @param tokens the tokens the walk collected.
+ * @returns the tokens with every script's string token split.
+ */
+const withScriptTokens = (document: AbstractNodeDocument, text: string, tokens: RawToken[]): RawToken[] => {
+    const replaced = new Set<number>();
+    const added: RawToken[] = [];
+    const push = (start: number, end: number, type: TokenType): void => {
+        if (end > start)
+            added.push({ line: -1, char: 0, length: end - start, type: typeIndex(type), modifiers: 0, start });
+    };
+    for (const node of descendants(document)) {
+        if (!isValueNode(node)) continue;
+        const script = compileScriptAtSync(document, node, text);
+        if (!script) continue;
+        replaced.add(node.position.start);
+        let at = node.position.start;
+        for (const token of script.result.tokens) {
+            const span = script.toDocument(token.start, token.end);
+            if (span.end <= span.start) continue;
+            push(at, span.start, 'string');
+            const role = script.result.bindings.find((binding) => binding.start === token.start)?.role;
+            push(span.start, span.end, SCRIPT_TOKEN_TYPES[role ?? token.kind]);
+            at = span.end;
+        }
+        push(at, node.position.end, 'string');
+    }
+    if (replaced.size === 0) return tokens;
+    return [...tokens.filter((token) => !replaced.has(token.start)), ...added];
 };
 
 /**

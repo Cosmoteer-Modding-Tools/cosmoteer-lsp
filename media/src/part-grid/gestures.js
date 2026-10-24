@@ -3,7 +3,13 @@
 // edit, which is what keeps clicking a marker from writing a no-op into the file and the history.
 
 import { canvas, setStatus } from './dom.js';
-import { chainParentTransform, edgeRegionDistanceAt, rotateBackDegrees, snapTo } from './geometry.js';
+import {
+    chainParentTransform,
+    coverageDragMutation,
+    edgeRegionDistanceAt,
+    rotateBackDegrees,
+    snapTo,
+} from './geometry.js';
 import { dragRectHandle } from './hit-geometry.js';
 import { LAYER_KINDS } from './layer-kinds.js';
 import { sendMutation } from './mutations.js';
@@ -79,6 +85,10 @@ function carryDrag(drag, point) {
     } else if (drag.type === 'component') {
         const entry = layer.entries.find((candidate) => candidate.component === drag.entry.component);
         if (entry) entry.location = snapped;
+    } else if (drag.type === 'coverage') {
+        // Kept on the drag rather than written into the layer, so the undo records the value the
+        // drag started from. The free snap step makes the angles and the range snap to tenths.
+        drag.mutation = coverageDragMutation(layer, drag.handle, point, state.snapStep === 0);
     }
     return true;
 }
@@ -137,6 +147,8 @@ function commitDrag(drag) {
         sendMutation({ op: 'setNumber', layerId: drag.layerId, field: drag.field, value: drag.distance });
     } else if (drag.type === 'component') {
         sendMutation({ op: 'moveComponentLocation', component: drag.entry.component, point: componentDropPoint(drag) });
+    } else if (drag.type === 'coverage' && drag.mutation) {
+        sendMutation(drag.mutation);
     }
 }
 

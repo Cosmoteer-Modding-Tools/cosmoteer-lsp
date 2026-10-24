@@ -3,7 +3,7 @@
 // the sidebar, which `main.js` stitches into the registry proper.
 
 import { button, element, setStatus } from './dom.js';
-import { expandAdjacency, sameCell } from './geometry.js';
+import { criteriaFlipSymmetric, expandAdjacency, mirrorCriteria, sameCell } from './geometry.js';
 import { toggleEntryValue } from './hit-test.js';
 import { sendMutation } from './mutations.js';
 import { draw } from './render.js';
@@ -24,6 +24,8 @@ export const LAYER_PANEL = {
     polygon: panelPolygon,
     circle: panelCircle,
     edgeRegion: panelEdgeRegion,
+    criteria: panelCriteria,
+    coverage: panelCoverage,
     rectList: panelRectList,
     componentPoints: panelComponentPoints,
     rect: panelRect,
@@ -184,6 +186,52 @@ function panelPoint(layer, section) {
     section.appendChild(snapRow());
 }
 
+/**
+ * Criteria are read-only here. Each entry lists its edges and filters, says whether flipping the
+ * part moves the accepted spot, and warns when its edges leave no room for any part.
+ */
+function panelCriteria(layer, section) {
+    section.appendChild(
+        element(
+            'div',
+            'hint',
+            t(
+                "Edges of the matched part's footprint, in this part's unflipped grid. Right and Bottom are the far edges (Left + width)."
+            )
+        )
+    );
+    const width = state.data.size.width;
+    const range = (name, value) =>
+        value && `${name} ${value.min === value.max ? value.min : `${value.min}..${value.max}`}`;
+    const edges = (entry) =>
+        [range('Left', entry.left), range('Right', entry.right), range('Top', entry.top), range('Bottom', entry.bottom)]
+            .filter(Boolean)
+            .join(' · ');
+    for (const entry of layer.entries) {
+        const extras = [
+            entry.rot !== null ? `Rot ${entry.rot}` : null,
+            entry.flipX !== null ? `FlipX ${entry.flipX}` : null,
+            ...entry.filters,
+        ].filter(Boolean);
+        section.appendChild(element('div', 'row', [edges(entry) || t('any position'), ...extras].join(' · ')));
+        if (
+            (entry.left && entry.right && entry.right.max <= entry.left.min) ||
+            (entry.top && entry.bottom && entry.bottom.max <= entry.top.min)
+        ) {
+            section.appendChild(element('div', 'hint', t('These edges leave no room for a part, so nothing matches.')));
+        }
+        section.appendChild(
+            element(
+                'div',
+                'hint',
+                criteriaFlipSymmetric(entry, width)
+                    ? t('Same spot when this part is flipped.')
+                    : t('When this part is flipped: {0}', edges(mirrorCriteria(entry, width)))
+            )
+        );
+    }
+}
+
 /** A single cell explains its gesture. */
 function panelCell(layer, section) {
     section.appendChild(element('div', 'hint', t('Click a cell to set it, right-click to remove the field.')));
@@ -285,6 +333,111 @@ function panelEdgeRegion(layer, section) {
         })
     );
     section.appendChild(distRow);
+}
+
+/**
+ * A weapon's coverage offers each `DefaultWeaponCoverage` member as typed values with a clear
+ * button, and says what the game's own flags make of the player's coverage editor.
+ */
+function panelCoverage(layer, section) {
+    const turret = layer.weaponKind === 'turret';
+    section.appendChild(
+        element(
+            'div',
+            'hint',
+            turret
+                ? t(
+                      'Drag an arc edge, the inner rest handle or the rim. Dashed lines are the physical limits, the dotted line the rest direction.'
+                  )
+                : t('A fixed weapon fires along its mount direction. Drag the rim to set the range.')
+        )
+    );
+    const physicalArc = layer.physicalArcDeg === null ? '-' : `${layer.physicalArcDeg}°`;
+    const physicalRange = layer.physicalRange === null ? '-' : String(layer.physicalRange);
+    section.appendChild(
+        element('div', 'hint', t('Physical limits: arc {0}, range {1}.', turret ? physicalArc : '0°', physicalRange))
+    );
+    if (layer.matchWeaponCoverage) {
+        section.appendChild(
+            element('div', 'hint', t('Follows the player coverage of {0}.', layer.matchWeaponCoverage))
+        );
+    }
+    const locked = [
+        !layer.allowCoverageEditing && t('players cannot edit the coverage'),
+        !layer.allowRangeEditing && t('players cannot edit the range'),
+        turret && !layer.allowArcEditing && t('players cannot edit the arc'),
+        layer.forceWidthZero && t('the arc is forced to zero width'),
+    ].filter(Boolean);
+    if (locked.length) section.appendChild(element('div', 'hint', t('In game: {0}.', locked.join(', '))));
+
+    const { coverage } = layer;
+    const send = (field, value) => sendMutation({ op: 'setCoverage', component: layer.component, field, value });
+    section.appendChild(
+        coverageRow(
+            t('Range:'),
+            [coverage.range],
+            (values) => {
+                if (!(values[0] >= 0)) return t('Range: a number of cells, 0 or more');
+                send('Range', values[0]);
+            },
+            () => send('Range', null)
+        )
+    );
+    if (!turret) return;
+    section.appendChild(
+        coverageRow(
+            t('Arc (near, width °):'),
+            [coverage.arcNearDeg, coverage.arcWidthDeg],
+            (values) => {
+                if (!Number.isFinite(values[0]) || !(values[1] >= 0 && values[1] <= 360)) {
+                    return t('Arc: a near edge in degrees and a width from 0 to 360');
+                }
+                send('Arc', { nearDeg: values[0], widthDeg: values[1] });
+            },
+            () => send('Arc', null)
+        )
+    );
+    section.appendChild(
+        coverageRow(
+            t('Rest (0 to 1):'),
+            [coverage.restPosition],
+            (values) => {
+                if (!(values[0] >= 0 && values[0] <= 1)) return t('Rest: a number from 0 (near edge) to 1 (far edge)');
+                send('RestPosition', values[0]);
+            },
+            () => send('RestPosition', null)
+        )
+    );
+}
+
+/**
+ * One typed row of the coverage panel: an input per number, a set button and a clear button.
+ *
+ * @param label the row's label.
+ * @param values the numbers the inputs start with, null for an empty input.
+ * @param onSet sends the typed numbers, returning a status message when they do not fit.
+ * @param onClear removes the member.
+ * @returns the row.
+ */
+function coverageRow(label, values, onSet, onClear) {
+    const row = element('div', 'row');
+    row.appendChild(element('span', null, label));
+    const inputs = values.map((value) => {
+        const input = element('input');
+        input.type = 'text';
+        input.className = 'intlist';
+        input.value = value === null ? '' : String(value);
+        row.appendChild(input);
+        return input;
+    });
+    row.appendChild(
+        button(t('Set'), null, () => {
+            const refusal = onSet(inputs.map((input) => (input.value.trim() === '' ? NaN : Number(input.value))));
+            if (refusal) setStatus(refusal);
+        })
+    );
+    row.appendChild(button(t('Clear'), t('Remove this member'), onClear));
+    return row;
 }
 
 /** A rect list offers appending a tagged rect, and names the scalar fields that also prohibit. */

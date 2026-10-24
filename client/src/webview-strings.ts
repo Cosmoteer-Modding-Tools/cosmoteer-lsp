@@ -263,4 +263,31 @@ export const webviewPageText = (): string[] => [
     l10n.t('{0} of {1} parts'),
     l10n.t('{0} parts'),
     l10n.t('The project holds more parts than the table reads.'),
+    l10n.t('when flipped'),
+    l10n.t('any part'),
+    l10n.t('any position'),
+    l10n.t(
+        "Edges of the matched part's footprint, in this part's unflipped grid. Right and Bottom are the far edges (Left + width)."
+    ),
+    l10n.t('These edges leave no room for a part, so nothing matches.'),
+    l10n.t('Same spot when this part is flipped.'),
+    l10n.t('When this part is flipped: {0}'),
+    l10n.t(
+        'Drag an arc edge, the inner rest handle or the rim. Dashed lines are the physical limits, the dotted line the rest direction.'
+    ),
+    l10n.t('A fixed weapon fires along its mount direction. Drag the rim to set the range.'),
+    l10n.t('Physical limits: arc {0}, range {1}.'),
+    l10n.t('Follows the player coverage of {0}.'),
+    l10n.t('players cannot edit the coverage'),
+    l10n.t('players cannot edit the range'),
+    l10n.t('players cannot edit the arc'),
+    l10n.t('the arc is forced to zero width'),
+    l10n.t('In game: {0}.'),
+    l10n.t('Range:'),
+    l10n.t('Range: a number of cells, 0 or more'),
+    l10n.t('Arc (near, width °):'),
+    l10n.t('Arc: a near edge in degrees and a width from 0 to 360'),
+    l10n.t('Rest (0 to 1):'),
+    l10n.t('Rest: a number from 0 (near edge) to 1 (far edge)'),
+    l10n.t('Remove this member'),
 ];

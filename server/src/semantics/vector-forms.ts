@@ -285,7 +285,7 @@ const evaluateNamedMembers = async (
  * @param token cancels reference resolution.
  * @returns the components in order, or null.
  */
-const readTupleEvaluated = async (
+export const readTupleEvaluated = async (
     node: AbstractNode | null | undefined,
     names: readonly string[],
     token: CancellationToken,
