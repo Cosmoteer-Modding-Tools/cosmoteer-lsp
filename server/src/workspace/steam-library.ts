@@ -41,10 +41,18 @@ export const defaultSteamInstallPaths = (
 export const steamInstallPaths = async (): Promise<string[]> => {
     if (process.platform !== 'win32') return defaultSteamInstallPaths();
     const registry = new Registry({ hive: Registry.HKLM, key: '\\SOFTWARE\\WOW6432Node\\Valve\\Steam' });
+    const fallback = path.join(process.env['ProgramFiles(x86)'] ?? 'C:\\Program Files (x86)', 'Steam');
     return new Promise<string[]>((resolve) => {
-        registry.get('InstallPath', (error, item) => {
-            resolve(error ? [] : [item.value]);
-        });
+        try {
+            registry.get('InstallPath', (error, item) => {
+                // winreg answers `(null, null)` when reg.exe exits cleanly with output it cannot parse.
+                // Reading `item.value` then threw inside its exit handler, so this promise never
+                // settled and the startup hung with no message at all.
+                resolve(!error && item?.value ? [item.value, fallback] : [fallback]);
+            });
+        } catch {
+            resolve([fallback]);
+        }
     });
 };
 

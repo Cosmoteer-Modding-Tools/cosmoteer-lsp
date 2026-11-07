@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
@@ -6,12 +6,38 @@ import {
     defaultSteamInstallPaths,
     findCosmoteerDataPath,
     parseSteamLibraryPaths,
+    steamInstallPaths,
 } from '../../src/workspace/steam-library';
+
+// winreg answers `(null, null)` when reg.exe exits cleanly with output it cannot parse.
+vi.mock('winreg', () => ({
+    default: class {
+        static HKLM = 'HKLM';
+        get(_name: string, callback: (error: Error | null, item: null) => void) {
+            callback(null, null);
+        }
+    },
+}));
+
+describe('steamInstallPaths', () => {
+    it('settles with the default Steam dir when the registry answers no item', async () => {
+        const platform = Object.getOwnPropertyDescriptor(process, 'platform')!;
+        Object.defineProperty(process, 'platform', { value: 'win32' });
+        try {
+            const paths = await steamInstallPaths();
+            expect(paths).toHaveLength(1);
+            expect(paths[0]).toMatch(/Steam$/);
+        } finally {
+            Object.defineProperty(process, 'platform', platform);
+        }
+    });
+});
 
 const vdfFor = (...libraryRoots: string[]): string => {
     const entries = libraryRoots
         .map(
-            (root, index) => `\t"${index}"\n\t{\n\t\t"path"\t\t"${root.replace(/\\/g, '\\\\')}"\n` +
+            (root, index) =>
+                `\t"${index}"\n\t{\n\t\t"path"\t\t"${root.replace(/\\/g, '\\\\')}"\n` +
                 `\t\t"label"\t\t""\n\t\t"apps"\n\t\t{\n\t\t\t"799600"\t\t"123"\n\t\t}\n\t}\n`
         )
         .join('');
@@ -56,8 +82,7 @@ describe('findCosmoteerDataPath', () => {
     let steamDir: string;
     let libraryDir: string;
 
-    const gameDataDir = (libraryRoot: string): string =>
-        join(libraryRoot, 'steamapps', 'common', 'Cosmoteer', 'Data');
+    const gameDataDir = (libraryRoot: string): string => join(libraryRoot, 'steamapps', 'common', 'Cosmoteer', 'Data');
 
     beforeAll(() => {
         root = mkdtempSync(join(tmpdir(), 'cosmo-steam-lib-'));

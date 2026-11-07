@@ -6,6 +6,7 @@ import type { InitializeParams } from 'vscode-languageserver/node';
 // answers nothing for the rest of the session and writes nothing anywhere.
 const harness = vi.hoisted(() => {
     const errors: string[] = [];
+    const popups: string[] = [];
     const registered: unknown[] = [];
     let folders: unknown = null;
     let configuration: () => Promise<unknown> = () => Promise.resolve({});
@@ -21,7 +22,10 @@ const harness = vi.hoisted(() => {
         client: { register: (...args: unknown[]) => registered.push(args) },
         window: {
             createWorkDoneProgress: () => Promise.resolve(progress),
-            showErrorMessage: () => Promise.resolve(undefined),
+            showErrorMessage: (message: string) => {
+                popups.push(message);
+                return Promise.resolve(undefined);
+            },
             showWarningMessage: () => Promise.resolve(undefined),
         },
         languages: { diagnostics: { refresh: () => undefined } },
@@ -39,6 +43,7 @@ const harness = vi.hoisted(() => {
     return {
         connection,
         errors,
+        popups,
         registered,
         handlers,
         setFolders: (value: unknown) => (folders = value),
@@ -52,7 +57,17 @@ vi.mock('../../src/lsp/context', () => ({
     tokenSourceManager: { cancel: () => undefined },
 }));
 
+// The startup auto-detects the game when no path is set, which would scan whatever install this
+// machine has.
+vi.mock('../../src/workspace/steam-library', () => ({
+    steamInstallPaths: () => Promise.resolve([]),
+    findCosmoteerDataPath: () => Promise.resolve(undefined),
+}));
+
 const { register } = await import('../../src/lsp/handlers/lifecycle.handlers');
+const { CosmoteerWorkspaceService } = await import('../../src/workspace/cosmoteer-workspace.service');
+// What server.ts does at boot, so the "not found" notice has a connection to go out on.
+CosmoteerWorkspaceService.instance.setConnection(harness.connection as never);
 const fragmentRooting = await import('../../src/lsp/fragment-rooting');
 const { invalidateWorkspaceFoldersCache } = await import('../../src/lsp/workspace-folders');
 
@@ -74,7 +89,7 @@ const startUp = async (): Promise<void> => {
     await handlers.initialized({});
 };
 
-const { errors, handlers, registered } = harness;
+const { errors, handlers, popups, registered } = harness;
 
 describe('the server startup', () => {
     it('treats an empty workspace folder answer like no folders at all', async () => {
@@ -93,6 +108,8 @@ describe('the server startup', () => {
         registered.length = 0;
         await startUp();
         expect(errors.join('\n')).toContain('no configuration');
+        // Users who never open the output console still see why the game data is off.
+        expect(popups.join('\n')).toContain('no configuration');
         // The client registrations come after the failing step, so their arrival is the proof that
         // the startup carried on rather than ending at the rejection.
         expect(registered.length).toBeGreaterThan(0);

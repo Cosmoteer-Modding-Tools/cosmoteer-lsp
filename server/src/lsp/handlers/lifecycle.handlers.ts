@@ -228,16 +228,19 @@ const noteInstalledGameVersion = async (): Promise<void> => {
  * Pull the settings for the opened workspace and scan the game install they name, or tell the
  * user that every check reading the game data stays off without one.
  *
- * @param scopeUri the workspace folder the settings are read for.
+ * @param scopeUri the workspace folder the settings are read for, absent when no folder is open.
  * @returns when the game tree is scanned, or the decision that there is none is settled.
  */
-const loadGameTree = async (scopeUri: string): Promise<void> => {
-    setGlobalSettings(
-        await connection.workspace.getConfiguration({
-            scopeUri,
-            section: 'cosmoteerLSPRules',
-        })
-    );
+const loadGameTree = async (scopeUri: string | undefined): Promise<void> => {
+    // A client that cannot answer the pull would leave it pending forever, and the startup with it.
+    if (hasConfigurationCapability) {
+        setGlobalSettings(
+            await connection.workspace.getConfiguration({
+                scopeUri,
+                section: 'cosmoteerLSPRules',
+            })
+        );
+    }
     const settings = globalSettings;
     if (settings?.cosmoteerPath) {
         const gameTreeStarted = Date.now();
@@ -284,14 +287,20 @@ const startUpServer = async (): Promise<void> => {
     const folders = await getWorkspaceFoldersCached();
     const workspaceFolders = folders && folders.length > 0 ? folders : null;
 
-    if (workspaceFolders) {
-        try {
-            await loadGameTree(workspaceFolders[0].uri);
-        } catch (error) {
-            // The steps below hand the indexes their folder set and answer every later request,
-            // so an install that cannot be read has to cost the game data alone, not the session.
-            connection.console.error(`Reading the Cosmoteer install failed: ${describeFailure(error)}`);
-        }
+    // The game tree does not depend on a folder being open. A single `.rules` file opened on its own
+    // used to skip this, which left super-paths unresolved with no message saying why.
+    try {
+        await loadGameTree(workspaceFolders?.[0]?.uri);
+    } catch (error) {
+        // The steps below hand the indexes their folder set and answer every later request,
+        // so an install that cannot be read has to cost the game data alone, not the session.
+        connection.console.error(`Reading the Cosmoteer install failed: ${describeFailure(error)}`);
+        void connection.window.showErrorMessage(
+            l10n.t(
+                'Reading the Cosmoteer install failed, so every check that reads the game data is off: {0}',
+                describeFailure(error)
+            )
+        );
     }
     // Merge the schema surface of any code mod before anything validates. A code mod's `.dll`
     // declares types and `Type=` discriminators the shipped schema has never seen, and its `.rules`
@@ -446,7 +455,7 @@ const handleDidChangeConfiguration = async (change: DidChangeConfigurationParams
     }
 
     const cosmoteerPathChanged = !!settings?.cosmoteerPath && settings.cosmoteerPath !== previousCosmoteerPath;
-    if (cosmoteerPathChanged && workspaceFolders) {
+    if (cosmoteerPathChanged) {
         const workDoneProgress = await connection.window.createWorkDoneProgress();
         workDoneProgress.begin('Initializing workspace', 0, 'Initializing workspace', false);
         await CosmoteerWorkspaceService.instance.initialize(settings!.cosmoteerPath, workDoneProgress);

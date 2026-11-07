@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.1.5
+
+### Fixed
+
+- A `.rules` file opened on its own, without its mod folder, now reads the game data too. Super-paths such as `: /BASE_SHAKE` resolve again, and a missing Cosmoteer path is reported instead of passing silently.
+
+- Finding the Cosmoteer install no longer stalls the startup when the Windows registry gives no answer. The default Steam folder is searched as a fallback, so a game in a library on another drive is still found.
+
+- A Cosmoteer install that cannot be read at startup now shows an error popup instead of only a line in the output console.
+
 ## 1.1.4
 
 ### Added

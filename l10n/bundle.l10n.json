@@ -7,6 +7,7 @@
   "{0} is one of the game's own files, which a mod cannot edit.": "{0} is one of the game's own files, which a mod cannot edit.",
   "The Cosmoteer path is not set, so every check that reads the game data is off: component references, cross-file ids, localization keys, duplicate ids, unreceivable buffs and included action fragments. Set the path in the Cosmoteer Rules settings. If the setting is not shown yet, restart the editor.": "The Cosmoteer path is not set, so every check that reads the game data is off: component references, cross-file ids, localization keys, duplicate ids, unreceivable buffs and included action fragments. Set the path in the Cosmoteer Rules settings. If the setting is not shown yet, restart the editor.",
   "Open Settings": "Open Settings",
+  "Reading the Cosmoteer install failed, so every check that reads the game data is off: {0}": "Reading the Cosmoteer install failed, so every check that reads the game data is off: {0}",
   "Apply all safe fixes in this file ({0})": "Apply all safe fixes in this file ({0})",
   "Add \"{0}\" to the mod's strings files": "Add \"{0}\" to the mod's strings files",
   "Add the {0} missing key(s) to this language": "Add the {0} missing key(s) to this language",
