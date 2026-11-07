@@ -85,6 +85,7 @@
   "{0} fields restate a value their group already inherits.": "{0} Felder wiederholen einen Wert, den ihre Gruppe bereits erbt.",
   "The Cosmoteer path is not set, so every check that reads the game data is off: component references, cross-file ids, localization keys, duplicate ids, unreceivable buffs and included action fragments. Set the path in the Cosmoteer Rules settings. If the setting is not shown yet, restart the editor.": "Der Cosmoteer-Pfad ist nicht gesetzt, daher sind alle Prüfungen aus, die die Spieldaten lesen: Komponenten-Referenzen, dateiübergreifende IDs, Lokalisierungsschlüssel, doppelte IDs, nicht empfangbare Buffs und eingebundene Action-Fragmente. Setze den Pfad in den Cosmoteer-Rules-Einstellungen. Falls die Einstellung noch nicht angezeigt wird, starte den Editor neu.",
   "Open Settings": "Einstellungen öffnen",
+  "Reading the Cosmoteer install failed, so every check that reads the game data is off: {0}": "Die Cosmoteer-Installation konnte nicht gelesen werden, daher sind alle Prüfungen aus, die die Spieldaten lesen: {0}",
   "Create the component '{0}'...": "Die Komponente '{0}' anlegen...",
   "Add \"{0}\" to the mod's strings files": "\"{0}\" zu den Sprachdateien des Mods hinzufügen",
   "Add the {0} missing key(s) to this language": "Die {0} fehlenden Schlüssel in diese Sprache einfügen",

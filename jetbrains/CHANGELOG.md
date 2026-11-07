@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- A `.rules` file opened on its own, without its mod folder, now reads the game data too. Super-paths such as `: /BASE_SHAKE` resolve again, and a missing Cosmoteer path is reported instead of passing silently.
+
+- Finding the Cosmoteer install no longer stalls the startup when the Windows registry gives no answer. The default Steam folder is searched as a fallback, so a game in a library on another drive is still found.
+
+- A Cosmoteer install that cannot be read at startup now shows an error popup instead of only a line in the language server console.
+
+## 1.1.4 - 2026-10-24
+
 ### Added
 
 - Cosmoteer 0.30.5 support. Music and codex scripts are no longer Python but the game's own small expression language, and the server now reads them the way the game does. A script the game would refuse is reported with the game's own message, and the migration report lists every one. Inside a script, names complete, hover with their signature and are highlighted. Turn the check off under Check scripts in the settings.
