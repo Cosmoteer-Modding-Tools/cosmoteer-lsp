@@ -46,6 +46,8 @@ import { didYouMeanFix, ValidationError } from './validator';
 import { closestMatch } from '../../utils/did-you-mean';
 import { ALL_MATH_FUNCTION_NAMES } from '../../semantics/math-function-registry';
 import { evaluateNumericValue, formatNumber } from '../../semantics/value-evaluator';
+import { resolveWithModContext } from '../../mod/mod-context';
+import { FileTree, FileWithPath, isFile } from '../../workspace/cosmoteer-workspace.service';
 import * as l10n from '@vscode/l10n';
 
 // The engine numeric scalar types whose ObjectText deserializer is pure-numeric: a literal
@@ -862,16 +864,98 @@ const checkMathOnTextField = async (
     });
 };
 
+/** The structural shape a value has once the game reads it, as {@link unreadableForm} judges it. */
+export type ValueForm = 'list' | 'group' | 'plain' | 'plain-string';
+
+/** The field side of a shape judgment: a schema field, or a bare slot type where no field declares it. */
+export type FormSlot = Pick<SchemaField, 'valueType' | 'scalarStringForm'>;
+
+/** The scalar kinds a list can never be read into. */
+const LIST_REFUSING_KINDS = new Set([
+    'polymorphicGroup',
+    'bool',
+    'string',
+    'reference',
+    'int',
+    'float',
+    'number',
+    'asset',
+    'code',
+]);
+
 /**
- * A value written in a structural shape the field's deserializer never reads. The game loads
- * such a file without error and silently misreads or drops the value, so the mismatch gets a
- * warning: a list on a scalar/map/polymorphic field, a group on a textual or plain numeric
- * field, and elements past what a range (two endpoints) or tuple (fixed arity) reads. The
- * table errs on silence to honor the zero-false-positive contract: scalar values are never
- * flagged (many group types also read an uncaptured scalar form, `Time` being the canonical
- * case), asset fields accept groups (the `Texture` dual form), list-kind fields accept groups
- * (custom collection deserializers), extras only count when every element is atomic, and
- * opaque/constructed/generic kinds are skipped entirely.
+ * The shape of a node as written: a list or group without an inheritance list, or a literal scalar.
+ * A whole `.rules` file, which a reference can land on, is a group to the game. Anything else (a
+ * reference, math, a container with bases) has no shape the table judges.
+ *
+ * @param node the written node, or a whole file.
+ * @returns the shape, or undefined when it is not judged.
+ */
+export const valueFormOf = (node: AbstractNode | FileWithPath): ValueForm | undefined => {
+    if (isFile(node as unknown as FileTree)) return 'group';
+    const value = node as AbstractNode;
+    if (isListNode(value)) return value.inheritance?.length ? undefined : 'list';
+    if (isGroupNode(value)) return value.inheritance?.length ? undefined : 'group';
+    if (!isValueNode(value)) return undefined;
+    if (value.valueType.type === 'String') return 'plain-string';
+    return value.valueType.type === 'Number' || value.valueType.type === 'Boolean' ? 'plain' : undefined;
+};
+
+/**
+ * The shape a slot's deserializer cannot read a value in, the one table every shape check shares: a
+ * member written in a typed group, the node a reference lands on, a value a mod action puts in a
+ * member's place. It errs on silence to honor the zero-false-positive contract. Enum fields read a
+ * list (`[Flags]` enums), map fields read a list of entries, asset fields read a group (the `Texture`
+ * dual form), and a plain value in a group slot passes when the class reads a scalar form.
+ *
+ * @param slot the field or slot type the value is read as.
+ * @param form the value's shape.
+ * @returns the shape to name in a finding, or undefined when the game reads it.
+ */
+export const unreadableForm = (slot: FormSlot, form: ValueForm): 'list' | 'group' | 'plain' | undefined => {
+    const vt = slot.valueType;
+    if (form === 'list') return LIST_REFUSING_KINDS.has(vt.kind) ? 'list' : undefined;
+    if (form === 'group') {
+        const groupFormless = (vt.kind === 'int' || vt.kind === 'float' || vt.kind === 'number') && !vt.groupForm;
+        return TEXTUAL_KINDS.has(vt.kind) || groupFormless ? 'group' : undefined;
+    }
+    const isString = form === 'plain-string';
+    if (vt.kind === 'map') return 'plain';
+    if (vt.kind !== 'group') return undefined;
+    return classReadsScalar(vt.ref, isString) || (slot.scalarStringForm === true && isString) ? undefined : 'plain';
+};
+
+/**
+ * The localized name of a shape, as findings print it.
+ *
+ * @param form the shape.
+ * @returns its name.
+ */
+export const formLabel = (form: 'list' | 'group' | 'plain'): string =>
+    form === 'list' ? l10n.t('list') : form === 'group' ? l10n.t('group') : l10n.t('plain');
+
+/**
+ * The shape the game reads a reference as: it follows the reference first, so what counts is the
+ * node it lands on.
+ *
+ * @param reference the reference value.
+ * @param cancellationToken cancels the resolution.
+ * @returns the landing's shape, or undefined when it resolves to nothing or to an unjudged node.
+ */
+export const landingFormOf = async (
+    reference: ValueNode,
+    cancellationToken: CancellationToken
+): Promise<ValueForm | undefined> => {
+    const landing = await resolveWithModContext(String(reference.valueType.value), reference, cancellationToken).catch(
+        () => null
+    );
+    return landing ? valueFormOf(landing) : undefined;
+};
+
+/**
+ * A value written in a structural shape the field's deserializer never reads (see
+ * {@link unreadableForm}), plus elements past what a range (two endpoints) or tuple (fixed arity)
+ * reads. Extras only count when every element is atomic.
  *
  * @param ctx the findings and resolved containers of the run.
  * @param field the schema field the value is written under.
@@ -885,13 +969,13 @@ const checkValueForm = (
     writtenName: string
 ): void => {
     const vt = field.valueType;
-    const flagForm = (form: string): void => {
+    const flagForm = (form: 'list' | 'group' | 'plain'): void => {
         ctx.errors.push({
             message: l10n.t(
                 "'{0}' is a {1} field. The game cannot read a {2} value here.",
                 writtenName,
                 valueTypeLabel(vt),
-                form
+                formLabel(form)
             ),
             node: value,
             severity: 'warning',
@@ -927,42 +1011,43 @@ const checkValueForm = (
                     severity: 'warning',
                 });
             }
-        } else if (
-            vt.kind === 'polymorphicGroup' ||
-            vt.kind === 'bool' ||
-            vt.kind === 'string' ||
-            vt.kind === 'reference' ||
-            vt.kind === 'int' ||
-            vt.kind === 'float' ||
-            vt.kind === 'number' ||
-            vt.kind === 'asset' ||
-            vt.kind === 'code'
-        ) {
-            // Enum fields are exempt: a `[Flags]` enum reads a list of members
-            // (`ExternalWalls = [Left, Right]` all over vanilla) and the schema does not
-            // capture which enums are flags. Map fields are exempt too: the game's map
-            // deserializer also accepts a list of entries (`RenderLayers`, `…ByCell`).
-            flagForm(l10n.t('list'));
-        }
-    } else if (isGroupNode(value) && !value.inheritance?.length) {
-        const groupFormless = (vt.kind === 'int' || vt.kind === 'float' || vt.kind === 'number') && !vt.groupForm;
-        if (TEXTUAL_KINDS.has(vt.kind) || groupFormless) flagForm(l10n.t('group'));
-    } else if (isValueNode(value)) {
-        // A literal scalar in a group/map slot (`Offset = 5`), which only the custom-serialized
-        // classes in {@link SCALAR_FORM_GROUP_CLASSES} can read. References stay silent (any
-        // group field legally takes `&ref`), as do asset-typed values, whose classes read paths.
-        const literal =
-            value.valueType.type === 'String' ||
-            value.valueType.type === 'Number' ||
-            value.valueType.type === 'Boolean';
-        const isString = value.valueType.type === 'String';
-        const scalarLegal =
-            vt.kind === 'group' &&
-            (classReadsScalar(vt.ref, isString) || (field.scalarStringForm === true && isString));
-        if (literal && !scalarLegal && (vt.kind === 'map' || vt.kind === 'group')) {
-            flagForm(l10n.t('plain'));
         }
     }
+    const written = valueFormOf(value);
+    const form = written && unreadableForm(field, written);
+    if (form) flagForm(form);
+};
+
+/**
+ * A reference whose landing has a shape the field cannot read. The game follows the reference
+ * before it reads the field, so `Rotation = &~/Part/Components` fails exactly like a group written
+ * there. Resolved only when some shape would be refused, which keeps the walk off the hot path.
+ *
+ * @param ctx the findings and resolved containers of the run.
+ * @param field the schema field the reference is written under.
+ * @param reference the reference value.
+ * @param writtenName the name the reference was written under.
+ */
+const checkReferenceForm = async (
+    ctx: SchemaCheckContext,
+    field: SchemaField,
+    reference: ValueNode,
+    writtenName: string
+): Promise<void> => {
+    if (!(['list', 'group', 'plain', 'plain-string'] as const).some((form) => unreadableForm(field, form))) return;
+    const landed = await landingFormOf(reference, ctx.cancellationToken);
+    const form = landed && unreadableForm(field, landed);
+    if (!form) return;
+    ctx.errors.push({
+        message: l10n.t(
+            "'{0}' is a {1} field, but this reference names a {2} value, which the game cannot read here.",
+            writtenName,
+            valueTypeLabel(field.valueType),
+            formLabel(form)
+        ),
+        node: reference,
+        severity: 'warning',
+    });
 };
 
 /**
@@ -1001,6 +1086,9 @@ const checkResolvedContainers = async (ctx: SchemaCheckContext): Promise<void> =
             const field = fieldOf(cls, element.left.name);
             if (!field) continue;
             checkValueForm(ctx, field, element.right, element.left.name);
+            if (isValueNode(element.right) && element.right.valueType.type === 'Reference') {
+                await checkReferenceForm(ctx, field, element.right, element.left.name);
+            }
             if (requiresWholeNumber(field.valueType)) {
                 await checkInteger(ctx, element.right);
             } else if (field.valueType.kind === 'range' && requiresWholeNumber(field.valueType.element)) {

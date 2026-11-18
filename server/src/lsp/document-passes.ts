@@ -569,9 +569,12 @@ export const DOCUMENT_PASSES: readonly DocumentPass[] = [
         code: 'mod-action',
         scope: 'modRulesOrActionFragment',
         run: async (context) => {
-            const actionErrors = await validateModActions(actionsOf(context), context.cancelToken, context.text).catch(
-                (): ValidationError[] => []
-            );
+            const actionErrors = await validateModActions(
+                actionsOf(context),
+                context.cancelToken,
+                context.text,
+                await context.folderPaths()
+            ).catch((): ValidationError[] => []);
             return actionErrors.concat(validateActionEntries(findActionsList(context.document)));
         },
     },

@@ -12,6 +12,7 @@ import {
 } from '../../../src/features/completion/autocompletion.schema-fields';
 import { modRulesOffsetCompletions } from '../../../src/features/completion/autocompletion.mod-rules';
 import { Completion } from '../../../src/features/completion/autocompletion.service.types';
+import { registerAliasFallbackSource } from '../../../src/document/schema/alias-root';
 
 const token = CancellationToken.None;
 const labels = (cs: Completion[] | undefined): string[] =>
@@ -168,5 +169,30 @@ describe('the discriminator of a slot whose base type has registries of its own'
         const src = 'Type = \n';
         const found = labels(await schemaValueCompletionsAtOffset(parse(src, SECTOR), 7, 'Type = ', token));
         expect(found).not.toContain('Mission');
+    });
+});
+
+describe('the discriminator of a top-level inheritance base', () => {
+    // `BeamEmitter : <beam.rules>/Beam { Type = BeamEmitter }` types the base only through its
+    // deriver, so the base has no slot and no typed sibling to name the registry.
+    it('offers the registry the deriver class sits in', async () => {
+        const uri = 'file:///shots/beam.rules';
+        const source = {
+            memberType: () => undefined,
+            rootType: () => undefined,
+            inheritanceDeriverClasses: (u: string, member: string) =>
+                u === uri && member === 'Beam' ? ['Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules'] : [],
+        };
+        registerAliasFallbackSource(source);
+        try {
+            const src = 'Beam\n{\n\tType = \n\tRange = 300\n}\n';
+            const offset = src.indexOf('Type = ') + 7;
+            const found = labels(
+                await schemaValueCompletionsAtOffset(parse(src, uri), offset, prefixAt(src, offset), token)
+            );
+            expect(found).toContain('BeamEmitter');
+        } finally {
+            registerAliasFallbackSource(undefined);
+        }
     });
 });
