@@ -1,4 +1,5 @@
-import { CancellationToken, FileChangeType } from 'vscode-languageserver/node';
+import { CancellationToken, CodeLensRefreshRequest, FileChangeType } from 'vscode-languageserver/node';
+import { hasCodeLensRefreshCapability } from '../../capabilities';
 import { MentionIndex } from '../../workspace/mention.index';
 import { aliasRootIndex } from '../../document/schema/alias-root';
 import { invalidateSchemaContextCache } from '../../document/schema/schema-context';
@@ -106,8 +107,10 @@ export function register(): void {
         if (rulesChanges.length > 0) {
             // Disk changes can re-root fragments and shift schema anchoring for unchanged open ASTs.
             invalidateSchemaContextCache();
-            // They can also grow or shrink the manifest's reachability closure.
+            // They can also grow or shrink the manifest's reachability closure, which the "the mod
+            // loads this file" lens of every other open file is read from.
             bumpValidationScopeEpoch();
+            if (hasCodeLensRefreshCapability) void connection.sendRequest(CodeLensRefreshRequest.type).catch(() => {});
         }
         // A cosmoteer.rules add/change/delete can alter how fragments are rooted. Rebuild lazily.
         if (rulesChanges.some((c) => basenameOf(c.uri).toLowerCase() === 'cosmoteer.rules')) {

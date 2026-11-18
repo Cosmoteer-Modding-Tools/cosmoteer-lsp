@@ -5,3 +5,6 @@ BaseAudio
 {
 	Type = Audio
 }
+
+// A file the root pulls in that aliases on into another file, reached as `/BASE_AUDIO/ReadersHop`.
+ReadersHop = &<../readers.rules>

@@ -368,6 +368,55 @@ describe('reverse-include rooting', () => {
         }
     });
 
+    // The same global with folder-like nesting: `&/SW_SHOTS/Beam/Collector/Purple` lands on a nested
+    // group, which itself inherits the whole shot file (`Purple : <shots/purple.rules> {}`). The nested
+    // group takes the deriver's class, and the shot file roots through it in turn. The part is named to
+    // scan after the container, so the container's group is first seen classless and only a fixpoint
+    // pass with fresh class memos can root it.
+    it('roots a shot file behind a nested group reached through a super-path', async () => {
+        await initWorkspace();
+        globalSettings.cosmoteerPath = WORKSPACE_DATA_DIR;
+        const modDir = mkdtempSync(join(tmpdir(), 'revinc-nestedbase-'));
+        try {
+            writeFileSync(
+                join(modDir, 'mod.rules'),
+                'ID = test.nestedbase\nActions\n[\n\t{\n\t\tAction = Add\n\t\tAddTo = "<cosmoteer.rules>"\n\t\tName = SW_SHOTS\n\t\tToAdd = &<sw_shots.rules>\n\t}\n]\n'
+            );
+            writeFileSync(
+                join(modDir, 'sw_shots.rules'),
+                'Beam\n{\n\tCollector\n\t{\n\t\tPurple : <shots/purple.rules> {}\n\t}\n}\n'
+            );
+            mkdirSync(join(modDir, 'shots'));
+            const beamText = 'Range = 450\nBeamMediaEffects\n[\n\t{\n\t\tType = Beam\n\t\tFadeInTime = .25\n\t}\n]\n';
+            writeFileSync(join(modDir, 'shots', 'purple.rules'), beamText);
+            writeFileSync(
+                join(modDir, 'zz_part.rules'),
+                'Part\n{\n\tComponents\n\t{\n\t\tBeamEmitter : &/SW_SHOTS/Beam/Collector/Purple\n\t\t{\n\t\t\tType = BeamEmitter\n\t\t}\n\t}\n}\n'
+            );
+
+            clearModRootCache();
+            invalidateModContext();
+            MemberInjectionIndex.instance.reset();
+            await MemberInjectionIndex.instance.ensureBuilt([WORKSPACE_DATA_DIR, modDir], token);
+            ReverseIncludeIndex.instance.reset();
+            await ReverseIncludeIndex.instance.ensureBuilt([modDir], token);
+
+            const beamUri = pathToFileURL(join(modDir, 'shots', 'purple.rules')).href;
+            expect(ReverseIncludeIndex.instance.inheritanceDeriverClasses(beamUri, '')).toContain(
+                'Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules'
+            );
+            const doc = parser(lexer(beamText), beamUri).value;
+            const effect = findEnclosingGroup(doc, beamText.indexOf('FadeInTime'));
+            expect(resolveGroupClass(effect!)).toBe('Cosmoteer.Simulation.MediaEffects.BeamEffectRules');
+        } finally {
+            ReverseIncludeIndex.instance.reset();
+            MemberInjectionIndex.instance.reset();
+            clearModRootCache();
+            invalidateModContext();
+            rmSync(modDir, { recursive: true, force: true });
+        }
+    });
+
     // A base derived only through a DEEP member path (`X : <file>/Top/Nested`) says nothing about the
     // top-level member: the deriver is the nested group's class. Recording it under `Top` mis-rooted
     // vanilla's AttackCommand to a CircleRenderer (game_gui derives `…/AttackCommand/Circle`), so deep

@@ -2,6 +2,8 @@
 
 Draws the particles into the light buffer so they light up what is around them instead of only being drawn over it.
 
+> Written as `Type = LightQuadRenderer` in a [`IParticleRenderer`](./Halfling.Particles.IParticleRenderer.md) slot.
+
 > Machine-generated skeleton. The line above is the class summary, one sentence saying what this
 > class is. This class declares no fields of its own, so the summary is the whole page. The
 > fields it is written with come from its base class. See [README](./README.md) to contribute.

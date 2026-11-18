@@ -1,0 +1,25 @@
+W
+{
+	FireInterval = 4
+	Spare = 1
+	Range { BaseValue = 5 }
+}
+Timer
+{
+	MaxValue = (&~/W/FireInterval) - 0.5
+	Copy = &~/W/FireInterval
+}
+Other
+{
+	Rate = 1 / (&~/W/Spare)
+	Reach = &~/W/Range/BaseValue
+}
+Base
+{
+	Kept = 3
+}
+Derived : Base
+{
+	Kept = 4
+}
+KeptReader = &~/Derived/Kept

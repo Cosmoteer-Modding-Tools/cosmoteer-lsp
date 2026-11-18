@@ -564,6 +564,35 @@ describe('validateSchema: structural form mismatches (value shape the deserializ
     });
 });
 
+describe('validateSchema: a reference judged by the shape it lands on', () => {
+    const withShared = (shared: string, body: string) =>
+        `Part\n{\n\tSHARED${shared}\n\tComponents\n\t{\n\t\tX\n\t\t{\n\t\t\tType = Airlock\n${body}\n\t\t}\n\t}\n}`;
+
+    it('flags a reference to a plain number in a group field without a scalar form', async () => {
+        const errors = await validateSchema(parse(withShared(' = 5', '\t\t\tEnterExitPoint = &~/Part/SHARED')), token);
+        expect(errors.map((e) => e.message)).toEqual([
+            "'EnterExitPoint' is a Vector2 field, but this reference names a plain value, which the game cannot read here.",
+        ]);
+    });
+
+    it('flags a reference to a group in a reference field', async () => {
+        const errors = await validateSchema(
+            parse(withShared('\n\t{\n\t}', '\t\t\tEntryToggle = &~/Part/SHARED')),
+            token
+        );
+        expect(errors).toHaveLength(1);
+        expect(errors[0].message).toContain('names a group value');
+    });
+
+    it('accepts a reference to a group in a group field', async () => {
+        const errors = await validateSchema(
+            parse(withShared('\n\t{\n\t\tX = 1\n\t\tY = 2\n\t}', '\t\t\tEnterExitPoint = &~/Part/SHARED')),
+            token
+        );
+        expect(errors).toEqual([]);
+    });
+});
+
 describe('validateSchema: scalar written into a group-typed field', () => {
     const airlock = (body: string) => comp('Airlock', body);
 

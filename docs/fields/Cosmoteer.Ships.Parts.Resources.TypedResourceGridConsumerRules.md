@@ -2,6 +2,8 @@
 
 Puts a `TypedResourceGrid` on the crew's delivery list so they keep its cells stocked.
 
+> Written as `Type = TypedResourceGridConsumer` in a [`PartComponentRules`](./Cosmoteer.Ships.Parts.PartComponentRules.md) slot.
+
 > Machine-generated skeleton. The line above is the class summary, one sentence saying what this
 > class is. This class declares no fields of its own, so the summary is the whole page. The
 > fields it is written with come from its base class. See [README](./README.md) to contribute.

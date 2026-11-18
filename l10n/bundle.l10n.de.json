@@ -1,6 +1,6 @@
 {
   "Could not find Cosmoteer installation automatically, please set the path manually": "Die Cosmoteer-Installation konnte nicht automatisch gefunden werden, bitte setze den Pfad manuell",
-  "Invalid cosmoteer path, the path should end with common or Cosmoteer or Data": "Ungültiger Cosmoteer-Pfad, der Pfad sollte auf common, Cosmoteer oder Data enden",
+  "Invalid cosmoteer path, the path should point at the Cosmoteer folder or its Data folder": "Ungültiger Cosmoteer-Pfad, der Pfad sollte auf den Cosmoteer-Ordner oder dessen Data-Ordner zeigen",
   "The Cosmoteer path {0} holds no files, so every check that reads the game data stays off. Point the setting at the installed game.": "Unter dem Cosmoteer-Pfad {0} liegen keine Dateien, daher bleiben alle Prüfungen aus, die die Spieldaten lesen. Richte die Einstellung auf das installierte Spiel.",
   "Could not read the Cosmoteer installation at {0}, please set the path manually": "Die Cosmoteer-Installation unter {0} konnte nicht gelesen werden, bitte setze den Pfad manuell",
   "{0} rad ({1}°)": "{0} rad ({1}°)",
@@ -614,6 +614,12 @@
   "Overrides replaces the whole \"{0}\" group": "Overrides ersetzt die ganze Gruppe \"{0}\"",
   "The game does not merge an \"Overrides\" body into its target. It puts this \"{0}\" in the place of the target's whole \"{0}\" group, so the members it does not write are gone when the mod loads: {1} and {2} more. To change members alone, target \"{3}\" and write only those.": "Das Spiel führt einen \"Overrides\"-Block nicht mit seinem Ziel zusammen. Dieses \"{0}\" tritt an die Stelle der ganzen Gruppe \"{0}\" des Ziels, und die Member, die es nicht schreibt, fehlen beim Laden des Mods: {1} und {2} weitere. Um einzelne Member zu ändern, \"{3}\" als Ziel nehmen und nur diese schreiben.",
   "The game does not merge an \"Overrides\" body into its target. It puts this \"{0}\" in the place of the target's whole \"{0}\" group, so the members it does not write are gone when the mod loads: {1}. To change members alone, target \"{2}\" and write only those.": "Das Spiel führt einen \"Overrides\"-Block nicht mit seinem Ziel zusammen. Dieses \"{0}\" tritt an die Stelle der ganzen Gruppe \"{0}\" des Ziels, und die Member, die es nicht schreibt, fehlen beim Laden des Mods: {1}. Um einzelne Member zu ändern, \"{2}\" als Ziel nehmen und nur diese schreiben.",
+  "This removes \"{0}\", which is still referenced": "Dies entfernt \"{0}\", worauf noch verwiesen wird",
+  "References to \"{0}\" remain at {1}. Once the mod loads they point at nothing, and the game fails to read them. Override or remove them in this mod as well.": "Verweise auf \"{0}\" bleiben bei {1}. Sobald der Mod geladen ist, zeigen sie ins Leere, und das Spiel kann sie nicht lesen. Diese Verweise in diesem Mod ebenfalls überschreiben oder entfernen.",
+  "\"{0}\" becomes a group, but it is still read as a number": "\"{0}\" wird zur Gruppe, wird aber noch als Zahl gelesen",
+  "\"{0}\" is read as a number at {1}. Once the mod loads \"{0}\" is a group, and the game fails with \"Cannot read double from non-Field node\". Override those readers too, pointing them at \"{0}/BaseValue\", or keep \"{0}\" a plain number.": "\"{0}\" wird bei {1} als Zahl gelesen. Sobald der Mod geladen ist, ist \"{0}\" eine Gruppe, und das Spiel bricht mit \"Cannot read double from non-Field node\" ab. Diese Stellen ebenfalls überschreiben und auf \"{0}/BaseValue\" zeigen lassen, oder \"{0}\" als einfache Zahl belassen.",
+  "\"{0}\" becomes a plain value, but members inside it are still read": "\"{0}\" wird zum einfachen Wert, aber Member darin werden noch gelesen",
+  "Members inside \"{0}\" are read at {1}. Once the mod loads \"{0}\" is a plain value with no members, and the game fails to find them. Override those readers too, or keep \"{0}\" a group.": "Member in \"{0}\" werden bei {1} gelesen. Sobald der Mod geladen ist, ist \"{0}\" ein einfacher Wert ohne Member, und das Spiel findet sie nicht. Diese Stellen ebenfalls überschreiben, oder \"{0}\" als Gruppe belassen.",
   "Mod action cannot target a whole .rules file": "Eine Mod-Aktion kann keine ganze .rules-Datei als Ziel haben",
   "The \"{0}\" action must target a node inside a \".rules\" file, not the file itself": "Die Aktion \"{0}\" muss auf einen Knoten innerhalb einer \".rules\"-Datei zielen, nicht auf die Datei selbst",
   "Mod action target has the wrong shape": "Das Ziel der Mod-Aktion hat die falsche Form",
@@ -1736,5 +1742,12 @@
   "Rest: a number from 0 (near edge) to 1 (far edge)": "Ruhe: eine Zahl von 0 (Startkante) bis 1 (ferne Kante)",
   "Remove this member": "Dieses Mitglied entfernen",
   "Since {0}, this storage plays the death effects of '{1}' when the part is destroyed or scorched, scaled by the number of full stacks it holds. Before, only storage bays did. Add 'DoResourceDeathEffects = false' to keep the old behavior, or '= true' to keep the new one and drop this note.": "Seit {0} spielt dieser Speicher die Todeseffekte von '{1}', wenn das Teil zerstört oder versengt wird, skaliert mit der Zahl voller Stapel darin. Vorher taten das nur Lagerräume. Füge 'DoResourceDeathEffects = false' hinzu, um das alte Verhalten zu behalten, oder '= true', um das neue zu behalten und diesen Hinweis zu entfernen.",
-  "The game refuses to load this script: {0}": "Das Spiel verweigert das Laden dieses Skripts: {0}"
+  "The game refuses to load this script: {0}": "Das Spiel verweigert das Laden dieses Skripts: {0}",
+  "Mod action target must be a quoted path, not a reference": "Ziel der Mod-Aktion muss ein Pfad in Anführungszeichen sein, kein Verweis",
+  "The game reads the target as text and follows the \"&\" reference to what it names, which is not text, so the mod fails to load. Write the path as a string: {0}": "Das Spiel liest das Ziel als Text und folgt dem \"&\"-Verweis zu dem, was er benennt. Das ist kein Text, also lädt der Mod nicht. Den Pfad als Zeichenkette schreiben: {0}",
+  "Write the target as {0}": "Ziel als {0} schreiben",
+  "'{0}' is a {1} field, but this reference names a {2} value, which the game cannot read here.": "'{0}' ist ein Feld vom Typ {1}, aber dieser Verweis nennt einen Wert vom Typ {2}, den das Spiel hier nicht lesen kann.",
+  "Replace puts a value the game cannot read into this member": "Replace setzt einen Wert ein, den das Spiel in diesem Member nicht lesen kann",
+  "'{0}' is a {1} field, and the game cannot read a {2} value there.": "'{0}' ist ein Feld vom Typ {1}, und das Spiel kann dort keinen Wert vom Typ {2} lesen.",
+  "The game reads the target as text and follows the \"&\" reference, so it takes the value \"{0}\" as the path and fails to find it. Write the path as a string: {1}": "Das Spiel liest das Ziel als Text und folgt dem \"&\"-Verweis. Es nimmt also den Wert \"{0}\" als Pfad und findet ihn nicht. Den Pfad als Zeichenkette schreiben: {1}"
 }

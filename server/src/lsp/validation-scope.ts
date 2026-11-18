@@ -5,7 +5,8 @@ import { uriToFsPath } from '../workspace/workspace-files';
 import { foldPathCase } from '../workspace/fs-cache';
 import { collectReferencedTxtKeys } from '../features/navigation/txt-reference-scan';
 import { basenameOf, isDocumentationFileName } from '../document/document-kind';
-import { computeModReachability, reachabilityKey } from '../mod/mod-reachability';
+import { computeModReachability, invalidateReachabilityMemos, reachabilityKey } from '../mod/mod-reachability';
+import { invalidateDuplicateIdCache } from '../features/diagnostics/validator.duplicate-id';
 import { findModRoot } from '../mod/mod-root';
 import { getWorkspaceFoldersCached, workspaceFolderPaths } from './workspace-folders';
 
@@ -26,6 +27,9 @@ let referencedTxtCache: { epoch: number; keys: Promise<Set<string> | undefined> 
 /** Stales the scope caches, after a disk or folder change moved what the manifest can reach. */
 export function bumpValidationScopeEpoch(): void {
     validationScopeEpoch++;
+    invalidateReachabilityMemos();
+    // The duplicate-id peer verdicts are read off the closure and the files on disk the same way.
+    invalidateDuplicateIdCache();
 }
 
 /**

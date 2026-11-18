@@ -1,7 +1,8 @@
 import { stat } from 'fs/promises';
 import { tmpdir } from 'os';
-import { basename, join, resolve } from 'path';
+import { join } from 'path';
 import { findCosmoteerDataPath, steamInstallPaths } from '../workspace/steam-library';
+import { toDataRoot } from '../workspace/data-root';
 
 // Where the game's own `Data` tree came from decides how much of the run means anything, so the CLI
 // resolves it itself instead of leaving the server to auto-detect quietly. A run that only found
@@ -19,23 +20,8 @@ export type GameDataResolution =
 /** The environment variables a path may be given in, in the order they are consulted. */
 const ENVIRONMENT_KEYS = ['COSMOTEER_GAME', 'COSMOTEER_DATA_DIR'] as const;
 
-/**
- * Map a path the user gave to the `Data` directory under it, following the same tail rule the
- * server applies. A path that ends in none of the three accepted tails is refused rather than
- * guessed at, because the server refuses it too and would otherwise start with no game tree while
- * the run looked like it had one.
- *
- * @param gamePath the path as it was given, absolute or relative.
- * @returns the `Data` directory it names, or undefined when the path ends in none of the tails.
- */
-export const toDataRoot = (gamePath: string): string | undefined => {
-    const trimmed = resolve(gamePath.replace(/[\\/]+$/, ''));
-    const tail = basename(trimmed);
-    if (tail === 'Data') return trimmed;
-    if (tail === 'Cosmoteer') return join(trimmed, 'Data');
-    if (tail === 'common') return join(trimmed, 'Cosmoteer', 'Data');
-    return undefined;
-};
+// The server reads the setting through the same rule, so a path the CLI accepts is one it accepts.
+export { toDataRoot };
 
 /**
  * Whether a path is a directory that can be read.
@@ -58,13 +44,11 @@ const isDirectory = async (path: string): Promise<boolean> =>
 const resolveGiven = async (given: string, source: GamePathSource): Promise<GameDataResolution> => {
     const dataRoot = toDataRoot(given);
     if (!dataRoot) {
-        const nested = join(resolve(given.replace(/[\\/]+$/, '')), 'Data');
-        const hint = (await isDirectory(nested)) ? ` There is a Data folder inside it, so try "${nested}".` : '';
         return {
             kind: 'unusable',
             given,
             source,
-            reason: `the path has to end with Data, Cosmoteer or common.${hint}`,
+            reason: 'the path has to name the Cosmoteer folder or its Data folder.',
         };
     }
     if (!(await isDirectory(dataRoot))) {

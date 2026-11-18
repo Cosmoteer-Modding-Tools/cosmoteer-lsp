@@ -2,6 +2,8 @@
 
 Draws a network route as one straight line with a cap at each end, with the line's sprite and thickness fields written inline.
 
+> Written as `Type = CappedLine` in a [`BasePartNetworkRouteLine`](./Cosmoteer.Ships.Blueprints.Graphics.BasePartNetworkRouteLine.md) slot.
+
 > Machine-generated skeleton. The line above is the class summary, one sentence saying what this
 > class is. This class declares no fields of its own, so the summary is the whole page. The
 > fields it is written with come from its base class. See [README](./README.md) to contribute.

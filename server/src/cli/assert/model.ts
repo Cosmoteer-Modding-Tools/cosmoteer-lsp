@@ -237,6 +237,8 @@ export const ACTION_FINDING_EFFECTS: ReadonlyMap<string, LoadEffect | 'editor-li
     // The source of an AddMany is an `OTNode[]` and of an Overrides a name to node map, so the wrong
     // shape fails while the manifest is read rather than while it is applied.
     ['Mod action source has the wrong shape', 'mod-dropped'],
+    // A target is a `string`, and `StringSerializer` throws on the group an `&` reference lands on.
+    ['Mod action target must be a quoted path, not a reference', 'mod-dropped'],
     // `FindAtPath` throws `OTNavigateException` for a missing file and for a missing member alike.
     ['Action target not found', 'game-stops'],
     // The action patches the rules tree happily. The game reads the language files separately, so
@@ -246,6 +248,7 @@ export const ACTION_FINDING_EFFECTS: ReadonlyMap<string, LoadEffect | 'editor-li
     ['Mod action cannot target a whole .rules file', 'game-stops'],
     ['Mod action target has the wrong shape', 'game-stops'],
     ['Mod action adds a whole list as one entry', 'game-stops'],
+    ['Replace puts a value the game cannot read into this member', 'game-stops'],
     // Not a failure. The game inserts the base and moves the others on, which the editor does not
     // follow, so this one says the check is limited rather than that the mod is broken.
     ['This AddBase inserts at an index, which the editor does not follow', 'editor-limit'],

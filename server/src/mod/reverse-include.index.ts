@@ -16,6 +16,7 @@ import { isModRules } from '../document/document-kind';
 import { isActionFragmentDocument, parseModActions } from './action-parser';
 import { cachedDirLookup, cachedParseFilePath } from '../workspace/fs-cache';
 import {
+    invalidateSchemaContextCache,
     listElementType,
     memberTypeIn,
     registerNodeSlotSource,
@@ -860,6 +861,21 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
                       member: alias.member ?? '',
                   }
                 : await this.resolveNavigatedBase(raw, base, cancellationToken);
+            // A super-path into a container's folder-like nesting (`&/SW_SHOTS/Beam/Collector/Purple`)
+            // lands on a nested group. Its class is the deriver's, recorded on the node itself. The
+            // fixpoint already retains the container, whose own bases (`Purple : <beam.rules>`) could
+            // not be typed yet, so a later pass roots those in turn.
+            if (resolved?.leaf) {
+                if (deriverClass) {
+                    const slot: ValueType = {
+                        kind: 'group',
+                        ref: deriverClass,
+                        name: deriverClass.split('.').pop() ?? deriverClass,
+                    };
+                    this.recordLeaf(resolved.target!, resolved.leaf, slot, source, contributed);
+                }
+                continue;
+            }
             if (!resolved?.target) continue;
             const { target, member } = resolved;
             const members =
@@ -903,14 +919,15 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
      * @param raw the base reference as written.
      * @param base the base's reference value node, the navigation origin.
      * @param cancellationToken cancels the navigation.
-     * @returns the normalized target uri and member name, or undefined when the path does not land
-     *          on a named group, a whole document, or a file alias.
+     * @returns the normalized target uri and member name, plus the landing group itself when it is
+     *          nested below the top level, or undefined when the path does not land on a group, a
+     *          whole document, or a file alias.
      */
     private async resolveNavigatedBase(
         raw: string,
         base: AbstractNode,
         cancellationToken: CancellationToken
-    ): Promise<{ target: string | undefined; member: string } | undefined> {
+    ): Promise<{ target: string | undefined; member: string; leaf?: GroupNode } | undefined> {
         const resolved = await resolveWithModContext(raw, base, cancellationToken).catch(() => null);
         if (!resolved) return undefined;
         if (isFile(resolved as unknown as FileTree)) {
@@ -921,6 +938,7 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
         if (isGroupNode(node) && node.identifier && node.parent && isDocumentNode(node.parent)) {
             return { target: normalizeUri(node.parent.uri), member: node.identifier.name };
         }
+        if (isGroupNode(node)) return { target: normalizeUri(getStartOfAstNode(node).uri), member: '', leaf: node };
         // The path landed on a macro alias member (`BEAM = &<overclock.rules>` or
         // `BEAM = &<overclock.rules>/Beam`): follow the one `&<file>` hop, so the aliased file records
         // the deriver as a whole-file base, or the named top-level group as a member base. A deep
@@ -1141,6 +1159,26 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
             return;
         }
         if (!isGroupNode(node) && !isListNode(node)) return;
+        this.recordLeaf(target, node, slot, source, contributed);
+    }
+
+    /**
+     * Records a slot type against one nested group or list, position-keyed for the node-slot
+     * fallback (see {@link leafSlotType}).
+     *
+     * @param target the containing file's normalized key, the record's uri part.
+     * @param node the nested group or list.
+     * @param slot the schema type to give it.
+     * @param source the recording document's canonical uri.
+     * @param contributed collects the entry so it is removable and moves the source's signature.
+     */
+    private recordLeaf(
+        target: string,
+        node: GroupNode | ListNode,
+        slot: ValueType,
+        source: string,
+        contributed: Array<{ target: string; member: string; slot: string }>
+    ): void {
         const key = `${target}|${node.position?.start ?? -1},${node.position?.end ?? -1}`;
         const sources = this.leafByNode.get(key) ?? this.leafByNode.set(key, new Map()).get(key)!;
         sources.set(source, slot);
@@ -1257,6 +1295,9 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
         try {
             while (this.changedSinceLastPass && this.passesUsed < MAX_PASSES) {
                 this.changedSinceLastPass = false;
+                // The passes re-index the same ASTs, whose class memos still hold the previous
+                // pass's answers. A group the last pass rooted would read as classless again.
+                invalidateSchemaContextCache();
                 let count = 0;
                 for (const document of documents) {
                     await this.indexDocument(document, CancellationToken.None);

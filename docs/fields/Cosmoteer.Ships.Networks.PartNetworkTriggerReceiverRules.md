@@ -2,6 +2,8 @@
 
 Fires whenever any matching trigger reachable through the part network fires.
 
+> Written as `Type = NetworkTriggerReceiver` in a [`PartComponentRules`](./Cosmoteer.Ships.Parts.PartComponentRules.md) slot.
+
 > Machine-generated skeleton. The line above is the class summary, one sentence saying what this
 > class is. This class declares no fields of its own, so the summary is the whole page. The
 > fields it is written with come from its base class. See [README](./README.md) to contribute.

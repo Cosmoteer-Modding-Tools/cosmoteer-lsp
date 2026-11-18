@@ -12,8 +12,9 @@ import { FileWithPath } from '../workspace/cosmoteer-workspace.service';
  * canonical `<./Data/` forces it through `navigateRules`'s cosmoteer-tree branch
  * (which ignores `currentLocation`), and leaves workshop escapes
  * (`<./Data/../../../workshop/...>`) intact for the `./Data/..` branch. For example,
- * `<a.rules>/A` becomes `<./Data/a.rules>/A`. `&<a.rules>/A` becomes `<./Data/a.rules>/A`
- * (a "&" reference target uses the same game-root form). `<cosmoteer.rules>` becomes
+ * `<a.rules>/A` becomes `<./Data/a.rules>/A`. `&<a.rules>/A` becomes `<./Data/a.rules>/A`, so the
+ * place a mistaken "&" target names still resolves (the game reads a target as a string and fails on
+ * a reference to a group, which the validator reports). `<cosmoteer.rules>` becomes
  * `<./Data/cosmoteer.rules>`. `<./data/gui/...>` (any case) becomes `<./Data/gui/...>`
  * (canonical case for the case-sensitive branch). And `<./Data/../../../workshop/...>`
  * stays unchanged (case-canonicalized only).

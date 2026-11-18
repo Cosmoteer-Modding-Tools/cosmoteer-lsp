@@ -2,6 +2,8 @@
 
 Sends the bullet after another part of the same ship when the part it was aimed at is destroyed.
 
+> Written as `Type = SameShipRetarget` in a [`BulletComponentRules`](./Cosmoteer.Bullets.BulletComponentRules.md) slot.
+
 > Machine-generated skeleton. The line above is the class summary, one sentence saying what this
 > class is. This class declares no fields of its own, so the summary is the whole page. The
 > fields it is written with come from its base class. See [README](./README.md) to contribute.

@@ -20,6 +20,8 @@ export let hasInsertReplaceCapability = false;
 export let hasPullDiagnosticsCapability = false;
 /** Does the client resolve completion documentation lazily? */
 export let hasCompletionDocResolveCapability = false;
+/** Can the server ask the client to re-request every code lens (`workspace/codeLens/refresh`)? */
+export let hasCodeLensRefreshCapability = false;
 /**
  * Does the client run the server's snippet command, so a code action can leave the caret on a tab
  * stop? Announced through `initializationOptions` rather than through a capability, since the
@@ -49,6 +51,7 @@ export function readClientCapabilities(capabilities: ClientCapabilities): void {
     // A pull-capable client requests diagnostics itself (`textDocument/diagnostic`) after each
     // change. Pushing from `onDidChangeContent` as well would validate every edit twice.
     hasPullDiagnosticsCapability = !!capabilities.textDocument?.diagnostic;
+    hasCodeLensRefreshCapability = !!capabilities.workspace?.codeLens?.refreshSupport;
     // A client that resolves completion documentation lazily (`completionItem/resolve` with
     // `documentation` in `resolveSupport`) gets the Markdown docs deferred out of the list payload.
     hasCompletionDocResolveCapability =

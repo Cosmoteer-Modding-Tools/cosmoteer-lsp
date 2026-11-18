@@ -90,7 +90,12 @@ export class AutoCompletionSchema implements AutoCompletion<AbstractNode> {
 export const completeFieldValue = (group: GroupNode, fieldName: string, cls: string | undefined): Completion[] => {
     // (1) `Type = …` → the registry's discriminators. `registryForGroup` resolves via the slot (works
     // for a typed list element like `Layers [ { Type = … } ]`) or a typed sibling in the same container.
-    const registry = registryForGroup(group);
+    // A top-level inheritance base has neither, but its deriver's class names the one registry it sits in.
+    const registry =
+        registryForGroup(group) ??
+        (cls && group.parent && isDocumentNode(group.parent)
+            ? Object.values(schema.registries).find((r) => Object.values(r.members).includes(cls))
+            : undefined);
     if (registry && fieldName === registry.typeField) return discriminatorCompletions(registry);
 
     // (2) value of a typed field → enum members / booleans, via the group's concrete class.

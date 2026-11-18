@@ -532,6 +532,18 @@ export interface ReachabilityMemo {
     clear(): void;
 }
 
+/** Moves on every disk change that can grow or shrink a closure, staling every memo at once. */
+let memoGeneration = 0;
+
+/**
+ * Stales every {@link reachabilityMemo}, after a saved, created or deleted `.rules` file. The walk
+ * reads the mod from disk, so a manifest that just gained an `&<tb.rules>/Actions` entry, or a file
+ * created after the first walk, would otherwise keep its old verdict for the rest of the session.
+ */
+export const invalidateReachabilityMemos = (): void => {
+    memoGeneration++;
+};
+
 /**
  * A memo of reachability closures keyed by mod root. A cancelled walk returns a partial closure, in
  * which a reachable file reads as dead content, so it is dropped instead of memoized.
@@ -540,8 +552,13 @@ export interface ReachabilityMemo {
  */
 export const reachabilityMemo = (): ReachabilityMemo => {
     const byRoot = new Map<string, Promise<ModReachability | undefined>>();
+    let generation = memoGeneration;
     return {
         async of(modRoot, cancellationToken) {
+            if (generation !== memoGeneration) {
+                byRoot.clear();
+                generation = memoGeneration;
+            }
             let pending = byRoot.get(modRoot);
             if (!pending) {
                 pending = computeModReachability(modRoot, cancellationToken).catch(() => undefined);

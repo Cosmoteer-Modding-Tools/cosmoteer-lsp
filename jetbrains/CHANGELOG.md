@@ -2,6 +2,34 @@
 
 ## [Unreleased]
 
+## 1.1.6 - 2026-11-18
+
+### Added
+
+- The field documentation pages now say which `Type =` value picks each class, and the page of a `Type =` slot lists every value it takes with a one-line summary.
+
+- An `Overrides` or `Replace` that turns a plain number into a group, such as `FireInterval = { BaseValue = 4, BuffType = … }`, now warns when a game or mod file still reads that number in math. The game fails on those with "Cannot read double from non-Field node". Turning a group into a plain value warns the same way when a file still reads a member inside it.
+
+- A `Remove` or `RemoveMany` now warns when a game or mod file still references the member it removes.
+
+- An action target written as a reference, such as `Replace = &<…>/BarrelGraphics/Rotation`, is now an error with a fix that quotes the path. The game follows the reference and fails with "Unable to find node at path" or "Cannot read string from non-Field node".
+
+- A reference whose target has a shape its field cannot read, such as a group referenced into a number field, now warns like the same value written in place.
+
+- A `Replace` whose `With` has a shape the replaced member cannot read now reports it, references included.
+
+### Fixed
+
+- The lens that says whether the mod loads a file now updates when a file is saved, created or deleted. A file newly added to `Actions : &<file.rules>/Actions` no longer stays marked as not loaded.
+
+- A Cosmoteer path setting is read more forgivingly. A trailing slash of either kind and any letter case are accepted, and an install folder under another name works when it holds a `Data` folder.
+
+- A shot file that a part inherits through a nested path of a mod's own globals, such as `BeamEmitter : &/SW_SHOTS/Beam/Collector/Purple`, now gets completion, hover and validation.
+
+- `Type = ` at the top of a shot that a part inherits now offers the part component types the inheriting part can pick from.
+
+## 1.1.5 - 2026-11-07
+
 ### Fixed
 
 - A `.rules` file opened on its own, without its mod folder, now reads the game data too. Super-paths such as `: /BASE_SHAKE` resolve again, and a missing Cosmoteer path is reported instead of passing silently.
