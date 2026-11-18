@@ -6,33 +6,15 @@ import { Dirent } from 'fs';
 import { getParsedFileDocument } from './parsed-file-cache';
 import { isRulesFileName } from '../document/document-kind';
 import * as l10n from '@vscode/l10n';
-import * as path from 'path';
 import { globalSettings } from '../settings';
 import { findCosmoteerDataPath, steamInstallPaths } from './steam-library';
+import { toDataRoot } from './data-root';
 
 /** A reporter that drops every call, used when there is no connection (unit tests) so work still runs. */
 const NOOP_PROGRESS: WorkDoneProgressReporter = {
     begin: () => undefined,
     report: () => undefined,
     done: () => undefined,
-};
-
-/**
- * Normalize a user-supplied game path to its `Data` root: a path ending in `Data`, `Cosmoteer`, or
- * `common` (the common install-tree tails) maps to the corresponding `.../Data` directory. Returns
- * `undefined` when the path ends in none of them, which the caller treats as an invalid path.
- */
-const toDataRoot = (cosmoteerPath: string): string | undefined => {
-    if (cosmoteerPath.endsWith('Data') || cosmoteerPath.endsWith(`Data${sep}`)) {
-        return path.join(cosmoteerPath.replace(/Data$/, ''), 'Data');
-    }
-    if (cosmoteerPath.endsWith('Cosmoteer') || cosmoteerPath.endsWith(`Cosmoteer${sep}`)) {
-        return path.join(cosmoteerPath, 'Data');
-    }
-    if (cosmoteerPath.endsWith('common') || cosmoteerPath.endsWith(`common${sep}`)) {
-        return path.join(cosmoteerPath, 'Cosmoteer', 'Data');
-    }
-    return undefined;
 };
 
 export class CosmoteerWorkspaceService {
@@ -198,7 +180,7 @@ export class CosmoteerWorkspaceService {
         const dataRoot = toDataRoot(cosmoteerWorkspacePath);
         if (!dataRoot) {
             this._connection.window.showWarningMessage(
-                l10n.t('Invalid cosmoteer path, the path should end with common or Cosmoteer or Data')
+                l10n.t('Invalid cosmoteer path, the path should point at the Cosmoteer folder or its Data folder')
             );
             workDoneProgress.done();
             return;

@@ -221,16 +221,42 @@ const scaffold = () => {
     let outdated = 0;
     let filesWritten = 0;
     let classesDocumented = 0;
+    // Same precedence as a field: prose already written wins, then the seed, then a placeholder.
+    const summaryOf = (fullName) => {
+        const prior = existing.get(fullName)?.summary;
+        return isDocumented(prior) ? prior : (seed[fullName]?.[CLASS_KEY] ?? CLASS_TODO);
+    };
+    const linkTo = (fullName, text) => `[\`${text}\`](./${encodeURIComponent(fileNameFor(fullName))})`;
+    // Both directions of a `Type=` slot: a subtype page says what to write, a slot page lists what it takes.
+    const writtenAs = new Map();
+    const slotMembers = new Map();
+    for (const [registryName, registry] of Object.entries(schema.registries)) {
+        const members = Object.entries(registry.members).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+        for (const [value, member] of members)
+            writtenAs.set(
+                member,
+                `> Written as \`${registry.typeField} = ${value}\` in a ${linkTo(registryName, registry.name)} slot.`
+            );
+        slotMembers.set(registryName, [
+            `> A group in this slot picks its class with \`${registry.typeField} = …\`:`,
+            '>',
+            ...members.map(([value, member]) => {
+                const summary = summaryOf(member);
+                return `> - ${linkTo(member, value)}${summary === CLASS_TODO ? '' : `: ${summary}`}`;
+            }),
+        ]);
+    }
 
     for (const [fullName, type] of documentedClasses(schema)) {
         const fields = ownFieldsOf(type);
         const prior = existing.get(fullName)?.fields ?? new Map();
         const schemaNames = new Set(fields.map((f) => f.name));
-        // Same precedence as a field: prose already written wins, then the seed, then a placeholder.
-        const priorSummary = existing.get(fullName)?.summary;
-        const summary = isDocumented(priorSummary) ? priorSummary : (seed[fullName]?.[CLASS_KEY] ?? CLASS_TODO);
+        const summary = summaryOf(fullName);
         if (summary !== CLASS_TODO) classesDocumented++;
-        const out = [`# ${fullName}`, '', summary, '', fields.length > 0 ? PREAMBLE : PREAMBLE_SUMMARY_ONLY, ''];
+        const out = [`# ${fullName}`, '', summary, ''];
+        if (writtenAs.has(fullName)) out.push(writtenAs.get(fullName), '');
+        if (slotMembers.has(fullName)) out.push(...slotMembers.get(fullName), '');
+        out.push(fields.length > 0 ? PREAMBLE : PREAMBLE_SUMMARY_ONLY, '');
 
         for (const field of fields) {
             // Prefer human prose already written, then the XML seed, else a TODO placeholder.

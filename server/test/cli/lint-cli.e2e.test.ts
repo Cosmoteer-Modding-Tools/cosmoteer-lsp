@@ -190,7 +190,7 @@ describe.skipIf(!existsSync(CLI_BUNDLE) || !existsSync(SERVER_BUNDLE))('the lint
     it('stops before spawning anything when the game data is required and unusable', () => {
         const result = runCli(MOD_DIR, '--game', join(scratch, 'not-an-install'));
         expect(result.code).toBe(3);
-        expect(result.stderr).toContain('has to end with Data, Cosmoteer or common');
+        expect(result.stderr).toContain('has to name the Cosmoteer folder or its Data folder');
     });
 
     it('writes annotations a workflow understands', () => {

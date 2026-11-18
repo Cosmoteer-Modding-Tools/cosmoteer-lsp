@@ -2,6 +2,10 @@
 
 Picks which enemy part an AI ship's weapons aim at. Write one of the concrete modules.
 
+> A group in this slot picks its class with `Type = …`:
+>
+> - [`ValueTargeter`](./Cosmoteer.Ships.AI.TargetingModules.AIValueTargeterModuleRules.md): Aims the ship's weapons at whichever enemy part is worth the most, allowing for how much armor a shot must punch through.
+
 > Machine-generated skeleton. The line above is the class summary, one sentence saying what this
 > class is. This class declares no fields of its own, so the summary is the whole page. The
 > fields it is written with come from its base class. See [README](./README.md) to contribute.

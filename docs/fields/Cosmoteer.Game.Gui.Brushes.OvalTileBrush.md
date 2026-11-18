@@ -2,6 +2,8 @@
 
 A TileBrush that paints rectangular boxes of tiles.
 
+> Written as `Type = Oval` in a [`TileBrush`](./Cosmoteer.Game.Gui.Brushes.TileBrush.md) slot.
+
 > Machine-generated skeleton. The line above is the class summary, one sentence saying what this
 > class is. This class declares no fields of its own, so the summary is the whole page. The
 > fields it is written with come from its base class. See [README](./README.md) to contribute.

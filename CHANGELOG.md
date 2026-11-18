@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.1.6
+
+### Added
+
+- The field documentation pages now say which `Type =` value picks each class, and the page of a `Type =` slot lists every value it takes with a one-line summary.
+
+### Fixed
+
+- A Cosmoteer path setting is read more forgivingly. A trailing slash of either kind and any letter case are accepted, and an install folder under another name works when it holds a `Data` folder.
+
 ## 1.1.5
 
 ### Fixed

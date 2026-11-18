@@ -13,12 +13,24 @@ describe('normalizing a game path', () => {
         expect(toDataRoot(join('steamapps', 'common'))).toBe(resolve('steamapps', 'common', 'Cosmoteer', 'Data'));
     });
 
-    it('ignores a trailing separator, which a shell completion leaves behind', () => {
+    it('ignores a trailing separator of either kind, which a shell completion leaves behind', () => {
         expect(toDataRoot(`${join('games', 'Cosmoteer')}/`)).toBe(resolve('games', 'Cosmoteer', 'Data'));
+        expect(toDataRoot(`${join('games', 'Cosmoteer')}\\`)).toBe(resolve('games', 'Cosmoteer', 'Data'));
+        expect(toDataRoot(`${join('games', 'Cosmoteer', 'Data')}/`)).toBe(resolve('games', 'Cosmoteer', 'Data'));
     });
 
-    it('refuses a path that ends in none of them rather than guessing', () => {
+    it('reads the tails without case', () => {
+        expect(toDataRoot(join('games', 'cosmoteer'))).toBe(resolve('games', 'cosmoteer', 'Data'));
+        expect(toDataRoot(join('games', 'Cosmoteer', 'data'))).toBe(resolve('games', 'Cosmoteer', 'data'));
+    });
+
+    it('takes an install folder under another name when it holds a Data folder', () => {
+        expect(toDataRoot(FIXTURE_INSTALL)).toBe(FIXTURE_DATA);
+    });
+
+    it('refuses a folder with none of the tails and no Data folder', () => {
         expect(toDataRoot(join('games', 'MyMod'))).toBeUndefined();
+        expect(toDataRoot('')).toBeUndefined();
     });
 });
 
@@ -35,12 +47,11 @@ describe('finding the game data', () => {
         expect(alternative).toEqual({ kind: 'found', dataRoot: FIXTURE_DATA, source: 'environment' });
     });
 
-    it('says why a path cannot be used, and points at the Data folder inside it', async () => {
-        const resolution = await resolveGameData(FIXTURE_INSTALL, {});
+    it('says why a path cannot be used', async () => {
+        const resolution = await resolveGameData(join(FIXTURE_INSTALL, 'nothing-here'), {});
         expect(resolution.kind).toBe('unusable');
         if (resolution.kind !== 'unusable') return;
-        expect(resolution.reason).toContain('has to end with Data, Cosmoteer or common');
-        expect(resolution.reason).toContain(FIXTURE_DATA);
+        expect(resolution.reason).toContain('has to name the Cosmoteer folder or its Data folder');
     });
 
     it('says when the folder the path names is not there', async () => {

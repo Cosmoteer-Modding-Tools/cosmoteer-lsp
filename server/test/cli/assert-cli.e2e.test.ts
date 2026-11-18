@@ -101,7 +101,7 @@ describe.skipIf(!existsSync(CLI_BUNDLE) || !existsSync(SERVER_BUNDLE))('the load
         const result = runCli(join(FIXTURES, 'assert-mod'), '--assert-loads', '--game', join(FIXTURES, 'no-install'));
         expect(result.code).toBe(3);
         expect(result.stdout).toBe('');
-        expect(result.stderr).toContain('has to end with Data, Cosmoteer or common');
+        expect(result.stderr).toContain('has to name the Cosmoteer folder or its Data folder');
     });
 
     it('refuses a folder that is not a mod, and a report format it cannot write', () => {

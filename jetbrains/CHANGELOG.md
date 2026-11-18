@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+## 1.1.6 - 2026-11-08
+
+### Added
+
+- The field documentation pages now say which `Type =` value picks each class, and the page of a `Type =` slot lists every value it takes with a one-line summary.
+
+### Fixed
+
+- A Cosmoteer path setting is read more forgivingly. A trailing slash of either kind and any letter case are accepted, and an install folder under another name works when it holds a `Data` folder.
+
+## 1.1.5 - 2026-11-07
+
 ### Fixed
 
 - A `.rules` file opened on its own, without its mod folder, now reads the game data too. Super-paths such as `: /BASE_SHAKE` resolve again, and a missing Cosmoteer path is reported instead of passing silently.

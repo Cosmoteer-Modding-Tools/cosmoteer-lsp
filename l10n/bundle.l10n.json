@@ -1,6 +1,6 @@
 {
   "Could not find Cosmoteer installation automatically, please set the path manually": "Could not find Cosmoteer installation automatically, please set the path manually",
-  "Invalid cosmoteer path, the path should end with common or Cosmoteer or Data": "Invalid cosmoteer path, the path should end with common or Cosmoteer or Data",
+  "Invalid cosmoteer path, the path should point at the Cosmoteer folder or its Data folder": "Invalid cosmoteer path, the path should point at the Cosmoteer folder or its Data folder",
   "The Cosmoteer path {0} holds no files, so every check that reads the game data stays off. Point the setting at the installed game.": "The Cosmoteer path {0} holds no files, so every check that reads the game data stays off. Point the setting at the installed game.",
   "Could not read the Cosmoteer installation at {0}, please set the path manually": "Could not read the Cosmoteer installation at {0}, please set the path manually",
   "Cosmoteer: this is the game's own data or somebody else's installed mod, which is not yours to add to.": "Cosmoteer: this is the game's own data or somebody else's installed mod, which is not yours to add to.",

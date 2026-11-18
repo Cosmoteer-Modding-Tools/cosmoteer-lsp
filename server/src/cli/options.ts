@@ -504,8 +504,8 @@ same thing, and a copy unpacked from a release archive is started as
 With no folder, the current directory is checked. Every folder given is checked as one project.
 
 Game data
-  --game <path>            The Cosmoteer install to read the game's own data from. The path has to
-                           end with Data, Cosmoteer or common. Without this the Steam libraries are
+  --game <path>            The Cosmoteer install to read the game's own data from. The path names
+                           the Cosmoteer folder or its Data folder. Without this the Steam libraries are
                            searched, and COSMOTEER_GAME or COSMOTEER_DATA_DIR are read first.
   --no-game                Run without the game's data at all. Several checks cannot run, and the
                            reference and asset checks report vanilla paths as missing, so the run is
